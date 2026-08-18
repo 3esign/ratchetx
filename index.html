@@ -562,7 +562,9 @@ async function tryPB(){
       setPB(null);paintBurnBtn();refresh();}
     else if(/already credited/i.test(j.reason||"")){setPB(null);paintBurnBtn();refresh();}
     else if(/failed on-chain|did not reach|that wallet paid/i.test(j.reason||"")){
-      toast("⚠ burn not valid: "+j.reason);setPB(null);paintBurnBtn();}
+      $("burnsig").value=PB.sig;
+      toast("⚠ burn not valid: "+j.reason+" — signature kept in the box below");
+      setPB(null);paintBurnBtn();}
     // anything else (not found yet / rpc hiccup): stay pending, try again next tick
   }catch{}
 }
