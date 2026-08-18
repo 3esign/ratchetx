@@ -205,6 +205,28 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="msub" id="beat" style="margin-bottom:2px"></div>
     <div class="msub">FED BY EVERY SHOT · <b id="fedN">—</b> SHOTS FIRED · CAN ONLY GO UP <span style="color:var(--goldD)">(SIMULATED UNTIL VAULT DEPLOY)</span></div>
     <div class="prices" id="prices"></div>
+    <div style="margin:20px 0 4px;text-align:left">
+      <button id="howBtn" style="background:none;border:1px solid var(--line);border-radius:8px;color:var(--ink2);
+        font:700 10px var(--mono);letter-spacing:.14em;padding:8px 12px;cursor:pointer">? HOW TO PLAY</button>
+      <div id="howBox" style="display:none;background:var(--card2);border:1px solid var(--line);border-radius:12px;
+        padding:16px 18px;margin-top:10px;text-align:left;font:400 13px/1.7 var(--sans);color:var(--ink2)">
+        <b style="color:var(--ink)">1 · Call it.</b> Pick a market question, pick YES or NO, pick a stake. Your shot is
+        <b style="color:var(--ice)">sealed</b> — nobody can see your side until the timer ends, so you cannot be
+        front-run or copied.<br>
+        <b style="color:var(--ink)">2 · It settles itself.</b> When the window closes, the shot settles on
+        <b style="color:var(--ink)">real Pyth oracle prices</b> — the same source at seal and settle. HIT earns XP,
+        MISS resets your streak. XP only ever comes from being <i>right</i>, never from spending more.<br>
+        <b style="color:var(--ink)">3 · Climb.</b> XP ranks you COG → PISTON → FLYWHEEL → TURBINE → REACTOR. Higher
+        ranks unlock more simultaneous chambers — never better odds.<br>
+        <b style="color:var(--ink)">4 · Get paid.</b> 30% of every stake feeds the weekly pot. Every Sunday 00:00 UTC
+        the top 5 on the ladder are paid <b style="color:var(--gold)">automatically</b> — 40/25/15/12/8% — no claim
+        button, no waiting. Unclaimed shares roll into next week.<br>
+        <span style="color:var(--dim)">PAPER refills daily so you can always play free (unranked practice).
+        CREDITS come from burning RCX — 1 burned = 1 credit — and that burn is verified on-chain, forever.
+        The 70/30/0 split under the fire button is frozen: 0% ever goes to the team; the creator is paid from
+        trading fees on the token only.</span>
+      </div>
+    </div>
     <div class="tcap">PICK A TARGET — SETTLES ON REAL ORACLE PRICES</div>
     <div class="targets" id="targets"></div>
     <div class="tcap">STAKE — BIGGER BURN, BIGGER XP</div>
@@ -222,8 +244,17 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="panel" id="reloadP" style="display:none">
       <h3>RELOAD — BURN TO PLAY RANKED</h3>
       <div style="font:400 12.5px/1.6 var(--sans);color:var(--ink2);margin-bottom:10px">
-        Send <b style="color:var(--gold)">RATCHET</b> from your wallet to the incinerator, then paste the
-        transaction signature. Verified on-chain, credited instantly. <b>1 burned = 1 credit.</b></div>
+        <b style="color:var(--gold)">1 RCX burned = 1 credit.</b> Burned tokens are destroyed forever — supply
+        only falls, and the PROOF page shows it live. One click below: your wallet signs a real burn
+        transaction and it credits automatically.</div>
+      <div style="display:flex;gap:8px;margin-bottom:12px" id="burnPick">
+        <button class="stk" data-b="1000">1,000</button>
+        <button class="stk on" data-b="5000">5,000</button>
+        <button class="stk" data-b="25000">25,000</button>
+      </div>
+      <button class="fire" id="oneBurn" style="margin-bottom:14px">🔥 BURN &amp; RELOAD — ONE CLICK</button>
+      <div style="font:600 9.5px var(--mono);color:var(--dim);letter-spacing:.08em;margin-bottom:8px">
+        MANUAL FALLBACK — send RCX to the incinerator yourself, paste the tx signature:</div>
       <div style="font:600 10px var(--mono);color:var(--dim);letter-spacing:.04em;margin-bottom:4px">INCINERATOR (tap to copy)</div>
       <div id="incin" style="font:600 10.5px var(--mono);color:var(--ice);background:var(--card2);border:1px solid var(--line);
         border-radius:8px;padding:9px 10px;cursor:pointer;word-break:break-all;margin-bottom:9px"></div>
@@ -476,6 +507,51 @@ async function duel(side){
 }
 $("dW").onclick=()=>duel("with");$("dA").onclick=()=>duel("against");
 $("incin")&&($("incin").onclick=()=>{navigator.clipboard.writeText($("incin").textContent);toast("incinerator address copied")});
+let burnAmt=5000;
+document.querySelectorAll("#burnPick .stk").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#burnPick .stk").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");burnAmt=+b.dataset.b;});
+async function loadW3(){
+  if(window.solanaWeb3)return window.solanaWeb3;
+  await new Promise((ok,no)=>{const s=document.createElement("script");
+    s.src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.95.8/index.iife.min.js";
+    s.onload=ok;s.onerror=no;document.head.appendChild(s);});
+  return window.solanaWeb3;
+}
+$("oneBurn").onclick=async()=>{
+  if(!AUTH){toast("connect your wallet first");return}
+  if(!STATE||!STATE.mint){toast("token not armed yet");return}
+  $("oneBurn").disabled=true;
+  try{
+    const W3=await loadW3(),prov=window.solana||window.phantom.solana;
+    const TOKEN=new W3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+    const ATAP=new W3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
+    const owner=new W3.PublicKey(AUTH.wallet),mint=new W3.PublicKey(STATE.mint);
+    const ata=W3.PublicKey.findProgramAddressSync([owner.toBytes(),TOKEN.toBytes(),mint.toBytes()],ATAP)[0];
+    const raw=BigInt(burnAmt)*1000000n; // pump.fun mints use 6 decimals
+    const data=new Uint8Array(9);data[0]=8; // SPL Token "Burn"
+    let v=raw;for(let i=1;i<9;i++){data[i]=Number(v&255n);v>>=8n;}
+    const conn=new W3.Connection("https://api.mainnet-beta.solana.com","confirmed");
+    const {blockhash}=await conn.getLatestBlockhash();
+    const tx=new W3.Transaction({recentBlockhash:blockhash,feePayer:owner});
+    tx.add(new W3.TransactionInstruction({programId:TOKEN,keys:[
+      {pubkey:ata,isSigner:false,isWritable:true},
+      {pubkey:mint,isSigner:false,isWritable:true},
+      {pubkey:owner,isSigner:true,isWritable:false}],data}));
+    const {signature}=await prov.signAndSendTransaction(tx);
+    toast("🔥 burn sent — confirming on-chain…");
+    let ok=false;
+    for(let i=0;i<6;i++){
+      await new Promise(r=>setTimeout(r,3500));
+      const j=await post({action:"reload",auth:AUTH,sig:signature});
+      if(j.ok){toast(`RELOADED 🔥 +${j.credited.toLocaleString()} credits — ${burnAmt.toLocaleString()} RCX destroyed forever`);ok=true;break}
+      if(!/not found|no block|unreachable/i.test(j.reason||"")){toast("⚠ "+j.reason);break}
+    }
+    if(!ok)toast("still confirming — paste the signature below in a few seconds: "+signature.slice(0,18)+"…");
+    refresh();
+  }catch(e){toast("burn cancelled or failed — the manual fallback below always works");}
+  $("oneBurn").disabled=false;
+};
 $("burngo").onclick=async()=>{
   const sg=$("burnsig").value.trim();if(!sg){toast("paste the signature first");return}
   $("burngo").disabled=true;
@@ -556,6 +632,7 @@ $("anchorPaste").onclick=async()=>{
   $("anchorsig").value="";toast(`⚓ ANCHORED at entry #${j.i} · +${j.xp} XP`);loadProof();refresh();
 };
 
+$("howBtn").onclick=()=>{const b=$("howBox");b.style.display=b.style.display==="none"?"block":"none";};
 refresh();setInterval(refresh,6000);
 setInterval(()=>{if(STATE&&STATE.player)paint()},1000); // tick chamber countdowns
 </script>
