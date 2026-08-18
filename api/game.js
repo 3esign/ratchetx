@@ -16,7 +16,7 @@
 const { getJSON, setJSON, setnxJSON, durable } = require('../lib/kv.js');
 const { verifyAuth, isDemo } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
-const { getTx, decideBurn, INCINERATOR } = require('../lib/burn.js');
+const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
@@ -190,6 +190,13 @@ module.exports = async (req, res) => {
   try {
     const action = (req.method === 'GET' ? req.query.action : (req.body||{}).action) || 'state';
     const prices = await getPrices();
+
+    if (action === 'blockhash') {
+      const r = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
+      const bh = r && r.value && r.value.blockhash;
+      if (!bh) return res.status(502).json({ ok: false, reason: 'RPC unavailable - try again' });
+      return res.json({ ok: true, blockhash: bh });
+    }
 
     if (action === 'state') {
       await rolloverSeason();
