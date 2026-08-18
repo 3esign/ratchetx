@@ -65,6 +65,25 @@ async function bumpLadder(w, xp) {
   await setJSON(k, lb);
 }
 
+// ---- pump.fun market cap, cached 60s; never allowed to break state
+async function getMcap() {
+  if (!MINT) return null;
+  const c = await getJSON('g:mcap');
+  if (c && Date.now() - c.t < 60_000) return c.v;
+  let v = null;
+  for (const base of ['https://frontend-api-v3.pump.fun', 'https://frontend-api.pump.fun']) {
+    try {
+      const r = await fetch(`${base}/coins/${MINT}`, { signal: AbortSignal.timeout(3500), headers: { 'accept': 'application/json' } });
+      if (!r.ok) continue;
+      const j = await r.json();
+      const m = Number(j.usd_market_cap ?? j.market_cap);
+      if (Number.isFinite(m) && m > 0) { v = Math.round(m); break; }
+    } catch {}
+  }
+  await setJSON('g:mcap', { v, t: Date.now() });
+  return v;
+}
+
 // ---- season rollover: LAZY and automatic. The first request that arrives
 // after Sunday 00:00 UTC notices the season key changed, takes a one-shot
 // lock, pays the pot to last season's top 5 as game credits, and records
@@ -190,7 +209,7 @@ module.exports = async (req, res) => {
       return res.json({ ok:true, durable, prices:{src:prices.src,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH},
         stats: st, feed: (await getJSON('g:feed')) || [], ladder,
         warden: wardenLine(prices), targets: TARGETS, split: SPLIT, season: seasonKey(),
-        mint: MINT || null, incinerator: MINT ? INCINERATOR : null,
+        mint: MINT || null, incinerator: MINT ? INCINERATOR : null, mcap: await getMcap(),
         lastSeason: await getJSON('g:seasonResults'),
         log: (await getJSON('g:log:head')) || null, player });
     }
