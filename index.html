@@ -576,7 +576,7 @@ $("oneBurn").onclick=async()=>{
   $("oneBurn").disabled=true;
   try{
     const W3=await loadW3(),prov=window.solana||window.phantom.solana;
-    const TOKEN=new W3.PublicKey("TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+    const TOKEN=new W3.PublicKey(STATE.tokenProgram||"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
     const ATAP=new W3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
     const owner=new W3.PublicKey(AUTH.wallet),mint=new W3.PublicKey(STATE.mint);
     const ata=W3.PublicKey.findProgramAddressSync([owner.toBytes(),TOKEN.toBytes(),mint.toBytes()],ATAP)[0];
