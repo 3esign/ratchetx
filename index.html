@@ -195,6 +195,17 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   <button class="connect" id="cx">CONNECT</button>
 </div></div>
 <div class="mode" id="mode" style="display:none"></div>
+<div id="tokbar" style="display:none;background:var(--card);border-bottom:1px solid var(--line);padding:8px 0">
+  <div class="wrap" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;font:600 10.5px var(--mono);letter-spacing:.05em">
+    <span style="color:var(--dim)">$RCX</span>
+    <span id="caChip" title="click to copy CA" style="color:var(--gold);background:var(--card2);border:1px solid var(--line);
+      border-radius:99px;padding:5px 11px;cursor:pointer" onclick="copyCA()">CA —</span>
+    <a id="pfLink" href="#" target="_blank" rel="noopener" style="color:var(--grn);text-decoration:none;background:var(--card2);
+      border:1px solid var(--line);border-radius:99px;padding:5px 11px">PUMP.FUN ↗</a>
+    <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none;
+      background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">GITHUB — READ THE CODE ↗</a>
+  </div>
+</div>
 
 <section id="play" class="on"><div class="wrap"><div class="playgrid">
   <div><div class="machine">
@@ -343,7 +354,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   </div>
 </div></section>
 
-<div class="wrap foot">RATCHET · Wave 1 · paper stakes, real prices, real ladder · creator takes trading fees only</div>
+<div class="wrap foot">RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a></div>
 <div id="toast"></div>
 
 <script>
@@ -354,6 +365,7 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("nav button").forEach(x=>x.classList.remove("on"));
   document.querySelectorAll("section").forEach(x=>x.classList.remove("on"));
   b.classList.add("on");$(b.dataset.go).classList.add("on");});
+function copyCA(){const c=$("caChip").dataset.ca;if(c){navigator.clipboard.writeText(c);toast("CA copied: "+c.slice(0,10)+"…")}}
 function toast(m){const t=$("toast");t.innerHTML=m;t.classList.add("show");
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2800);}
 const short=w=>w.length>10?w.slice(0,4)+"…"+w.slice(-4):w;
@@ -414,6 +426,13 @@ function paint(){
   $("floorNum").innerHTML=s.stats.floor.toFixed(6)+"<small>SOL</small>";
   $("hF").textContent=s.stats.floor.toFixed(6);
   $("fedN").textContent=s.stats.shots.toLocaleString();
+  if(s.mint){
+    $("tokbar").style.display="block";
+    $("caChip").textContent="CA "+s.mint.slice(0,6)+"…"+s.mint.slice(-6);
+    $("caChip").dataset.ca=s.mint;
+    $("pfLink").href="https://pump.fun/coin/"+s.mint;
+    $("pfLink").textContent="PUMP.FUN"+(s.mcap?" · MC $"+(s.mcap>=1e6?(s.mcap/1e6).toFixed(2)+"M":s.mcap>=1e3?(s.mcap/1e3).toFixed(1)+"K":s.mcap):"")+" ↗";
+  }
   $("beat").innerHTML=`<b style="color:var(--grn)">● LIVE</b> · ORACLE ${s.prices.src.toUpperCase()} · STATE ${s.durable?"DURABLE":"EPHEMERAL"} · LOG ${s.log?("#"+s.log.i):"—"}`;
   $("prices").innerHTML=Object.entries(s.prices).filter(([k])=>k!=="src").map(([k,v])=>
     `<span class="pr">${k} <b>$${fmt$(v)}</b></span>`).join("")+`<span class="pr">SRC <b>${s.prices.src.toUpperCase()}</b></span>`;
@@ -513,10 +532,19 @@ document.querySelectorAll("#burnPick .stk").forEach(b=>b.onclick=()=>{
   b.classList.add("on");burnAmt=+b.dataset.b;});
 async function loadW3(){
   if(window.solanaWeb3)return window.solanaWeb3;
-  await new Promise((ok,no)=>{const s=document.createElement("script");
-    s.src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.95.8/index.iife.min.js";
-    s.onload=ok;s.onerror=no;document.head.appendChild(s);});
-  return window.solanaWeb3;
+  const urls=[
+    "https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js",
+    "https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.8/lib/index.iife.min.js",
+    "https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.95.8/index.iife.min.js"
+  ];
+  for(const u of urls){
+    try{
+      await new Promise((ok,no)=>{const s=document.createElement("script");
+        s.src=u;s.onload=ok;s.onerror=()=>no(new Error("cdn miss"));document.head.appendChild(s);});
+      if(window.solanaWeb3)return window.solanaWeb3;
+    }catch{}
+  }
+  throw new Error("no CDN could serve the Solana library");
 }
 $("oneBurn").onclick=async()=>{
   if(!AUTH){toast("connect your wallet first");return}
@@ -549,7 +577,7 @@ $("oneBurn").onclick=async()=>{
     }
     if(!ok)toast("still confirming — paste the signature below in a few seconds: "+signature.slice(0,18)+"…");
     refresh();
-  }catch(e){toast("burn cancelled or failed — the manual fallback below always works");}
+  }catch(e){toast("burn failed: "+((e&&e.message)||"cancelled")+" — the manual fallback below always works");}
   $("oneBurn").disabled=false;
 };
 $("burngo").onclick=async()=>{
@@ -601,12 +629,7 @@ async function anchorLog(){
   const memo=`RATCHET|${PROOF.log.i}|${PROOF.log.h}`;
   $("memoStr").style.display="block";$("memoStr").textContent=memo;
   try{
-    if(!window.solanaWeb3){
-      await new Promise((ok,no)=>{const s=document.createElement("script");
-        s.src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.95.8/index.iife.min.js";
-        s.onload=ok;s.onerror=no;document.head.appendChild(s);});
-    }
-    const W3=window.solanaWeb3,prov=window.solana||window.phantom.solana;
+    const W3=await loadW3(),prov=window.solana||window.phantom.solana;
     const conn=new W3.Connection("https://api.mainnet-beta.solana.com","confirmed");
     const {blockhash}=await conn.getLatestBlockhash();
     const tx=new W3.Transaction({recentBlockhash:blockhash,feePayer:new W3.PublicKey(AUTH.wallet)});
@@ -620,7 +643,7 @@ async function anchorLog(){
     toast(`⚓ LOG ANCHORED at entry #${j.i} · +${j.xp} XP — the chain now timestamps our history`);
     loadProof();refresh();
   }catch(e){
-    toast("could not auto-send — the memo text is shown; send it with any memo tool and paste the signature below");
+    toast("auto-send failed: "+((e&&e.message)||"cancelled")+" — or paste a memo tx signature below");
   }
 }
 $("anchorGo").onclick=anchorLog;
