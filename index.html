@@ -559,8 +559,9 @@ $("oneBurn").onclick=async()=>{
     const raw=BigInt(burnAmt)*1000000n; // pump.fun mints use 6 decimals
     const data=new Uint8Array(9);data[0]=8; // SPL Token "Burn"
     let v=raw;for(let i=1;i<9;i++){data[i]=Number(v&255n);v>>=8n;}
-    const conn=new W3.Connection("https://api.mainnet-beta.solana.com","confirmed");
-    const {blockhash}=await conn.getLatestBlockhash();
+    const bj=await (await fetch(API+"?action=blockhash")).json();
+    if(!bj.ok)throw new Error(bj.reason||"blockhash unavailable");
+    const blockhash=bj.blockhash;
     const tx=new W3.Transaction({recentBlockhash:blockhash,feePayer:owner});
     tx.add(new W3.TransactionInstruction({programId:TOKEN,keys:[
       {pubkey:ata,isSigner:false,isWritable:true},
@@ -630,8 +631,9 @@ async function anchorLog(){
   $("memoStr").style.display="block";$("memoStr").textContent=memo;
   try{
     const W3=await loadW3(),prov=window.solana||window.phantom.solana;
-    const conn=new W3.Connection("https://api.mainnet-beta.solana.com","confirmed");
-    const {blockhash}=await conn.getLatestBlockhash();
+    const bj=await (await fetch(API+"?action=blockhash")).json();
+    if(!bj.ok)throw new Error(bj.reason||"blockhash unavailable");
+    const blockhash=bj.blockhash;
     const tx=new W3.Transaction({recentBlockhash:blockhash,feePayer:new W3.PublicKey(AUTH.wallet)});
     tx.add(new W3.TransactionInstruction({keys:[],programId:new W3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
       data:new TextEncoder().encode(memo)}));
