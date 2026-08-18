@@ -65,6 +65,20 @@ async function bumpLadder(w, xp) {
   await setJSON(k, lb);
 }
 
+// ---- which token program owns the mint (classic vs Token-2022), cached 1h.
+// The ATA derivation AND the burn instruction must both use this - guessing
+// it wrong yields InvalidAccountData, which is exactly the bug this fixes.
+async function getMintProgram() {
+  if (!MINT) return null;
+  const c = await getJSON('g:mintprog');
+  if (c && Date.now() - c.t < 3600_000) return c.v;
+  let v = null;
+  const r = await rpcCall('getAccountInfo', [MINT, { encoding: 'base64' }]);
+  if (r && r.value && r.value.owner) v = r.value.owner;
+  if (v) await setJSON('g:mintprog', { v, t: Date.now() });
+  return v;
+}
+
 // ---- pump.fun market cap, cached 60s; never allowed to break state
 async function getMcap() {
   if (!MINT) return null;
@@ -217,6 +231,7 @@ module.exports = async (req, res) => {
         stats: st, feed: (await getJSON('g:feed')) || [], ladder,
         warden: wardenLine(prices), targets: TARGETS, split: SPLIT, season: seasonKey(),
         mint: MINT || null, incinerator: MINT ? INCINERATOR : null, mcap: await getMcap(),
+        tokenProgram: await getMintProgram(),
         lastSeason: await getJSON('g:seasonResults'),
         log: (await getJSON('g:log:head')) || null, player });
     }
