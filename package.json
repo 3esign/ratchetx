@@ -1,0 +1,7 @@
+{
+  "name": "ratchet",
+  "version": "0.1.0",
+  "private": true,
+  "description": "RATCHET - feed the machine. Zero-dependency game on Vercel serverless.",
+  "engines": { "node": ">=18" }
+}

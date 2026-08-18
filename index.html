@@ -1,0 +1,562 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>RATCHET — feed the machine</title>
+<meta name="description" content="Fire sealed shots at the market. Beat the Warden. Climb the ranks. The floor only goes up.">
+<style>
+:root{
+  --bg:#07080a;--card:#0f1115;--card2:#161a21;--line:rgba(255,255,255,.07);
+  --ink:#f3f5f8;--ink2:#8f98a5;--dim:#59616c;
+  --gold:#f5b83d;--goldD:#8a6516;--ice:#7dd3fc;--red:#ff5252;--grn:#3ddc84;--vio:#b48cff;
+  --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(1000px 540px at 50% -10%,rgba(245,184,61,.08),transparent 66%)}
+.wrap{max-width:1140px;margin:0 auto;padding:0 20px;position:relative;z-index:1}
+.hud{position:sticky;top:0;z-index:70;background:rgba(7,8,10,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
+.hudrow{display:flex;align-items:center;gap:14px;height:64px}
+.logo{font:800 13px/1 var(--sans);letter-spacing:.24em;display:flex;gap:9px;align-items:center;white-space:nowrap}
+.cog{width:18px;height:18px;animation:spin 14s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.rankchip{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
+  border-radius:99px;padding:6px 13px 6px 7px}
+.rbadge{width:26px;height:26px;border-radius:99px;display:flex;align-items:center;justify-content:center;
+  font:800 10px var(--mono);background:linear-gradient(135deg,var(--gold),#c98f1e);color:#1a1206}
+.rname{font:700 10px/1 var(--mono);letter-spacing:.14em}
+.xpwrap{width:104px}
+.xpbar{height:5px;background:var(--card2);border-radius:99px;overflow:hidden;margin-top:4px}
+.xpbar i{display:block;height:100%;background:var(--gold);border-radius:99px;transition:width .5s}
+.hudstat{font:700 11px/1.2 var(--mono);color:var(--ink2);white-space:nowrap}
+.hudstat b{color:var(--gold);font-size:13px}
+.streakf{color:#ff9838}
+.connect{background:var(--gold);color:#1a1206;border:0;border-radius:99px;padding:9px 16px;
+  font:800 11px/1 var(--sans);letter-spacing:.06em;cursor:pointer;white-space:nowrap}
+.connect.done{background:var(--card);color:var(--grn);border:1px solid rgba(61,220,132,.35);font-family:var(--mono)}
+nav{display:flex;gap:1px;margin-left:auto}
+nav button{background:none;border:0;color:var(--dim);font:700 10.5px/1 var(--sans);letter-spacing:.13em;
+  padding:10px 12px;border-radius:8px;cursor:pointer;transition:.15s}
+nav button:hover{color:var(--ink2);background:var(--card)}
+nav button.on{color:#1a1206;background:var(--gold)}
+@media(max-width:980px){.hudstat.hide,.xpwrap{display:none}}
+@media(max-width:640px){.rname,.rankchip{display:none}nav button{padding:9px 8px;letter-spacing:.05em}}
+.mode{background:rgba(237,161,0,.09);border-bottom:1px solid rgba(237,161,0,.2);color:#eda100;
+  font:600 10.5px/1.5 var(--mono);letter-spacing:.06em;text-align:center;padding:6px 14px}
+section{display:none;padding:28px 0 100px}section.on{display:block;animation:in .3s ease}
+@keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.playgrid{display:grid;grid-template-columns:1fr 330px;gap:16px}
+@media(max-width:920px){.playgrid{grid-template-columns:1fr}}
+.machine{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px;text-align:center;position:relative;overflow:hidden}
+.machine::after{content:"";position:absolute;inset:0;pointer-events:none;
+  background:repeating-linear-gradient(0deg,transparent 0 3px,rgba(255,255,255,.012) 3px 4px)}
+.mcap{font:700 10px/1 var(--mono);letter-spacing:.3em;color:var(--dim);margin-bottom:14px}
+.bigcog{width:84px;height:84px;margin:0 auto 10px;position:relative}
+.bigcog svg{width:100%;height:100%;animation:spin 22s linear infinite}
+.bigcog .pulse{position:absolute;inset:-14px;border-radius:99px;border:1px solid rgba(245,184,61,.25);animation:pl 2.4s ease-out infinite}
+@keyframes pl{from{transform:scale(.7);opacity:1}to{transform:scale(1.25);opacity:0}}
+.floornum{font:700 clamp(36px,6.6vw,58px)/1 var(--mono);letter-spacing:-.04em;color:var(--gold);
+  text-shadow:0 0 60px rgba(245,184,61,.3);font-variant-numeric:tabular-nums}
+.floornum small{font-size:.34em;color:var(--goldD);vertical-align:.4em;margin-left:.15em}
+.msub{margin:10px 0 0;font:600 10.5px var(--mono);color:var(--dim);letter-spacing:.06em}
+.msub b{color:var(--grn)}
+.prices{display:flex;gap:8px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+.pr{border:1px solid var(--line);background:var(--card2);border-radius:99px;padding:6px 12px;
+  font:700 10.5px/1 var(--mono);color:var(--ink2)}
+.pr b{color:var(--ink)}
+.tcap{font:700 10px/1 var(--mono);letter-spacing:.22em;color:var(--dim);margin:22px 0 12px;text-align:left}
+.targets{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+@media(max-width:640px){.targets{grid-template-columns:1fr}}
+.tgt{background:var(--card2);border:1px solid var(--line);border-radius:13px;padding:15px;cursor:pointer;
+  text-align:left;color:inherit;font:inherit;transition:.14s}
+.tgt:hover{transform:translateY(-2px);border-color:rgba(255,255,255,.18)}
+.tgt.pick{border-color:var(--gold);box-shadow:0 0 30px -10px rgba(245,184,61,.55)}
+.tgt .tq{font:650 13.5px/1.35 var(--sans);margin-bottom:9px;min-height:37px}
+.tgt .tmeta{display:flex;justify-content:space-between;font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--dim)}
+.tgt .tmeta s{text-decoration:none;color:var(--ice)}
+.updown{display:flex;gap:7px;margin-top:11px}
+.ud{flex:1;border:1px solid var(--line);background:none;border-radius:8px;padding:8px 0;cursor:pointer;text-align:center;
+  font:800 11px/1 var(--mono);letter-spacing:.12em;color:var(--dim);transition:.12s}
+.ud.up.on{border-color:var(--grn);color:var(--grn);background:rgba(61,220,132,.08)}
+.ud.dn.on{border-color:var(--red);color:var(--red);background:rgba(255,82,82,.08)}
+.stakes{display:flex;gap:8px;margin:16px 0 12px}
+.stk{flex:1;border:1px solid var(--line);background:var(--card2);border-radius:11px;padding:12px 0;cursor:pointer;
+  transition:.13s;color:var(--ink2);font:700 13px/1.2 var(--mono)}
+.stk small{display:block;font:600 8.5px/1 var(--mono);letter-spacing:.14em;color:var(--dim);margin-top:5px}
+.stk.on{border-color:var(--gold);color:var(--gold);box-shadow:0 0 24px -10px rgba(245,184,61,.5)}
+.fire{width:100%;background:var(--gold);color:#1a1206;border:0;border-radius:12px;padding:16px;
+  font:800 14px/1 var(--sans);letter-spacing:.06em;cursor:pointer;transition:.14s}
+.fire:hover{filter:brightness(1.1)}
+.fire:disabled{opacity:.35;cursor:default}
+.splitline{margin-top:9px;font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--dim);text-align:center}
+.splitline b{color:var(--goldD)}
+.rcol{display:flex;flex-direction:column;gap:13px}
+.panel{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:16px}
+.panel h3{font:700 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--dim);margin-bottom:12px;display:flex;justify-content:space-between}
+.chambers{display:flex;flex-direction:column;gap:9px}
+.cham{border:1px solid rgba(125,211,252,.22);background:rgba(125,211,252,.04);border-radius:11px;padding:11px 13px;animation:in .35s ease}
+.cham .ch1{display:flex;justify-content:space-between;font:600 10px/1 var(--mono);letter-spacing:.1em;color:var(--ice);margin-bottom:6px}
+.cham .ch2{font:650 12.5px/1.3 var(--sans)}
+.cham.hit{border-color:rgba(61,220,132,.45);background:rgba(61,220,132,.06)}
+.cham.hit .ch1{color:var(--grn)}
+.cham.miss{border-color:rgba(255,82,82,.4);background:rgba(255,82,82,.05)}
+.cham.miss .ch1{color:var(--red)}
+.cham.void{border-color:var(--line);opacity:.75}
+.cham .xps{font:800 11px var(--mono);margin-top:6px}
+.empty{border:1px dashed var(--line);border-radius:11px;padding:13px;text-align:center;
+  font:600 9.5px/1 var(--mono);letter-spacing:.16em;color:var(--dim)}
+.kill{display:flex;flex-direction:column;gap:1px;max-height:250px;overflow:hidden}
+.kl{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);
+  font:600 11px var(--mono);color:var(--ink2);animation:in .35s ease}
+.kl:last-child{border:0}
+.kl .t{color:var(--dim);font-size:9.5px;width:38px;flex:none}
+.kl .wl{color:var(--ice);flex:none}
+.warden{display:grid;grid-template-columns:1fr 320px;gap:16px}
+@media(max-width:920px){.warden{grid-template-columns:1fr}}
+.wcard{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px}
+.weye{width:70px;height:70px;margin:4px auto 14px;border-radius:99px;border:1px solid rgba(180,140,255,.4);
+  display:flex;align-items:center;justify-content:center;
+  background:radial-gradient(circle at 50% 42%,rgba(180,140,255,.22),transparent 70%)}
+.weye i{width:20px;height:20px;border-radius:99px;background:var(--vio);box-shadow:0 0 34px rgba(180,140,255,.8);animation:eyep 3.4s ease-in-out infinite}
+@keyframes eyep{0%,100%{transform:scale(1)}50%{transform:scale(.82)}}
+.wname{text-align:center;font:800 11px/1 var(--mono);letter-spacing:.3em;color:var(--vio);margin-bottom:4px}
+.wrec{text-align:center;font:600 10px var(--mono);color:var(--dim);letter-spacing:.06em;margin-bottom:20px}
+.wline{background:var(--card2);border:1px solid var(--line);border-radius:14px;padding:19px;text-align:center}
+.wline .q{font:650 17px/1.4 var(--sans);margin-bottom:12px}
+.wp{font:800 34px/1 var(--mono);color:var(--vio);letter-spacing:-.02em}
+.wp small{font-size:.4em;color:var(--dim);letter-spacing:.14em}
+.wreason{margin-top:11px;font:400 12.5px/1.6 var(--sans);color:var(--ink2);text-align:left;
+  border-top:1px solid var(--line);padding-top:11px}
+.duelbtns{display:flex;gap:10px;margin-top:16px}
+.duelbtns button{flex:1;border-radius:12px;padding:15px 0;font:800 13px/1 var(--sans);letter-spacing:.08em;
+  cursor:pointer;transition:.13s;border:1px solid var(--line);background:var(--card2);color:var(--ink2)}
+.duelbtns .with:hover{border-color:var(--vio);color:var(--vio)}
+.duelbtns .agn:hover{border-color:var(--gold);color:var(--gold)}
+.duelbtns button small{display:block;font:600 8.5px/1 var(--mono);letter-spacing:.14em;color:var(--dim);margin-top:6px}
+.wnote{margin-top:11px;text-align:center;font:600 9.5px/1.6 var(--mono);letter-spacing:.08em;color:var(--dim)}
+.mecard{background:linear-gradient(135deg,rgba(245,184,61,.1),transparent 55%),var(--card);
+  border:1px solid var(--goldD);border-radius:18px;padding:22px;display:flex;gap:18px;align-items:center;margin-bottom:16px;flex-wrap:wrap}
+.mebadge{width:60px;height:60px;border-radius:15px;background:linear-gradient(135deg,var(--gold),#c98f1e);
+  display:flex;align-items:center;justify-content:center;font:800 19px var(--mono);color:#1a1206}
+.meinfo{flex:1;min-width:200px}
+.meinfo b{font:800 17px/1 var(--sans);display:block;margin-bottom:4px}
+.meinfo span{font:600 11px var(--mono);color:var(--ink2)}
+.mest{display:flex;gap:22px}
+.mest div{text-align:center}
+.mest b{font:800 20px/1 var(--mono);display:block;margin-bottom:4px}
+.mest i{font:600 8.5px/1 var(--mono);letter-spacing:.16em;color:var(--dim);font-style:normal}
+.ranksrow{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin:16px 0}
+@media(max-width:720px){.ranksrow{grid-template-columns:repeat(2,1fr)}}
+.rkc{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px;text-align:center}
+.rkc.now{border-color:var(--gold)}
+.rkc b{font:800 11px/1 var(--mono);letter-spacing:.14em;display:block;margin-bottom:5px}
+.rkc span{font:600 9px/1 var(--mono);color:var(--dim)}
+.ladder .lr{display:grid;grid-template-columns:34px 1fr 90px;gap:10px;align-items:center;
+  padding:11px 14px;border-bottom:1px solid var(--line);font:600 12.5px var(--mono);color:var(--ink2)}
+.ladder .lr:last-child{border:0}
+.ladder .lr .pos{font-weight:800;color:var(--dim)}
+.ladder .lr.me{background:rgba(245,184,61,.07);border-radius:9px}
+.ladder .lr.me .pos,.ladder .lr.me .wl2{color:var(--gold)}
+.ladder .lr .sc{text-align:right;font-weight:700}
+.eyebrow{font:700 10px/1 var(--mono);letter-spacing:.24em;color:var(--dim);margin-bottom:12px}
+h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margin-bottom:10px}
+.lede{color:var(--ink2);max-width:610px;font-size:14.5px}
+.lede b{color:var(--ink);font-weight:600}
+.chk{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);
+  border-radius:13px;padding:15px 18px;margin-bottom:8px}
+.chk .ic{width:23px;height:23px;border-radius:99px;flex:none;display:flex;align-items:center;justify-content:center;font:700 11px var(--sans)}
+.chk .ic.g{background:rgba(61,220,132,.13);color:var(--grn)}
+.chk .ic.p{background:var(--card2);color:var(--dim)}
+.chk .bd{flex:1}.chk .bd b{display:block;font-size:13.4px;font-weight:600;margin-bottom:2px}
+.chk .bd span{color:var(--dim);font-size:12px}
+.chk .st{font:700 9px/1 var(--mono);letter-spacing:.14em;white-space:nowrap}
+.chk .st.g{color:var(--grn)}.chk .st.p{color:var(--dim)}
+.foot{border-top:1px solid var(--line);margin-top:44px;padding:22px 0;color:var(--dim);font-size:12px}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(90px);z-index:99;
+  background:var(--card2);border:1px solid var(--gold);border-radius:12px;padding:14px 22px;
+  font:700 13px var(--sans);transition:.35s cubic-bezier(.2,.9,.3,1.2);box-shadow:0 8px 40px rgba(0,0,0,.5);max-width:88vw;text-align:center}
+#toast.show{transform:translateX(-50%) translateY(0)}
+</style></head><body>
+
+<div class="hud"><div class="wrap hudrow">
+  <div class="logo"><svg class="cog" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="#f5b83d" stroke-width="1.8"/><path d="M12 2.6v4M12 17.4v4M2.6 12h4M17.4 12h4M5.4 5.4l2.8 2.8M15.8 15.8l2.8 2.8M18.6 5.4l-2.8 2.8M8.2 15.8l-2.8 2.8" stroke="#f5b83d" stroke-width="1.6" stroke-linecap="round"/></svg>RATCHET</div>
+  <div class="rankchip"><div class="rbadge" id="hB">·</div>
+    <div><div class="rname" id="hR">—</div><div class="xpwrap"><div class="xpbar"><i id="hX" style="width:0"></i></div></div></div></div>
+  <div class="hudstat hide">CREDITS <b id="hCr" style="display:none">0</b><b id="hBal">—</b>🔥</div>
+  <div class="hudstat hide">STREAK <b class="streakf" id="hS">0</b></div>
+  <div class="hudstat hide">FLOOR <b id="hF" style="color:var(--ink)">—</b></div>
+  <nav>
+    <button class="on" data-go="play">PLAY</button>
+    <button data-go="warden">WARDEN</button>
+    <button data-go="ranks">RANKS</button>
+    <button data-go="proof">PROOF</button>
+  </nav>
+  <button class="connect" id="cx">CONNECT</button>
+</div></div>
+<div class="mode" id="mode" style="display:none"></div>
+
+<section id="play" class="on"><div class="wrap"><div class="playgrid">
+  <div><div class="machine">
+    <div class="mcap">THE MACHINE · FLOOR PER TOKEN</div>
+    <div class="bigcog"><div class="pulse"></div>
+      <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.2" stroke="#f5b83d" stroke-width="1.4"/><circle cx="12" cy="12" r="2.6" fill="#f5b83d"/><path d="M12 1.8v3.4M12 18.8v3.4M1.8 12h3.4M18.8 12h3.4M4.8 4.8l2.4 2.4M16.8 16.8l2.4 2.4M19.2 4.8l-2.4 2.4M7.2 16.8l-2.4 2.4" stroke="#f5b83d" stroke-width="1.3" stroke-linecap="round"/></svg></div>
+    <div class="floornum" id="floorNum">—<small>SOL</small></div>
+    <div class="msub" id="beat" style="margin-bottom:2px"></div>
+    <div class="msub">FED BY EVERY SHOT · <b id="fedN">—</b> SHOTS FIRED · CAN ONLY GO UP <span style="color:var(--goldD)">(SIMULATED UNTIL VAULT DEPLOY)</span></div>
+    <div class="prices" id="prices"></div>
+    <div class="tcap">PICK A TARGET — SETTLES ON REAL ORACLE PRICES</div>
+    <div class="targets" id="targets"></div>
+    <div class="tcap">STAKE — BIGGER BURN, BIGGER XP</div>
+    <div class="stakes">
+      <button class="stk" data-s="100">100<small>×1 XP</small></button>
+      <button class="stk on" data-s="500">500<small>×2 XP</small></button>
+      <button class="stk" data-s="2500">2,500<small>×5 XP</small></button>
+    </div>
+    <button class="fire" id="fire" disabled>PICK A TARGET AND A SIDE</button>
+    <div class="splitline">EVERY SHOT: <b>70% BURNED</b> · 30% SEASON POT · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
+  </div></div>
+  <div class="rcol">
+    <div class="panel"><h3>YOUR CHAMBERS <span id="chC">—</span></h3>
+      <div class="chambers" id="chams"><div class="empty">CONNECT AND FIRE A SHOT</div></div></div>
+    <div class="panel" id="reloadP" style="display:none">
+      <h3>RELOAD — BURN TO PLAY RANKED</h3>
+      <div style="font:400 12.5px/1.6 var(--sans);color:var(--ink2);margin-bottom:10px">
+        Send <b style="color:var(--gold)">RATCHET</b> from your wallet to the incinerator, then paste the
+        transaction signature. Verified on-chain, credited instantly. <b>1 burned = 1 credit.</b></div>
+      <div style="font:600 10px var(--mono);color:var(--dim);letter-spacing:.04em;margin-bottom:4px">INCINERATOR (tap to copy)</div>
+      <div id="incin" style="font:600 10.5px var(--mono);color:var(--ice);background:var(--card2);border:1px solid var(--line);
+        border-radius:8px;padding:9px 10px;cursor:pointer;word-break:break-all;margin-bottom:9px"></div>
+      <div style="display:flex;gap:8px">
+        <input id="burnsig" placeholder="paste transaction signature" style="flex:1;background:var(--card2);
+          border:1px solid var(--line);border-radius:8px;padding:11px 12px;color:var(--ink);font:12px var(--mono);outline:none">
+        <button class="connect" style="border-radius:8px" id="burngo">CREDIT</button>
+      </div>
+    </div>
+    <div class="panel" style="flex:1"><h3>KILL FEED</h3><div class="kill" id="kill"></div></div>
+  </div>
+</div></div></section>
+
+<section id="warden"><div class="wrap"><div class="warden">
+  <div class="wcard">
+    <div class="weye"><i></i></div>
+    <div class="wname">THE WARDEN</div>
+    <div class="wrec" id="wrec">v0 HEURISTIC · EVERY CALL SEALED BEFORE THE OUTCOME · LLM BRAIN LANDS WAVE 3</div>
+    <div class="wline">
+      <div class="q" id="wq">—</div>
+      <div class="wp" id="wp">—<small>%</small></div>
+      <div class="wreason" id="wr">—</div>
+    </div>
+    <div class="duelbtns">
+      <button class="with" id="dW">WITH IT<small>×0.8 XP · SAFE</small></button>
+      <button class="agn" id="dA">AGAINST IT<small>×3.4 XP IF RIGHT</small></button>
+    </div>
+    <div class="wnote">your side is sealed — settles automatically at the window's end on oracle prices</div>
+  </div>
+  <div class="rcol">
+    <div class="panel"><h3>HOW THE DUEL PAYS</h3>
+      <div style="font:400 13px/1.7 var(--sans);color:var(--ink2)">
+      Going <b style="color:var(--vio)">with</b> the Warden is the safe play and pays modestly.
+      Going <b style="color:var(--gold)">against</b> it pays ×3.4 — beating a stated probability is the
+      hardest thing in the game and the ladder knows it. The Warden's record accrues publicly either
+      way, wins and losses alike.</div></div>
+    <div class="panel" style="flex:1"><h3>RECENT ACTION</h3><div class="kill" id="duelfeed"></div></div>
+  </div>
+</div></div></section>
+
+<section id="ranks"><div class="wrap">
+  <div class="mecard">
+    <div class="mebadge" id="mB">·</div>
+    <div class="meinfo"><b id="mR">CONNECT TO PLAY RANKED</b><span id="mN"></span></div>
+    <div class="mest">
+      <div><b id="mXP">0</b><i>XP</i></div>
+      <div><b id="mAcc">—</b><i>ACCURACY</i></div>
+      <div><b id="mBest" class="streakf">0</b><i>BEST STREAK</i></div>
+    </div>
+  </div>
+  <div class="ranksrow" id="rkrow"></div>
+  <div class="panel ladder"><h3>SEASON LADDER · <span id="seas"></span><span style="color:var(--gold)" id="potN"></span></h3><div id="ladder"></div>
+    <div style="font:600 9.5px/1.6 var(--mono);letter-spacing:.06em;color:var(--dim);margin-top:10px">
+      PAYS AUTOMATICALLY AT SEASON END (SUNDAY 00:00 UTC): TOP 5 TAKE 40 / 25 / 15 / 12 / 8% OF THE POT AS CREDITS.
+      UNCLAIMED SHARES ROLL OVER. NO HANDS, NO BUTTON, NO DELAY.</div></div>
+  <div class="panel" id="lastSeasonP" style="display:none;margin-top:13px"><h3>LAST SEASON — PAID OUT</h3><div id="lastSeason"></div></div>
+</div></section>
+
+<section id="proof"><div class="wrap">
+  <div class="eyebrow">HONESTY IS THE AESTHETIC</div>
+  <h1>The rules cannot be changed. Not even by us.</h1>
+  <p class="lede">Nothing below is a promise. Every line is <b>re-checked against the chain</b> on a
+  timer while you watch — green because it verified, grey because it is not armed yet, and red the
+  moment anything stops being true. Every green line links to the account or transaction that proves it.</p>
+  <div class="prices" id="supplyStrip" style="justify-content:flex-start;margin:20px 0 6px"></div>
+  <div style="font:600 9.5px var(--mono);color:var(--dim);letter-spacing:.08em;margin-bottom:16px" id="checkedAgo"></div>
+  <div id="chks"></div>
+  <div class="panel" style="margin-top:16px" id="logP">
+    <h3>THE ON-CHAIN LOG <span id="logHead" style="color:var(--ice)"></span></h3>
+    <div style="font:400 12.5px/1.65 var(--sans);color:var(--ink2);margin-bottom:12px">
+      Every seal, settlement, reload and payout is hash-chained: change any past event and every
+      hash after it breaks. <b style="color:var(--ink)">Anyone</b> can anchor the current head into a
+      Solana memo transaction from their own wallet — from that slot on, the chain itself timestamps
+      our history. Scribes earn <b style="color:var(--gold)">+25 XP</b>. That includes you.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
+      <button class="connect" style="border-radius:8px" id="anchorGo">⚓ ANCHOR THE LOG (+25 XP)</button>
+      <div id="memoStr" style="font:600 10px var(--mono);color:var(--ice);background:var(--card2);border:1px solid var(--line);
+        border-radius:8px;padding:9px 10px;cursor:pointer;word-break:break-all;flex:1;min-width:200px;display:none"></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:9px" id="anchorPasteRow" class="hiddenrow">
+      <input id="anchorsig" placeholder="or paste your memo tx signature here" style="flex:1;background:var(--card2);
+        border:1px solid var(--line);border-radius:8px;padding:11px 12px;color:var(--ink);font:12px var(--mono);outline:none">
+      <button class="connect" style="border-radius:8px" id="anchorPaste">CREDIT</button>
+    </div>
+    <div class="kill" id="anchorList" style="margin-top:12px"></div>
+  </div>
+</div></section>
+
+<div class="wrap foot">RATCHET · Wave 1 · paper stakes, real prices, real ladder · creator takes trading fees only</div>
+<div id="toast"></div>
+
+<script>
+const $=id=>document.getElementById(id);
+const API='/api/game';
+let AUTH=null, DEMO=null, STATE=null, sel={t:null,side:null,stake:500}, dead=false;
+document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("nav button").forEach(x=>x.classList.remove("on"));
+  document.querySelectorAll("section").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");$(b.dataset.go).classList.add("on");});
+function toast(m){const t=$("toast");t.innerHTML=m;t.classList.add("show");
+  clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2800);}
+const short=w=>w.length>10?w.slice(0,4)+"…"+w.slice(-4):w;
+const fmt$=(n,d)=>n>=1000?n.toLocaleString(undefined,{maximumFractionDigits:0}):n.toFixed(d??2);
+
+// ---------- wallet ----------
+async function connect(){
+  const prov=window.solana||window.phantom&&window.phantom.solana;
+  if(!prov){ // demo identity
+    DEMO="demo-"+Math.random().toString(36).slice(2,8);
+    localStorage.setItem("ratchet_demo",DEMO);
+    $("cx").textContent="DEMO · "+DEMO.slice(5);$("cx").classList.add("done");
+    toast("No wallet found — playing in DEMO mode (unranked). Install Phantom to play ranked.");
+    refresh();return;
+  }
+  try{
+    const r=await prov.connect();
+    const wallet=r.publicKey.toString();
+    const ts=Date.now();
+    const msg=new TextEncoder().encode(`RATCHET | ${wallet} | ${ts}`);
+    const sg=await prov.signMessage(msg,"utf8");
+    const sig=btoa(String.fromCharCode(...sg.signature));
+    AUTH={wallet,ts,sig};
+    localStorage.setItem("ratchet_auth",JSON.stringify(AUTH));
+    $("cx").textContent=short(wallet);$("cx").classList.add("done");
+    toast("Connected — you're on the ladder.");
+    refresh();
+  }catch(e){toast("Connect cancelled");}
+}
+$("cx").onclick=connect;
+(function restore(){
+  try{const a=JSON.parse(localStorage.getItem("ratchet_auth"));
+    if(a&&Date.now()-a.ts<2*3600e3){AUTH=a;$("cx").textContent=short(a.wallet);$("cx").classList.add("done");}
+  }catch{}
+  const d=localStorage.getItem("ratchet_demo");
+  if(!AUTH&&d){DEMO=d;$("cx").textContent="DEMO · "+d.slice(5);$("cx").classList.add("done");}
+})();
+const who=()=>AUTH?AUTH.wallet:DEMO;
+
+// ---------- state ----------
+async function refresh(){
+  if(dead)return;
+  try{
+    const w=who();
+    const r=await fetch(API+"?action=state"+(w?("&wallet="+encodeURIComponent(w)):""));
+    STATE=await r.json();
+    if(!STATE.ok)throw new Error(STATE.reason);
+    paint();
+  }catch(e){
+    $("mode").style.display="block";
+    $("mode").textContent="API unreachable — deploy this folder to Vercel and this page comes alive. ("+e.message+")";
+  }
+}
+function paint(){
+  const s=STATE;
+  $("mode").style.display=s.durable?"none":"block";
+  if(!s.durable)$("mode").textContent="RUNNING WITHOUT A DATABASE — state resets on cold starts. Add Upstash Redis in the Vercel dashboard (one click) to make it durable. The game works either way.";
+  $("floorNum").innerHTML=s.stats.floor.toFixed(6)+"<small>SOL</small>";
+  $("hF").textContent=s.stats.floor.toFixed(6);
+  $("fedN").textContent=s.stats.shots.toLocaleString();
+  $("beat").innerHTML=`<b style="color:var(--grn)">● LIVE</b> · ORACLE ${s.prices.src.toUpperCase()} · STATE ${s.durable?"DURABLE":"EPHEMERAL"} · LOG ${s.log?("#"+s.log.i):"—"}`;
+  $("prices").innerHTML=Object.entries(s.prices).filter(([k])=>k!=="src").map(([k,v])=>
+    `<span class="pr">${k} <b>$${fmt$(v)}</b></span>`).join("")+`<span class="pr">SRC <b>${s.prices.src.toUpperCase()}</b></span>`;
+  // targets
+  $("targets").innerHTML=Object.entries(s.targets).map(([k,t])=>`
+    <button class="tgt ${sel.t===k?'pick':''}" data-k="${k}">
+      <div class="tq">${t.label}?</div>
+      <div class="tmeta"><span>WINDOW <s>${t.mins>=60?(t.mins/60)+"H":t.mins+"M"}</s></span><span>BASE ${t.baseXp} XP</span></div>
+      <div class="updown">
+        <span class="ud up ${sel.t===k&&sel.side==='YES'?'on':''}" data-k="${k}" data-side="YES">YES</span>
+        <span class="ud dn ${sel.t===k&&sel.side==='NO'?'on':''}" data-k="${k}" data-side="NO">NO</span>
+      </div></button>`).join("");
+  document.querySelectorAll(".tgt").forEach(b=>b.onclick=e=>{
+    sel.t=b.dataset.k;const sd=e.target.dataset.side;if(sd)sel.side=sd;paint();});
+  const ok=sel.t&&sel.side&&who();
+  $("fire").disabled=!ok;
+  $("fire").textContent=!who()?"CONNECT TO FIRE":ok?`SEAL THE SHOT — BURN ${sel.stake.toLocaleString()} 🔥`:"PICK A TARGET AND A SIDE";
+  // warden
+  $("wq").textContent=s.warden.q+"?";
+  $("wp").innerHTML=s.warden.p+"<small>%</small>";
+  $("wr").textContent=s.warden.r;
+  // player
+  const p=s.player;
+  if(p){
+    $("hR").textContent=p.rank;$("hB").textContent=p.rank[0];$("mB").textContent=p.rank[0];
+    $("hBal").textContent=p.bal.toLocaleString();
+    if(s.mint){$("hCr").style.display="inline";$("hCr").textContent=p.cr.toLocaleString()+" · PAPER ";}
+    $("hS").textContent=p.streak+"🔥";
+    $("hX").style.width=(p.next?Math.min(100,(p.xp-(p.next[1]-p.next[1]))/(p.next[1])*100):100)+"%";
+    $("mR").textContent=p.rank+(DEMO?" · DEMO (UNRANKED)":"");
+    $("mN").textContent=p.next?`${p.next[1]-p.xp} XP to ${p.next[0]} · ${p.chambers} chambers`:"MAX RANK";
+    $("mXP").textContent=p.xp;$("mBest").textContent=p.best;
+    $("mAcc").textContent=p.shots?Math.round(p.hits/p.shots*100)+"%":"—";
+    $("chC").textContent=`${p.open.length} / ${p.chambers}`;
+    const rows=[...p.open.map(c=>{
+      const left=Math.max(0,Math.round((c.exp-Date.now())/1000));
+      const mm=Math.floor(left/60),ss=left%60;
+      return`<div class="cham"><div class="ch1"><span>SEALED 🔒</span><span>${mm}:${String(ss).padStart(2,"0")}</span></div>
+        <div class="ch2">${c.label} — <b>${c.side}</b> · entry $${fmt$(c.entry)}</div></div>`;}),
+      ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
+        <div class="ch2">${c.label}</div>
+        <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${c.res==='hit'?'+'+c.xp+' XP':c.res==='miss'?'streak reset':'no move, no harm'}</div></div>`)];
+    $("chams").innerHTML=rows.length?rows.join(""):'<div class="empty">EMPTY — FIRE A SHOT</div>';
+    const r=p.rankIdx;
+    $("rkrow").innerHTML=[["COG",0],["PISTON",300],["FLYWHEEL",900],["TURBINE",2200],["REACTOR",5000]]
+      .map((k,i)=>`<div class="rkc ${i===r?'now':''}"><b style="color:${i<=r?'var(--gold)':'var(--dim)'}">${k[0]}</b><span>${k[1]} XP</span></div>`).join("");
+  }
+  // reload panel
+  if(s.mint&&AUTH){$("reloadP").style.display="block";$("incin").textContent=s.incinerator;}
+  else $("reloadP").style.display="none";
+  // feed + ladder
+  const fx=el=>el.innerHTML=s.feed.map(f=>{
+    const d=new Date(f.t);
+    return`<div class="kl"><span class="t">${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span>
+      <span class="wl">${f.w}</span><span style="color:${f.c==='hit'?'var(--grn)':f.c==='miss'?'var(--red)':'var(--ink2)'}">${f.a}</span></div>`}).join("")||'<div class="empty">QUIET — BE FIRST</div>';
+  fx($("kill"));fx($("duelfeed"));
+  $("seas").textContent=s.season.toUpperCase();
+  $("potN").textContent=" · POT "+Math.floor(s.stats.pot||0).toLocaleString()+" 🔥";
+  if(s.lastSeason&&s.lastSeason.winners&&s.lastSeason.winners.length){
+    $("lastSeasonP").style.display="block";
+    $("lastSeason").innerHTML=s.lastSeason.winners.map((v,i)=>`
+      <div class="lr"><span class="pos">${i+1}</span><span class="wl2">${v.w}</span>
+      <span class="sc" style="color:var(--gold)">+${v.share.toLocaleString()} 🔥</span></div>`).join("")+
+      (s.lastSeason.rolled>0?`<div style="font:600 9.5px var(--mono);color:var(--dim);padding:8px 14px">+ ${s.lastSeason.rolled.toLocaleString()} ROLLED INTO THIS SEASON</div>`:"");
+  }
+  $("ladder").innerHTML=s.ladder.length?s.ladder.map((l,i)=>`
+    <div class="lr ${l.me?'me':''}"><span class="pos">${i+1}</span><span class="wl2">${l.me?'YOU':l.w}</span><span class="sc">${l.xp} XP</span></div>`).join("")
+    :'<div class="empty" style="margin:6px 0">NOBODY ON THE LADDER YET — SEASON '+s.season.toUpperCase()+'</div>';
+}
+document.querySelectorAll(".stk").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll(".stk").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");sel.stake=+b.dataset.s;paint&&STATE&&paint();});
+
+// ---------- actions ----------
+async function post(body){
+  const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
+  return r.json();
+}
+$("fire").onclick=async()=>{
+  const j=await post({action:"shot",auth:AUTH||{wallet:DEMO},target:sel.t,side:sel.side,stake:sel.stake});
+  if(!j.ok){toast("⚠ "+j.reason);return}
+  toast(`SHOT SEALED 🔒 — ${sel.stake.toLocaleString()} burned · the Machine got fed`);
+  sel.side=null;refresh();
+};
+async function duel(side){
+  if(!who()){toast("connect first");return}
+  const j=await post({action:"duel",auth:AUTH||{wallet:DEMO},side,stake:sel.stake});
+  if(!j.ok){toast("⚠ "+j.reason);return}
+  toast(`SEALED ${side==="with"?"WITH":"AGAINST"} THE WARDEN 🔒 — ${sel.stake.toLocaleString()} burned`);
+  refresh();
+}
+$("dW").onclick=()=>duel("with");$("dA").onclick=()=>duel("against");
+$("incin")&&($("incin").onclick=()=>{navigator.clipboard.writeText($("incin").textContent);toast("incinerator address copied")});
+$("burngo").onclick=async()=>{
+  const sg=$("burnsig").value.trim();if(!sg){toast("paste the signature first");return}
+  $("burngo").disabled=true;
+  const j=await post({action:"reload",auth:AUTH,sig:sg});
+  $("burngo").disabled=false;
+  if(!j.ok){toast("⚠ "+j.reason);return}
+  $("burnsig").value="";
+  toast(`RELOADED 🔥 +${j.credited.toLocaleString()} credits — verified on-chain`);
+  refresh();
+};
+
+// ---------- LIVE proof ----------
+let PROOF=null,proofAt=0;
+const STATIC_LINES=[
+["g","Every stake is split by a published, frozen rule","70% burn · 30% season pot · 0% creator — printed on the fire button itself"],
+["g","Your side is sealed until settlement","Other players and the Warden cannot see it before the window closes"],
+["p","The Machine's floor is redeemable SOL","The vault program (Wave 4): no withdraw instruction, upgrade authority revoked"]];
+function drawProof(){
+  if(!PROOF)return;
+  const st={green:"g",red:"r",grey:"p"};
+  const live=PROOF.checks.map(c=>`<div class="chk" ${c.status==='red'?'style="border-color:rgba(255,82,82,.5)"':''}>
+    <div class="ic ${c.status==='green'?'g':'p'}" ${c.status==='red'?'style="background:rgba(255,82,82,.15);color:var(--red)"':''}>${c.status==='green'?'✓':c.status==='red'?'✕':'…'}</div>
+    <div class="bd"><b>${c.label}</b><span>${c.detail}</span></div>
+    ${c.link?`<a class="st g" style="text-decoration:none" href="${c.link}" target="_blank" rel="noopener">VERIFY ↗</a>`:`<span class="st ${c.status==='green'?'g':'p'}">${c.status==='green'?'LIVE':c.status==='red'?'FAILING':'ARMED AT TGE'}</span>`}
+  </div>`).join("");
+  const stat=STATIC_LINES.map(([s,a,b])=>`<div class="chk"><div class="ic ${s}">${s==="g"?"✓":"…"}</div>
+    <div class="bd"><b>${a}</b><span>${b}</span></div><span class="st ${s}">${s==="g"?"LIVE":"IN DESIGN"}</span></div>`).join("");
+  $("chks").innerHTML=live+stat;
+  if(PROOF.supply){const s=PROOF.supply;
+    $("supplyStrip").innerHTML=`<span class="pr">INITIAL <b>${s.initial.toLocaleString()}</b></span>
+    <span class="pr">NOW <b>${s.current.toLocaleString()}</b></span>
+    <span class="pr" style="border-color:var(--goldD)">DESTROYED <b style="color:var(--gold)">${s.destroyed.toLocaleString()}</b></span>
+    <span class="pr">AT INCINERATOR <b style="color:var(--red)">${s.incinerated.toLocaleString()}</b></span>`;}
+  if(PROOF.log){$("logHead").textContent=` · ENTRY #${PROOF.log.i} · ${PROOF.log.h.slice(0,12)}…`;}
+  $("anchorList").innerHTML=(PROOF.anchors||[]).map(a=>`<div class="kl"><span class="t">#${a.i}</span>
+    <span class="wl">${a.w}</span><span>anchored · <a href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener" style="color:var(--ice)">tx ↗</a></span></div>`).join("")
+    ||'<div class="empty">NOT YET ANCHORED — BE THE FIRST SCRIBE</div>';
+}
+async function loadProof(){try{const r=await fetch("/api/proof");PROOF=await r.json();proofAt=Date.now();drawProof();}catch{}}
+loadProof();setInterval(loadProof,30000);
+setInterval(()=>{if(proofAt)$("checkedAgo").textContent="RE-CHECKED "+Math.round((Date.now()-proofAt)/1000)+"S AGO · REFRESHES EVERY 30S";},1000);
+
+// ---------- anchor flow: build a memo tx in-browser (web3.js from CDN, lazily) ----------
+async function anchorLog(){
+  if(!AUTH){toast("connect a real wallet to anchor");return}
+  if(!PROOF||!PROOF.log){toast("log is empty — play first");return}
+  const memo=`RATCHET|${PROOF.log.i}|${PROOF.log.h}`;
+  $("memoStr").style.display="block";$("memoStr").textContent=memo;
+  try{
+    if(!window.solanaWeb3){
+      await new Promise((ok,no)=>{const s=document.createElement("script");
+        s.src="https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.95.8/index.iife.min.js";
+        s.onload=ok;s.onerror=no;document.head.appendChild(s);});
+    }
+    const W3=window.solanaWeb3,prov=window.solana||window.phantom.solana;
+    const conn=new W3.Connection("https://api.mainnet-beta.solana.com","confirmed");
+    const {blockhash}=await conn.getLatestBlockhash();
+    const tx=new W3.Transaction({recentBlockhash:blockhash,feePayer:new W3.PublicKey(AUTH.wallet)});
+    tx.add(new W3.TransactionInstruction({keys:[],programId:new W3.PublicKey("MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr"),
+      data:new TextEncoder().encode(memo)}));
+    const {signature}=await prov.signAndSendTransaction(tx);
+    toast("memo sent — confirming…");
+    await new Promise(r=>setTimeout(r,4000));
+    const j=await post({action:"anchor",auth:AUTH,sig:signature});
+    if(!j.ok){toast("⚠ "+j.reason+" — you can paste the signature below once confirmed");return}
+    toast(`⚓ LOG ANCHORED at entry #${j.i} · +${j.xp} XP — the chain now timestamps our history`);
+    loadProof();refresh();
+  }catch(e){
+    toast("could not auto-send — the memo text is shown; send it with any memo tool and paste the signature below");
+  }
+}
+$("anchorGo").onclick=anchorLog;
+$("memoStr").onclick=()=>{navigator.clipboard.writeText($("memoStr").textContent);toast("memo copied")};
+$("anchorPaste").onclick=async()=>{
+  const sg=$("anchorsig").value.trim();if(!sg){toast("paste the signature first");return}
+  const j=await post({action:"anchor",auth:AUTH,sig:sg});
+  if(!j.ok){toast("⚠ "+j.reason);return}
+  $("anchorsig").value="";toast(`⚓ ANCHORED at entry #${j.i} · +${j.xp} XP`);loadProof();refresh();
+};
+
+refresh();setInterval(refresh,6000);
+setInterval(()=>{if(STATE&&STATE.player)paint()},1000); // tick chamber countdowns
+</script>
+</body></html>
