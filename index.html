@@ -546,6 +546,28 @@ async function loadW3(){
   }
   throw new Error("no CDN could serve the Solana library");
 }
+// ---- pending-burn tracker: survives refresh, retries until verified ----
+let PB=null;try{PB=JSON.parse(localStorage.getItem("ratchet_pb"))}catch{}
+function setPB(o){PB=o;if(o)localStorage.setItem("ratchet_pb",JSON.stringify(o));else localStorage.removeItem("ratchet_pb")}
+function paintBurnBtn(){const b=$("oneBurn");if(!b)return;
+  b.disabled=!!PB;
+  b.textContent=PB?"⏳ VERIFYING BURN — CREDITS INCOMING…":"🔥 BURN & RELOAD — ONE CLICK";}
+async function tryPB(){
+  if(!PB||!AUTH)return;
+  if(Date.now()-PB.t>10*60e3){$("burnsig").value=PB.sig;setPB(null);paintBurnBtn();
+    toast("burn unverified after 10 min — signature filled in below, press CREDIT");return}
+  try{
+    const j=await post({action:"reload",auth:AUTH,sig:PB.sig});
+    if(j.ok){toast(`✓ BURN VERIFIED ON-CHAIN 🔥 +${j.credited.toLocaleString()} credits — ${(PB.amt||0).toLocaleString()} RCX destroyed forever`);
+      setPB(null);paintBurnBtn();refresh();}
+    else if(/already credited/i.test(j.reason||"")){setPB(null);paintBurnBtn();refresh();}
+    else if(/failed on-chain|did not reach|that wallet paid/i.test(j.reason||"")){
+      toast("⚠ burn not valid: "+j.reason);setPB(null);paintBurnBtn();}
+    // anything else (not found yet / rpc hiccup): stay pending, try again next tick
+  }catch{}
+}
+setInterval(tryPB,6000);
+paintBurnBtn();
 $("oneBurn").onclick=async()=>{
   if(!AUTH){toast("connect your wallet first");return}
   if(!STATE||!STATE.mint){toast("token not armed yet");return}
@@ -568,16 +590,10 @@ $("oneBurn").onclick=async()=>{
       {pubkey:mint,isSigner:false,isWritable:true},
       {pubkey:owner,isSigner:true,isWritable:false}],data}));
     const {signature}=await prov.signAndSendTransaction(tx);
-    toast("🔥 burn sent — confirming on-chain…");
-    let ok=false;
-    for(let i=0;i<6;i++){
-      await new Promise(r=>setTimeout(r,3500));
-      const j=await post({action:"reload",auth:AUTH,sig:signature});
-      if(j.ok){toast(`RELOADED 🔥 +${j.credited.toLocaleString()} credits — ${burnAmt.toLocaleString()} RCX destroyed forever`);ok=true;break}
-      if(!/not found|no block|unreachable/i.test(j.reason||"")){toast("⚠ "+j.reason);break}
-    }
-    if(!ok)toast("still confirming — paste the signature below in a few seconds: "+signature.slice(0,18)+"…");
-    refresh();
+    setPB({sig:signature,amt:burnAmt,t:Date.now()});
+    paintBurnBtn();
+    toast("🔥 burn sent — verifying on-chain. Credits appear automatically; you can keep playing.");
+    setTimeout(tryPB,4000);
   }catch(e){toast("burn failed: "+((e&&e.message)||"cancelled")+" — the manual fallback below always works");}
   $("oneBurn").disabled=false;
 };
