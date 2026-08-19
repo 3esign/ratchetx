@@ -14,11 +14,11 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 Don't take our word for it — the site tells you. Both live endpoints return a build marker:
 
 ```
-https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h3-2026-08-19"
-https://ratchetx.vercel.app/api/proof               ->  "v": "h3-2026-08-19"
+https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h5-2026-08-19"
+https://ratchetx.vercel.app/api/proof               ->  "v": "h5-2026-08-19"
 ```
 
-`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h3-2026-08-19'`.
+`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h5-2026-08-19'`.
 If the live marker and the repo marker match, you are reading the code that is running.
 If they ever don't, the repo is stale and you should say so loudly.
 
@@ -32,6 +32,15 @@ last 7 days' champion pay (balances read from chain) or the seat passes down —
 locking anyone's tokens. **The Gearbox**: register with a signature and earn daily play-credits on
 your verified on-chain balance — staking with no deposit, so there is nothing to rug.
 
+## The machine cannot be killed — only paused
+
+The token is unkillable (authorities revoked, liquidity protocol-held). The code is unkillable
+(this repo). Since h4, the **state** is too: the full hash-chained event log is retained, and
+`GET /api/snapshot` exports the machine's entire soul — every player, ladder, burn signature and
+log entry — verifiable against the heads players anchor on Solana. `RESURRECTION.md` tells any
+stranger how to verify a snapshot (`node restore.mjs snap.json --check`) and bring the whole
+machine back on their own hosting, provably intact. Keep snapshots.
+
 ## The whole backend, small enough to read in one sitting
 
 Zero npm dependencies. No framework. No build step. No key that can touch funds.
@@ -39,13 +48,16 @@ Zero npm dependencies. No framework. No build step. No key that can touch funds.
 | file | what it is |
 |---|---|
 | `index.html` | the entire client — game, Warden, ranks, proof page |
-| `api/game.js` | the entire game server: sealed shots, lazy settlement, XP/ranks, daily + weekly pots, burn-verified reloads, log anchoring |
+| `api/game.js` | the entire game server: THE BOARD (hourly-generated targets), sealed shots, lazy settlement, XP/ranks, daily + weekly pots, champion payouts, soft-staking, burn-verified reloads, log anchoring |
 | `api/proof.js` | the live proof: every claim re-checked against the chain, each able to go red |
 | `lib/prices.js` | Pyth Hermes prices, Coinbase fallback — keyless GETs, same source at seal and settle |
 | `lib/burn.js` | reads a burn transaction from the chain and credits it only if it is real, recent, supply-reducing, and never seen before |
 | `lib/verify.js` | wallet-signature auth (Ed25519 via node:crypto), no JWT, no session store |
 | `lib/log.js` | the hash-chained event log and its permissionless on-chain memo anchor |
 | `lib/kv.js` | Upstash Redis if configured, honest in-memory fallback if not |
+| `api/snapshot.js` | the Black Box: the whole state, downloadable and verifiable by anyone |
+| `restore.mjs` | verify a snapshot's hash chain and resurrect the machine into fresh storage |
+| `RESURRECTION.md` | the stranger's guide to bringing the machine back |
 | `test_harness.mjs` | offline tests over the pure decision functions — `node test_harness.mjs` |
 | `CHANGES_2026-08-19.md` | the hardening pass: what was wrong, what changed, why |
 

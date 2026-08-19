@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 const pricesPath = require.resolve('./lib/prices.js');
 const burnPath = require.resolve('./lib/burn.js');
 const realBurn = require('./lib/burn.js');   // capture the REAL module before stubbing
-let PX = { src: 'stub', SOL: 100, BTC: 60000, ETH: 2000, BONK: 0.000002, WIF: 0.1, JUP: 0.2 };
+let PX = { src: 'stub', SOL: 100, BTC: 60000, ETH: 2000, BONK: 0.000002, WIF: 0.1, JUP: 0.2, PUMP: 0.005 };
 require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true,
   exports: { getPrices: async () => ({ ...PX }) } };
 require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
@@ -42,7 +42,8 @@ const setMem = (k, v) => mem.set(k, JSON.stringify(v));
 // 1 ---- bare state
 let r = await call('GET', { query: { action: 'state' } });
 ok(r.status === 200 && r.body.ok && r.body.v && r.body.durable === false, 'state answers, versioned, ephemeral');
-ok(Object.keys(r.body.targets).length === 8, 'eight targets served');
+ok(Object.keys(r.body.targets).length === 9, 'nine targets served (4 evergreen + 5 rotating)');
+ok(r.body.targets.PUMP30 && r.body.targets.PUMP30.feed === 'PUMP', 'the house token is on the board');
 ok(!('RCX15' in r.body.targets) && !('RCX_THR' in r.body.targets), 'no RCX-priced targets');
 ok(r.body.stats.potD === 0, 'daily pot initialised');
 ok(getMem('g:warden:open')?.length === 1, 'warden line sealed once');
@@ -129,12 +130,12 @@ ok(r.body.wardenRec.n === 1 && typeof r.body.wardenRec.brier === 'number', 'ward
 ok((getMem('g:warden:hist') || []).length === 1, 'warden history recorded');
 
 // 9 ---- feed-offline shot refused BEFORE stake is taken
-delete PX.BONK;
+delete PX.SOL;
 st = getMem('g:stats'); const shotsB4 = st.shots;
-r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-abc123' }, target: 'BONK30', side: 'YES', stake: 100 } });
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-abc123' }, target: 'SOL5', side: 'YES', stake: 100 } });
 ok(!r.body.ok && r.status === 409, 'offline feed refused');
 ok(getMem('g:stats').shots === shotsB4, 'no stats mutation on refusal');
-PX.BONK = 0.000002;
+PX.SOL = 100;
 
 // 10 ---- rate limiter
 let limited = false;
@@ -148,6 +149,33 @@ ok(limited, 'POST rate limiter trips');
 const { setnxJSON } = require('./lib/kv.js');
 const wins = await Promise.all([setnxJSON('sig:racetest', { a: 1 }), setnxJSON('sig:racetest', { a: 2 })]);
 ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
+
+// 11c ---- the Black Box: full-log retention + snapshot + tamper detection
+{
+  const { verifyChain } = require('./lib/log.js');
+  const head = getMem('g:log:head');
+  const c0 = getMem('g:log:c:0') || [];
+  ok(head && c0.length === head.i, 'black box: full log retained (chunk covers every entry)');
+  const v = verifyChain(c0, head);
+  ok(v.ok && v.count === head.i, 'black box: chain replays from genesis to head');
+  // plant a mutant: rewrite one past event — the verifier MUST catch it
+  const tampered = JSON.parse(JSON.stringify(c0));
+  if (tampered[1]) tampered[1].ev = { k: 'forged', w: 'attacker' };
+  const vt = verifyChain(tampered, head);
+  ok(!vt.ok && vt.brokenAt === 2, 'black box: tampered entry #2 detected exactly');
+  // snapshot endpoint serves the soul
+  const snapshot = require('./api/snapshot.js');
+  r = await new Promise(resolve => {
+    const res = { _s: 200, headers: {}, setHeader(k, v2) { this.headers[k] = v2; },
+      status(c) { this._s = c; return this; },
+      json(o) { resolve({ status: this._s, body: o }); },
+      end(s2) { resolve({ status: this._s, body: JSON.parse(s2) }); } };
+    snapshot({ method: 'GET', headers: {}, query: {} }, res);
+  });
+  ok(r.body.ok && r.body.logComplete && r.body.sha256?.length === 64, 'black box: snapshot exports with hash, log complete');
+  ok(Object.keys(r.body.state.players).length >= 2, 'black box: snapshot contains the players');
+  ok(verifyChain(r.body.state.log, r.body.state.logHead).ok, 'black box: snapshot log verifies end-to-end');
+}
 
 // 12 ---- decideBurn: THE CHAMPION'S CUT (pure, real implementation)
 {
@@ -176,6 +204,38 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   ok(d.ok && d.amount === 8500 && d.burned === 7000 && d.champPaid === 1500, 'champ: self-on-podium nets fairly');
   d = D(mkTx({ P: [10000, 0] }), { ...base, podium: [] });
   ok(d.ok && d.amount === 10000, 'champ: empty podium = pure burn, unchanged');
+}
+
+// 11a ---- THE BOARD: deterministic hourly mix, new kinds, grace window
+{
+  const r1 = await call('GET', { query: { action: 'state' }, ip: '3.3.3.3' });
+  const r2 = await call('GET', { query: { action: 'state' }, ip: '3.3.3.3' });
+  ok(JSON.stringify(Object.keys(r1.body.targets)) === JSON.stringify(Object.keys(r2.body.targets)), 'board: deterministic within the hour');
+  const kinds = Object.values(r1.body.targets).map(t2 => t2.kind);
+  ok(kinds.includes('race') && kinds.includes('thrDown') && kinds.includes('range'), 'board: RACE + DUMP + BOX present');
+  ok(r1.body.targets.SOL5 && r1.body.targets.BTC60 && r1.body.targets.ETH24, 'board: evergreen anchors present');
+  ok(typeof r1.body.boardFlip === 'number' && r1.body.boardFlip > Date.now(), 'board: flip time published');
+  const prevHour = Math.floor(Date.now() / 3600e3) - 1;
+  const q = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-grace' }, target: `H${prevHour}R`, side: 'YES', stake: 100 }, ip: '3.3.3.4' });
+  ok(q.body.ok, 'board: previous-hour key still seals (grace window)');
+}
+
+// 11a2 ---- new kinds settle correctly (KV surgery, deterministic prices)
+{
+  const D0 = getMem('u:demo-abc123');
+  const hitsB4 = D0.hits, balB4 = D0.bal;
+  setMem('u:demo-abc123', { ...D0, open: [
+    { id:'k1', kind:'race', feed:'SOL', feed2:'BTC', side:'YES', entry:90, entry2:60000, exp: Date.now()-1000, stake:100, xp:20, label:'race', src:'bal' },
+    { id:'k2', kind:'range', feed:'SOL', pct:0.02, side:'NO', entry:100, exp: Date.now()-1000, stake:100, xp:18, label:'box', src:'bal' },
+    { id:'k3', kind:'thrDown', feed:'SOL', thresh:99, side:'NO', entry:100, exp: Date.now()-1000, stake:100, xp:16, label:'dump', src:'bal' },
+  ]});
+  await call('GET', { query: { action: 'state', wallet: 'demo-abc123' }, ip: '3.3.3.5' });
+  const D1 = getMem('u:demo-abc123');
+  // race: SOL +11.1% vs BTC 0% -> YES hit; box: 0% inside -> NO hit; dump: 100 !< 99 -> NO hit
+  ok(D1.hits === hitsB4 + 3, 'kinds: race YES, box NO, dump NO all settle as hits');
+  const hist = getMem('hist:demo-abc123') || [];
+  ok(hist.length >= 3 && hist[0].res && hist.some(e => e.label === 'race'), 'history: settled shots recorded per player');
+  ok(hist.every(e => 'entry' in e && 'stake' in e), 'history: entries carry stake + prices');
 }
 
 // 11b ---- soft-staking: demo refused; yield math sane via state shape

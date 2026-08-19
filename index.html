@@ -260,7 +260,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         trading fees on the token only.</span>
       </div>
     </div>
-    <div class="tcap">PICK A TARGET — SETTLES ON REAL ORACLE PRICES</div>
+    <div class="tcap">THE BOARD · <span id="boardIn" style="color:var(--gold)">NEW MIX EVERY HOUR</span> · SETTLES ON REAL ORACLE PRICES</div>
     <div class="targets" id="targets"></div>
     <div class="tcap">STAKE — BIGGER BURN, BIGGER XP</div>
     <div class="stakes">
@@ -345,6 +345,8 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   <div class="panel" id="champP" style="display:none;margin-bottom:13px;border-color:var(--goldD)">
     <h3 style="color:var(--gold)">CHAMPION CONSOLE — YOU HOLD A PODIUM SEAT</h3>
     <div id="champBody" style="font:400 12.5px/1.75 var(--sans);color:var(--ink2)"></div></div>
+  <div class="panel ladder" id="histP" style="display:none;margin-bottom:13px"><h3>SHOT HISTORY <span id="histN" style="color:var(--ice)"></span></h3>
+    <div id="histRows" class="kill" style="max-height:340px;overflow:auto"></div></div>
   <div class="ranksrow" id="rkrow"></div>
   <div class="panel ladder" style="margin-bottom:13px"><h3>TODAY'S LADDER · <span id="dayK"></span><span style="color:var(--gold)" id="potDN"></span></h3><div id="ladderDay"></div>
     <div style="font:600 9.5px/1.6 var(--mono);letter-spacing:.06em;color:var(--dim);margin-top:10px">
@@ -425,7 +427,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   </div>
 </div></section>
 
-<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a></div>
+<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="/api/snapshot" target="_blank" rel="noopener" style="color:var(--dim)">black box</a> · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a></div>
 <div id="toast"></div>
 
 <script>
@@ -441,6 +443,9 @@ function toast(m){const t=$("toast");t.innerHTML=m;t.classList.add("show");
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2800);}
 const short=w=>w.length>10?w.slice(0,4)+"…"+w.slice(-4):w;
 const fmt$=(n,d)=>n>=1000?n.toLocaleString(undefined,{maximumFractionDigits:0}):(n>=0.01||n===0)?n.toFixed(d??2):Number(n.toPrecision(2)).toString();
+// paint-without-flicker: only touch the DOM when the content actually
+// changed, so entry animations play once instead of on every repaint.
+const setHTML=(el,html)=>{if(el&&el._h!==html){el._h=html;el.innerHTML=html;}};
 
 // ---------- wallet ----------
 async function connect(){
@@ -514,14 +519,14 @@ function paint(){
   $("prices").innerHTML=Object.entries(s.prices).filter(([k])=>k!=="src").map(([k,v])=>
     `<span class="pr">${k} <b>$${fmt$(v)}</b></span>`).join("")+`<span class="pr">SRC <b>${s.prices.src.toUpperCase()}</b></span>`;
   // targets
-  $("targets").innerHTML=Object.entries(s.targets).map(([k,t])=>`
+  setHTML($("targets"),Object.entries(s.targets).map(([k,t])=>`
     <button class="tgt ${sel.t===k?'pick':''}" data-k="${k}">
       <div class="tq">${t.label}?</div>
       <div class="tmeta"><span>WINDOW <s>${t.mins>=60?(t.mins/60)+"H":t.mins+"M"}</s></span><span>BASE ${t.baseXp} XP</span></div>
       <div class="updown">
         <span class="ud up ${sel.t===k&&sel.side==='YES'?'on':''}" data-k="${k}" data-side="YES">YES</span>
         <span class="ud dn ${sel.t===k&&sel.side==='NO'?'on':''}" data-k="${k}" data-side="NO">NO</span>
-      </div></button>`).join("");
+      </div></button>`).join(""));
   document.querySelectorAll(".tgt").forEach(b=>b.onclick=e=>{
     sel.t=b.dataset.k;const sd=e.target.dataset.side;if(sd)sel.side=sd;paint();});
   const ok=sel.t&&sel.side&&who();
@@ -549,15 +554,22 @@ function paint(){
     $("mAcc").textContent=p.shots?Math.round(p.hits/p.shots*100)+"%":"—";
     $("chC").textContent=`${p.open.length} / ${p.chambers}`;
     const rows=[...p.open.map(c=>{
-      const left=Math.max(0,Math.round((c.exp-Date.now())/1000));
-      const hh=Math.floor(left/3600),mm=Math.floor((left%3600)/60),ss=left%60;
-      const tleft=hh>0?`${hh}h ${String(mm).padStart(2,"0")}m`:`${mm}:${String(ss).padStart(2,"0")}`;
-      return`<div class="cham"><div class="ch1"><span>SEALED 🔒</span><span>${tleft}</span></div>
+      return`<div class="cham"><div class="ch1"><span>SEALED 🔒</span><span class="cd" data-exp="${c.exp}">…</span></div>
         <div class="ch2">${c.label} — <b>${c.side}</b> · entry $${fmt$(c.entry)}</div></div>`;}),
       ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
         <div class="ch2">${c.label}</div>
         <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${c.res==='hit'?'+'+c.xp+' XP':c.res==='miss'?'streak reset':'no move, no harm'}</div></div>`)];
-    $("chams").innerHTML=rows.length?rows.join(""):'<div class="empty">EMPTY — FIRE A SHOT</div>';
+    setHTML($("chams"),rows.length?rows.join(""):'<div class="empty">EMPTY — FIRE A SHOT</div>');
+    if(p.history&&p.history.length){$("histP").style.display="block";
+      $("histN").textContent=` · ${p.hits}/${p.shots} LIFETIME · BEST STREAK ${p.best}`;
+      setHTML($("histRows"),p.history.map(e=>{
+        const d=new Date(e.t);
+        const col=e.res==='hit'?'var(--grn)':e.res==='miss'?'var(--red)':'var(--dim)';
+        return`<div class="kl"><span class="t">${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span>
+          <span style="color:${col};width:40px;flex:none;font-weight:800">${e.res.toUpperCase()}</span>
+          <span style="flex:1">${e.label} — <b>${e.side}</b></span>
+          <span style="color:${col};font-weight:700;white-space:nowrap">${e.res==='hit'?'+'+e.xp+' XP':e.res==='void'?'refund':'streak ✕'}</span></div>`;}).join(""));}
+    else if($("histP"))$("histP").style.display="none";
     if(p.champion&&STATE.champ){const c=p.champion;
       $("champP").style.display="block";
       $("champBody").innerHTML=`Your seat pays <b style="color:var(--gold)">${Math.round(c.pct*STATE.champ.pct*100)}% of every reload</b>, straight to your wallet — no claim needed.
@@ -580,18 +592,18 @@ function paint(){
     if(cl.length)$("podiumBox").innerHTML+=" · HOLDER RULE: CHAMPIONS WHO DUMP LOSE THE SEAT";}
   else $("reloadP").style.display="none";
   // feed + ladder
-  const fx=el=>el.innerHTML=s.feed.map(f=>{
+  const fx=el=>setHTML(el,s.feed.map(f=>{
     const d=new Date(f.t);
     return`<div class="kl"><span class="t">${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span>
-      <span class="wl">${f.w}</span><span style="color:${f.c==='hit'?'var(--grn)':f.c==='miss'?'var(--red)':'var(--ink2)'}">${f.a}</span></div>`}).join("")||'<div class="empty">QUIET — BE FIRST</div>';
+      <span class="wl">${f.w}</span><span style="color:${f.c==='hit'?'var(--grn)':f.c==='miss'?'var(--red)':'var(--ink2)'}">${f.a}</span></div>`}).join("")||'<div class="empty">QUIET — BE FIRST</div>');
   fx($("kill"));fx($("duelfeed"));
   $("seas").textContent=s.season.toUpperCase();
   $("potN").textContent=" · POT "+Math.floor(s.stats.pot||0).toLocaleString()+" 🔥";
   $("dayK").textContent=(s.day||"").toUpperCase();
   $("potDN").textContent=" · POT "+Math.floor(s.stats.potD||0).toLocaleString()+" 🔥";
-  $("ladderDay").innerHTML=(s.ladderDay&&s.ladderDay.length)?s.ladderDay.map((l,i)=>`
+  setHTML($("ladderDay"),(s.ladderDay&&s.ladderDay.length)?s.ladderDay.map((l,i)=>`
     <div class="lr ${l.me?'me':''}"><span class="pos">${i+1}</span><span class="wl2">${l.me?'YOU':l.w}</span><span class="sc">${l.xp} XP</span></div>`).join("")
-    :'<div class="empty" style="margin:6px 0">NOBODY ON TODAY\'S LADDER YET — FIRST HIT LEADS</div>';
+    :'<div class="empty" style="margin:6px 0">NOBODY ON TODAY\'S LADDER YET — FIRST HIT LEADS</div>');
   if(s.lastDay&&s.lastDay.winners&&s.lastDay.winners.length){
     $("lastDayP").style.display="block";
     $("lastDay").innerHTML=s.lastDay.winners.map((v,i)=>`
@@ -621,9 +633,9 @@ function paint(){
   $("stakeGlob").innerHTML=`Wallets meshed: <b>${(s.stats.stakers||0).toLocaleString()}</b><br>
     Credits paid to stakers: <b style="color:var(--gold)">${(s.stats.stakePaid||0).toLocaleString()}</b><br>
     <span style="color:var(--dim)">Rate: 0.1%/day of held balance · min 1,000 · counted up to 1,000,000.</span>`;
-  $("ladder").innerHTML=s.ladder.length?s.ladder.map((l,i)=>`
+  setHTML($("ladder"),s.ladder.length?s.ladder.map((l,i)=>`
     <div class="lr ${l.me?'me':''}"><span class="pos">${i+1}</span><span class="wl2">${l.me?'YOU':l.w}</span><span class="sc">${l.xp} XP</span></div>`).join("")
-    :'<div class="empty" style="margin:6px 0">NOBODY ON THE LADDER YET — SEASON '+s.season.toUpperCase()+'</div>';
+    :'<div class="empty" style="margin:6px 0">NOBODY ON THE LADDER YET — SEASON '+s.season.toUpperCase()+'</div>');
 }
 document.querySelectorAll(".stk").forEach(b=>b.onclick=()=>{
   document.querySelectorAll(".stk").forEach(x=>x.classList.remove("on"));
@@ -783,7 +795,7 @@ function drawProof(){
   </div>`).join("");
   const stat=STATIC_LINES.map(([s,a,b])=>`<div class="chk"><div class="ic ${s}">${s==="g"?"✓":"…"}</div>
     <div class="bd"><b>${a}</b><span>${b}</span></div><span class="st ${s}">${s==="g"?"LIVE":"IN DESIGN"}</span></div>`).join("");
-  $("chks").innerHTML=live+stat;
+  setHTML($("chks"),live+stat);
   if(PROOF.supply){const s=PROOF.supply;
     const pb=s.playerBurned!=null?Math.round(s.playerBurned):null;
     const other=s.otherDestroyed!=null?Math.round(s.otherDestroyed):null;
@@ -804,9 +816,9 @@ function drawProof(){
     $("burnChip").style.display="inline";$("burnChip").textContent="🔥 "+f+" PLAYER-BURNED";
     $("burnLine").style.display="block";
     $("burnLine").textContent="🔥 "+pb.toLocaleString()+" RCX BURNED BY PLAYERS — VERIFIED ON-CHAIN"+(other>0?" · +"+fo+" REMOVED AT GRADUATION (PUMP.FUN-SIDE, NOT GAME ACTIVITY)":"");}
-  $("anchorList").innerHTML=(PROOF.anchors||[]).map(a=>`<div class="kl"><span class="t">#${a.i}</span>
+  setHTML($("anchorList"),(PROOF.anchors||[]).map(a=>`<div class="kl"><span class="t">#${a.i}</span>
     <span class="wl">${a.w}</span><span>anchored · <a href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener" style="color:var(--ice)">tx ↗</a></span></div>`).join("")
-    ||'<div class="empty">NOT YET ANCHORED — BE THE FIRST SCRIBE</div>';
+    ||'<div class="empty">NOT YET ANCHORED — BE THE FIRST SCRIBE</div>');
 }
 async function loadProof(){try{const r=await fetch("/api/proof");PROOF=await r.json();proofAt=Date.now();drawProof();}catch{}}
 loadProof();setInterval(loadProof,30000);
@@ -848,6 +860,15 @@ $("anchorPaste").onclick=async()=>{
 
 $("howBtn").onclick=()=>{const b=$("howBox");b.style.display=b.style.display==="none"?"block":"none";};
 refresh();setInterval(refresh,6000);
-setInterval(()=>{if(STATE&&STATE.player)paint()},1000); // tick chamber countdowns
+// surgical 1s ticker: update ONLY countdown text — no repaints, no flicker
+setInterval(()=>{
+  document.querySelectorAll(".cd").forEach(sp=>{
+    const left=Math.max(0,Math.round((+sp.dataset.exp-Date.now())/1000));
+    const hh2=Math.floor(left/3600),mm=Math.floor((left%3600)/60),ss=left%60;
+    sp.textContent=hh2>0?`${hh2}h ${String(mm).padStart(2,"0")}m`:`${mm}:${String(ss).padStart(2,"0")}`;
+  });
+  if(STATE&&STATE.boardFlip){const l=Math.max(0,Math.round((STATE.boardFlip-Date.now())/1000));
+    const el=$("boardIn");if(el)el.textContent=`NEW MIX IN ${Math.floor(l/60)}:${String(l%60).padStart(2,"0")}`;}
+},1000);
 </script>
 </body></html>

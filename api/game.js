@@ -47,7 +47,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h3-2026-08-19';
+const VERSION = 'h5-2026-08-19';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -74,22 +74,59 @@ const CHAMP = { pct: 0.30, curve: [0.5, 0.3, 0.2],
 const STAKE = { rate: 0.001, minBal: 1000, capBal: 1_000_000 };   // ≤1,000 credits/day
 const stakeYield = bal => (bal >= STAKE.minBal ? Math.floor(Math.min(bal, STAKE.capBal) * STAKE.rate) : 0);
 const STAKES = { 100: 1, 500: 2, 2500: 5 };
-// Targets settle on EXTERNAL majors only — markets no player can move.
-// RCX-priced shots were removed 2026-08-19: at this market's depth a
-// player could settle their own sealed bet with a $50 trade. Sealing
-// hides your side from others, not from yourself.
-const TARGETS = {
-  SOL5:    { feed: 'SOL',  mins: 5,    baseXp: 10, label: 'SOL higher in 5 minutes' },
-  WIF15:   { feed: 'WIF',  mins: 15,   baseXp: 13, label: 'WIF higher in 15 minutes' },
-  BONK30:  { feed: 'BONK', mins: 30,   baseXp: 14, label: 'BONK higher in 30 minutes' },
-  BTC60:   { feed: 'BTC',  mins: 60,   baseXp: 16, label: 'BTC higher in 1 hour' },
-  JUP60:   { feed: 'JUP',  mins: 60,   baseXp: 18, label: 'JUP higher in 1 hour' },
-  ETH24:   { feed: 'ETH',  mins: 1440, baseXp: 24, label: 'ETH higher in 24 hours' },
-  // threshold shots settle on entry*(1+pct). YES is the hard side and pays
-  // full XP; NO pays 35% — otherwise farming easy NOs would print rank.
-  SOL_THR: { feed: 'SOL',  mins: 60,   baseXp: 22, pct: 0.01, label: 'SOL pumps +1% within 1 hour' },
-  WIF_THR: { feed: 'WIF',  mins: 60,   baseXp: 26, pct: 0.02, label: 'WIF pumps +2% within 1 hour' },
+// THE BOARD (h4): targets are GENERATED, not hardcoded — a fresh mix
+// every hour, deterministic from the clock (seeded PRNG), so every
+// player and every server instance derives the same board with no
+// coordination and no KV. Three evergreen anchors keep the rhythm;
+// five rotating slots keep it alive: PUMPs and DUMPs sized to each
+// feed's typical volatility, a head-to-head RACE, and THE BOX
+// (breakout-or-not). Everything settles at expiry on the exit price —
+// labels say "after", never "within", because honesty is the aesthetic.
+// A sealed shot carries its own settlement spec, so board rotation can
+// never touch an open bet. All feeds are external Pyth majors that no
+// player can move.
+const EVERGREEN = {
+  SOL5:   { kind: 'dir', feed: 'SOL',  mins: 5,    baseXp: 10, label: 'SOL higher in 5 minutes' },
+  PUMP30: { kind: 'dir', feed: 'PUMP', mins: 30,   baseXp: 14, label: 'PUMP higher in 30 minutes' },
+  BTC60:  { kind: 'dir', feed: 'BTC',  mins: 60,   baseXp: 16, label: 'BTC higher in 1 hour' },
+  ETH24:  { kind: 'dir', feed: 'ETH',  mins: 1440, baseXp: 24, label: 'ETH higher in 24 hours' },
 };
+const ROTFEEDS = ['SOL', 'BTC', 'ETH', 'BONK', 'WIF', 'JUP', 'PUMP'];
+const TYPVOL = { SOL: 0.0075, BTC: 0.0045, ETH: 0.0065, BONK: 0.02, WIF: 0.018, JUP: 0.012, PUMP: 0.014 }; // typical hourly move
+function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const winTxt = m => m >= 60 ? (m === 60 ? '1 hour' : (m / 60) + ' hours') : m + ' minutes';
+function targetBoard(hour) {
+  const rnd = mulberry32((hour * 2654435761) % 2147483647);
+  const pick = arr => arr[Math.floor(rnd() * arr.length)];
+  const board = { ...EVERGREEN };
+  { // rotator: a fast directional on a rotating meme feed
+    const f = pick(['BONK', 'WIF', 'JUP']); const m = pick([10, 15, 30]);
+    board[`H${hour}A`] = { kind: 'dir', feed: f, mins: m, baseXp: 12 + Math.round(m / 10), label: `${f} higher in ${m} minutes` };
+  }
+  { // THE PUMP: up-threshold sized to the feed's volatility
+    const f = pick(ROTFEEDS); const m = pick([30, 60]); const mult = pick([1.2, 1.8, 2.5]);
+    const pct = +(TYPVOL[f] * Math.sqrt(m / 60) * mult).toFixed(4);
+    board[`H${hour}P`] = { kind: 'thr', feed: f, mins: m, pct, baseXp: Math.round(15 + mult * 4), noMult: 0.35, label: `THE PUMP: ${f} up +${(pct * 100).toFixed(1)}% after ${winTxt(m)}` };
+  }
+  { // THE DUMP: down-threshold — YES (it dumped) is the hard side
+    const f = pick(ROTFEEDS); const m = pick([30, 60]); const mult = pick([1.2, 1.8]);
+    const pct = +(TYPVOL[f] * Math.sqrt(m / 60) * mult).toFixed(4);
+    board[`H${hour}D`] = { kind: 'thrDown', feed: f, mins: m, pct, baseXp: Math.round(15 + mult * 4), noMult: 0.35, label: `THE DUMP: ${f} down -${(pct * 100).toFixed(1)}% after ${winTxt(m)}` };
+  }
+  { // THE RACE: two feeds, relative performance, pure skill read
+    const a = pick(ROTFEEDS); let b = pick(ROTFEEDS);
+    if (b === a) b = ROTFEEDS[(ROTFEEDS.indexOf(a) + 1) % ROTFEEDS.length];
+    const m = pick([30, 60]);
+    board[`H${hour}R`] = { kind: 'race', feed: a, feed2: b, mins: m, baseXp: 20, label: `THE RACE: ${a} beats ${b} over ${winTxt(m)}` };
+  }
+  { // THE BOX: does the hour end outside the band, or trapped inside?
+    const f = pick(['SOL', 'BTC', 'ETH']); const mult = pick([1.0, 1.5]);
+    const pct = +(TYPVOL[f] * mult).toFixed(4);
+    board[`H${hour}B`] = { kind: 'range', feed: f, mins: 60, pct, noMult: 0.6, baseXp: 18, label: `THE BOX: ${f} ends the hour OUTSIDE ±${(pct * 100).toFixed(1)}%` };
+  }
+  return board;
+}
+const boardHour = () => Math.floor(Date.now() / 3600e3);
 const RANKS = [['COG',0],['PISTON',300],['FLYWHEEL',900],['TURBINE',2200],['REACTOR',5000]];
 const DAILY_ALLOWANCE = 5000;
 // Prize curves. Unclaimed shares ROLL OVER into the next pot of the same cadence.
@@ -344,6 +381,16 @@ async function wardenTick(prices) {
 
 function refund(p, s) { if (s.src === 'cr') p.cr += s.stake; else p.bal += s.stake; }
 
+// full per-player shot history — every settled shot, capped at 200,
+// served to the client and exported by the Black Box. The hash-chained
+// log stays the ground truth; this is the readable per-wallet view.
+async function pushHist(w, rec) {
+  const k = `hist:${w}`;
+  const h = (await getJSON(k)) || [];
+  h.unshift(rec);
+  await setJSON(k, h.slice(0, 200));
+}
+
 async function settle(p, prices) {
   if (!p.open.length) return false;
   const now = Date.now(); let changed = false;
@@ -351,7 +398,8 @@ async function settle(p, prices) {
   for (const s of p.open) {
     if (now < s.exp) { still.push(s); continue; }
     const px = prices[s.feed];
-    if (!Number.isFinite(px)) {
+    const px2 = s.kind === 'race' ? prices[s.feed2] : 1;
+    if (!Number.isFinite(px) || !Number.isFinite(px2)) {
       // feed missing this tick — stay open, unless it has been gone a
       // full day past expiry (e.g. a delisted feed): then VOID-refund
       // so no shot can hang forever.
@@ -360,12 +408,20 @@ async function settle(p, prices) {
       refund(p, s); s.res = 'void'; s.settledAt = now; s.exitPx = null;
       await reverseStake(s.stake);
       await append({ k:'settle', w: p.w, id: s.id, res: 'void', reason: 'feed-gone' });
+      await pushHist(p.w, { id: s.id, t: now, label: s.label, side: s.side, res: 'void', xp: 0, stake: s.stake, entry: s.entry, exit: null });
       p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
       continue;
     }
     changed = true;
     let outcome;
     if (s.kind === 'thr') outcome = px > s.thresh ? 'YES' : 'NO';
+    else if (s.kind === 'thrDown') outcome = px < s.thresh ? 'YES' : 'NO';
+    else if (s.kind === 'range') outcome = Math.abs((px - s.entry) / s.entry) >= s.pct ? 'YES' : 'NO';
+    else if (s.kind === 'race') {
+      const a = (px - s.entry) / s.entry, b2 = (px2 - s.entry2) / s.entry2;
+      if (Math.abs(a - b2) < EPS) outcome = 'VOID';
+      else outcome = a > b2 ? 'YES' : 'NO';
+    }
     else {
       const chg = (px - s.entry) / s.entry;
       if (Math.abs(chg) < EPS) outcome = 'VOID';
@@ -385,6 +441,8 @@ async function settle(p, prices) {
     }
     s.settledAt = now; s.exitPx = px;
     await append({ k:'settle', w: p.w, id: s.id, res: s.res, exitPx: px });
+    await pushHist(p.w, { id: s.id, t: now, label: s.label, side: s.side, res: s.res,
+      xp: s.res === 'hit' ? s.xp : 0, stake: s.stake, entry: s.entry, exit: px });
     p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
   }
   p.open = still;
@@ -452,6 +510,7 @@ module.exports = async (req, res) => {
         player = { ...p, rank: RANKS[rankOf(p.xp)][0], rankIdx: rankOf(p.xp),
           next: RANKS[rankOf(p.xp)+1] || null, chambers: Math.min(4, rankOf(p.xp)+1) + 1 };
         delete player._existed; delete player._src;
+        player.history = ((await getJSON(`hist:${w}`)) || []).slice(0, 60);
         // CHAMPION CONSOLE data: seat share, 7d earnings, live balance
         // (cached 60s), and the exact amount sellable without losing the
         // seat — so champions can exit smart instead of dumping blind.
@@ -494,11 +553,13 @@ module.exports = async (req, res) => {
       const ladderDay = Object.entries(lbd).filter(([wl]) => !isDemo(wl)).sort((a,b)=>b[1]-a[1]).slice(0,10)
         .map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
       return res.json({ ok:true, v: VERSION, durable,
-        prices:{src:prices.src,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP},
+        prices:{src:prices.src,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
         stats: st, feed: (await getJSON('g:feed')) || [], ladder, ladderDay,
         warden: wardenLine(prices), wardenRec,
         wardenHist: (await getJSON('g:warden:hist')) || [],
-        targets: Object.fromEntries(Object.entries(TARGETS).filter(([,t]) => Number.isFinite(prices[t.feed]))),
+        targets: Object.fromEntries(Object.entries(targetBoard(boardHour()))
+          .filter(([,t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))),
+        boardFlip: (boardHour() + 1) * 3600e3,
         split: SPLIT, potSplit: { day: POT_DAY_SHARE, week: 1 - POT_DAY_SHARE },
         champ: { pct: CHAMP.pct, curve: CHAMP.curve, holdPct: CHAMP.holdPct, holdDays: CHAMP.holdDays,
           podium: (podNow.list || []).map(x => ({ w: shortW(x.w), ata: x.ata, pct: x.pct })) },
@@ -524,12 +585,15 @@ module.exports = async (req, res) => {
       if (p.open.length >= cap) { await savePlayer(p); return res.status(409).json({ ok:false, reason:`all ${cap} chambers full` }); }
       const stake = +b.stake;
 
-      // ---- validate EVERYTHING before any money moves.
+      // ---- validate EVERYTHING before any money moves. The previous
+      // hour's board stays valid as a grace window, so a click that
+      // lands just after the hourly flip still seals.
       let spec = null;
       if (action === 'shot') {
-        const t = TARGETS[b.target];
-        if (!t || (b.side!=='YES' && b.side!=='NO')) { await savePlayer(p); return res.status(400).json({ ok:false, reason:'bad target/side' }); }
-        if (!Number.isFinite(prices[t.feed])) { await savePlayer(p); return res.status(409).json({ ok:false, reason:'that feed is offline right now - try another target' }); }
+        const board = { ...targetBoard(boardHour() - 1), ...targetBoard(boardHour()) };
+        const t = board[b.target];
+        if (!t || (b.side!=='YES' && b.side!=='NO')) { await savePlayer(p); return res.status(400).json({ ok:false, reason:'that question left the board - pick from the current mix' }); }
+        if (!Number.isFinite(prices[t.feed]) || (t.feed2 && !Number.isFinite(prices[t.feed2]))) { await savePlayer(p); return res.status(409).json({ ok:false, reason:'that feed is offline right now - try another target' }); }
         spec = t;
       } else if (b.side!=='with' && b.side!=='against') { await savePlayer(p); return res.status(400).json({ ok:false, reason:'bad side' }); }
 
@@ -539,13 +603,17 @@ module.exports = async (req, res) => {
       let shot;
       if (action === 'shot') {
         const t = spec;
-        const isThr = Number.isFinite(t.pct);
-        const xpMult = isThr ? (b.side === 'YES' ? 1 : 0.35) : 1;
+        const kind = t.kind || 'dir';
+        const xpMult = b.side === 'YES' ? (t.yesMult != null ? t.yesMult : 1)
+                                        : (t.noMult != null ? t.noMult : 1);
         shot = { id: Math.random().toString(36).slice(2,10),
-          kind: isThr ? 'thr' : 'dir', feed:t.feed, side:b.side,
+          kind, feed:t.feed, side:b.side,
           entry: prices[t.feed], exp: Date.now()+t.mins*60e3, stake,
           xp: Math.max(1, Math.round(t.baseXp * STAKES[stake] * xpMult)), label: t.label };
-        if (isThr) shot.thresh = prices[t.feed] * (1 + t.pct);
+        if (kind === 'thr') shot.thresh = prices[t.feed] * (1 + t.pct);
+        if (kind === 'thrDown') shot.thresh = prices[t.feed] * (1 - t.pct);
+        if (kind === 'range') shot.pct = t.pct;
+        if (kind === 'race') { shot.feed2 = t.feed2; shot.entry2 = prices[t.feed2]; }
       } else {
         const wl = wardenLine(prices);
         const withW = b.side === 'with';
