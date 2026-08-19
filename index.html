@@ -1,8 +1,15 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RATCHET — feed the machine</title>
+<title>RATCHET — The Machine That Cannot Lie | $RCX</title>
 <meta name="description" content="Fire sealed shots at the market. Beat the Warden. Climb the ranks. The floor only goes up.">
+<meta property="og:title" content="RATCHET — the floor only goes up">
+<meta property="og:description" content="Fire sealed shots at the market, settled on real oracle prices. Beat the Warden. Burn $RCX to play — 70% burned, 0% to the team. Everything verified on-chain, live.">
+<meta property="og:image" content="https://ratchetx.vercel.app/og.png">
+<meta property="og:url" content="https://ratchetx.vercel.app">
+<meta property="og:type" content="website">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="https://ratchetx.vercel.app/og.png">
 <style>
 :root{
   --bg:#07080a;--card:#0f1115;--card2:#161a21;--line:rgba(255,255,255,.07);
@@ -202,6 +209,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       border-radius:99px;padding:5px 11px;cursor:pointer" onclick="copyCA()">CA —</span>
     <a id="pfLink" href="#" target="_blank" rel="noopener" style="color:var(--grn);text-decoration:none;background:var(--card2);
       border:1px solid var(--line);border-radius:99px;padding:5px 11px">PUMP.FUN ↗</a>
+    <span id="burnChip" style="display:none;color:var(--red);background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">🔥 —</span>
     <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none;
       background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">GITHUB — READ THE CODE ↗</a>
   </div>
@@ -216,6 +224,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="msub" id="beat" style="margin-bottom:2px"></div>
     <div class="msub">FED BY EVERY SHOT · <b id="fedN">—</b> SHOTS FIRED · CAN ONLY GO UP <span style="color:var(--goldD)">(SIMULATED UNTIL VAULT DEPLOY)</span></div>
     <div class="prices" id="prices"></div>
+    <div id="burnLine" style="display:none;margin-top:12px;font:700 12px var(--mono);letter-spacing:.08em;color:var(--red)"></div>
     <div style="margin:20px 0 4px;text-align:left">
       <button id="howBtn" style="background:none;border:1px solid var(--line);border-radius:8px;color:var(--ink2);
         font:700 10px var(--mono);letter-spacing:.14em;padding:8px 12px;cursor:pointer">? HOW TO PLAY</button>
@@ -229,10 +238,13 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         MISS resets your streak. XP only ever comes from being <i>right</i>, never from spending more.<br>
         <b style="color:var(--ink)">3 · Climb.</b> XP ranks you COG → PISTON → FLYWHEEL → TURBINE → REACTOR. Higher
         ranks unlock more simultaneous chambers — never better odds.<br>
-        <b style="color:var(--ink)">4 · Get paid.</b> 30% of every stake feeds the weekly pot. Every Sunday 00:00 UTC
-        the top 5 on the ladder are paid <b style="color:var(--gold)">automatically</b> — 40/25/15/12/8% — no claim
-        button, no waiting. Unclaimed shares roll into next week.<br>
-        <span style="color:var(--dim)">PAPER refills daily so you can always play free (unranked practice).
+        <b style="color:var(--ink)">4 · Get paid — on two clocks.</b> 30% of every stake feeds the pots: half the
+        <b style="color:var(--gold)">DAILY pot</b> (top 3 take 50/30/20% at 00:00 UTC) and half the
+        <b style="color:var(--gold)">WEEKLY season pot</b> (top 5 take 40/25/15/12/8% every Sunday 00:00 UTC).
+        Both pay <b style="color:var(--gold)">automatically</b> — no claim button, no waiting. Unclaimed shares
+        roll into the next pot.<br>
+        <span style="color:var(--dim)">PAPER refills daily so you can always play free — demo play is truly
+        unranked: it never enters any ladder and is never paid from any pot.
         CREDITS come from burning RCX — 1 burned = 1 credit — and that burn is verified on-chain, forever.
         The 70/30/0 split under the fire button is frozen: 0% ever goes to the team; the creator is paid from
         trading fees on the token only.</span>
@@ -247,7 +259,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       <button class="stk" data-s="2500">2,500<small>×5 XP</small></button>
     </div>
     <button class="fire" id="fire" disabled>PICK A TARGET AND A SIDE</button>
-    <div class="splitline">EVERY SHOT: <b>70% BURNED</b> · 30% SEASON POT · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
+    <div class="splitline">EVERY SHOT: <b>70% BURNED</b> · 30% POTS (15% DAILY / 15% WEEKLY) · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
   </div></div>
   <div class="rcol">
     <div class="panel"><h3>YOUR CHAMBERS <span id="chC">—</span></h3>
@@ -284,6 +296,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="weye"><i></i></div>
     <div class="wname">THE WARDEN</div>
     <div class="wrec" id="wrec">v0 HEURISTIC · EVERY CALL SEALED BEFORE THE OUTCOME · LLM BRAIN LANDS WAVE 3</div>
+    <div class="wrec" id="wrecN" style="color:var(--ink2)"></div>
     <div class="wline">
       <div class="q" id="wq">—</div>
       <div class="wp" id="wp">—<small>%</small></div>
@@ -317,10 +330,15 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     </div>
   </div>
   <div class="ranksrow" id="rkrow"></div>
+  <div class="panel ladder" style="margin-bottom:13px"><h3>TODAY'S LADDER · <span id="dayK"></span><span style="color:var(--gold)" id="potDN"></span></h3><div id="ladderDay"></div>
+    <div style="font:600 9.5px/1.6 var(--mono);letter-spacing:.06em;color:var(--dim);margin-top:10px">
+      PAYS AUTOMATICALLY AT 00:00 UTC, EVERY DAY: TOP 3 TAKE 50 / 30 / 20% OF THE DAILY POT AS CREDITS.
+      UNCLAIMED SHARES ROLL INTO TOMORROW. NO HANDS, NO BUTTON, NO DELAY.</div></div>
+  <div class="panel" id="lastDayP" style="display:none;margin-bottom:13px"><h3>YESTERDAY — PAID OUT</h3><div id="lastDay"></div></div>
   <div class="panel ladder"><h3>SEASON LADDER · <span id="seas"></span><span style="color:var(--gold)" id="potN"></span></h3><div id="ladder"></div>
     <div style="font:600 9.5px/1.6 var(--mono);letter-spacing:.06em;color:var(--dim);margin-top:10px">
-      PAYS AUTOMATICALLY AT SEASON END (SUNDAY 00:00 UTC): TOP 5 TAKE 40 / 25 / 15 / 12 / 8% OF THE POT AS CREDITS.
-      UNCLAIMED SHARES ROLL OVER. NO HANDS, NO BUTTON, NO DELAY.</div></div>
+      PAYS AUTOMATICALLY AT SEASON END (SUNDAY 00:00 UTC): TOP 5 TAKE 40 / 25 / 15 / 12 / 8% OF THE SEASON POT AS
+      CREDITS. UNCLAIMED SHARES ROLL OVER. NO HANDS, NO BUTTON, NO DELAY. DEMO PLAY NEVER RANKS.</div></div>
   <div class="panel" id="lastSeasonP" style="display:none;margin-top:13px"><h3>LAST SEASON — PAID OUT</h3><div id="lastSeason"></div></div>
 </div></section>
 
@@ -339,7 +357,8 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       Every seal, settlement, reload and payout is hash-chained: change any past event and every
       hash after it breaks. <b style="color:var(--ink)">Anyone</b> can anchor the current head into a
       Solana memo transaction from their own wallet — from that slot on, the chain itself timestamps
-      our history. Scribes earn <b style="color:var(--gold)">+25 XP</b>. That includes you.</div>
+      our history. Scribes earn <b style="color:var(--gold)">+25 XP</b> (once per wallet per day — anchoring
+      is always open; the cooldown just stops memo-spam being the cheapest XP in the game). That includes you.</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <button class="connect" style="border-radius:8px" id="anchorGo">⚓ ANCHOR THE LOG (+25 XP)</button>
       <div id="memoStr" style="font:600 10px var(--mono);color:var(--ice);background:var(--card2);border:1px solid var(--line);
@@ -378,7 +397,7 @@ async function connect(){
     DEMO="demo-"+Math.random().toString(36).slice(2,8);
     localStorage.setItem("ratchet_demo",DEMO);
     $("cx").textContent="DEMO · "+DEMO.slice(5);$("cx").classList.add("done");
-    toast("No wallet found — playing in DEMO mode (unranked). Install Phantom to play ranked.");
+    toast("No wallet found — DEMO mode: play freely, but demo shots never enter the ladders or pots. Install Phantom to play ranked.");
     refresh();return;
   }
   try{
@@ -454,6 +473,9 @@ function paint(){
   $("wq").textContent=s.warden.q+"?";
   $("wp").innerHTML=s.warden.p+"<small>%</small>";
   $("wr").textContent=s.warden.r;
+  if(s.wardenRec&&s.wardenRec.n>0){const r=s.wardenRec;
+    $("wrecN").textContent=`RECORD · ${r.n} SETTLED CALLS · ${r.hits} RIGHT (${Math.round(r.hits/r.n*100)}%) · BRIER ${(r.brier/r.n).toFixed(3)} — WINS AND LOSSES ALIKE`;}
+  else $("wrecN").textContent="RECORD · ACCRUES FROM ITS FIRST SETTLED CALL — WINS AND LOSSES ALIKE";
   // player
   const p=s.player;
   if(p){
@@ -461,7 +483,8 @@ function paint(){
     $("hBal").textContent=p.bal.toLocaleString();
     if(s.mint){$("hCr").style.display="inline";$("hCr").textContent=p.cr.toLocaleString()+" · PAPER ";}
     $("hS").textContent=p.streak+"🔥";
-    $("hX").style.width=(p.next?Math.min(100,(p.xp-(p.next[1]-p.next[1]))/(p.next[1])*100):100)+"%";
+    const curTh=[0,300,900,2200,5000][p.rankIdx]||0;
+    $("hX").style.width=(p.next?Math.max(0,Math.min(100,(p.xp-curTh)/(p.next[1]-curTh)*100)):100)+"%";
     $("mR").textContent=p.rank+(DEMO?" · DEMO (UNRANKED)":"");
     $("mN").textContent=p.next?`${p.next[1]-p.xp} XP to ${p.next[0]} · ${p.chambers} chambers`:"MAX RANK";
     $("mXP").textContent=p.xp;$("mBest").textContent=p.best;
@@ -491,6 +514,18 @@ function paint(){
   fx($("kill"));fx($("duelfeed"));
   $("seas").textContent=s.season.toUpperCase();
   $("potN").textContent=" · POT "+Math.floor(s.stats.pot||0).toLocaleString()+" 🔥";
+  $("dayK").textContent=(s.day||"").toUpperCase();
+  $("potDN").textContent=" · POT "+Math.floor(s.stats.potD||0).toLocaleString()+" 🔥";
+  $("ladderDay").innerHTML=(s.ladderDay&&s.ladderDay.length)?s.ladderDay.map((l,i)=>`
+    <div class="lr ${l.me?'me':''}"><span class="pos">${i+1}</span><span class="wl2">${l.me?'YOU':l.w}</span><span class="sc">${l.xp} XP</span></div>`).join("")
+    :'<div class="empty" style="margin:6px 0">NOBODY ON TODAY\'S LADDER YET — FIRST HIT LEADS</div>';
+  if(s.lastDay&&s.lastDay.winners&&s.lastDay.winners.length){
+    $("lastDayP").style.display="block";
+    $("lastDay").innerHTML=s.lastDay.winners.map((v,i)=>`
+      <div class="lr"><span class="pos">${i+1}</span><span class="wl2">${v.w}</span>
+      <span class="sc" style="color:var(--gold)">+${v.share.toLocaleString()} 🔥</span></div>`).join("")+
+      (s.lastDay.rolled>0?`<div style="font:600 9.5px var(--mono);color:var(--dim);padding:8px 14px">+ ${s.lastDay.rolled.toLocaleString()} ROLLED INTO TODAY</div>`:"");
+  }
   if(s.lastSeason&&s.lastSeason.winners&&s.lastSeason.winners.length){
     $("lastSeasonP").style.display="block";
     $("lastSeason").innerHTML=s.lastSeason.winners.map((v,i)=>`
@@ -509,7 +544,13 @@ document.querySelectorAll(".stk").forEach(b=>b.onclick=()=>{
 // ---------- actions ----------
 async function post(body){
   const r=await fetch(API,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(body)});
-  return r.json();
+  const j=await r.json();
+  if(!j.ok&&/expired/i.test(j.reason||"")&&AUTH){   // stale signature: force a clean reconnect
+    AUTH=null;localStorage.removeItem("ratchet_auth");
+    $("cx").textContent="CONNECT";$("cx").classList.remove("done");
+    toast("session expired — tap CONNECT to sign again");
+  }
+  return j;
 }
 $("fire").onclick=async()=>{
   const j=await post({action:"shot",auth:AUTH||{wallet:DEMO},target:sel.t,side:sel.side,stake:sel.stake});
@@ -613,8 +654,9 @@ $("burngo").onclick=async()=>{
 // ---------- LIVE proof ----------
 let PROOF=null,proofAt=0;
 const STATIC_LINES=[
-["g","Every stake is split by a published, frozen rule","70% burn · 30% season pot · 0% creator — printed on the fire button itself"],
+["g","Every stake is split by a published, frozen rule","70% burn · 30% pots (15% daily / 15% weekly) · 0% creator — printed on the fire button itself"],
 ["g","Your side is sealed until settlement","Other players and the Warden cannot see it before the window closes"],
+["g","Targets settle on markets no player can move","majors via Pyth only — RCX-priced shots were removed on purpose: a thin market you can trade is a bet you can settle yourself"],
 ["p","The Machine's floor is redeemable SOL","The vault program (Wave 4): no withdraw instruction, upgrade authority revoked"]];
 function drawProof(){
   if(!PROOF)return;
@@ -628,11 +670,25 @@ function drawProof(){
     <div class="bd"><b>${a}</b><span>${b}</span></div><span class="st ${s}">${s==="g"?"LIVE":"IN DESIGN"}</span></div>`).join("");
   $("chks").innerHTML=live+stat;
   if(PROOF.supply){const s=PROOF.supply;
+    const pb=s.playerBurned!=null?Math.round(s.playerBurned):null;
+    const other=s.otherDestroyed!=null?Math.round(s.otherDestroyed):null;
     $("supplyStrip").innerHTML=`<span class="pr">INITIAL <b>${s.initial.toLocaleString()}</b></span>
     <span class="pr">NOW <b>${s.current.toLocaleString()}</b></span>
-    <span class="pr" style="border-color:var(--goldD)">DESTROYED <b style="color:var(--gold)">${s.destroyed.toLocaleString()}</b></span>
+    ${pb!=null?`<span class="pr" style="border-color:var(--goldD)">PLAYERS BURNED <b style="color:var(--gold)">${pb.toLocaleString()}</b></span>`:""}
+    ${other!=null?`<span class="pr">LAUNCHPAD/OTHER <b>${other.toLocaleString()}</b></span>`:""}
     <span class="pr">AT INCINERATOR <b style="color:var(--red)">${s.incinerated.toLocaleString()}</b></span>`;}
   if(PROOF.log){$("logHead").textContent=` · ENTRY #${PROOF.log.i} · ${PROOF.log.h.slice(0,12)}…`;}
+  if(PROOF.supply){const s=PROOF.supply;
+    // Honesty is the aesthetic: the headline burn number is the one WE
+    // caused. What pump.fun destroyed at graduation is stated separately,
+    // never claimed as game activity.
+    const pb=s.playerBurned!=null?Math.round(s.playerBurned):Math.round(s.destroyed+s.incinerated);
+    const other=s.otherDestroyed!=null?Math.round(s.otherDestroyed):0;
+    const f=pb>=1e6?(pb/1e6).toFixed(2)+"M":pb.toLocaleString();
+    const fo=other>=1e6?(other/1e6).toFixed(2)+"M":other.toLocaleString();
+    $("burnChip").style.display="inline";$("burnChip").textContent="🔥 "+f+" PLAYER-BURNED";
+    $("burnLine").style.display="block";
+    $("burnLine").textContent="🔥 "+pb.toLocaleString()+" RCX BURNED BY PLAYERS — VERIFIED ON-CHAIN"+(other>0?" · +"+fo+" REMOVED AT GRADUATION (PUMP.FUN-SIDE, NOT GAME ACTIVITY)":"");}
   $("anchorList").innerHTML=(PROOF.anchors||[]).map(a=>`<div class="kl"><span class="t">#${a.i}</span>
     <span class="wl">${a.w}</span><span>anchored · <a href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener" style="color:var(--ice)">tx ↗</a></span></div>`).join("")
     ||'<div class="empty">NOT YET ANCHORED — BE THE FIRST SCRIBE</div>';
@@ -660,7 +716,7 @@ async function anchorLog(){
     await new Promise(r=>setTimeout(r,4000));
     const j=await post({action:"anchor",auth:AUTH,sig:signature});
     if(!j.ok){toast("⚠ "+j.reason+" — you can paste the signature below once confirmed");return}
-    toast(`⚓ LOG ANCHORED at entry #${j.i} · +${j.xp} XP — the chain now timestamps our history`);
+    toast(`⚓ LOG ANCHORED at entry #${j.i}${j.xp?` · +${j.xp} XP`:" · (XP pays once per day)"} — the chain now timestamps our history`);
     loadProof();refresh();
   }catch(e){
     toast("auto-send failed: "+((e&&e.message)||"cancelled")+" — or paste a memo tx signature below");
@@ -672,7 +728,7 @@ $("anchorPaste").onclick=async()=>{
   const sg=$("anchorsig").value.trim();if(!sg){toast("paste the signature first");return}
   const j=await post({action:"anchor",auth:AUTH,sig:sg});
   if(!j.ok){toast("⚠ "+j.reason);return}
-  $("anchorsig").value="";toast(`⚓ ANCHORED at entry #${j.i} · +${j.xp} XP`);loadProof();refresh();
+  $("anchorsig").value="";toast(`⚓ ANCHORED at entry #${j.i}${j.xp?` · +${j.xp} XP`:" · (XP pays once per day)"}`);loadProof();refresh();
 };
 
 $("howBtn").onclick=()=>{const b=$("howBox");b.style.display=b.style.display==="none"?"block":"none";};

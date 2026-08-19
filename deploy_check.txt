@@ -1,0 +1,4 @@
+RATCHET preflight Wed 08/19/2026 12:54:14.76
+C:\Program Files\nodejs\node.exe
+v24.15.0
+11.12.1
