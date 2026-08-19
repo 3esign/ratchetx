@@ -111,6 +111,12 @@ ok(pr.cr === crB4 + 500, 'daily pot paid #1 (50%) to the real wallet');
 ok(!getMem('u:demo-zzz'), 'demo wallet excluded from payout');
 ok(st.potD === 500, 'unpaid daily shares rolled over');
 ok(getMem('g:dayResults')?.winners?.length === 1, 'day results recorded');
+{ // STAGE 1a: the rollover folded a balance root into the log
+  const chunkR = getMem('g:log:c:0') || [];
+  const rootEv = [...chunkR].reverse().find(e => e.ev.k === 'root');
+  ok(rootEv && rootEv.ev.day === '2020-01-01' && /^[0-9a-f]{64}$/.test(rootEv.ev.root) && rootEv.ev.players >= 2, 'balance root appended at daily rollover');
+  ok(getMem('g:lastRoot')?.root === rootEv?.ev.root, 'lastRoot mirror matches the log');
+}
 
 setMem('g:season', 's1999w1');                       // force a season boundary
 setMem('lb:s1999w1', { [RW]: 50 });

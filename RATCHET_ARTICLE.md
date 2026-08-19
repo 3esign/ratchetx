@@ -1,91 +1,152 @@
-# The Machine That Cannot Lie: How RATCHET Turns Radical Transparency Into a Game
+# The Machine That Cannot Lie: RATCHET, One Day In
 
-*Why we built a degen game with no treasury, no admin keys, and a proof page that would rat us out before we could.*
+*Why we built a degen game with no treasury, no admin keys, real token rewards that pay
+peer-to-peer, and a proof page that would rat us out before we could.*
+
+**Play: [ratchetx.vercel.app](https://ratchetx.vercel.app) · $RCX on
+[pump.fun](https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump) ·
+CA `FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump` ·
+[read the code](https://github.com/3esign/ratchetx)**
 
 ---
 
-Every token launch says "trust us." The whitepaper promises a burn. The team promises a lockup. The Discord promises utility "soon." And every degen has learned, at some personal expense, what those promises are worth: exactly nothing, because a promise is a thing a person can break, and the person is the part of the system you can't verify.
+Every token launch says "trust us." The whitepaper promises a burn. The team promises a lockup.
+The Discord promises utility "soon." And every degen has learned, at some personal expense, what
+those promises are worth: exactly nothing, because a promise is a thing a person can break, and
+the person is the part of the system you can't verify.
 
-RATCHET is our attempt to build the opposite object — a game where there is nothing to promise because there is nothing we *could* break. Not "we won't rug." **There is no mechanism by which a rug could occur, and the site checks that claim against the chain every thirty seconds, in public, and will say so in red the moment it stops being true.**
+RATCHET is the opposite object — a game where there is nothing to promise because there is
+nothing we *could* break. Not "we won't rug." **There is no mechanism by which a rug could
+occur, and the site checks that claim against the chain every thirty seconds, in public, and
+will say so in red the moment it stops being true.**
 
-That's the pitch. Here's the machine.
+That was the pitch on day zero. Here's the machine after one day of being real — launched,
+graduated to PumpSwap, played by strangers, and upgraded seven times in public, with every
+change in the changelog.
 
 ## The game in one breath
 
-Feed the Machine. Fire sealed shots. Beat the Warden. Climb the ranks.
+Fire sealed shots at real markets. Beat the Warden. Climb the ranks. Get paid for being right.
 
-You pick a market call — SOL higher in five minutes, BTC higher in an hour, ETH higher in a day — choose a stake, and fire. Your shot is **sealed**: nobody, not other players, not the Warden, not us, can see your side until the window closes. When it does, the shot settles against **real oracle prices** — the same Pyth feeds Solana's biggest exchanges settle on — and lands as a HIT or a MISS, with XP, in public, on a weekly ladder.
+THE BOARD deals a fresh mix of questions every hour — deterministically from the clock, so
+every player sees the same board. Evergreen anchors (SOL in 5 minutes, BTC in an hour, PUMP in
+30, ETH in a day) plus rotating specials: THE PUMP and THE DUMP, thresholds sized to each
+market's real volatility; THE RACE, two assets head-to-head; THE BOX, does the hour end outside
+the band. Every question settles on **Pyth oracle prices** — SOL, BTC, ETH, PUMP, BONK, WIF,
+JUP — markets so deep no player can move them. That last part is a design law: we launched with
+shots on RCX's own price and **removed them the same day**, because a thin market you can trade
+is a bet you can settle yourself. The board only asks questions nobody can rig.
 
-XP comes from being right, not from spending. There is no way to grind rank with volume; accuracy is the only currency the ladder accepts. Ranks run COG → PISTON → FLYWHEEL → TURBINE → REACTOR, and higher ranks unlock more simultaneous chambers — more open shots at once — never better odds. The game respects one thing and it's the same thing the market respects: being right when it counted.
+XP comes from being right, never from spending. Ranks run COG → PISTON → FLYWHEEL → TURBINE →
+REACTOR and unlock more simultaneous chambers — never better odds. Paper refills daily, so the
+game is free to play forever.
 
-## The Warden
+## Sealed now means cryptographically sealed
 
-Every player needs an opponent, and ours is an AI with a public criminal record.
+On day one, "sealed" was a database column. By the evening it was cryptography — because while
+mapping our on-chain roadmap we audited our own core promise and found it soft: an open shot's
+side was technically readable through the public log before settlement. Nobody had noticed. We
+found it, fixed it, and disclosed it in the changelog the same hour.
 
-The Warden posts a line — a price, a window, and its own probability — and you go WITH it or AGAINST it. Going with it is safe and pays modestly. Going against it and being right is the hardest thing in the game, and pays like it. Every call the Warden has ever made is scored where everyone can see it, wins and losses alike, because an oracle that only shows you its wins is just a horoscope with a UI.
+Now every seal writes `sha256(side|salt)` into the hash-chained log — a commitment, not a
+secret in plaintext. Settlement reveals the side and salt, so **anyone can verify every seal
+after the fact, and nobody — including us, including our own database exports — can read one
+before.** You cannot be front-run, copy-traded, or spied on, and you don't have to take our
+word for it: the math is the guarantee.
 
-Today the Warden is a stated, deterministic heuristic — we tell you exactly what it is on the page. The LLM brain lands in a later wave. Its record accrues from day one either way, because the sealing and settlement machinery doesn't care how smart the thing being scored is. That's the point of the machinery.
+## Real rewards, and still no key anywhere
 
-## Sealed until settled
+The economy runs one frozen rule at both doors: **70 / 30 / 0.**
 
-Commit-reveal isn't a new idea. Making it the entire aesthetic of a product is.
+Every *stake* feeds the Machine: 70% to the burn counter, 30% to the pots — a daily pot paying
+the top 3 (50/30/20) at midnight UTC and a weekly season pot paying the top 5, automatically,
+no claim button, unclaimed shares rolling over.
 
-Because every action is sealed until it's scored, three chronic diseases of on-chain games are structurally impossible here rather than policed: you cannot be front-run, because there is nothing visible to front-run. You cannot be copy-traded, because there is nothing visible to copy. And the game can never rot into a shill board, because by the time anyone can read a call, it already carries its result. Conviction without a receipt simply does not exist on this site.
+Every *reload* — real RCX burned for ranked credits — splits the same way: **70% burns forever,
+30% is paid straight to the daily podium's wallets**, inside the reloader's own signed
+transaction. There is no prize pool, no custody, no claim button, because the money never sits
+anywhere: it moves player-to-champion in the same block, and the server's only job is to refuse
+any reload whose transfers go anywhere but the incinerator or the published podium.
 
-## The economics, in one sentence each
+Two rules keep it honest. **The Holder Rule:** a champion must keep at least half of their last
+seven days' winnings in their wallet, or the seat silently passes to the next player — nobody's
+tokens are locked, but dumping has a published price: the income stops. And **the Gearbox:**
+staking with no deposit — register with one signature, your tokens never move, and the Machine
+pays daily play-credits on your verified on-chain balance. Every staking rug in history needed
+your tokens in their contract; ours can't rug you because it never takes anything.
 
-Every stake is split by a rule printed on the fire button itself: **70% burned, 30% to the weekly season pot, 0% to the team.**
+The team is paid exactly one way: the standard pump.fun creator fee on trading volume, to a
+published wallet. 0% of stakes. 0% of reloads. Printed on the buttons, frozen.
 
-The season pot pays out **automatically** — the first request after Sunday midnight UTC settles the week, pays the top five on a published curve, and rolls unclaimed shares into the next pot. No button, no operator, no delay.
+## The machine cannot be killed — only paused
 
-The team is paid one way only: **the creator fee share on trading volume**, the standard pump.fun mechanism, flowing to a published wallet. We never touch player funds because there is no path in the code by which we could.
+The token was born unkillable: mint authority revoked, freeze authority revoked, liquidity
+protocol-held on PumpSwap since graduation. Read it from the chain; every proof-page line links
+the account that proves it.
 
-And there is no faucet. Nothing mints. Rewards are credits and free play, never emitted tokens — because every play-to-earn economy that printed its rewards died the same death, and we read the autopsies.
+The state joined it on day one. Every game event lives in a **hash-chained log, retained in
+full**, and any player can anchor the current head into a Solana memo from their own wallet
+(+25 XP — our bookkeeping's integrity is a game mechanic with a leaderboard). The entire
+machine — every player, every credit, every burn signature, the complete log — exports at
+`/api/snapshot`, and the repo ships `restore.mjs` plus a `RESURRECTION.md`: any stranger can
+verify a snapshot against the anchored hashes and resurrect the whole game on their own hosting
+in fifteen minutes, provably intact. Once a day the log also swallows a **balance root** — a
+fingerprint of every player's holdings — so the chain itself notarizes who owned what, in
+advance, forever.
+
+Kill our server and you have paused RATCHET. You cannot end it.
+
+## The Warden's first public call was wrong, and that's the point
+
+The Warden — the house AI — posts an hourly line with its own stated probability. You go WITH
+it (safe, modest XP) or AGAINST it (×3.4 if you're right). Every call it makes is sealed before
+the outcome and settled on the same oracle as everything else, wins and losses alike.
+
+Its first-ever settled call was a miss. It said 36%; the market crossed anyway. That miss sits
+on the page with a Brier score attached, because an oracle that only shows you its wins is a
+horoscope with a UI. The Warden is a stated heuristic today; a bigger brain lands in a later
+wave — and the scoring machinery won't care how smart it gets.
 
 ## The infrastructure, because "trustless" is an engineering claim
 
-This is the part most launches keep vague. We'd rather show the receipts.
-
-The entire backend is **zero-dependency serverless JavaScript on Vercel** — no framework, no npm packages, small enough to read in one sitting. Prices come from **Pyth** with a Coinbase fallback, both keyless public APIs, and the same source prices a shot at seal and at settle. Chain reads ride a dedicated **Helius** RPC lane with the public RPC as automatic fallback. State lives in **Upstash Redis**.
-
-Settlement is **lazy**: expired shots settle whenever anyone touches the API. There is no cron job, no daemon, no scheduled task — nothing that a human could forget to run, because the graveyard of dead projects is full of machines that needed someone to keep showing up.
-
-Burns are **keyless by construction**. To reload, you send RATCHET from your own wallet to Solana's incinerator address — a plain transfer any wallet can make — and paste the transaction signature. The server reads the chain and credits you only if the transaction succeeded, is recent, your balance fell, the tokens verifiably left circulation, and that signature was never used before. At no point does a private key exist on our side. There is no treasury wallet, no multisig, no custody. The most common rug in history is impossible here for the dullest possible reason: **the wallet that would do the rugging was never created.**
-
-## The log, and the strangers who notarize it
-
-Every seal, every settlement, every reload, every season payout is appended to a **hash-chained event log**. Change any past event and every hash after it breaks — the standard trick, and a good one.
-
-But a hash chain kept by us still requires trusting us about *when* things happened. So we made the timestamping permissionless: **anyone can anchor the log's current head into a Solana memo transaction from their own wallet.** The server verifies the memo matches the real chain of hashes and pays the scribe +25 XP. From that slot forward, Solana itself — not us — timestamps our entire history. The integrity of our books is a game mechanic with a leaderboard, which we think might be the most honest sentence ever written about bookkeeping.
-
-## The proof page, which is the actual product
-
-Everything above is summarized on one page that re-verifies itself against the chain every thirty seconds while you watch: mint authority revoked — read from the mint account, not asserted. Freeze authority revoked. Supply only falls, checked against the first supply ever observed — and if it ever grew, the page goes red and says so before we could spin it. The incinerator's live balance. Recent burns with their signatures. Every green line links to the account or transaction that proves it.
-
-A checklist that can only ever be green is decoration. Every line here is a live query that can genuinely fail. That is the difference between transparency as marketing and transparency as architecture, and it is the entire reason this project exists.
+The whole backend is **zero-dependency serverless JavaScript** — no framework, no packages,
+small enough to read in one sitting, and public: the live API returns a build marker
+(`h7-2026-08-19` as of this writing) that must match the constant declared in the repo, so you
+can verify the code you're reading is the code that's running. Prices come from **Pyth** with a
+keyless fallback; the token is **Token-2022** on **Solana**; the market lives on **pump.fun /
+PumpSwap**; settlement is lazy — no cron, no daemon, nothing a human could forget to run. And
+the on-chain migration has begun: commit-reveal sealing is live, an Anchor settlement program
+(seal → permissionless Pyth settle → reveal, no custody) is written and headed to devnet, and
+the endgame — an audited vault where a share of the game's own flow becomes SOL vesting to
+players, held by a program instead of anyone's wallet — ships only after review, because an
+immutable bug is forever and we will not rush the one component where a mistake is permanent.
 
 ## What we are not claiming
 
-Honesty is the aesthetic, so: the Machine's floor — the number at the center of the game — is **simulated until the vault program ships**, and the page says so in so many words. The real thing, a redemption floor backed by SOL in a program with no withdraw instruction and a revoked upgrade authority, is the endgame — and it ships only after an audit, because an immutable program's bugs are immutable too. We will not rush the one component where a mistake is forever. Until then, the floor is a scoreboard, clearly labeled, and the game stands on its own without it.
-
-The Warden is a heuristic today, an LLM later. Paper credits refill daily so the game is free to try forever; burns buy ranked play. And nothing here is financial advice — it's a game about being right, and most people aren't.
-
-## The road forward
-
-Wave by wave: the Warden gets its LLM brain and starts sealing its answers on-chain, making its record tamper-proof as well as public. The season economy deepens — streaks with burnable freezes, contracts, named challenges. And the vault lands last, audited, converting the floor from a scoreboard into a redeemable claim that no one — including us — can ever lower.
-
-The order is deliberate. Everything that could be shipped without custody shipped first. The one piece that touches real value ships when it has earned the right to be permanent.
+The Machine's floor is **simulated and labeled so** until that audited vault exists. The Warden
+is a v0 heuristic and says so on its own page. Log entries from before the cryptographic-sealing
+upgrade contain what they contain — a hash chain cannot be rewritten, and we wouldn't want one
+that could. Rewards are play-credits and real RCX to champions, never minted tokens: there is
+no faucet, there will never be a faucet, and nothing here is financial advice — it's a game
+about being right, and most people aren't.
 
 ## Why we think this matters
 
-The market has spent years learning to discount promises to zero, which is rational. The only thing left worth building is systems whose good behavior is a *property* rather than a pledge — where the interesting question isn't "do you trust the team?" but "did you read the IDL?"
+The market has spent years learning to discount promises to zero, which is rational. The only
+thing left worth building is systems whose good behavior is a *property* rather than a pledge.
+RATCHET is a small, sharp test of that thesis wearing a game as its clothes: sealed shots a
+cryptographer can check, champions paid inside other players' transactions, a log notarized by
+strangers for XP, a machine any of its players could resurrect, and a proof page that would
+betray us in thirty seconds flat.
 
-RATCHET is a small, sharp test of that thesis, wearing a game as its clothes: sealed shots, a boss with receipts, a ladder that only pays accuracy, a log notarized by strangers for XP, and a proof page that would betray us in thirty seconds flat.
+The floor only goes up. Everything else is sealed until it's over. Come fire a shot — the first
+ones are free, and the Machine is hungry.
 
-The floor only goes up. Everything else is sealed until it's over. Come fire a shot — the first ones are free, and the Machine is hungry.
-
-**Play: ratchetx.vercel.app**
+**Play: [ratchetx.vercel.app](https://ratchetx.vercel.app)**
+**CA: `FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump`**
 
 ---
 
-*RATCHET pays its creators from trading fees only. Player stakes are split 70% burn / 30% season pot / 0% team, enforced in code and printed on the button. This article describes mechanics, not investment advice.*
+*RATCHET pays its creators from trading fees only. Stakes and reloads split 70% burn / 30% to
+players / 0% team, enforced in code and printed on the buttons. This article describes
+mechanics, not investment advice.*

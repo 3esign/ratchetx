@@ -23,7 +23,7 @@ const { getPrices } = require('../lib/prices.js');
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h6-2026-08-19';
+const VERSION = 'h7-2026-08-19';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
@@ -164,11 +164,12 @@ module.exports = async (req, res) => {
     // ---- the Black Box: full log retained + exportable by anyone
     const bbHead = await getJSON('g:log:head');
     const bbC0 = bbHead ? await getJSON('g:log:c:0') : null;
+    const lastRoot = await getJSON('g:lastRoot');
     push('blackbox', bbHead ? (bbC0 ? 'green' : 'grey') : 'grey',
       'The machine can be resurrected by anyone',
       bbHead
         ? (bbC0
-            ? `the FULL ${bbHead.i.toLocaleString()}-entry log is retained and the whole state exports at /api/snapshot — code public, heads anchored on Solana, RESURRECTION.md in the repo. Killing our hosting pauses the game; it can no longer end it`
+            ? `the FULL ${bbHead.i.toLocaleString()}-entry log is retained and the whole state exports at /api/snapshot — code public, heads anchored on Solana, RESURRECTION.md in the repo${lastRoot ? ` · daily balance root in the log: ${lastRoot.root.slice(0, 10)}… (${lastRoot.day}, ${lastRoot.players} players)` : ''}. Killing our hosting pauses the game; it can no longer end it`
             : 'full-log retention arms on the next event — snapshot exports the state either way')
         : 'arms with the first logged event',
       '/api/snapshot');

@@ -41,14 +41,14 @@
 //      hits and misses alike. v0 heuristic, scored like everyone.
 // ============================================================
 const crypto = require('node:crypto');
-const { getJSON, getJSONStrict, setJSON, setnxJSON, delKey, durable } = require('../lib/kv.js');
+const { getJSON, getJSONStrict, setJSON, setnxJSON, delKey, scanKeys, durable } = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h6-2026-08-19';
+const VERSION = 'h7-2026-08-19';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -317,6 +317,29 @@ async function rolloverPots() {
         if (prevPod) await setJSON('g:podium:prev', prevPod);
         await setJSON('g:podium', { period: ptr, t: Date.now(), list });
         await append({ k: 'podium', period: ptr, list: list.map(x => ({ w: x.w, pct: x.pct })) });
+      }
+      if (d.k === 'daypot') {
+        // STAGE 1a of the on-chain path: fold a daily BALANCE ROOT into
+        // the hash-chained log — sha256 over every player's (wallet,
+        // credits, xp, burned), sorted, plus the machine stats. Any
+        // player-anchored log head AFTER this entry notarizes the root on
+        // Solana itself — so a future on-chain migration can PROVE the
+        // imported balances match a fingerprint that existed before the
+        // migration was ever announced. Airdrop fairness, solved early.
+        try {
+          const rows = [];
+          for (const uk of await scanKeys('u:*')) {
+            const pu = await getJSON(uk);
+            if (pu && pu.w) rows.push([pu.w, Math.floor(pu.cr || 0), Math.floor(pu.xp || 0), Math.floor(pu.burned || 0)]);
+          }
+          rows.sort((a, b) => (a[0] < b[0] ? -1 : 1));
+          const st2 = await loadStats();
+          const root = sha256hex(JSON.stringify({ day: ptr, rows,
+            burned: st2.burned, realBurned: st2.realBurned || 0, champPaid: st2.champPaid || 0,
+            pot: st2.pot, potD: st2.potD }));
+          await append({ k: 'root', day: ptr, root, players: rows.length });
+          await setJSON('g:lastRoot', { day: ptr, root, players: rows.length, t: Date.now() });
+        } catch {}
       }
       await setJSON(d.ptr, d.cur);
     } catch (e) {
