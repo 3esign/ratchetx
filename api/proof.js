@@ -23,7 +23,27 @@ const { getPrices } = require('../lib/prices.js');
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h1-2026-08-19';
+const VERSION = 'h2-2026-08-19';
+
+
+// ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
+// read-only, keyless, and never allowed to break the page.
+async function getCoin() {
+  if (!MINT) return null;
+  const c = await getJSON('g:coin');
+  if (c && Date.now() - c.t < 300_000) return c.v;
+  let v = null;
+  for (const base of ['https://frontend-api-v3.pump.fun', 'https://frontend-api.pump.fun']) {
+    try {
+      const r = await fetch(`${base}/coins/${MINT}`, { signal: AbortSignal.timeout(3500), headers: { accept: 'application/json' } });
+      if (!r.ok) continue;
+      const j = await r.json();
+      if (j && typeof j === 'object') { v = { complete: !!j.complete, pool: j.pump_swap_pool || j.raydium_pool || j.pool_address || null }; break; }
+    } catch {}
+  }
+  await setJSON('g:coin', { v, t: Date.now() });
+  return v;
+}
 
 module.exports = async (req, res) => {
   try {
@@ -109,9 +129,24 @@ module.exports = async (req, res) => {
         supply = { initial: base.supply, current: cur, destroyed, incinerated: incBal,
           playerBurned, otherDestroyed: Math.round(otherDestroyed), recent };
       }
-      push('lp', LP_BURN_TX ? 'green' : 'grey', 'LP burned, not locked',
-        LP_BURN_TX ? 'the pool tokens are gone — transaction linked' : 'flips green when the LP-burn tx is set after launch',
-        LP_BURN_TX ? `${SOLSCAN}/tx/${LP_BURN_TX}` : null);
+      // ---- liquidity: a LIVE check since graduation. The bonding curve
+      // completed and pump.fun moved the liquidity into a PumpSwap pool it
+      // controls — no LP tokens were ever issued to the creator to pull.
+      // We read the pump.fun record (cached 5 min) instead of asserting it.
+      const coin = await getCoin();
+      if (LP_BURN_TX) {
+        push('lp', 'green', 'LP burned, not locked',
+          'the pool tokens are gone — transaction linked', `${SOLSCAN}/tx/${LP_BURN_TX}`);
+      } else if (coin && coin.complete) {
+        push('lp', 'green', 'Graduated — liquidity lives on PumpSwap',
+          'the bonding curve completed and the protocol moved the liquidity into the PumpSwap pool at graduation — no LP tokens were ever issued to us to pull. Read the pool yourself',
+          coin.pool ? `${SOLSCAN}/account/${coin.pool}` : `https://pump.fun/coin/${MINT}`);
+      } else {
+        push('lp', 'grey', 'Graduation pending',
+          coin ? 'still on the bonding curve — this line flips green when the token graduates and liquidity migrates to PumpSwap'
+               : 'could not read the pump.fun record this cycle — retrying; flips green at graduation',
+          `https://pump.fun/coin/${MINT}`);
+      }
     }
 
     // ---- game-side honesty lines
