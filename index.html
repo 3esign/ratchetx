@@ -434,6 +434,12 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
 const $=id=>document.getElementById(id);
 const API='/api/game';
 let AUTH=null, DEMO=null, STATE=null, sel={t:null,side:null,stake:500}, dead=false;
+// SEALED means sealed: the server no longer returns open shots' sides to
+// anyone — including this client. Your own sides live here, locally.
+let SIDES={};try{SIDES=JSON.parse(localStorage.getItem("ratchet_sides"))||{}}catch{}
+function rememberSide(shot){if(!shot||!shot.id)return;SIDES[shot.id]=shot.side;
+  const ks=Object.keys(SIDES);if(ks.length>80)delete SIDES[ks[0]];
+  localStorage.setItem("ratchet_sides",JSON.stringify(SIDES));}
 document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("nav button").forEach(x=>x.classList.remove("on"));
   document.querySelectorAll("section").forEach(x=>x.classList.remove("on"));
@@ -554,8 +560,9 @@ function paint(){
     $("mAcc").textContent=p.shots?Math.round(p.hits/p.shots*100)+"%":"—";
     $("chC").textContent=`${p.open.length} / ${p.chambers}`;
     const rows=[...p.open.map(c=>{
+      const sd=c.side||SIDES[c.id];
       return`<div class="cham"><div class="ch1"><span>SEALED 🔒</span><span class="cd" data-exp="${c.exp}">…</span></div>
-        <div class="ch2">${c.label} — <b>${c.side}</b> · entry $${fmt$(c.entry)}</div></div>`;}),
+        <div class="ch2">${c.label} — <b>${sd?sd:"🔒 side sealed"}</b> · entry $${fmt$(c.entry)}</div></div>`;}),
       ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
         <div class="ch2">${c.label}</div>
         <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${c.res==='hit'?'+'+c.xp+' XP':c.res==='miss'?'streak reset':'no move, no harm'}</div></div>`)];
@@ -655,6 +662,7 @@ async function post(body){
 $("fire").onclick=async()=>{
   const j=await post({action:"shot",auth:AUTH||{wallet:DEMO},target:sel.t,side:sel.side,stake:sel.stake});
   if(!j.ok){toast("⚠ "+j.reason);return}
+  rememberSide(j.shot);
   toast(`SHOT SEALED 🔒 — ${sel.stake.toLocaleString()} burned · the Machine got fed`);
   sel.side=null;refresh();
 };
@@ -662,6 +670,7 @@ async function duel(side){
   if(!who()){toast("connect first");return}
   const j=await post({action:"duel",auth:AUTH||{wallet:DEMO},side,stake:sel.stake});
   if(!j.ok){toast("⚠ "+j.reason);return}
+  rememberSide(j.shot);
   toast(`SEALED ${side==="with"?"WITH":"AGAINST"} THE WARDEN 🔒 — ${sel.stake.toLocaleString()} burned`);
   refresh();
 }

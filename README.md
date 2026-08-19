@@ -14,11 +14,11 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 Don't take our word for it — the site tells you. Both live endpoints return a build marker:
 
 ```
-https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h5-2026-08-19"
-https://ratchetx.vercel.app/api/proof               ->  "v": "h5-2026-08-19"
+https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h6-2026-08-19"
+https://ratchetx.vercel.app/api/proof               ->  "v": "h6-2026-08-19"
 ```
 
-`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h5-2026-08-19'`.
+`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h6-2026-08-19'`.
 If the live marker and the repo marker match, you are reading the code that is running.
 If they ever don't, the repo is stale and you should say so loudly.
 
@@ -40,6 +40,13 @@ The token is unkillable (authorities revoked, liquidity protocol-held). The code
 log entry — verifiable against the heads players anchor on Solana. `RESURRECTION.md` tells any
 stranger how to verify a snapshot (`node restore.mjs snap.json --check`) and bring the whole
 machine back on their own hosting, provably intact. Keep snapshots.
+
+## Sealed means sealed — now cryptographically
+
+Since h6 the log records every seal as `sha256("SIDE|salt")` and reveals side + salt at
+settlement — so no one (including us, including the Black Box) can read an open shot's side,
+and everyone can verify every seal after the fact. Spectator APIs and snapshots never carry
+open sides.
 
 ## The whole backend, small enough to read in one sitting
 

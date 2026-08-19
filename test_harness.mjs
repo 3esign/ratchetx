@@ -238,6 +238,44 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   ok(hist.every(e => 'entry' in e && 'stake' in e), 'history: entries carry stake + prices');
 }
 
+// 11a3 ---- COMMIT-REVEAL: seals never leak a side; settles reveal + verify
+{
+  const cryptoNode = await import('node:crypto');
+  const sha = s => cryptoNode.createHash('sha256').update(s).digest('hex');
+  const q = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-sealed' }, target: 'SOL5', side: 'YES', stake: 100 }, ip: '4.4.4.1' });
+  ok(q.body.ok && q.body.shot.side === 'YES' && q.body.shot.commit && q.body.shot.salt, 'seal: owner response carries side + commit + salt');
+  const chunk = getMem('g:log:c:0') || [];
+  const sealEv = [...chunk].reverse().find(e => e.ev.k === 'seal' && e.ev.id === q.body.shot.id);
+  ok(sealEv && !('side' in sealEv.ev) && sealEv.ev.commit === q.body.shot.commit, 'seal: log entry has commit, NO side');
+  ok(sha(`YES|${q.body.shot.salt}`) === q.body.shot.commit, 'seal: commit = sha256(side|salt)');
+  // spectator view must not see the side
+  let rv = await call('GET', { query: { action: 'state', wallet: 'demo-sealed' }, ip: '4.4.4.2' });
+  const openShot = rv.body.player.open.find(o => o.id === q.body.shot.id);
+  ok(openShot && !('side' in openShot) && !('salt' in openShot) && openShot.commit, 'seal: spectator state strips side + salt, keeps commit');
+  // force-settle: reveal lands in the log and verifies against the commit
+  const pd = getMem('u:demo-sealed');
+  pd.open[0].exp = Date.now() - 1000; pd.open[0].entry = 90; setMem('u:demo-sealed', pd);
+  await call('GET', { query: { action: 'state', wallet: 'demo-sealed' }, ip: '4.4.4.3' });
+  const chunk2 = getMem('g:log:c:0') || [];
+  const settleEv = [...chunk2].reverse().find(e => e.ev.k === 'settle' && e.ev.id === q.body.shot.id);
+  ok(settleEv && settleEv.ev.side === 'YES' && sha(`${settleEv.ev.side}|${settleEv.ev.salt}`) === settleEv.ev.commit, 'reveal: settle entry verifies against the seal commit');
+}
+
+// 11a4 ---- snapshot strips sealed sides
+{
+  const q = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-snapseal' }, target: 'SOL5', side: 'NO', stake: 100 }, ip: '4.4.4.4' });
+  const snapshot = require('./api/snapshot.js');
+  if (globalThis.__ratchet_snap) { globalThis.__ratchet_snap.t = 0; globalThis.__ratchet_snap.body = null; }  // bust the memo cache (mutate — the module holds the reference)
+  const r2 = await new Promise(resolve => {
+    const res = { headers: {}, setHeader() {}, status(c) { this._s = c; return this; },
+      json(o) { resolve(JSON.parse(JSON.stringify(o))); }, end(s2) { resolve(JSON.parse(s2)); } };
+    snapshot({ method: 'GET', headers: {}, query: {} }, res);
+  });
+  const pl = r2.state.players['demo-snapseal'];
+  const op = pl && (pl.open || []).find(o => o.id === q.body.shot.id);
+  ok(op && !('side' in op) && !('salt' in op), 'snapshot: open shots exported without side/salt');
+}
+
 // 11b ---- soft-staking: demo refused; yield math sane via state shape
 r = await call('POST', { body: { action: 'stake', auth: { wallet: 'demo-abc123' }, on: true } });
 ok(!r.body.ok && r.status === 400, 'stake: demo wallet refused (mint unset in test env also refuses)');

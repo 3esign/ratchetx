@@ -20,7 +20,7 @@
 const crypto = require('node:crypto');
 const { getJSON, scanKeys, durable } = require('../lib/kv.js');
 
-const VERSION = 'h5-2026-08-19';
+const VERSION = 'h6-2026-08-19';
 const MINT = process.env.RATCHET_MINT || '';
 
 const memo = globalThis.__ratchet_snap || (globalThis.__ratchet_snap = { t: 0, body: null });
@@ -47,7 +47,11 @@ module.exports = async (req, res) => {
     const players = {};
     for (const k of await scanKeys('u:*')) {
       const p = await getJSON(k);
-      if (p) players[k.slice(2)] = p;
+      // SEALED means sealed, even in the Black Box: open shots export
+      // WITHOUT side/salt (the commit stays, so seals remain verifiable).
+      // A machine resurrected from a snapshot therefore VOID-REFUNDS any
+      // still-open shots — restore.mjs does this and says so.
+      if (p) players[k.slice(2)] = { ...p, open: (p.open || []).map(({ side, salt, ...rest }) => rest) };
     }
     const sigs = {};
     for (const k of await scanKeys('sig:*')) {

@@ -83,7 +83,19 @@ for (let c = 0; c * 500 < log.length; c++) { await put(`g:log:c:${c}`, log.slice
 await put('g:log:recent', log.slice(-60).reverse()); n++;
 const heads = {}; for (const e of log.slice(-500)) heads[e.i] = e.h;
 await put('g:log:heads', heads); n++;
-for (const [w, p] of Object.entries(state.players || {})) { await put(`u:${w}`, p); n++; }
+let voided = 0;
+for (const [w, p] of Object.entries(state.players || {})) {
+  // snapshots strip sealed sides, so open shots cannot settle after a
+  // resurrection — they are VOID-REFUNDED here, honestly and visibly.
+  const q = { ...p };
+  for (const s of q.open || []) {
+    if (s.src === 'cr') q.cr = (q.cr || 0) + s.stake; else q.bal = (q.bal || 0) + s.stake;
+    voided++;
+  }
+  q.open = [];
+  await put(`u:${w}`, q); n++;
+}
+if (voided) console.log(`void-refunded ${voided} open shot(s) — sealed sides are never exported, so they cannot settle post-resurrection.`);
 for (const [s2, v] of Object.entries(state.sigs || {})) { await put(`sig:${s2}`, v); n++; }
 for (const [k, v] of Object.entries(state.boards || {})) { await put(k, v); n++; }
 for (const [w, v] of Object.entries(state.hists || {})) { await put(`hist:${w}`, v); n++; }

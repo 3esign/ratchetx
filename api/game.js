@@ -40,6 +40,7 @@
 //      is sealed once (SET NX) and settled on the same oracle,
 //      hits and misses alike. v0 heuristic, scored like everyone.
 // ============================================================
+const crypto = require('node:crypto');
 const { getJSON, getJSONStrict, setJSON, setnxJSON, delKey, durable } = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
@@ -47,7 +48,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h5-2026-08-19';
+const VERSION = 'h6-2026-08-19';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -73,6 +74,16 @@ const CHAMP = { pct: 0.30, curve: [0.5, 0.3, 0.2],
 // Yield is deliberately modest (credits are play-rights, not tokens).
 const STAKE = { rate: 0.001, minBal: 1000, capBal: 1_000_000 };   // ≤1,000 credits/day
 const stakeYield = bal => (bal >= STAKE.minBal ? Math.floor(Math.min(bal, STAKE.capBal) * STAKE.rate) : 0);
+// COMMIT-REVEAL SEALING (h6). The log and the API used to record a
+// shot's side in plaintext at seal time — which meant an open shot's
+// side was technically readable before settlement through the recent-log
+// view and state?wallet=. That contradicted the one promise this game is
+// named for. Now: the log's seal entry carries only
+// sha256(`side|salt`); the side and salt are revealed in the settle
+// entry, so anyone can verify every seal after the fact and nobody can
+// read one before. This is also Stage 2 of the on-chain path: the same
+// commitment can be anchored on-chain per shot.
+const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
 const STAKES = { 100: 1, 500: 2, 2500: 5 };
 // THE BOARD (h4): targets are GENERATED, not hardcoded — a fresh mix
 // every hour, deterministic from the clock (seeded PRNG), so every
@@ -440,7 +451,8 @@ async function settle(p, prices) {
       if (!isDemo(p.w)) await bumpFeed({ w: shortW(p.w), a: 'MISS - streak reset', c: 'miss' });
     }
     s.settledAt = now; s.exitPx = px;
-    await append({ k:'settle', w: p.w, id: s.id, res: s.res, exitPx: px });
+    await append({ k:'settle', w: p.w, id: s.id, res: s.res, exitPx: px,
+      side: s.side, salt: s.salt, commit: s.commit });   // the reveal: sha256(side|salt) must equal the seal's commit
     await pushHist(p.w, { id: s.id, t: now, label: s.label, side: s.side, res: s.res,
       xp: s.res === 'hit' ? s.xp : 0, stake: s.stake, entry: s.entry, exit: px });
     p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
@@ -509,6 +521,10 @@ module.exports = async (req, res) => {
         if (p._existed || changed) await savePlayer(p);
         player = { ...p, rank: RANKS[rankOf(p.xp)][0], rankIdx: rankOf(p.xp),
           next: RANKS[rankOf(p.xp)+1] || null, chambers: Math.min(4, rankOf(p.xp)+1) + 1 };
+        // SEALED means sealed: state?wallet= is an open spectator view, so
+        // open shots are served WITHOUT side/salt (commit only). The owner
+        // gets the side back in the fire response and keeps it locally.
+        player.open = (p.open || []).map(({ side, salt, ...rest }) => rest);
         delete player._existed; delete player._src;
         player.history = ((await getJSON(`hist:${w}`)) || []).slice(0, 60);
         // CHAMPION CONSOLE data: seat share, 7d earnings, live balance
@@ -620,12 +636,14 @@ module.exports = async (req, res) => {
         shot = { id: Math.random().toString(36).slice(2,10), kind:'thr', feed:wl.feed, thresh:wl.thresh,
           side: withW ? (wl.p >= 50 ? 'YES':'NO') : (wl.p >= 50 ? 'NO':'YES'),
           entry: prices[wl.feed], exp: Date.now()+wl.mins*60e3, stake,
-          xp: Math.round(14 * STAKES[stake] * (withW ? 0.8 : 3.4)), label: (withW?'WITH':'AGAINST')+' the Warden: '+wl.q, duel:true };
+          xp: Math.round(14 * STAKES[stake] * (withW ? 0.8 : 3.4)), label: 'DUEL vs the Warden: '+wl.q, duel:true };
       }
+      shot.salt = crypto.randomBytes(8).toString('hex');
+      shot.commit = sha256hex(`${shot.side}|${shot.salt}`);
       shot.src = p._src || 'bal'; delete p._src;
       p.open.unshift(shot);
       await savePlayer(p);
-      await append({ k:'seal', w, id: shot.id, feed: shot.feed, side: shot.side, stake, exp: shot.exp, entry: shot.entry });
+      await append({ k:'seal', w, id: shot.id, feed: shot.feed, stake, exp: shot.exp, entry: shot.entry, commit: shot.commit });
       if (!isDemo(w)) await bumpFeed({ w: shortW(w), a: `sealed a shot · ${stake} 🔥`, c:'seal' });
       return res.json({ ok:true, shot, bal: p.bal });
     }
