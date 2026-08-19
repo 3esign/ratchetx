@@ -47,10 +47,32 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h2-2026-08-19';
+const VERSION = 'h3-2026-08-19';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
+// THE CHAMPION'S CUT (h3): the same 70/30/0 rule, enforced at the one
+// door where REAL tokens move. Every RELOAD: 70% burns, 30% goes
+// straight to the last completed day's top-3 wallets (50/30/20) inside
+// the payer's own signed transaction. No pool, no custody, no key, no
+// claim button. A podium wallet with no RCX account forfeits its leg to
+// the burn. Announced in CHANGES; never retroactive.
+const CHAMP = { pct: 0.30, curve: [0.5, 0.3, 0.2],
+  // THE HOLDER RULE — keyless anti-dump: to be eligible for the podium a
+  // wallet must still HOLD >= holdPct of the champion RCX it was paid in
+  // the last holdDays days (balances are public; the chain enforces
+  // nothing, the PODIUM SEAT does). Sell your winnings -> the next
+  // player up takes your seat and your income stream. Nobody's tokens
+  // are ever locked; dumping just has a published price.
+  holdPct: 0.5, holdDays: 7 };
+// SOFT-STAKING (h3): "staking" with NO deposit, NO custody, NO contract.
+// A wallet registers (one signature), keeps its RCX exactly where it is,
+// and earns daily PLAY-CREDITS on its verified on-chain balance — read
+// from the chain, never held by us. Tokens never move; unregistering is
+// instant; there is nothing to withdraw because nothing was deposited.
+// Yield is deliberately modest (credits are play-rights, not tokens).
+const STAKE = { rate: 0.001, minBal: 1000, capBal: 1_000_000 };   // ≤1,000 credits/day
+const stakeYield = bal => (bal >= STAKE.minBal ? Math.floor(Math.min(bal, STAKE.capBal) * STAKE.rate) : 0);
 const STAKES = { 100: 1, 500: 2, 2500: 5 };
 // Targets settle on EXTERNAL majors only — markets no player can move.
 // RCX-priced shots were removed 2026-08-19: at this market's depth a
@@ -162,6 +184,28 @@ async function getMcap() {
   return v;
 }
 
+// ---- first existing RCX token account for a wallet — champions must
+// hold an RCX account to be paid; a missing account forfeits to the burn.
+async function findAta(owner) {
+  const r = await rpcCall('getTokenAccountsByOwner', [owner, { mint: MINT }, { encoding: 'jsonParsed' }]);
+  const a = r && r.value && r.value[0];
+  if (!a) return null;
+  const bal = +(a.account && a.account.data && a.account.data.parsed && a.account.data.parsed.info
+    && a.account.data.parsed.info.tokenAmount && a.account.data.parsed.info.tokenAmount.uiAmount) || 0;
+  return { ata: a.pubkey, bal };
+}
+
+// sum of champion RCX received inside the holder window — pure, tested.
+function champWindowSum(champ7, nowMs, days) {
+  if (!champ7) return 0;
+  let s = 0;
+  for (const [k, v] of Object.entries(champ7)) {
+    const t = new Date(k + 'T00:00:00Z').getTime();
+    if (Number.isFinite(t) && nowMs - t <= days * 86400e3) s += +v || 0;
+  }
+  return s;
+}
+
 // ---- pot rollovers: LAZY and automatic, daily and weekly. The first
 // request after a boundary notices the period key changed, takes a
 // one-shot lock, pays the pot as game credits, and records the result.
@@ -201,6 +245,31 @@ async function rolloverPots() {
       await setJSON('g:stats', st);
       await setJSON(d.res, { period: ptr, pot, paid, rolled: pot - paid, winners, t: Date.now() });
       await append({ k: d.k, period: ptr, pot, paid, winners });
+      if (d.k === 'daypot' && MINT) {
+        // refresh the CHAMPION PODIUM: the day's top 3 with an existing
+        // RCX account earn 50/30/20 of every reload's 30% cut until the
+        // next rollover. The outgoing podium is kept one period as a
+        // grace window, so a reload built moments before midnight still
+        // verifies against the list it was built from.
+        // top 3 ELIGIBLE by XP: must have an RCX account AND satisfy the
+        // HOLDER RULE (still holding >= 50% of last-7-days champion pay).
+        // A dumper is skipped silently and the next player up is seated.
+        const podRanked = Object.entries(lb).filter(([pw]) => !isDemo(pw)).sort((a, b) => b[1] - a[1]);
+        const list = [];
+        for (const [pw] of podRanked) {
+          if (list.length >= CHAMP.curve.length) break;
+          const acc = await findAta(pw);
+          if (!acc) continue;                                   // no RCX account -> not payable
+          const cp = await getJSONStrict(`u:${pw}`);
+          const earned7 = champWindowSum(cp && cp.champ7, Date.now(), CHAMP.holdDays);
+          if (acc.bal + 1e-9 < earned7 * CHAMP.holdPct) continue; // dumped -> seat forfeited
+          list.push({ w: pw, ata: acc.ata, pct: CHAMP.curve[list.length] });
+        }
+        const prevPod = await getJSON('g:podium');
+        if (prevPod) await setJSON('g:podium:prev', prevPod);
+        await setJSON('g:podium', { period: ptr, t: Date.now(), list });
+        await append({ k: 'podium', period: ptr, list: list.map(x => ({ w: x.w, pct: x.pct })) });
+      }
       await setJSON(d.ptr, d.cur);
     } catch (e) {
       await delKey(`${d.lock}${ptr}`);       // release: next request retries the payout
@@ -370,6 +439,7 @@ module.exports = async (req, res) => {
     if (action === 'state') {
       await rolloverPots();
       const wardenRec = await wardenTick(prices);
+      const podNow = (await getJSON('g:podium')) || { list: [] };
       const wRaw = req.query.wallet;
       const w = (typeof wRaw === 'string' && (isWalletShaped(wRaw) || isDemo(wRaw))) ? wRaw : null;
       let player = null;
@@ -382,6 +452,39 @@ module.exports = async (req, res) => {
         player = { ...p, rank: RANKS[rankOf(p.xp)][0], rankIdx: rankOf(p.xp),
           next: RANKS[rankOf(p.xp)+1] || null, chambers: Math.min(4, rankOf(p.xp)+1) + 1 };
         delete player._existed; delete player._src;
+        // CHAMPION CONSOLE data: seat share, 7d earnings, live balance
+        // (cached 60s), and the exact amount sellable without losing the
+        // seat — so champions can exit smart instead of dumping blind.
+        const seat = (podNow.list || []).find(x => x.w === w);
+        if ((seat || p.stakeOn) && MINT && !isDemo(w)) {
+          let cb = await getJSON(`champbal:${w}`);
+          if (!cb || Date.now() - cb.t > 60_000) {
+            const acc = await findAta(w);
+            cb = { bal: acc ? acc.bal : 0, t: Date.now() };
+            await setJSON(`champbal:${w}`, cb);
+          }
+          if (seat) {
+            const earned7 = champWindowSum(p.champ7, Date.now(), CHAMP.holdDays);
+            player.champion = { pct: seat.pct, earned7: Math.floor(earned7), bal: Math.floor(cb.bal),
+              safeSell: Math.max(0, Math.floor(cb.bal - earned7 * CHAMP.holdPct)) };
+          }
+          // lazy hold-yield: once per UTC day, on touch, on the live balance
+          if (p.stakeOn && p.stakeDay !== today()) {
+            const y = stakeYield(cb.bal);
+            p.stakeDay = today();
+            if (y > 0) {
+              p.cr += y; p.stakeEarned = (p.stakeEarned || 0) + y;
+              const st0 = await loadStats();
+              st0.stakePaid = (st0.stakePaid || 0) + y;
+              await setJSON('g:stats', st0);
+              await append({ k: 'stakeyield', w, bal: Math.floor(cb.bal), y });
+            }
+            await savePlayer(p);
+          }
+          if (p.stakeOn) player.stakeInfo = { on: true, bal: Math.floor(cb.bal),
+            perDay: stakeYield(cb.bal), earned: p.stakeEarned || 0,
+            rate: STAKE.rate, minBal: STAKE.minBal, capBal: STAKE.capBal };
+        }
       }
       const st = await loadStats();
       const lb = (await getJSON(`lb:${seasonKey()}`)) || {};
@@ -397,6 +500,8 @@ module.exports = async (req, res) => {
         wardenHist: (await getJSON('g:warden:hist')) || [],
         targets: Object.fromEntries(Object.entries(TARGETS).filter(([,t]) => Number.isFinite(prices[t.feed]))),
         split: SPLIT, potSplit: { day: POT_DAY_SHARE, week: 1 - POT_DAY_SHARE },
+        champ: { pct: CHAMP.pct, curve: CHAMP.curve, holdPct: CHAMP.holdPct, holdDays: CHAMP.holdDays,
+          podium: (podNow.list || []).map(x => ({ w: shortW(x.w), ata: x.ata, pct: x.pct })) },
         season: seasonKey(), day: today(),
         mint: MINT || null, incinerator: MINT ? INCINERATOR : null, mcap: await getMcap(),
         tokenProgram: await getMintProgram(),
@@ -457,6 +562,26 @@ module.exports = async (req, res) => {
       return res.json({ ok:true, shot, bal: p.bal });
     }
 
+    if (action === 'stake') {
+      if (!MINT) return res.status(400).json({ ok:false, reason:'token not launched yet' });
+      const b = req.body || {};
+      const w = b.auth && b.auth.wallet;
+      if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'connect a real wallet to stake' });
+      const v = verifyAuth(b.auth);
+      if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
+      const p = await loadPlayer(w);
+      const turnOn = b.on !== false;
+      p.stakeOn = turnOn;
+      if (turnOn && !p.stakeDay) p.stakeDay = today();   // first yield lands TOMORROW — no same-day flash-hold
+      await savePlayer(p);
+      const st = await loadStats();
+      st.stakers = Math.max(0, (st.stakers || 0) + (turnOn ? 1 : -1));
+      await setJSON('g:stats', st);
+      await append({ k: 'stake', w, on: turnOn });
+      if (turnOn) await bumpFeed({ w: shortW(w), a: 'joined the STAKERS · holding pays daily', c: 'seal' });
+      return res.json({ ok: true, on: turnOn });
+    }
+
     if (action === 'reload') {
       if (!MINT) return res.status(400).json({ ok:false, reason:'token not launched yet - paper mode only' });
       const b = req.body || {};
@@ -468,7 +593,10 @@ module.exports = async (req, res) => {
       if (!/^[1-9A-HJ-NP-Za-km-z]{60,100}$/.test(sig)) return res.status(400).json({ ok:false, reason:'that does not look like a transaction signature' });
       if (await getJSONStrict(`sig:${sig}`)) return res.status(409).json({ ok:false, reason:'that burn was already credited' });
       const tx = await getTx(sig);
-      const d = decideBurn(tx, { wallet: w, mint: MINT, minAmount: 1 });
+      const pod = (await getJSON('g:podium')) || { list: [] };
+      const podPrev = (await getJSON('g:podium:prev')) || { list: [] };
+      const allowed = [...new Set([...(pod.list || []), ...(podPrev.list || [])].map(x => x.w))];
+      const d = decideBurn(tx, { wallet: w, mint: MINT, minAmount: 1, podium: allowed, podiumPct: CHAMP.pct });
       if (!d.ok) return res.status(400).json({ ok:false, reason: d.reason });
       // ATOMIC replay gate: exactly one concurrent submission of this
       // signature can win the SET NX; every other sees "already credited".
@@ -476,13 +604,25 @@ module.exports = async (req, res) => {
         return res.status(409).json({ ok:false, reason:'that burn was already credited' });
       const p = await loadPlayer(w);
       const credit = Math.floor(d.amount * CREDIT_PER_TOKEN);
-      p.cr += credit; p.burned += d.amount;
+      p.cr += credit; p.burned += (d.burned != null ? d.burned : d.amount);
       await savePlayer(p);
       const st = await loadStats();
-      st.realBurned = (st.realBurned || 0) + d.amount;
+      st.realBurned = (st.realBurned || 0) + (d.burned != null ? d.burned : d.amount);
+      if (d.champPaid) st.champPaid = (st.champPaid || 0) + d.champPaid;
+      // record each champion's take in their 7-day holder window
+      if (d.champLegs && d.champLegs.length) {
+        for (const leg of d.champLegs) {
+          const cp = await loadPlayer(leg.w);
+          cp.champ7 = cp.champ7 || {};
+          cp.champ7[today()] = (cp.champ7[today()] || 0) + leg.amt;
+          for (const k of Object.keys(cp.champ7))
+            if (Date.now() - new Date(k + 'T00:00:00Z').getTime() > (CHAMP.holdDays + 1) * 86400e3) delete cp.champ7[k];
+          await savePlayer(cp);
+        }
+      }
       await setJSON('g:stats', st);
-      await append({ k:'reload', w, sig, amount: d.amount });
-      await bumpFeed({ w: shortW(w), a: `BURNED ${d.amount.toLocaleString()} RCX · reloaded`, c: 'seal' });
+      await append({ k:'reload', w, sig, amount: d.amount, burned: d.burned, champs: d.champPaid || 0 });
+      await bumpFeed({ w: shortW(w), a: `BURNED ${(d.burned != null ? d.burned : d.amount).toLocaleString()} RCX${d.champPaid ? ` · +${d.champPaid.toLocaleString()} RCX to the podium` : ''} · reloaded`, c: 'seal' });
       return res.json({ ok:true, credited: credit, cr: p.cr });
     }
 
@@ -523,3 +663,4 @@ module.exports = async (req, res) => {
     return res.status(500).json({ ok:false, reason: String(e.message || e) });
   }
 };
+module.exports.champWindowSum = champWindowSum;   // pure, for the test harness

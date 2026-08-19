@@ -23,7 +23,7 @@ const { getPrices } = require('../lib/prices.js');
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h2-2026-08-19';
+const VERSION = 'h3-2026-08-19';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
@@ -152,6 +152,10 @@ module.exports = async (req, res) => {
     // ---- game-side honesty lines
     push('credits', 'green', 'Ranked credits trace to verified burns',
       `${(st.realBurned || 0).toLocaleString()} RCX burn-verified and credited in-game · replay-gated by signature · pot payouts are game credits (play-rights), never minted tokens — no faucet exists`);
+    push('champs', 'green', 'Champions are paid peer-to-peer, keylessly',
+      `every reload splits by the same frozen 70/30/0 — 70% burns, 30% lands straight in the daily podium's wallets inside the payer's own signed transaction · ${(st.champPaid || 0).toLocaleString()} RCX paid to champions so far · HOLDER RULE: a champion must keep ≥50% of their 7-day winnings or the seat passes down · no pool, no custody, no claim button`);
+    push('stake', 'green', 'Staking with no deposit',
+      `registered wallets earn daily play-credits on their verified on-chain balance — tokens never leave the owner's wallet, so there is nothing to lock, nothing to withdraw, nothing to rug · ${(st.stakePaid || 0).toLocaleString()} credits paid to ${(st.stakers || 0)} stakers so far`);
     push('nokeys', 'green', 'No key can touch funds',
       'this server reads the chain and writes scores — there is no treasury, no custody, and nothing to steal');
     push('pots', 'green', 'Pots pay automatically, on two clocks',

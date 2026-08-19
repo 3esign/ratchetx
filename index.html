@@ -180,22 +180,24 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
 .chk .st{font:700 9px/1 var(--mono);letter-spacing:.14em;white-space:nowrap}
 .chk .st.g{color:var(--grn)}.chk .st.p{color:var(--dim)}
 .foot{border-top:1px solid var(--line);margin-top:44px;padding:22px 0;color:var(--dim);font-size:12px}
-#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(90px);z-index:99;
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%) translateY(90px);z-index:99;visibility:hidden;
   background:var(--card2);border:1px solid var(--gold);border-radius:12px;padding:14px 22px;
   font:700 13px var(--sans);transition:.35s cubic-bezier(.2,.9,.3,1.2);box-shadow:0 8px 40px rgba(0,0,0,.5);max-width:88vw;text-align:center}
-#toast.show{transform:translateX(-50%) translateY(0)}
+#toast.show{transform:translateX(-50%) translateY(0);visibility:visible}
 </style></head><body>
 
 <div class="hud"><div class="wrap hudrow">
   <div class="logo"><svg class="cog" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="#f5b83d" stroke-width="1.8"/><path d="M12 2.6v4M12 17.4v4M2.6 12h4M17.4 12h4M5.4 5.4l2.8 2.8M15.8 15.8l2.8 2.8M18.6 5.4l-2.8 2.8M8.2 15.8l-2.8 2.8" stroke="#f5b83d" stroke-width="1.6" stroke-linecap="round"/></svg>RATCHET</div>
   <div class="rankchip"><div class="rbadge" id="hB">·</div>
     <div><div class="rname" id="hR">—</div><div class="xpwrap"><div class="xpbar"><i id="hX" style="width:0"></i></div></div></div></div>
-  <div class="hudstat hide">CREDITS <b id="hCr" style="display:none">0</b><b id="hBal">—</b>🔥</div>
+  <div class="hudstat hide" id="hCrWrap" style="display:none">CREDITS <b id="hCr">0</b></div>
+  <div class="hudstat hide">PAPER <b id="hBal">—</b></div>
   <div class="hudstat hide">STREAK <b class="streakf" id="hS">0</b></div>
   <div class="hudstat hide">FLOOR <b id="hF" style="color:var(--ink)">—</b></div>
   <nav>
     <button class="on" data-go="play">PLAY</button>
     <button data-go="warden">WARDEN</button>
+    <button data-go="stake">STAKE</button>
     <button data-go="ranks">RANKS</button>
     <button data-go="proof">PROOF</button>
   </nav>
@@ -224,6 +226,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="msub" id="beat" style="margin-bottom:2px"></div>
     <div class="msub">FED BY EVERY SHOT · <b id="fedN">—</b> SHOTS FIRED · CAN ONLY GO UP <span style="color:var(--goldD)">(SIMULATED UNTIL VAULT DEPLOY)</span></div>
     <div class="prices" id="prices"></div>
+    <div class="prices" id="machStats" style="margin-top:8px"></div>
     <div id="burnLine" style="display:none;margin-top:12px;font:700 12px var(--mono);letter-spacing:.08em;color:var(--red)"></div>
     <div style="margin:20px 0 4px;text-align:left">
       <button id="howBtn" style="background:none;border:1px solid var(--line);border-radius:8px;color:var(--ink2);
@@ -243,6 +246,13 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         <b style="color:var(--gold)">WEEKLY season pot</b> (top 5 take 40/25/15/12/8% every Sunday 00:00 UTC).
         Both pay <b style="color:var(--gold)">automatically</b> — no claim button, no waiting. Unclaimed shares
         roll into the next pot.<br>
+        <b style="color:var(--ink)">5 · Stake by holding.</b> The GEARBOX tab pays registered wallets daily
+        play-credits on their on-chain balance — tokens never move, nothing is ever deposited.<br>
+        <b style="color:var(--ink)">6 · Real RCX for champions.</b> 30% of <i>every reload</i> is paid
+        straight to the daily podium's wallets (50/30/20) inside the reloader's own transaction —
+        keyless, no pool, no claim button. Hold the podium, earn the flow — and keep at least half of
+        your 7-day champion pay in your wallet: <b style="color:var(--ink)">champions who dump lose the seat</b>
+        to the next player up. Your console shows a live "safe to sell" number.<br>
         <span style="color:var(--dim)">PAPER refills daily so you can always play free — demo play is truly
         unranked: it never enters any ladder and is never paid from any pot.
         CREDITS come from burning RCX — 1 burned = 1 credit — and that burn is verified on-chain, forever.
@@ -267,15 +277,18 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="panel" id="reloadP" style="display:none">
       <h3>RELOAD — BURN TO PLAY RANKED</h3>
       <div style="font:400 12.5px/1.6 var(--sans);color:var(--ink2);margin-bottom:10px">
-        <b style="color:var(--gold)">1 RCX burned = 1 credit.</b> Burned tokens are destroyed forever — supply
-        only falls, and the PROOF page shows it live. One click below: your wallet signs a real burn
-        transaction and it credits automatically.</div>
+        <b style="color:var(--gold)">1 RCX = 1 credit.</b> Every reload splits by the frozen rule:
+        <b style="color:var(--red)">70% burns forever</b> · <b style="color:var(--gold)">30% goes straight to
+        the daily podium's wallets</b> — real RCX, inside YOUR transaction. No pool, no custody, no claim
+        button. The PROOF page shows both live.</div>
+      <div id="podiumBox" style="display:none;font:600 10px var(--mono);color:var(--dim);letter-spacing:.05em;
+        background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:12px"></div>
       <div style="display:flex;gap:8px;margin-bottom:12px" id="burnPick">
         <button class="stk" data-b="1000">1,000</button>
         <button class="stk on" data-b="5000">5,000</button>
         <button class="stk" data-b="25000">25,000</button>
       </div>
-      <button class="fire" id="oneBurn" style="margin-bottom:14px">🔥 BURN &amp; RELOAD — ONE CLICK</button>
+      <button class="fire" id="oneBurn" style="margin-bottom:14px">🔥 RELOAD — 70% BURNS · 30% PAYS THE PODIUM</button>
       <div style="font:600 9.5px var(--mono);color:var(--dim);letter-spacing:.08em;margin-bottom:8px">
         MANUAL FALLBACK — send RCX to the incinerator yourself, paste the tx signature:</div>
       <div style="font:600 10px var(--mono);color:var(--dim);letter-spacing:.04em;margin-bottom:4px">INCINERATOR (tap to copy)</div>
@@ -329,17 +342,56 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       <div><b id="mBest" class="streakf">0</b><i>BEST STREAK</i></div>
     </div>
   </div>
+  <div class="panel" id="champP" style="display:none;margin-bottom:13px;border-color:var(--goldD)">
+    <h3 style="color:var(--gold)">CHAMPION CONSOLE — YOU HOLD A PODIUM SEAT</h3>
+    <div id="champBody" style="font:400 12.5px/1.75 var(--sans);color:var(--ink2)"></div></div>
   <div class="ranksrow" id="rkrow"></div>
   <div class="panel ladder" style="margin-bottom:13px"><h3>TODAY'S LADDER · <span id="dayK"></span><span style="color:var(--gold)" id="potDN"></span></h3><div id="ladderDay"></div>
     <div style="font:600 9.5px/1.6 var(--mono);letter-spacing:.06em;color:var(--dim);margin-top:10px">
-      PAYS AUTOMATICALLY AT 00:00 UTC, EVERY DAY: TOP 3 TAKE 50 / 30 / 20% OF THE DAILY POT AS CREDITS.
+      PAYS AUTOMATICALLY AT 00:00 UTC, EVERY DAY: TOP 3 TAKE 50 / 30 / 20% OF THE DAILY POT AS CREDITS —
+      AND BECOME THE PODIUM: 30% OF EVERY RELOAD PAYS THEIR WALLETS REAL RCX, PEER-TO-PEER, ALL DAY.
       UNCLAIMED SHARES ROLL INTO TOMORROW. NO HANDS, NO BUTTON, NO DELAY.</div></div>
-  <div class="panel" id="lastDayP" style="display:none;margin-bottom:13px"><h3>YESTERDAY — PAID OUT</h3><div id="lastDay"></div></div>
+  <div class="panel ladder" id="lastDayP" style="display:none;margin-bottom:13px"><h3>YESTERDAY — PAID OUT</h3><div id="lastDay"></div></div>
   <div class="panel ladder"><h3>SEASON LADDER · <span id="seas"></span><span style="color:var(--gold)" id="potN"></span></h3><div id="ladder"></div>
     <div style="font:600 9.5px/1.6 var(--mono);letter-spacing:.06em;color:var(--dim);margin-top:10px">
       PAYS AUTOMATICALLY AT SEASON END (SUNDAY 00:00 UTC): TOP 5 TAKE 40 / 25 / 15 / 12 / 8% OF THE SEASON POT AS
       CREDITS. UNCLAIMED SHARES ROLL OVER. NO HANDS, NO BUTTON, NO DELAY. DEMO PLAY NEVER RANKS.</div></div>
-  <div class="panel" id="lastSeasonP" style="display:none;margin-top:13px"><h3>LAST SEASON — PAID OUT</h3><div id="lastSeason"></div></div>
+  <div class="panel ladder" id="lastSeasonP" style="display:none;margin-top:13px"><h3>LAST SEASON — PAID OUT</h3><div id="lastSeason"></div></div>
+</div></section>
+
+<section id="stake"><div class="wrap">
+  <div class="eyebrow">THE GEARBOX</div>
+  <h1>Stake without ever letting go.</h1>
+  <p class="lede">Register once with a signature. Your RCX <b>never moves</b> — the Machine reads your
+  balance from the chain and pays you <b>daily play-credits for holding</b>. No deposit, no lock,
+  no contract, nothing to withdraw — because nothing was ever taken. Unregister any time.</p>
+  <div class="playgrid" style="margin-top:20px">
+    <div><div class="machine" style="text-align:left">
+      <div class="mcap">HOW THE GEARBOX PAYS</div>
+      <div style="font:400 13.5px/1.85 var(--sans);color:var(--ink2)">
+        <b style="color:var(--ink)">1 · Mesh your gears.</b> One click, one signature — your wallet is registered
+        as a staker. Nothing is transferred, ever.<br>
+        <b style="color:var(--ink)">2 · Hold torque.</b> Each day, the Machine reads your on-chain RCX balance and
+        pays <b style="color:var(--gold)">0.1% of it in play-credits</b> — minimum 1,000 RCX held, counted up to
+        1,000,000, so up to <b style="color:var(--gold)">1,000 credits a day</b>.<br>
+        <b style="color:var(--ink)">3 · Show up.</b> The yield lands when you visit — the Machine pays gears that
+        are turning. Miss a day, miss that day's output. Selling down just lowers tomorrow's read.<br>
+        <span style="color:var(--dim)">Credits are ranked play-rights — the same ones burns buy. Holding feeds your
+        game; playing well feeds the podium; the podium pays real RCX. One loop.</span>
+      </div>
+      <button class="fire" id="stakeBtn" style="margin-top:18px" disabled>CONNECT A REAL WALLET TO STAKE</button>
+      <div class="splitline">NO DEPOSIT · NO LOCK · TOKENS NEVER LEAVE YOUR WALLET · READ-ONLY, VERIFIED ON-CHAIN</div>
+    </div></div>
+    <div class="rcol">
+      <div class="panel"><h3>YOUR GEARBOX</h3><div id="stakeMe" style="font:400 12.5px/1.7 var(--sans);color:var(--ink2)">Connect a real wallet, then mesh your gears.</div></div>
+      <div class="panel"><h3>GEARBOX · GLOBAL</h3><div id="stakeGlob" style="font:400 12.5px/1.7 var(--sans);color:var(--ink2)">—</div></div>
+      <div class="panel" style="flex:1"><h3>WHY THIS CANNOT RUG</h3>
+        <div style="font:400 12.5px/1.7 var(--sans);color:var(--ink2)">Every "staking" rug in history needed one
+        thing: your tokens in their contract. Here there is no deposit instruction, no pool address, no key —
+        the server can only <b style="color:var(--ink)">read</b> your balance, and the PROOF page re-checks the
+        whole claim live. The worst thing we could ever do to a staker is pay zero credits.</div></div>
+    </div>
+  </div>
 </div></section>
 
 <section id="proof"><div class="wrap">
@@ -373,7 +425,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   </div>
 </div></section>
 
-<div class="wrap foot">RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a></div>
+<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a></div>
 <div id="toast"></div>
 
 <script>
@@ -388,7 +440,7 @@ function copyCA(){const c=$("caChip").dataset.ca;if(c){navigator.clipboard.write
 function toast(m){const t=$("toast");t.innerHTML=m;t.classList.add("show");
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2800);}
 const short=w=>w.length>10?w.slice(0,4)+"…"+w.slice(-4):w;
-const fmt$=(n,d)=>n>=1000?n.toLocaleString(undefined,{maximumFractionDigits:0}):n.toFixed(d??2);
+const fmt$=(n,d)=>n>=1000?n.toLocaleString(undefined,{maximumFractionDigits:0}):(n>=0.01||n===0)?n.toFixed(d??2):Number(n.toPrecision(2)).toString();
 
 // ---------- wallet ----------
 async function connect(){
@@ -453,6 +505,12 @@ function paint(){
     $("pfLink").textContent="PUMP.FUN"+(s.mcap?" · MC $"+(s.mcap>=1e6?(s.mcap/1e6).toFixed(2)+"M":s.mcap>=1e3?(s.mcap/1e3).toFixed(1)+"K":s.mcap):"")+" ↗";
   }
   $("beat").innerHTML=`<b style="color:var(--grn)">● LIVE</b> · ORACLE ${s.prices.src.toUpperCase()} · STATE ${s.durable?"DURABLE":"EPHEMERAL"} · LOG ${s.log?("#"+s.log.i):"—"}`;
+  $("machStats").innerHTML=`<span class="pr">SHOTS <b>${s.stats.shots.toLocaleString()}</b></span>
+    <span class="pr">POT TODAY <b style="color:var(--gold)">${Math.floor(s.stats.potD||0).toLocaleString()}</b></span>
+    <span class="pr">POT SEASON <b style="color:var(--gold)">${Math.floor(s.stats.pot||0).toLocaleString()}</b></span>
+    ${s.stats.champPaid?`<span class="pr">CHAMPIONS PAID <b style="color:var(--grn)">${Math.floor(s.stats.champPaid).toLocaleString()} RCX</b></span>`:""}
+    ${s.stats.stakers?`<span class="pr">STAKERS <b>${s.stats.stakers.toLocaleString()}</b></span>`:""}`;
+  if(s.v)$("footV").textContent="build "+s.v+" · ";
   $("prices").innerHTML=Object.entries(s.prices).filter(([k])=>k!=="src").map(([k,v])=>
     `<span class="pr">${k} <b>$${fmt$(v)}</b></span>`).join("")+`<span class="pr">SRC <b>${s.prices.src.toUpperCase()}</b></span>`;
   // targets
@@ -481,7 +539,7 @@ function paint(){
   if(p){
     $("hR").textContent=p.rank;$("hB").textContent=p.rank[0];$("mB").textContent=p.rank[0];
     $("hBal").textContent=p.bal.toLocaleString();
-    if(s.mint){$("hCr").style.display="inline";$("hCr").textContent=p.cr.toLocaleString()+" · PAPER ";}
+    if(s.mint){$("hCrWrap").style.display="";$("hCr").textContent=p.cr.toLocaleString();}
     $("hS").textContent=p.streak+"🔥";
     const curTh=[0,300,900,2200,5000][p.rankIdx]||0;
     $("hX").style.width=(p.next?Math.max(0,Math.min(100,(p.xp-curTh)/(p.next[1]-curTh)*100)):100)+"%";
@@ -492,19 +550,34 @@ function paint(){
     $("chC").textContent=`${p.open.length} / ${p.chambers}`;
     const rows=[...p.open.map(c=>{
       const left=Math.max(0,Math.round((c.exp-Date.now())/1000));
-      const mm=Math.floor(left/60),ss=left%60;
-      return`<div class="cham"><div class="ch1"><span>SEALED 🔒</span><span>${mm}:${String(ss).padStart(2,"0")}</span></div>
+      const hh=Math.floor(left/3600),mm=Math.floor((left%3600)/60),ss=left%60;
+      const tleft=hh>0?`${hh}h ${String(mm).padStart(2,"0")}m`:`${mm}:${String(ss).padStart(2,"0")}`;
+      return`<div class="cham"><div class="ch1"><span>SEALED 🔒</span><span>${tleft}</span></div>
         <div class="ch2">${c.label} — <b>${c.side}</b> · entry $${fmt$(c.entry)}</div></div>`;}),
       ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
         <div class="ch2">${c.label}</div>
         <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${c.res==='hit'?'+'+c.xp+' XP':c.res==='miss'?'streak reset':'no move, no harm'}</div></div>`)];
     $("chams").innerHTML=rows.length?rows.join(""):'<div class="empty">EMPTY — FIRE A SHOT</div>';
+    if(p.champion&&STATE.champ){const c=p.champion;
+      $("champP").style.display="block";
+      $("champBody").innerHTML=`Your seat pays <b style="color:var(--gold)">${Math.round(c.pct*STATE.champ.pct*100)}% of every reload</b>, straight to your wallet — no claim needed.
+      Earned last 7 days: <b style="color:var(--gold)">${c.earned7.toLocaleString()} RCX</b> · wallet balance: <b>${c.bal.toLocaleString()} RCX</b>.<br>
+      <b style="color:var(--ink)">HOLDER RULE:</b> keep ≥${Math.round((STATE.champ.holdPct||0.5)*100)}% of your 7-day champion pay or your seat passes to the next player.
+      <b style="color:var(--grn)">SAFE TO SELL RIGHT NOW: ${c.safeSell.toLocaleString()} RCX</b>.<br>
+      <span style="color:var(--dim)">Sell smart: <a href="https://jup.ag/swap/${STATE.mint}-SOL" target="_blank" rel="noopener" style="color:var(--ice)">Jupiter ↗</a> routes you the best aggregated price — sell in small clips or DCA over hours; this market is thin and one lump sell pays the slippage out of YOUR pocket (and can cost the seat).</span>`;}
+    else $("champP").style.display="none";
     const r=p.rankIdx;
     $("rkrow").innerHTML=[["COG",0],["PISTON",300],["FLYWHEEL",900],["TURBINE",2200],["REACTOR",5000]]
       .map((k,i)=>`<div class="rkc ${i===r?'now':''}"><b style="color:${i<=r?'var(--gold)':'var(--dim)'}">${k[0]}</b><span>${k[1]} XP</span></div>`).join("");
   }
   // reload panel
-  if(s.mint&&AUTH){$("reloadP").style.display="block";$("incin").textContent=s.incinerator;}
+  if(s.mint&&AUTH){$("reloadP").style.display="block";$("incin").textContent=s.incinerator;
+    const cl=(s.champ&&s.champ.podium)||[];
+    $("podiumBox").style.display="block";
+    $("podiumBox").innerHTML=cl.length
+      ?"YOUR RELOAD PAYS TODAY'S PODIUM: "+cl.map((c,i)=>`${i+1}. <span style="color:var(--gold)">${c.w}</span> ${Math.round((s.champ.pct*c.pct)*100)}%`).join(" · ")+" — THE REST BURNS"
+      :"NO PODIUM YET — UNTIL THE FIRST DAILY ROLLOVER, 100% OF EVERY RELOAD BURNS";
+    if(cl.length)$("podiumBox").innerHTML+=" · HOLDER RULE: CHAMPIONS WHO DUMP LOSE THE SEAT";}
   else $("reloadP").style.display="none";
   // feed + ladder
   const fx=el=>el.innerHTML=s.feed.map(f=>{
@@ -533,6 +606,21 @@ function paint(){
       <span class="sc" style="color:var(--gold)">+${v.share.toLocaleString()} 🔥</span></div>`).join("")+
       (s.lastSeason.rolled>0?`<div style="font:600 9.5px var(--mono);color:var(--dim);padding:8px 14px">+ ${s.lastSeason.rolled.toLocaleString()} ROLLED INTO THIS SEASON</div>`:"");
   }
+  // stake tab
+  const si=p&&p.stakeInfo;
+  if(!AUTH||!s.mint){$("stakeBtn").disabled=true;$("stakeBtn").textContent=!s.mint?"ARMS AT TGE":"CONNECT A REAL WALLET TO STAKE";}
+  else{$("stakeBtn").disabled=false;
+    $("stakeBtn").textContent=si&&si.on?"UNMESH — STOP EARNING":"MESH MY GEARS — START EARNING";}
+  $("stakeMe").innerHTML=!AUTH?"Connect a real wallet, then mesh your gears."
+    :si&&si.on?`STATUS <b style="color:var(--grn)">MESHED ⚙</b><br>
+      On-chain balance: <b>${si.bal.toLocaleString()} RCX</b><br>
+      Today's output: <b style="color:var(--gold)">${si.perDay.toLocaleString()} credits/day</b><br>
+      Earned so far: <b style="color:var(--gold)">${si.earned.toLocaleString()} credits</b><br>
+      <span style="color:var(--dim)">${si.bal<si.minBal?"Below "+si.minBal.toLocaleString()+" RCX — hold more to produce output.":"Yield lands on your first visit each day (UTC)."}</span>`
+    :`STATUS <b style="color:var(--dim)">UNMESHED</b><br><span style="color:var(--dim)">One click to register — your tokens never move.</span>`;
+  $("stakeGlob").innerHTML=`Wallets meshed: <b>${(s.stats.stakers||0).toLocaleString()}</b><br>
+    Credits paid to stakers: <b style="color:var(--gold)">${(s.stats.stakePaid||0).toLocaleString()}</b><br>
+    <span style="color:var(--dim)">Rate: 0.1%/day of held balance · min 1,000 · counted up to 1,000,000.</span>`;
   $("ladder").innerHTML=s.ladder.length?s.ladder.map((l,i)=>`
     <div class="lr ${l.me?'me':''}"><span class="pos">${i+1}</span><span class="wl2">${l.me?'YOU':l.w}</span><span class="sc">${l.xp} XP</span></div>`).join("")
     :'<div class="empty" style="margin:6px 0">NOBODY ON THE LADDER YET — SEASON '+s.season.toUpperCase()+'</div>';
@@ -566,6 +654,14 @@ async function duel(side){
   refresh();
 }
 $("dW").onclick=()=>duel("with");$("dA").onclick=()=>duel("against");
+$("stakeBtn").onclick=async()=>{
+  if(!AUTH){toast("connect a real wallet first");return}
+  const on=!(STATE&&STATE.player&&STATE.player.stakeInfo&&STATE.player.stakeInfo.on);
+  const j=await post({action:"stake",auth:AUTH,on});
+  if(!j.ok){toast("⚠ "+j.reason);return}
+  toast(on?"⚙ GEARS MESHED — your first yield lands tomorrow (UTC). Tokens never moved.":"gears unmeshed — no more daily yield");
+  refresh();
+};
 $("incin")&&($("incin").onclick=()=>{navigator.clipboard.writeText($("incin").textContent);toast("incinerator address copied")});
 let burnAmt=5000;
 document.querySelectorAll("#burnPick .stk").forEach(b=>b.onclick=()=>{
@@ -592,14 +688,14 @@ let PB=null;try{PB=JSON.parse(localStorage.getItem("ratchet_pb"))}catch{}
 function setPB(o){PB=o;if(o)localStorage.setItem("ratchet_pb",JSON.stringify(o));else localStorage.removeItem("ratchet_pb")}
 function paintBurnBtn(){const b=$("oneBurn");if(!b)return;
   b.disabled=!!PB;
-  b.textContent=PB?"⏳ VERIFYING BURN — CREDITS INCOMING…":"🔥 BURN & RELOAD — ONE CLICK";}
+  b.textContent=PB?"⏳ VERIFYING RELOAD — CREDITS INCOMING…":"🔥 RELOAD — 70% BURNS · 30% PAYS THE PODIUM";}
 async function tryPB(){
   if(!PB||!AUTH)return;
   if(Date.now()-PB.t>10*60e3){$("burnsig").value=PB.sig;setPB(null);paintBurnBtn();
     toast("burn unverified after 10 min — signature filled in below, press CREDIT");return}
   try{
     const j=await post({action:"reload",auth:AUTH,sig:PB.sig});
-    if(j.ok){toast(`✓ BURN VERIFIED ON-CHAIN 🔥 +${j.credited.toLocaleString()} credits — ${(PB.amt||0).toLocaleString()} RCX destroyed forever`);
+    if(j.ok){toast(`✓ RELOAD VERIFIED ON-CHAIN 🔥 +${j.credited.toLocaleString()} credits`);
       setPB(null);paintBurnBtn();refresh();}
     else if(/already credited/i.test(j.reason||"")){setPB(null);paintBurnBtn();refresh();}
     else if(/failed on-chain|did not reach|that wallet paid/i.test(j.reason||"")){
@@ -621,7 +717,16 @@ $("oneBurn").onclick=async()=>{
     const ATAP=new W3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
     const owner=new W3.PublicKey(AUTH.wallet),mint=new W3.PublicKey(STATE.mint);
     const ata=W3.PublicKey.findProgramAddressSync([owner.toBytes(),TOKEN.toBytes(),mint.toBytes()],ATAP)[0];
-    const raw=BigInt(burnAmt)*1000000n; // pump.fun mints use 6 decimals
+    // THE CHAMPION'S CUT: 70% burns, 30% splits to the podium (50/30/20)
+    // in this one transaction you sign. Legs exist only for podium wallets
+    // with an RCX account (the server supplies their token accounts);
+    // any missing leg burns instead. Keyless end to end.
+    const podium=(STATE.champ&&STATE.champ.podium)||[];
+    const cutPct=(STATE.champ&&STATE.champ.pct)||0;
+    const legs=podium.map(c=>({ata:c.ata,amt:Math.floor(burnAmt*cutPct*c.pct)})).filter(l=>l.amt>=1&&l.ata);
+    const legTotal=legs.reduce((a,l)=>a+l.amt,0);
+    const burnPart=burnAmt-legTotal;
+    const raw=BigInt(burnPart)*1000000n; // pump.fun mints use 6 decimals
     const data=new Uint8Array(9);data[0]=8; // SPL Token "Burn"
     let v=raw;for(let i=1;i<9;i++){data[i]=Number(v&255n);v>>=8n;}
     const bj=await (await fetch(API+"?action=blockhash")).json();
@@ -632,10 +737,20 @@ $("oneBurn").onclick=async()=>{
       {pubkey:ata,isSigner:false,isWritable:true},
       {pubkey:mint,isSigner:false,isWritable:true},
       {pubkey:owner,isSigner:true,isWritable:false}],data}));
+    for(const l of legs){
+      const td=new Uint8Array(10);td[0]=12; // SPL TransferChecked (same ix in Token-2022)
+      let a=BigInt(l.amt)*1000000n;for(let i=1;i<9;i++){td[i]=Number(a&255n);a>>=8n;}
+      td[9]=6;
+      tx.add(new W3.TransactionInstruction({programId:TOKEN,keys:[
+        {pubkey:ata,isSigner:false,isWritable:true},
+        {pubkey:mint,isSigner:false,isWritable:false},
+        {pubkey:new W3.PublicKey(l.ata),isSigner:false,isWritable:true},
+        {pubkey:owner,isSigner:true,isWritable:false}],data:td}));
+    }
     const {signature}=await prov.signAndSendTransaction(tx);
     setPB({sig:signature,amt:burnAmt,t:Date.now()});
     paintBurnBtn();
-    toast("🔥 burn sent — verifying on-chain. Credits appear automatically; you can keep playing.");
+    toast("🔥 sent — "+burnPart.toLocaleString()+" burning"+(legTotal?", "+legTotal.toLocaleString()+" straight to the podium":"")+" · verifying on-chain…");
     setTimeout(tryPB,4000);
   }catch(e){toast("burn failed: "+((e&&e.message)||"cancelled")+" — the manual fallback below always works");}
   $("oneBurn").disabled=false;
@@ -654,7 +769,7 @@ $("burngo").onclick=async()=>{
 // ---------- LIVE proof ----------
 let PROOF=null,proofAt=0;
 const STATIC_LINES=[
-["g","Every stake is split by a published, frozen rule","70% burn · 30% pots (15% daily / 15% weekly) · 0% creator — printed on the fire button itself"],
+["g","One frozen rule at both doors: 70 / 30 / 0","stakes: 70% machine · 30% pots · 0% us. reloads: 70% burn · 30% straight to the champions · 0% us"],
 ["g","Your side is sealed until settlement","Other players and the Warden cannot see it before the window closes"],
 ["g","Targets settle on markets no player can move","majors via Pyth only — RCX-priced shots were removed on purpose: a thin market you can trade is a bet you can settle yourself"],
 ["p","The Machine's floor is redeemable SOL","The vault program (Wave 4): no withdraw instruction, upgrade authority revoked"]];

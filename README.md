@@ -14,13 +14,23 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 Don't take our word for it — the site tells you. Both live endpoints return a build marker:
 
 ```
-https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h2-2026-08-19"
-https://ratchetx.vercel.app/api/proof               ->  "v": "h2-2026-08-19"
+https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h3-2026-08-19"
+https://ratchetx.vercel.app/api/proof               ->  "v": "h3-2026-08-19"
 ```
 
-`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h2-2026-08-19'`.
+`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h3-2026-08-19'`.
 If the live marker and the repo marker match, you are reading the code that is running.
 If they ever don't, the repo is stale and you should say so loudly.
+
+## Real rewards, still keyless
+
+**The Champion's Cut**: every reload splits by the same frozen 70/30/0 — 70% burns, 30% is paid
+straight to the daily podium's wallets (50/30/20) *inside the reloader's own signed transaction*.
+No pool, no custody, no claim button: the server only verifies the legs and refuses anything that
+pays a wallet outside the published podium. **The Holder Rule**: champions must keep ≥50% of their
+last 7 days' champion pay (balances read from chain) or the seat passes down — anti-dump without
+locking anyone's tokens. **The Gearbox**: register with a signature and earn daily play-credits on
+your verified on-chain balance — staking with no deposit, so there is nothing to rug.
 
 ## The whole backend, small enough to read in one sitting
 

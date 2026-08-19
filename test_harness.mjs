@@ -10,6 +10,7 @@ const require = createRequire(import.meta.url);
 // ---- stub the oracle and the chain BEFORE game.js loads them
 const pricesPath = require.resolve('./lib/prices.js');
 const burnPath = require.resolve('./lib/burn.js');
+const realBurn = require('./lib/burn.js');   // capture the REAL module before stubbing
 let PX = { src: 'stub', SOL: 100, BTC: 60000, ETH: 2000, BONK: 0.000002, WIF: 0.1, JUP: 0.2 };
 require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true,
   exports: { getPrices: async () => ({ ...PX }) } };
@@ -148,13 +149,60 @@ const { setnxJSON } = require('./lib/kv.js');
 const wins = await Promise.all([setnxJSON('sig:racetest', { a: 1 }), setnxJSON('sig:racetest', { a: 2 })]);
 ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
 
-// 12 ---- proof endpoint runs (no mint armed in test env)
+// 12 ---- decideBurn: THE CHAMPION'S CUT (pure, real implementation)
+{
+  const INC = '1nc1nerator11111111111111111111111111111111';
+  const mkTx = deltas => {
+    const pre = [], post = [];
+    for (const [owner, [a, b]] of Object.entries(deltas)) {
+      pre.push({ mint: 'M', owner, uiTokenAmount: { uiAmount: a } });
+      post.push({ mint: 'M', owner, uiTokenAmount: { uiAmount: b } });
+    }
+    return { blockTime: Math.floor(Date.now() / 1000), meta: { err: null, preTokenBalances: pre, postTokenBalances: post } };
+  };
+  const D = realBurn.decideBurn;
+  const base = { wallet: 'P', mint: 'M', minAmount: 1, podium: ['A', 'B', 'C'], podiumPct: 0.30 };
+  let d = D(mkTx({ P: [10000, 0] }), base);
+  ok(d.ok && d.amount === 10000 && d.burned === 10000 && d.champPaid === 0, 'champ: pure burn still credits 1:1');
+  d = D(mkTx({ P: [10000, 0], A: [0, 1500], B: [0, 900], C: [0, 600] }), base);
+  ok(d.ok && d.amount === 10000 && d.burned === 7000 && d.champPaid === 3000, 'champ: 70/30 reload verifies in full');
+  d = D(mkTx({ P: [10000, 0], [INC]: [0, 7000], A: [0, 3000] }), { ...base, podium: ['A'] });
+  ok(d.ok && d.burned === 7000 && d.champPaid === 3000, 'champ: incinerator route with a podium leg');
+  d = D(mkTx({ P: [10000, 0], X: [0, 3000] }), base);
+  ok(!d.ok && /outside the published podium/.test(d.reason), 'champ: stranger recipient refuses the reload');
+  d = D(mkTx({ P: [10000, 3000], A: [0, 7000] }), { ...base, podium: ['A'] });
+  ok(!d.ok, 'champ: legs above the 30% cut refused');
+  d = D(mkTx({ P: [10000, 1500], B: [0, 900], C: [0, 600] }), base);
+  ok(d.ok && d.amount === 8500 && d.burned === 7000 && d.champPaid === 1500, 'champ: self-on-podium nets fairly');
+  d = D(mkTx({ P: [10000, 0] }), { ...base, podium: [] });
+  ok(d.ok && d.amount === 10000, 'champ: empty podium = pure burn, unchanged');
+}
+
+// 11b ---- soft-staking: demo refused; yield math sane via state shape
+r = await call('POST', { body: { action: 'stake', auth: { wallet: 'demo-abc123' }, on: true } });
+ok(!r.body.ok && r.status === 400, 'stake: demo wallet refused (mint unset in test env also refuses)');
+
+// 12a ---- holder-rule window math (pure)
+{
+  const cw = game.champWindowSum;
+  const today0 = new Date().toISOString().slice(0, 10);
+  ok(cw({ [today0]: 300 }, Date.now(), 7) === 300, 'holder window counts today');
+  ok(cw({ '2000-01-01': 999, [today0]: 1 }, Date.now(), 7) === 1, 'holder window drops ancient days');
+  ok(cw(null, Date.now(), 7) === 0, 'holder window null-safe');
+}
+
+// 12b ---- state exposes the champion cut
+r = await call('GET', { query: { action: 'state' } });
+ok(r.body.champ && r.body.champ.pct === 0.30 && Array.isArray(r.body.champ.podium), 'state exposes champ cut + podium');
+
+// 13 ---- proof endpoint runs (no mint armed in test env)
 const proof = require('./api/proof.js');
 r = await new Promise(resolve => {
   proof({ method: 'GET', headers: {}, query: {} },
     { _status: 200, status(c) { this._status = c; return this; }, json(o) { resolve({ status: this._status, body: o }); } });
 });
 ok(r.body.ok && r.body.checks.some(c => c.id === 'pots'), 'proof answers with pots line');
+ok(r.body.checks.some(c => c.id === 'champs' && /peer-to-peer/.test(c.label)), 'proof carries the champions line');
 ok(r.body.checks.some(c => c.id === 'credits' && /never minted/.test(c.detail)), 'credits line carries no-faucet wording');
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL PASS');
