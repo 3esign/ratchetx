@@ -85,6 +85,13 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .mcell{background:var(--card2);padding:12px 10px;text-align:center}
 .mcell u{display:block;text-decoration:none;font:700 8.5px/1 var(--mono);letter-spacing:.18em;color:var(--dim);margin-bottom:6px}
 .mcell b{display:block;font:800 17px/1 var(--mono);color:var(--ink);letter-spacing:-.01em}
+.agrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;padding:10px 0;
+  border-bottom:1px solid var(--line)}
+.agrow:last-of-type{border-bottom:0}
+.agrow .an{font:800 11.5px/1 var(--mono);letter-spacing:.12em;color:var(--ink)}
+.agrow .ab{font:400 11.5px/1.5 var(--sans);color:var(--dim);grid-column:1/-1;margin-top:-4px}
+.agrow .ac{font:800 11px/1 var(--mono);white-space:nowrap}
+.agrow .call{grid-column:1/-1;font:700 10px/1.5 var(--mono);letter-spacing:.06em;color:var(--ink2);margin-top:4px}
 .standing{margin:16px auto 0;max-width:760px;background:var(--card2);border:1px solid var(--line);
   border-radius:12px;padding:12px 14px;font:700 10.5px/1.6 var(--mono);letter-spacing:.06em;
   color:var(--ink2);text-align:center}
@@ -447,6 +454,11 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       Going <b style="color:var(--gold)">against</b> it pays ×3.4 — beating a stated probability is the
       hardest thing in the game and the ladder knows it. The Warden's record accrues publicly either
       way, wins and losses alike.</div></div>
+    <div class="panel" style="flex:none"><h3>THE FLEET <span id="fleetN" style="color:var(--ice)"></span></h3>
+      <div id="fleetBox" style="font:400 12.5px/1.6 var(--sans);color:var(--ink2)">—</div>
+      <div style="font:600 9px/1.6 var(--mono);letter-spacing:.08em;color:var(--dim);margin-top:12px;
+        border-top:1px solid var(--line);padding-top:10px">AGENTS NEVER ENTER A LADDER, A POT, THE PODIUM OR THE
+        BURN COUNTER. THEY STAKE NOTHING AND WIN NOTHING. THEY EXIST TO BE BEATEN.</div></div>
     <div class="panel" style="flex:1;min-height:0;display:flex;flex-direction:column"><h3>RECENT ACTION</h3><div class="kill" id="duelfeed"></div></div>
   </div>
 </div></div></section>
@@ -683,7 +695,7 @@ function paint(){
     sel.t=b.dataset.k;const sd=e.target.dataset.side;if(sd)sel.side=sd;paint();});
   const ok=sel.t&&sel.side&&who();
   $("fire").disabled=!ok;
-  payLine();standing();
+  payLine();standing();fleet();
   const guest=!AUTH;
   $("fire").textContent=ok?(guest?`SEAL THE SHOT — ${sel.stake.toLocaleString()} (GUEST, UNRANKED) 🔒`
     :`SEAL THE SHOT — BURN ${sel.stake.toLocaleString()} 🔥`):"PICK A TARGET AND A SIDE";
@@ -811,6 +823,27 @@ function paint(){
 // the number on screen can never disagree with the number you are awarded.
 const stakeRule=()=>(STATE&&STATE.stakeRule)||{min:100,max:2500};
 const stakeMult=st=>Math.sqrt(st/stakeRule().min);
+// THE FLEET. Four named agents, published methods, public records including
+// their losses. They are opponents, not players — nothing they do touches a
+// ladder, a pot or a counter.
+function fleet(){
+  const box=$("fleetBox"); if(!box||!STATE||!STATE.agents)return;
+  const f=STATE.agents.fleet||[], open=STATE.agents.open||[];
+  const n=$("fleetN"); if(n)n.textContent=f.length?`${f.length} AGENTS · ${f.reduce((a,x)=>a+x.n,0)} CALLS SETTLED`:"";
+  const html=f.map(a=>{
+    const mine=open.filter(o=>o.agent===a.id);
+    const acc=a.acc==null?'<span style="color:var(--dim)">NO RECORD YET</span>'
+      :`<span style="color:${a.acc>=50?'var(--grn)':'var(--red)'}">${a.acc}%</span> <span style="color:var(--dim)">(${a.hits}/${a.n})</span>`;
+    const call=mine.length?mine.map(o=>
+      `<span style="color:var(--dim)">OPEN CALL:</span> ${o.label} — <b style="color:${o.side==='YES'?'var(--grn)':'var(--red)'}">${o.side}</b>`
+      +` · <span class="cd" data-exp="${o.exp}"></span>`).join("<br>")
+      :'<span style="color:var(--dim)">no open call this hour</span>';
+    return `<div class="agrow"><span class="an">${a.name}</span><span class="ac">${acc}</span>`+
+      `<span class="ab">${a.blurb}</span><span class="call">${call}</span></div>`;
+  }).join("");
+  setHTML(box,html||'<span style="color:var(--dim)">the fleet has not woken up yet</span>');
+}
+
 // YOUR LIVE POSITION. A ladder nobody can see themselves on is decoration.
 function standing(){
   const els=[$("standing"),$("standingR")].filter(Boolean);

@@ -48,7 +48,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h13-2026-08-20';
+const VERSION = 'h14-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -444,6 +444,132 @@ async function wardenTick(prices) {
   return rec;
 }
 
+
+// ============================================================
+//  THE FLEET (h14) — the Machine's own agents.
+//
+//  A prediction arcade with three players has nothing to watch and nobody
+//  to beat. These four fix that WITHOUT faking anything: each is a named
+//  character with a published method, each fires one real call an hour on
+//  the same board every player sees, each settles on the same oracle, and
+//  each accrues a public record including its losses.
+//
+//  Hard rules, so the counters stay honest:
+//    · agents NEVER enter a ladder, a pot, the podium or the burn counter
+//    · agents stake nothing — they cost the machine nothing and feed it nothing
+//    · every call is published at seal time and written to the log, so an
+//      agent cannot quietly change its mind before the window closes
+//
+//  They exist to be beaten. The page says so.
+// ============================================================
+const AGENTS = [
+  { id:'mom', name:'MOMENTUM',   blurb:'rides the last hour of drift — strength continues, weakness continues' },
+  { id:'rev', name:'REVERSION',  blurb:'fades the last hour — assumes the move overshot and snaps back' },
+  { id:'vol', name:'VOLATILITY', blurb:'plays for movement, never direction — takes the outside of every band' },
+  { id:'con', name:'CONTRARIAN', blurb:'fights the Warden — takes the other side of the house AI, every hour' },
+];
+
+// drift = how the feed moved over the previous hour, the only history an
+// agent gets. Stored once per hour when the fleet seals.
+function agentSide(agentId, t, prices, drift, seedN, wardenUp) {
+  const d = Number.isFinite(drift) ? drift : 0;
+  const k = t.kind;
+  if (agentId === 'mom') {
+    if (k === 'dir')      return d >= 0 ? 'YES' : 'NO';
+    if (k === 'thr')      return d > (t.pct || 0) * 0.35 ? 'YES' : 'NO';
+    if (k === 'thrDown')  return d < -(t.pct || 0) * 0.35 ? 'YES' : 'NO';
+    if (k === 'range')    return Math.abs(d) > (t.pct || 0) * 0.5 ? 'YES' : 'NO';
+    return d >= 0 ? 'YES' : 'NO';                       // race: leader keeps leading
+  }
+  // REVERSION is the strict inverse of MOMENTUM — including when drift is flat,
+  // where negating the input would have made the two agents identical.
+  if (agentId === 'rev')  return agentSide('mom', t, prices, d, seedN, wardenUp) === 'YES' ? 'NO' : 'YES';
+  if (agentId === 'vol') {
+    if (k === 'range')    return 'YES';                 // always bets the band breaks
+    if (k === 'thr' || k === 'thrDown') return Math.abs(d) > (t.pct || 0) * 0.3 ? 'YES' : 'NO';
+    return (seedN & 1) ? 'YES' : 'NO';                  // no directional view at all
+  }
+  if (agentId === 'con') {
+    // fights the house AI: whatever the Warden leans, this takes the other side
+    const up = !!wardenUp;
+    if (k === 'thrDown') return up ? 'YES' : 'NO';   // Warden up -> bet the drop
+    if (k === 'range')   return up ? 'YES' : 'NO';   // Warden confident -> bet the break
+    return up ? 'NO' : 'YES';
+  }
+  return 'YES';
+}
+
+// ---- the fleet's lazy tick: settle what expired, then seal this hour once.
+async function agentsTick(prices) {
+  const wLine = wardenLine(prices);
+  const wardenUp = wLine && wLine.p >= 50;
+  const hour = boardHour();
+  const board = Object.entries(targetBoard(hour))
+    .filter(([, t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])));
+  const recs = (await getJSON('g:agents:rec')) || {};
+  let open = (await getJSON('g:agents:open')) || [];
+  const now = Date.now();
+
+  // ---- settle
+  const still = []; let changed = false;
+  for (const o of open) {
+    const px = prices[o.feed];
+    if (now < o.exp || !Number.isFinite(px)) { still.push(o); continue; }
+    let outcome;
+    if (o.kind === 'thr')          outcome = px > o.thresh;
+    else if (o.kind === 'thrDown') outcome = px < o.thresh;
+    else if (o.kind === 'range')   outcome = px > o.hi || px < o.lo;
+    else                           outcome = px > o.entry;
+    const said = o.side === 'YES';
+    const hit = said === outcome;
+    const r = recs[o.agent] || (recs[o.agent] = { n:0, hits:0, streak:0, best:0 });
+    r.n++; if (hit) { r.hits++; r.streak++; r.best = Math.max(r.best, r.streak); } else r.streak = 0;
+    r.last = { label: o.label, side: o.side, hit, t: now };
+    const nm = (AGENTS.find(a => a.id === o.agent) || {}).name || o.agent;
+    await bumpFeed({ w: nm, a: `${hit ? 'HIT' : 'MISS'} — ${o.label} · called ${o.side}`, c: hit ? 'hit' : 'miss', agent: 1 });
+    await append({ k:'agent', agent: o.agent, id: o.id, res: hit ? 'hit' : 'miss', side: o.side, exitPx: px });
+    changed = true;
+  }
+  open = still;
+
+  // ---- seal one call per agent per hour, exactly once, published openly
+  if (board.length) {
+    for (let i = 0; i < AGENTS.length; i++) {
+      const a = AGENTS[i];
+      const id = `${a.id}-${hour}`;
+      if (open.some(o => o.id === id)) continue;
+      const seedN = Math.abs(mulberry32(hour * 31 + i * 7)() * 1e9 | 0);
+      const [, t] = board[seedN % board.length];
+      const prev = (await getJSON('g:agents:px')) || {};
+      const p0 = prev[t.feed], p1 = prices[t.feed];
+      const drift = Number.isFinite(p0) && p0 > 0 ? (p1 - p0) / p0 : 0;
+      const side = agentSide(a.id, t, prices, drift, seedN, wardenUp);
+      const call = { id, agent: a.id, label: t.label, kind: t.kind, feed: t.feed, side,
+        entry: p1, t: now, exp: now + t.mins * 60e3 };
+      if (t.kind === 'thr')          call.thresh = p1 * (1 + t.pct);
+      else if (t.kind === 'thrDown') call.thresh = p1 * (1 - t.pct);
+      else if (t.kind === 'range')   { call.lo = p1 * (1 - t.pct); call.hi = p1 * (1 + t.pct); }
+      if (await setnxJSON(`aseal:${id}`, call)) {
+        open.push(call); changed = true;
+        await append({ k:'aseal', agent: a.id, id, label: t.label, side, entry: p1, exp: call.exp });
+      }
+    }
+    // remember this hour's prices so next hour has a drift to reason about
+    await setJSON('g:agents:px', { SOL:prices.SOL, BTC:prices.BTC, ETH:prices.ETH,
+      BONK:prices.BONK, WIF:prices.WIF, JUP:prices.JUP, PUMP:prices.PUMP });
+  }
+
+  if (changed) { await setJSON('g:agents:rec', recs); await setJSON('g:agents:open', open); }
+  return {
+    fleet: AGENTS.map(a => {
+      const r = recs[a.id] || { n:0, hits:0, streak:0, best:0 };
+      return { id:a.id, name:a.name, blurb:a.blurb, n:r.n, hits:r.hits, streak:r.streak, best:r.best,
+        acc: r.n ? Math.round((r.hits / r.n) * 100) : null, last: r.last || null };
+    }).sort((x, y) => (y.acc ?? -1) - (x.acc ?? -1) || y.n - x.n),
+    open: open.map(o => ({ agent:o.agent, label:o.label, side:o.side, exp:o.exp, entry:o.entry })),
+  };
+}
+
 function refund(p, s) { p.cr += s.stake; }
 
 // full per-player shot history — every settled shot, capped at 200,
@@ -565,6 +691,7 @@ module.exports = async (req, res) => {
     if (action === 'state') {
       await rolloverPots();
       const wardenRec = await wardenTick(prices);
+      const fleet = await agentsTick(prices);
       const podNow = (await getJSON('g:podium')) || { list: [] };
       const wRaw = req.query.wallet;
       const w = (typeof wRaw === 'string' && (isWalletShaped(wRaw) || isDemo(wRaw))) ? wRaw : null;
@@ -642,7 +769,7 @@ module.exports = async (req, res) => {
       return res.json({ ok:true, v: VERSION, durable,
         prices:{src:prices.src,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
         stats: st, feed: (await getJSON('g:feed')) || [], ladder, ladderDay,
-        warden: wardenLine(prices), wardenRec,
+        warden: wardenLine(prices), wardenRec, agents: fleet,
         wardenHist: (await getJSON('g:warden:hist')) || [],
         targets: Object.fromEntries(Object.entries(targetBoard(boardHour()))
           .filter(([,t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))),
