@@ -48,7 +48,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h10-2026-08-20';
+const VERSION = 'h11-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -84,7 +84,19 @@ const stakeYield = bal => (bal >= STAKE.minBal ? Math.floor(Math.min(bal, STAKE.
 // read one before. This is also Stage 2 of the on-chain path: the same
 // commitment can be anchored on-chain per shot.
 const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
-const STAKES = { 100: 1, 500: 2, 2500: 5 };
+// FREE STAKING (h11). The old three tiers — 100 x1, 500 x2, 2500 x5 — were three
+// points on a square root: sqrt(stake/100). Making the curve continuous lets a
+// player stake ANY amount in range without touching the design law, because the
+// law lives in the shape of the curve, not in the tiers:
+//
+//   sublinear, so 25x the stake earns 5x the XP, never 25x — the ladder cannot
+//   be bought — and XP is still only ever awarded on a HIT, so a bigger stake
+//   buys leverage on being right and nothing whatsoever on being right.
+const STAKE_MIN = 100;
+const STAKE_MAX = 2500;
+const stakeMult = st => Math.sqrt(st / STAKE_MIN);
+const badStake = st => !Number.isInteger(st) || st < STAKE_MIN || st > STAKE_MAX;
+const STAKES = { 100: 1, 500: 2, 2500: 5 };   // presets the UI still offers
 // THE BOARD (h4): targets are GENERATED, not hardcoded — a fresh mix
 // every hour, deterministic from the clock (seeded PRNG), so every
 // player and every server instance derives the same board with no
@@ -495,7 +507,7 @@ async function settle(p, prices) {
 // (split half daily / half weekly). The floor is monotone by
 // construction: it only ever ratchets to a new maximum.
 async function takeStake(p, stake) {
-  if (!STAKES[stake]) return 'bad stake';
+  if (badStake(stake)) return `stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}`;
   if (p.cr < stake) return `not enough credits — you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`;
   p.cr -= stake; p._src = 'cr';
   const st = await loadStats();
@@ -606,6 +618,7 @@ module.exports = async (req, res) => {
           .filter(([,t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))),
         boardFlip: (boardHour() + 1) * 3600e3,
         split: SPLIT, potSplit: { day: POT_DAY_SHARE, week: 1 - POT_DAY_SHARE },
+        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number) },
         champ: { pct: CHAMP.pct, curve: CHAMP.curve, holdPct: CHAMP.holdPct, holdDays: CHAMP.holdDays,
           podium: (podNow.list || []).map(x => ({ w: shortW(x.w), ata: x.ata, pct: x.pct })) },
         season: seasonKey(), day: today(),
@@ -654,7 +667,7 @@ module.exports = async (req, res) => {
         shot = { id: Math.random().toString(36).slice(2,10),
           kind, feed:t.feed, side:b.side,
           entry: prices[t.feed], exp: Date.now()+t.mins*60e3, stake,
-          xp: Math.max(1, Math.round(t.baseXp * STAKES[stake] * xpMult)), label: t.label };
+          xp: Math.max(1, Math.round(t.baseXp * stakeMult(stake) * xpMult)), label: t.label };
         if (kind === 'thr') shot.thresh = prices[t.feed] * (1 + t.pct);
         if (kind === 'thrDown') shot.thresh = prices[t.feed] * (1 - t.pct);
         if (kind === 'range') shot.pct = t.pct;
@@ -665,7 +678,7 @@ module.exports = async (req, res) => {
         shot = { id: Math.random().toString(36).slice(2,10), kind:'thr', feed:wl.feed, thresh:wl.thresh,
           side: withW ? (wl.p >= 50 ? 'YES':'NO') : (wl.p >= 50 ? 'NO':'YES'),
           entry: prices[wl.feed], exp: Date.now()+wl.mins*60e3, stake,
-          xp: Math.round(14 * STAKES[stake] * (withW ? 0.8 : 3.4)), label: 'DUEL vs the Warden: '+wl.q, duel:true };
+          xp: Math.max(1, Math.round(14 * stakeMult(stake) * (withW ? 0.8 : 3.4))), label: 'DUEL vs the Warden: '+wl.q, duel:true };
       }
       shot.salt = crypto.randomBytes(8).toString('hex');
       shot.commit = sha256hex(`${shot.side}|${shot.salt}`);

@@ -112,6 +112,13 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
   transition:.13s;color:var(--ink2);font:700 13px/1.2 var(--mono)}
 .stk small{display:block;font:600 8.5px/1 var(--mono);letter-spacing:.14em;color:var(--dim);margin-top:5px}
 .stk.on{border-color:var(--gold);color:var(--gold);box-shadow:0 0 24px -10px rgba(245,184,61,.5)}
+.stakeCustom{display:flex;align-items:center;gap:10px;margin-top:9px}
+.stakeCustom .scl{font:700 9px var(--mono);letter-spacing:.16em;color:var(--dim);white-space:nowrap}
+.stakeCustom input{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line);border-radius:9px;
+  padding:10px 12px;color:var(--ink);font:700 12.5px var(--mono);outline:none}
+.stakeCustom input:focus{border-color:var(--gold)}
+.stakeCustom input::-webkit-outer-spin-button,.stakeCustom input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
+.stakeCustom .scm{font:800 11px var(--mono);letter-spacing:.08em;color:var(--gold);white-space:nowrap;min-width:74px;text-align:right}
 .fire{width:100%;background:var(--gold);color:#1a1206;border:0;border-radius:12px;padding:16px;
   font:800 14px/1 var(--sans);letter-spacing:.06em;cursor:pointer;transition:.14s}
 .fire:hover{filter:brightness(1.1)}
@@ -280,8 +287,11 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         the chain every 30 seconds on the PROOF tab — and each line can turn red.
 
         <div class="hh">HOW TO PLAY</div>
-        <b style="color:var(--ink)">1 · Call it.</b> Pick a question, pick YES or NO, pick a stake (100 ×1 XP,
-        500 ×2, 2,500 ×5). Each card quotes the level it is asking about — <s style="text-decoration:none;color:var(--ice)">NOW</s>
+        <b style="color:var(--ink)">1 · Call it.</b> Pick a question, pick YES or NO, and stake any whole
+        amount from 100 to 2,500. XP scales as <b style="color:var(--ink)">√(stake/100)</b> — so 25× the stake
+        earns 5× the XP and never 25×, the ladder cannot be bought, and XP is only ever paid on a
+        <b style="color:var(--grn)">HIT</b>. Staking more buys leverage on being right; it buys nothing at all
+        on being right. Each card quotes the level it is asking about — <s style="text-decoration:none;color:var(--ice)">NOW</s>
         is the live price, <s style="text-decoration:none;color:var(--ice)">CLEARS / BREAKS / BAND</s> is what has
         to happen. Your shot is <b style="color:var(--ice)">sealed</b>: only a hash of your side is stored, so
         nobody — including us — can read it before it settles.<br>
@@ -354,8 +364,13 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="tcap">STAKE — BIGGER BURN, BIGGER XP</div>
     <div class="stakes">
       <button class="stk" data-s="100">100<small>×1 XP</small></button>
-      <button class="stk on" data-s="500">500<small>×2 XP</small></button>
+      <button class="stk on" data-s="500">500<small>×2.24 XP</small></button>
       <button class="stk" data-s="2500">2,500<small>×5 XP</small></button>
+    </div>
+    <div class="stakeCustom">
+      <span class="scl">OR NAME YOUR OWN</span>
+      <input id="stakeIn" type="number" inputmode="numeric" min="100" max="2500" step="10" placeholder="100 – 2,500">
+      <span class="scm" id="stakeMultOut">×2.24 XP</span>
     </div>
     <button class="fire" id="fire" disabled>PICK A TARGET AND A SIDE</button>
     <div class="splitline">EVERY SHOT: <b>70% BURNED</b> · 30% POTS (15% DAILY / 15% WEEKLY) · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
@@ -756,9 +771,28 @@ function paint(){
     <div class="lr ${l.me?'me':''}"><span class="pos">${i+1}</span><span class="wl2">${l.me?'YOU':l.w}</span><span class="sc">${l.xp} XP</span></div>`).join("")
     :'<div class="empty" style="margin:6px 0">NOBODY ON THE LADDER YET — SEASON '+s.season.toUpperCase()+'</div>');
 }
-document.querySelectorAll(".stk").forEach(b=>b.onclick=()=>{
-  document.querySelectorAll(".stk").forEach(x=>x.classList.remove("on"));
-  b.classList.add("on");sel.stake=+b.dataset.s;paint&&STATE&&paint();});
+// the multiplier is sqrt(stake/min) — the same curve the server scores with, so
+// the number on screen can never disagree with the number you are awarded.
+const stakeRule=()=>(STATE&&STATE.stakeRule)||{min:100,max:2500};
+const stakeMult=st=>Math.sqrt(st/stakeRule().min);
+function setStake(v,fromInput){
+  const r=stakeRule();
+  const st=Math.max(r.min,Math.min(r.max,Math.floor(+v||r.min)));
+  sel.stake=st;
+  const out=$("stakeMultOut"); if(out)out.textContent="×"+stakeMult(st).toFixed(2)+" XP";
+  document.querySelectorAll(".stk").forEach(x=>x.classList.toggle("on",+x.dataset.s===st));
+  const inp=$("stakeIn"); if(inp&&!fromInput&&document.activeElement!==inp)inp.value=st;
+  if(window.STATE)paint();
+}
+document.querySelectorAll(".stk").forEach(b=>b.onclick=()=>setStake(b.dataset.s,false));
+(()=>{const inp=$("stakeIn"); if(!inp)return;
+  inp.value=sel.stake;
+  inp.oninput=()=>{const r=stakeRule();const raw=Math.floor(+inp.value||0);
+    if(raw>=r.min&&raw<=r.max)setStake(raw,true);
+    else{const out=$("stakeMultOut");if(out)out.textContent=raw?"OUT OF RANGE":"×— XP";}};
+  inp.onblur=()=>setStake(inp.value,false);
+  inp.onkeydown=e=>{if(e.key==="Enter")inp.blur();};
+})();
 
 // ---------- actions ----------
 async function post(body){

@@ -69,7 +69,9 @@ ok((getMem('g:feed') || []).length === 0, 'demo seal absent from public feed');
 let p = getMem('u:demo-abc123');
 p.open[0].exp = Date.now() - 1000; p.open[0].entry = 90; setMem('u:demo-abc123', p);
 r = await call('GET', { query: { action: 'state', wallet: 'demo-abc123' } });
-ok(r.body.player.hits === 1 && r.body.player.xp === 20, 'demo shot settled as hit');
+// 22, not 20: the stake curve is now continuous sqrt(stake/100), so the 500 preset
+// pays x2.24 instead of the old flat x2. Disclosed in the changelog.
+ok(r.body.player.hits === 1 && r.body.player.xp === 22, 'demo shot settled as hit');
 const wk = Object.keys(mem).length; // touch
 const seasonLb = Object.entries(mem).filter(([k]) => k.startsWith('lb'));
 ok(!getMem(`lb:${r.body.season}`) && !getMem(`lbd:${r.body.day}`), 'demo XP reached NO ladder');
@@ -315,3 +317,14 @@ ok(r.body.checks.some(c => c.id === 'credits' && /never minted/.test(c.detail)),
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL PASS');
 process.exit(fails ? 1 : 0);
+
+// 2c ---- CUSTOM STAKES: any whole amount in range, scored on the same sqrt curve
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk1' }, target: 'SOL5', side: 'YES', stake: 1000 } });
+const xp1000 = r.body.ok && r.body.shot.xp;
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk2' }, target: 'SOL5', side: 'YES', stake: 100 } });
+const xp100 = r.body.ok && r.body.shot.xp;
+ok(!!xp1000 && !!xp100 && Math.abs(xp1000 / xp100 - Math.sqrt(10)) < 0.12, 'custom stake XP follows sqrt(stake/100)');
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk3' }, target: 'SOL5', side: 'YES', stake: 2501 } });
+ok(!r.body.ok && /between/.test(r.body.reason || ''), 'stake above the cap refused');
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk4' }, target: 'SOL5', side: 'YES', stake: 250.5 } });
+ok(!r.body.ok, 'fractional stake refused');
