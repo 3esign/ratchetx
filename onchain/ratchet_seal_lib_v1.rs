@@ -18,29 +18,42 @@ use anchor_lang::solana_program::hash::hashv;
 // Playground rewrites this to the project's own program id on Build.
 declare_id!("4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2");
 
-// v1 SETTLEMENT RULE.
+// v1 SETTLEMENT RULE — confirmed by Pyth.
 //
-// v0 let the cranker choose ANY Pyth update published inside a 60s window after
-// expiry - bounded, but still a choice, and a choice is an edge.
+// v0 let the cranker choose ANY update inside a 60s window after expiry.
+// Bounded, but still a choice, and a choice is an edge.
 //
-// v1 removes it. A PriceUpdateV2 carries `prev_publish_time`, so an update where
+// A PriceUpdateV2 carries `prev_publish_time`, so an update where
 //     prev_publish_time < expiry <= publish_time
-// is provably THE FIRST price published at or after the window closed. Exactly
-// one update satisfies that, so there is nothing left to pick.
+// is provably THE FIRST price published at or after the window closed.
+// Pyth confirmed this is the right deterministic first-crossing rule, and
+// added two things we had wrong: treat `prev_publish_time == publish_time`
+// or a missing crossing update as UNRESOLVABLE, and never let a late cranker
+// choose an arbitrary price when fairness is required.
 //
-// Settling that way means posting the crossing update from Hermes rather than
-// reading whatever the sponsored feed account happens to hold right now. So that
-// a shot can never be stranded because nobody did it in time, after
-// FALLBACK_AFTER_SECS anyone may settle on any update at or after expiry - late,
-// public, and recorded as non-strict on the shot itself.
-const FALLBACK_AFTER_SECS: i64 = 3600;
+// So there is no permissive fallback. Settling requires the crossing update,
+// posted from Hermes into an ephemeral PriceUpdateV2 account. A shot nobody
+// settles strictly is voided after VOID_AFTER_SECS and the stake returns —
+// no outcome is invented, by anyone, ever.
 const MAX_SETTLE_LATENESS: i64 = 86_400;
+// A shot nobody could settle strictly inside this window is VOIDABLE rather
+// than settleable — the stake returns and no outcome is invented.
+const VOID_AFTER_SECS: i64 = 3600;
 const MAX_STALENESS_AT_SEAL: u64 = 60;
 
 // Real owners of PriceUpdateV2 accounts. Receiver = hermes-posted updates;
 // push oracle = Pyth's sponsored feed accounts (handy on devnet).
-pub const PYTH_RECEIVER: Pubkey = anchor_lang::solana_program::pubkey!("rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ");
-pub const PYTH_PUSH_ORACLE: Pubkey = anchor_lang::solana_program::pubkey!("pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT");
+// PYTH CORE UPGRADE — the DAO upgrades on 2026-08-26 16:00 UTC, and Pyth's
+// own guidance for a NEW deployment is to use the upgraded Pro-compatible
+// receiver rather than the legacy addresses. We accept BOTH generations so
+// the program keeps working across the cutover in either direction, and so
+// a price account posted before the upgrade is still readable after it.
+// Legacy (pre-upgrade):
+pub const PYTH_RECEIVER_V1: Pubkey = anchor_lang::solana_program::pubkey!("rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ");
+pub const PYTH_PUSH_ORACLE_V1: Pubkey = anchor_lang::solana_program::pubkey!("pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT");
+// Upgraded Pyth Core (same addresses across SVM networks):
+pub const PYTH_RECEIVER_V2: Pubkey = anchor_lang::solana_program::pubkey!("rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp");
+pub const PYTH_PRICE_FEED_V2: Pubkey = anchor_lang::solana_program::pubkey!("pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou");
 
 #[program]
 pub mod ratchet_seal {
@@ -93,15 +106,19 @@ pub mod ratchet_seal {
         require!(msg.publish_time >= shot.expiry_ts, RatchetError::PriceOutsideWindow);
         require!(msg.publish_time <= shot.expiry_ts + MAX_SETTLE_LATENESS,
             RatchetError::PriceOutsideWindow);
-        let first_crossing = msg.prev_publish_time < shot.expiry_ts;
-        let fallback_open = now >= shot.expiry_ts + FALLBACK_AFTER_SECS;
-        require!(first_crossing || fallback_open, RatchetError::NotFirstUpdate);
+        // Pyth's own guidance: treat prev_publish_time == publish_time, or a
+        // missing crossing update, as unresolvable — never let a late cranker
+        // pick an arbitrary price when fairness is the point. So there is no
+        // "settle on anything after an hour" escape any more: a shot that
+        // cannot be settled strictly is VOIDED and the stake goes back.
+        require!(msg.prev_publish_time < msg.publish_time, RatchetError::NotFirstUpdate);
+        require!(msg.prev_publish_time < shot.expiry_ts, RatchetError::NotFirstUpdate);
         let exit_e6 = scale_to_e6(msg.price, msg.exponent)?;
 
         shot.exit_e6 = exit_e6;
         shot.settled_ts = now;
         shot.state = ShotState::Settled as u8;
-        shot.strict = if first_crossing { 1 } else { 0 };
+        shot.strict = 1;                                 // strict is now the only path
         emit!(Settled { shot: shot.key(), exit_e6, publish_time: msg.publish_time,
             cranker: ctx.accounts.cranker.key(), strict: shot.strict });
         Ok(())
@@ -168,7 +185,9 @@ fn scale_to_e6(price: i64, exponent: i32) -> Result<i64> {
 // ---- manual, honest validation of a real Pyth price account ----
 pub fn load_price_update(ai: &AccountInfo) -> Result<PriceUpdateV2> {
     let owner = *ai.owner;
-    require!(owner == PYTH_RECEIVER || owner == PYTH_PUSH_ORACLE, RatchetError::BadPriceAccount);
+    require!(owner == PYTH_RECEIVER_V1 || owner == PYTH_PUSH_ORACLE_V1
+          || owner == PYTH_RECEIVER_V2 || owner == PYTH_PRICE_FEED_V2,
+        RatchetError::BadPriceAccount);
     let data = ai.try_borrow_data()?;
     require!(data.len() > 8, RatchetError::BadPriceAccount);
     let disc = hashv(&[b"account:PriceUpdateV2"]).to_bytes();

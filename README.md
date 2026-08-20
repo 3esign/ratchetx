@@ -14,11 +14,11 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 Don't take our word for it — the site tells you. Both live endpoints return a build marker:
 
 ```
-https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h14-2026-08-20"
-https://ratchetx.vercel.app/api/proof               ->  "v": "h14-2026-08-20"
+https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h15-2026-08-20"
+https://ratchetx.vercel.app/api/proof               ->  "v": "h15-2026-08-20"
 ```
 
-`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h14-2026-08-20'`.
+`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h15-2026-08-20'`.
 If the live marker and the repo marker match, you are reading the code that is running.
 If they ever don't, the repo is stale and you should say so loudly.
 
@@ -106,7 +106,9 @@ and the page says so). Environment variables, all optional except the mint:
 
 `RATCHET_MINT` (arms real burns) · `SOLANA_RPC_URL` (fast RPC lane; public RPCs are the
 fallback) · `KV_REST_API_URL` + `KV_REST_API_TOKEN` (durable state) · `CREDIT_PER_TOKEN`
-(default 1) · `RATCHET_LP_BURN_TX` (optional override for the LP proof line)
+(default 1) · `RATCHET_LP_BURN_TX` (optional override for the LP proof line) · **`PYTH_API_KEY`** (required from
+2026-08-26 16:00 UTC — the Pyth Core upgrade makes a key mandatory; without it the game falls back
+to a thinner price source and says so on the page) · `PYTH_HERMES_URL` (override the Hermes host)
 
 No private key exists anywhere in this system. There is nothing to steal and nothing to rug —
 not as a promise, as a property. Read the code; that's what it's for.

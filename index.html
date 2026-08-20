@@ -314,7 +314,11 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         nobody — including us — can read it before it settles.<br>
         <b style="color:var(--ink)">2 · It settles itself.</b> When the window closes, the shot settles on
         <b style="color:var(--ink)">Pyth oracle prices</b>, the same source used at seal. There is no cron and no
-        operator: the next request that touches your account does the work.<br>
+        operator: the next request that touches your account does the work. Those prices are
+        <b style="color:var(--ink)">read straight off Solana</b> — from the same sponsored Pyth accounts our
+        settlement program validates on-chain — so anyone can load the same account at the same slot and get the
+        same number we settled you on. Every price on this page carries its publish age; nothing here pretends
+        to be fresher than the chain says it is.<br>
         <b style="color:var(--ink)">3 · Being right pays.</b> A HIT returns <b style="color:var(--grn)">1.7× your
         stake in credits</b> and earns XP; a MISS feeds the Machine. Break-even sits near 59% accuracy — beat the
         market consistently and you play forever, guess and you run down. You can only ever win credits by risking
@@ -656,7 +660,9 @@ function paint(){
     $("pfLink").href="https://pump.fun/coin/"+s.mint;
     $("pfLink").textContent="PUMP.FUN"+(s.mcap?" · MC $"+(s.mcap>=1e6?(s.mcap/1e6).toFixed(2)+"M":s.mcap>=1e3?(s.mcap/1e3).toFixed(1)+"K":s.mcap):"")+" ↗";
   }
-  $("beat").innerHTML=`<b style="color:var(--grn)">● LIVE</b> · ORACLE ${s.prices.src.toUpperCase()} · STATE ${s.durable?"DURABLE":"EPHEMERAL"} · LOG ${s.log?("#"+s.log.i):"—"}`;
+  const SRCTXT={"pyth-onchain":"PYTH · READ ON-CHAIN","pyth":"PYTH · HERMES","coinbase":"COINBASE (FALLBACK)"};
+  const srcTxt=SRCTXT[s.prices.src]||String(s.prices.src).toUpperCase();
+  $("beat").innerHTML=`<b style="color:var(--grn)">● LIVE</b> · ORACLE ${srcTxt} · STATE ${s.durable?"DURABLE":"EPHEMERAL"} · LOG ${s.log?("#"+s.log.i):"—"}`;
   const cell=(k,v,c)=>`<div class="mcell"><u>${k}</u><b${c?` style="color:${c}"`:""}>${v}</b></div>`;
   setHTML($("machStats"),
     cell("BURNED FOREVER",`${Math.floor(s.stats.realBurned||0).toLocaleString()}<small>RCX</small>`,"var(--red)")+
@@ -666,8 +672,20 @@ function paint(){
     cell("CHAMPION PAY",`${Math.floor(s.stats.champPaid||0).toLocaleString()}<small>RCX</small>`,"var(--grn)")+
     cell("STAKERS",(s.stats.stakers||0).toLocaleString()));
   if(s.v)$("footV").textContent="build "+s.v+" · ";
-  $("prices").innerHTML=Object.entries(s.prices).filter(([k])=>k!=="src").map(([k,v])=>
-    `<span class="pr">${k} <b>$${fmt$(v)}</b></span>`).join("")+`<span class="pr">SRC <b>${s.prices.src.toUpperCase()}</b></span>`;
+  // if the oracle fell back, the page has to say so — the whole claim is
+  // that a shot settles on the same source it was sealed with.
+  // The banner must distinguish "still Pyth, different route" from "not Pyth
+  // at all" — those are very different promises to a player.
+  if(s.prices.degraded){const m=$("mode");if(m){m.style.display="block";
+    m.textContent=(s.prices.src==="coinbase"
+      ? "ORACLE DEGRADED — running on the fallback price source, not Pyth: "
+      : "ORACLE NOTE — still Pyth, but not the on-chain route: ")+s.prices.degraded;}}
+  // Only numeric feeds become chips. src/degraded/ages/partial are metadata and
+  // would otherwise render as "$[object Object]".
+  const AGES=s.prices.ages||{};
+  $("prices").innerHTML=Object.entries(s.prices).filter(([k,v])=>Number.isFinite(v)).map(([k,v])=>
+    `<span class="pr">${k} <b>$${fmt$(v)}</b>${Number.isFinite(AGES[k])?`<i style="font-style:normal;opacity:.45"> ${AGES[k]}s</i>`:""}</span>`
+  ).join("")+`<span class="pr">SRC <b>${srcTxt}</b></span>`;
   // MARKET CONTEXT: every question also states the level it is asking about,
   // priced off the same oracle the shot will settle on. Thresholds are struck
   // from the price at YOUR seal, so the level shown is the level you would get
