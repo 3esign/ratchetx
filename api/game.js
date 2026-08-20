@@ -48,7 +48,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h15-2026-08-20';
+const VERSION = 'h16-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -767,7 +767,7 @@ module.exports = async (req, res) => {
           : Math.max(1, ((cut ? cut[1] : 0) + 1) - player.dayXp);
       }
       return res.json({ ok:true, v: VERSION, durable,
-        prices:{src:prices.src,degraded:prices.degraded||null,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
+        prices:{src:prices.src,degraded:prices.degraded||null,ages:prices.ages||null,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
         stats: st, feed: (await getJSON('g:feed')) || [], ladder, ladderDay,
         warden: wardenLine(prices), wardenRec, agents: fleet,
         wardenHist: (await getJSON('g:warden:hist')) || [],
