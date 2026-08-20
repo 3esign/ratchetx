@@ -8,6 +8,11 @@ import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
+// The podium only exists once a token does, so the harness has to be running
+// with a mint set — otherwise the whole Champion's Cut path is skipped and
+// its tests pass vacuously.
+process.env.RATCHET_MINT = process.env.RATCHET_MINT || 'FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump';
+
 // ---- stub the oracle and the chain BEFORE game.js loads them
 const pricesPath = require.resolve('./lib/prices.js');
 const burnPath = require.resolve('./lib/burn.js');
@@ -782,6 +787,134 @@ const kvmod = require('./lib/kv.js');
   ok(!r.body.ok, 'a backwards window is refused');
   r = await call('GET', { query:{ action:'path', feed:'SOL', from:'0', to:String(now) } });
   ok(!r.body.ok && /too wide/.test(r.body.reason||''), 'an unbounded window is refused');
+}
+
+
+// ============================================================
+//  THE PODIUM MUST FILL.
+//  Since launch it never did: seating required an existing RCX token
+//  account, and the reload flow asks players to BURN their RCX. The
+//  mechanism selected against the behaviour it rewards, and champPaid
+//  sat at 0 while the credit pot paid out normally.
+// ============================================================
+{
+  resetRL();
+  const A='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1';
+  const B='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB2';
+  const day='2019-01-02';
+  const mkP=(w,champ7)=>setMem(`u:${w}`,{ w, xp:0, streak:0, best:0, hits:0, shots:0, cr:100,
+    granted:true, qualified:true, burned:0, day:new Date().toISOString().slice(0,10),
+    open:[], closed:[], ...(champ7?{champ7}:{}) });
+  // The holder rule looks back seven days, so a dumper has to have been paid
+  // INSIDE that window — dating this to the ladder period (2019) would read as
+  // "never paid" and the wallet would sail through.
+  const recent = new Date().toISOString().slice(0,10);
+  mkP(A); mkP(B, { [recent]: 10000 });     // paid 10,000 this week, holds nothing = dumper
+  const z=(k,w,v)=>{ const key='Z'+`z:lbd:${day}`; if(!mem.has(key)) mem.set(key,new Map());
+    mem.get(key).set(w,v); };
+  z(null,A,500); z(null,B,900);
+  setMem('g:day', day);
+  setMem('mig:'+`z:lbd:${day}`, { t: Date.now() });   // skip the legacy lift
+  setStat('potD', 1000);
+  r = await call('GET', { query: { action: 'state' } });
+  const pod = getMem('g:podium');
+  const seated = ((pod&&pod.list)||[]).map(x=>x.w);
+  ok(seated.includes(A),
+     `a champion with NO token account is seated (${JSON.stringify(seated)})`);
+  ok(!seated.includes(B),
+     'but a wallet paid 10,000 that now holds nothing is still forfeited as a dumper');
+  const seat = ((pod&&pod.list)||[]).find(x=>x.w===A);
+  ok(seat && seat.ata === null, 'the seat records no account yet, for the page to create one');
+  ok(seat && seat.pct === 0.5, 'and takes the top share');
+}
+
+
+// ============================================================
+//  CHALLENGES — a player's own question, which only counts if
+//  somebody takes the other side.
+// ============================================================
+{
+  resetRL();
+  const { publicKey: pkA, privateKey: skA } = crypto.generateKeyPairSync('ed25519');
+  const { publicKey: pkB, privateKey: skB } = crypto.generateKeyPairSync('ed25519');
+  const WA = b58encode(pkA.export({format:'der',type:'spki'}).subarray(12));
+  const WB = b58encode(pkB.export({format:'der',type:'spki'}).subarray(12));
+  const au = (w,k)=>{ const ts=Date.now();
+    return { wallet:w, ts, sig: crypto.sign(null, Buffer.from(`RATCHET | ${w} | ${ts}`,'utf8'), k).toString('base64') }; };
+  const fundW = w => setMem(`u:${w}`, { w, xp:0, streak:0, best:0, hits:0, shots:0, cr:20000,
+    granted:true, qualified:true, burned:0, day:new Date().toISOString().slice(0,10), open:[], closed:[] });
+  fundW(WA); fundW(WB);
+
+  // guests are kept out — free credits against earned ones is not a market
+  r = await call('POST', { body:{ action:'challenge', auth:{wallet:'demo-zz1'}, kind:'dir', feed:'SOL', mins:30, side:'YES', stake:500 } });
+  ok(!r.body.ok && /real wallet/.test(r.body.reason||''), 'a guest cannot write a challenge');
+
+  resetRL();
+  const crA0 = getMem(`u:${WA}`).cr;
+  r = await call('POST', { body:{ action:'challenge', auth:au(WA,skA), kind:'thr', feed:'SOL', pct:0.01, mins:30, side:'YES', stake:500 } });
+  ok(r.body.ok && r.body.challenge.id, 'a real wallet writes one');
+  const cid = r.body.ok && r.body.challenge.id;
+  ok(getMem(`u:${WA}`).cr === crA0 - 500, 'the author pays on writing — otherwise it is not an offer');
+  ok(!r.body.challenge.thresh, 'and no level is struck yet');
+
+  r = await call('GET', { query:{ action:'challenges' } });
+  ok(r.body.ok && r.body.open.some(c=>c.id===cid), 'it appears on the public board');
+  ok(/struck when someone accepts/.test(r.body.rule||''), 'the board states when the level is struck');
+
+  // you cannot take your own
+  resetRL();
+  r = await call('POST', { body:{ action:'accept', auth:au(WA,skA), id:cid } });
+  ok(!r.body.ok && /your own/.test(r.body.reason||''), 'the author cannot take their own side');
+
+  // one challenge at a time
+  resetRL();
+  r = await call('POST', { body:{ action:'challenge', auth:au(WA,skA), kind:'dir', feed:'BTC', mins:10, side:'NO', stake:500 } });
+  ok(!r.body.ok && /one at a time/.test(r.body.reason||''), 'one open challenge per wallet');
+
+  // the taker gets the opposite side, struck now
+  resetRL();
+  const crB0 = getMem(`u:${WB}`).cr;
+  r = await call('POST', { body:{ action:'accept', auth:au(WB,skB), id:cid } });
+  ok(r.body.ok, 'another wallet takes it');
+  ok(r.body.shot && r.body.shot.side === 'NO', 'and gets the opposite side');
+  ok(Math.abs(r.body.struckAt - 100) < 1e-9, 'struck on the price at acceptance, not at authoring');
+  ok(Math.abs(r.body.shot.thresh - 101) < 1e-9, 'the threshold comes off that same price');
+  ok(getMem(`u:${WB}`).cr === crB0 - 500, 'the taker pays the same stake');
+  const opA = getMem(`u:${WA}`).open, opB = getMem(`u:${WB}`).open;
+  ok(opA.length===1 && opB.length===1, 'both wallets now hold a shot');
+  ok(opA[0].side !== opB[0].side, 'on opposite sides');
+  ok(opA[0].entry === opB[0].entry && opA[0].exp === opB[0].exp, 'identical terms — exactly one can win');
+  ok(opA[0].chal === cid && opB[0].chal === cid, 'both reference the challenge');
+  ok(!!opA[0].commit && !!opB[0].commit, 'and both are recorded with a commitment like any shot');
+
+  resetRL();
+  r = await call('GET', { query:{ action:'challenges' } });
+  ok(!r.body.open.some(c=>c.id===cid), 'a taken challenge leaves the board');
+  resetRL();
+  r = await call('POST', { body:{ action:'accept', auth:au(WB,skB), id:cid } });
+  ok(!r.body.ok, 'and cannot be taken twice');
+
+  // nobody takes it -> the stake comes back
+  resetRL();
+  fundW(WA);
+  const crA1 = getMem(`u:${WA}`).cr;
+  r = await call('POST', { body:{ action:'challenge', auth:au(WA,skA), kind:'dir', feed:'ETH', mins:15, side:'YES', stake:1000 } });
+  const gone = r.body.challenge.id;
+  const cl = getMem('g:chal'); cl.find(c=>c.id===gone).expiresAt = Date.now()-1000; setMem('g:chal', cl);
+  await call('GET', { query:{ action:'state' } });          // any request sweeps
+  ok(getMem(`u:${WA}`).cr === crA1, 'an offer nobody took refunds the author in full');
+  ok(!(getMem('g:chal')||[]).some(c=>c.id===gone), 'and leaves the board');
+
+  // bounds
+  resetRL();
+  r = await call('POST', { body:{ action:'challenge', auth:au(WB,skB), kind:'thr', feed:'SOL', pct:0.9, mins:30, side:'YES', stake:500 } });
+  ok(!r.body.ok && /move must be/.test(r.body.reason||''), 'a 90% move is refused');
+  resetRL();
+  r = await call('POST', { body:{ action:'challenge', auth:au(WB,skB), kind:'dir', feed:'DOGE', mins:30, side:'YES', stake:500 } });
+  ok(!r.body.ok && /unknown feed/.test(r.body.reason||''), 'an unknown feed is refused');
+  resetRL();
+  r = await call('POST', { body:{ action:'challenge', auth:au(WB,skB), kind:'dir', feed:'SOL', mins:1, side:'YES', stake:500 } });
+  ok(!r.body.ok && /window must be/.test(r.body.reason||''), 'a one-minute window is refused — below the oracle heartbeat');
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL PASS');

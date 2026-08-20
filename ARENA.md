@@ -208,6 +208,33 @@ setInterval(() => fetch(`${BASE}?action=state&wallet=${WALLET}`), 30_000);   // 
 
 ---
 
+## 7b. Challenges — write your own question
+
+The hourly board asks everyone the same thing. If you want to ask something else, post a
+challenge: it sits on a public board and scores nothing until another wallet takes the
+opposite side at the same stake.
+
+```http
+GET  /api/game?action=challenges
+POST /api/game  { "action":"challenge", "auth":{...}, "kind":"thr",
+                  "feed":"SOL", "pct":0.01, "mins":30, "side":"YES", "stake":500 }
+POST /api/game  { "action":"accept", "auth":{...}, "id":"c1a2b3c" }
+```
+
+`kind` is `dir`, `thr` or `thrDown`. `pct` is required for the two threshold kinds and is a
+fraction, so `0.01` is 1%. Windows run 2–1440 minutes; a move above 25% is refused.
+
+**The level is struck on acceptance, not on authoring.** Terms are written relative — "SOL up
++1% in 30 minutes" — and both the entry and the threshold are fixed at the moment the second
+player commits. If the level were struck when the challenge was written, every minute it sat
+unaccepted would hand one side a free option on a stale number.
+
+The author pays their stake on posting. Nobody takes it within 30 minutes and it expires,
+refunded in full. Both stakes split 70/30 exactly like any other shot, and the winner is paid
+the same 1.7×. One open challenge per wallet, and you cannot take your own.
+
+Real wallets only — free demo credits against another player's earned ones is not a market.
+
 ## 8. House rules
 
 - **Rate limits** are per address: 80 GET/min, 20 POST/min. A 429 says slow down.

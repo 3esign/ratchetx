@@ -49,7 +49,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h30-2026-08-20';
+const VERSION = 'h33-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -209,6 +209,40 @@ const PRIZE_D = [0.50, 0.30, 0.20];               // daily pot: top 3
 const EPS = 0.0004; // |move| under 4bp = void -> stake refunded, no XP
 const FLOOR_BASE = 0.004180;
 const STALE_VOID_MS = 24 * 3600e3;  // feed gone 24h past expiry -> auto-void
+
+// ============================================================
+//  CHALLENGES — a question a player writes, that only counts if
+//  somebody takes the other side.
+//
+//  The board asks everyone the same thing, which is what makes one
+//  player's XP comparable to another's. Letting a player invent their own
+//  question breaks that the moment they can invent one they expect to win:
+//  a market of one is not a market.
+//
+//  So a challenge is not a solo shot. It is an offer. It sits on a public
+//  board with its full terms, and it scores nothing until another wallet
+//  takes the opposite side at the same stake. A bad offer simply never gets
+//  taken, which is the market doing the refereeing.
+//
+//  THE PRICE IS STRUCK ON ACCEPTANCE, NOT ON AUTHORING. Terms are written
+//  in relative form — "SOL up +0.5% in 30 minutes" — and the entry and the
+//  threshold are both fixed at the moment the second player commits. If the
+//  level were struck when the challenge was written, every minute it sat
+//  unaccepted would hand one side a free option on a stale number.
+//
+//  Economically it is two ordinary shots. Both stakes go through takeStake,
+//  so the frozen 70/30/0 rule applies exactly as it does everywhere else,
+//  and the winner is paid the same 1.7x any hit pays. Nothing new to trust,
+//  and acceptance simply produces two normal shots that the existing
+//  settlement path resolves — same oracle, same price log, same proof page.
+// ============================================================
+const CHAL_MIN_MINS = 2, CHAL_MAX_MINS = 1440;
+const CHAL_MAX_PCT = 0.25;                 // a 25% move is not a prediction
+const CHAL_OPEN_MS = 30 * 60e3;            // unaccepted offers expire and refund
+const CHAL_MAX_OPEN = 60;                  // board size
+const CHAL_KINDS = ['dir', 'thr', 'thrDown'];
+const chalXp = (kind, mins) =>
+  Math.max(6, Math.round((kind === 'dir' ? 11 : 15) + mins / 12));
 
 const seasonKey = () => {
   const d = new Date(); const onejan = new Date(Date.UTC(d.getUTCFullYear(),0,1));
@@ -433,6 +467,29 @@ function champWindowSum(champ7, nowMs, days) {
 // the lock is RELEASED so the next request retries instead of the pot
 // silently vanishing. Ties resolve by board order (insertion) — stable
 // enough at this scale.
+// An offer nobody took is not a bet. The author paid on writing it, so the
+// stake comes back — and the burn/pot contribution is unwound with it, or the
+// counters would record a shot that never happened. Lazy, like everything
+// else: the next request that passes by does the work.
+async function sweepChallenges() {
+  const list = (await getJSON('g:chal')) || [];
+  const now = Date.now();
+  const dead = list.filter(c => c && c.expiresAt <= now);
+  if (!dead.length) return;
+  await setJSON('g:chal', list.filter(c => c && c.expiresAt > now));
+  for (const c of dead) {
+    // one refund per challenge, ever, whoever happens to sweep it
+    if (!(await setnxJSON(`chalref:${c.id}`, { t: now }, 7 * 86400))) continue;
+    try {
+      const p = await loadPlayer(c.by);
+      p.cr = (p.cr || 0) + c.stake;
+      await reverseStake(c.stake, c.by);
+      await savePlayer(p);
+      await append({ k:'chalexpire', id: c.id, by: c.by, stake: c.stake, refunded: true });
+    } catch {}
+  }
+}
+
 async function rolloverPots() {
   const defs = [
     { ptr:'g:day',    cur: today(),     pfx:'lbd:', potF:'potD', prizes: PRIZE_D, res:'g:dayResults',    lock:'day:paid:',    tag:'DAILY',  k:'daypot' },
@@ -467,20 +524,29 @@ async function rolloverPots() {
       await setJSON(d.res, { period: ptr, pot, paid, rolled: pot - paid, winners, t: Date.now() });
       await append({ k: d.k, period: ptr, pot, paid, winners });
       if (d.k === 'daypot' && MINT) {
-        // refresh the CHAMPION PODIUM: the day's top 3 with an existing
-        // RCX account earn 50/30/20 of every reload's 30% cut until the
-        // next rollover. The outgoing podium is kept one period as a
-        // grace window, so a reload built moments before midnight still
-        // verifies against the list it was built from.
-        // top 3 ELIGIBLE by XP: must have an RCX account AND satisfy the
-        // HOLDER RULE (still holding >= 50% of last-7-days champion pay).
-        // A dumper is skipped silently and the next player up is seated.
+        // refresh the CHAMPION PODIUM: the day's top 3 earn 50/30/20 of
+        // every reload's 30% cut until the next rollover. The outgoing
+        // podium is kept one period as a grace window, so a reload built
+        // moments before midnight still verifies against the list it was
+        // built from.
+        // Eligibility is the HOLDER RULE only — still holding >= 50% of the
+        // last seven days' champion pay. A dumper is skipped silently and
+        // the next player up is seated. Simply never having held any is not
+        // dumping, and no longer forfeits a seat.
         const podRanked = board;
         const list = [];
         for (const [pw] of podRanked) {
           if (list.length >= CHAMP.curve.length) break;
-          const acc = await findAta(pw);
-          if (!acc) continue;                                   // no RCX account -> not payable
+          // NOT HAVING A TOKEN ACCOUNT IS NOT A REASON TO FORFEIT A SEAT.
+          // This used to `continue` whenever findAta came back empty, which
+          // sounds cautious and was in fact the single line keeping the
+          // podium permanently empty: the reload flow asks you to BURN your
+          // RCX, and a player who burns all of it has no token account left.
+          // The mechanism selected against exactly the behaviour it rewards.
+          // A missing account is a zero balance, nothing more — the holder
+          // rule below still catches an actual dumper, because a dumper has
+          // earned7 > 0 while a newcomer has earned7 == 0.
+          const acc = (await findAta(pw)) || { ata: null, bal: 0 };
           const cp = await getJSONStrict(`u:${pw}`);
           // Count what is banked but not yet drained too — a champion who has
           // not opened the site since being paid must not look like they
@@ -888,6 +954,7 @@ module.exports = async (req, res) => {
     // to one write per instance per minute; a failed sample never fails the
     // request. This record is what makes settlement deterministic.
     samplePx(prices).catch(() => {});
+    sweepChallenges().catch(() => {});
 
     if (action === 'blockhash') {
       const r = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
@@ -1003,7 +1070,9 @@ module.exports = async (req, res) => {
         dayEnds: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1),
         stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number), hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP },
         champ: { pct: CHAMP.pct, curve: CHAMP.curve, holdPct: CHAMP.holdPct, holdDays: CHAMP.holdDays,
-          podium: (podNow.list || []).map(x => ({ w: shortW(x.w), ata: x.ata, pct: x.pct })) },
+          // `owner` is the full address so the page can derive a token account
+          // for a champion who does not have one yet; `w` stays short for display.
+          podium: (podNow.list || []).map(x => ({ w: shortW(x.w), owner: x.w, ata: x.ata, pct: x.pct })) },
         season: seasonKey(), day: today(),
         mint: MINT || null, incinerator: MINT ? INCINERATOR : null, mcap: await getMcap(),
         tokenProgram: await getMintProgram(),
@@ -1115,6 +1184,126 @@ module.exports = async (req, res) => {
       const pad = 60e3;
       const rows = await pathFor(feed, from - pad, to + pad);
       return res.json({ ok:true, feed, from, to, n: rows.length, path: rows });
+    }
+
+    // ---- the open challenge board ----
+    if (action === 'challenges') {
+      const raw = (await getJSON('g:chal')) || [];
+      const now2 = Date.now();
+      return res.json({ ok:true, v: VERSION,
+        rule: 'the level is struck when someone accepts, never when the challenge is written',
+        limits: { minMins: CHAL_MIN_MINS, maxMins: CHAL_MAX_MINS, maxPct: CHAL_MAX_PCT,
+                  openFor: CHAL_OPEN_MS, kinds: CHAL_KINDS },
+        open: raw.filter(c => c && c.expiresAt > now2).map(c => ({
+          id: c.id, by: shortW(c.by), kind: c.kind, feed: c.feed, pct: c.pct || null,
+          mins: c.mins, side: c.side, stake: c.stake, label: c.label,
+          expiresAt: c.expiresAt })) });
+    }
+
+    // ---- write one ----
+    if (action === 'challenge') {
+      const b = req.body || {};
+      const w = b.auth && b.auth.wallet;
+      // Demo credits are free and a challenge is zero-sum against a real
+      // player's earned ones. Guests keep the main board.
+      if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'challenges need a real wallet — guests play the open board' });
+      const v = verifyAuth(b.auth);
+      if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
+
+      const kind = String(b.kind || 'dir');
+      const feed = String(b.feed || '').toUpperCase();
+      const mins = Math.round(Number(b.mins));
+      const side = b.side === 'NO' ? 'NO' : 'YES';
+      const stake = Math.round(Number(b.stake));
+      const pct = b.pct == null ? null : Number(b.pct);
+      if (!CHAL_KINDS.includes(kind)) return res.status(400).json({ ok:false, reason:'kind must be dir, thr or thrDown' });
+      if (!PXFEEDS.includes(feed)) return res.status(400).json({ ok:false, reason:'unknown feed' });
+      if (!Number.isFinite(mins) || mins < CHAL_MIN_MINS || mins > CHAL_MAX_MINS)
+        return res.status(400).json({ ok:false, reason:`window must be ${CHAL_MIN_MINS}-${CHAL_MAX_MINS} minutes` });
+      if (kind !== 'dir' && (!Number.isFinite(pct) || pct <= 0 || pct > CHAL_MAX_PCT))
+        return res.status(400).json({ ok:false, reason:`move must be above 0 and at most ${(CHAL_MAX_PCT*100)}%` });
+      if (badStake(stake)) return res.status(400).json({ ok:false, reason:`stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}` });
+
+      const list = ((await getJSON('g:chal')) || []).filter(c => c && c.expiresAt > Date.now());
+      if (list.length >= CHAL_MAX_OPEN) return res.status(429).json({ ok:false, reason:'the challenge board is full — take one instead' });
+      if (list.some(c => c.by === w)) return res.status(409).json({ ok:false, reason:'you already have a challenge waiting — one at a time' });
+
+      const p = await loadPlayer(w);
+      const bad = await takeStake(p, stake);          // the author pays now, or it is not an offer
+      if (bad) { await savePlayer(p); return res.status(400).json({ ok:false, reason: bad }); }
+
+      const label = kind === 'dir' ? `${feed} higher in ${winTxt(mins)}`
+        : kind === 'thr' ? `${feed} up +${(pct*100).toFixed(2)}% within ${winTxt(mins)}`
+        : `${feed} down -${(pct*100).toFixed(2)}% within ${winTxt(mins)}`;
+      const c = { id: 'c' + Math.random().toString(36).slice(2,9), by: w, kind, feed, mins,
+        pct: kind === 'dir' ? null : pct, side, stake, label,
+        createdAt: Date.now(), expiresAt: Date.now() + CHAL_OPEN_MS };
+      list.unshift(c);
+      await setJSON('g:chal', list.slice(0, CHAL_MAX_OPEN));
+      await savePlayer(p);
+      await append({ k:'chal', id: c.id, by: w, label, side, stake, mins });
+      await bumpFeed({ w: shortW(w), a: `challenges the room: ${label} — ${side}`, c: 'seal' });
+      return res.json({ ok:true, challenge: { ...c, by: shortW(w) },
+        note: 'the level is struck when someone accepts, not now' });
+    }
+
+    // ---- take the other side ----
+    if (action === 'accept') {
+      const b = req.body || {};
+      const w = b.auth && b.auth.wallet;
+      if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'challenges need a real wallet' });
+      const v = verifyAuth(b.auth);
+      if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
+
+      const id = String(b.id || '');
+      const list = ((await getJSON('g:chal')) || []).filter(c => c && c.expiresAt > Date.now());
+      const c = list.find(x => x.id === id);
+      if (!c) return res.status(404).json({ ok:false, reason:'that challenge is gone — taken or expired' });
+      if (c.by === w) return res.status(400).json({ ok:false, reason:'you cannot take your own side of your own challenge' });
+      const px = prices[c.feed];
+      if (!Number.isFinite(px)) return res.status(503).json({ ok:false, reason:`${c.feed} is not priced right now` });
+      const age = (prices.ages || {})[c.feed];
+      const lim = Math.min(60, Math.max(30, 0.15 * c.mins * 60));
+      if (Number.isFinite(age) && age > lim)
+        return res.status(503).json({ ok:false, reason:`${c.feed} last printed ${age}s ago — too stale to strike a level on` });
+
+      // ATOMIC: exactly one acceptance wins, however many arrive together.
+      if (!(await setnxJSON(`chaltaken:${id}`, { w, t: Date.now() }, 86400)))
+        return res.status(409).json({ ok:false, reason:'somebody just took it' });
+
+      const taker = await loadPlayer(w);
+      const bad = await takeStake(taker, c.stake);
+      if (bad) { await savePlayer(taker); return res.status(400).json({ ok:false, reason: bad }); }
+
+      const exp = Date.now() + c.mins * 60e3;
+      const xp = chalXp(c.kind, c.mins);
+      const mk = (side, srcTag) => {
+        const sh = { id: Math.random().toString(36).slice(2,10), kind: c.kind, feed: c.feed,
+          side, entry: px, exp, stake: c.stake,
+          xp: Math.max(1, Math.round(xp * stakeMult(c.stake))), label: c.label,
+          chal: c.id, src: srcTag };
+        if (c.kind === 'thr') sh.thresh = px * (1 + c.pct);
+        if (c.kind === 'thrDown') sh.thresh = px * (1 - c.pct);
+        sh.salt = crypto.randomBytes(8).toString('hex');
+        sh.commit = sha256hex(`${sh.side}|${sh.salt}`);
+        return sh;
+      };
+      const takerShot = mk(c.side === 'YES' ? 'NO' : 'YES', 'cr');
+      taker.open.unshift(takerShot);
+      await savePlayer(taker);
+
+      // the author's side, on the author's record
+      const author = await loadPlayer(c.by);
+      const authorShot = mk(c.side, 'cr');
+      author.open.unshift(authorShot);
+      await savePlayer(author);
+
+      await setJSON('g:chal', list.filter(x => x.id !== id));
+      await append({ k:'chaltake', id: c.id, by: c.by, taker: w, label: c.label,
+        entry: px, exp, stake: c.stake });
+      await bumpFeed({ w: shortW(w), a: `took ${shortW(c.by)}'s challenge: ${c.label}`, c: 'seal' });
+      return res.json({ ok:true, shot: takerShot, against: shortW(c.by),
+        struckAt: px, note: 'both sides were struck on this price, at this moment' });
     }
 
     if (action === 'agent-register') {
