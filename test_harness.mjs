@@ -382,8 +382,25 @@ r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk2' }, 
 const xp100 = r.body.ok && r.body.shot.xp;
 ok(!!xp1000 && !!xp100 && Math.abs(xp1000 / xp100 - Math.sqrt(10)) < 0.12, 'custom stake XP follows sqrt(stake/100)');
 resetRL();
-r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk3' }, target: 'SOL5', side: 'YES', stake: 2501 } });
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk3' }, target: 'SOL5', side: 'YES', stake: 100001 } });
 ok(!r.body.ok && /between/.test(r.body.reason || ''), 'stake above the cap refused');
+// The cap moved to 100,000 so a big reload can actually be spent. The XP
+// curve must NOT move with it, or the podium — which pays real RCX — becomes
+// purchasable by the richest wallet rather than the most accurate one.
+const fund = w => setMem(`u:${w}`, { w, xp:0, streak:0, best:0, hits:0, shots:0, cr:200000, granted:true,
+  burned:0, day:new Date().toISOString().slice(0,10), open:[], closed:[] });
+['demo-big1','demo-big2','demo-big3'].forEach(fund);
+resetRL();
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-big1' }, target: 'SOL5', side: 'YES', stake: 40000 } });
+const xpAtCap = r.body.ok && r.body.shot.xp;
+resetRL();
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-big2' }, target: 'SOL5', side: 'YES', stake: 100000 } });
+const xpAbove = r.body.ok && r.body.shot.xp;
+ok(!!xpAtCap && !!xpAbove, 'stakes far above the old 2,500 ceiling are accepted');
+ok(xpAtCap === xpAbove, `XP stops climbing past the cap (${xpAtCap} vs ${xpAbove}) — rank cannot be bought`);
+resetRL();
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-big3' }, target: 'SOL5', side: 'YES', stake: 10000 } });
+ok(r.body.ok && r.body.shot.xp < xpAtCap, 'below the cap, XP still rises with the stake');
 r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk4' }, target: 'SOL5', side: 'YES', stake: 250.5 } });
 ok(!r.body.ok, 'fractional stake refused');
 
@@ -428,7 +445,7 @@ const EXPW = 'demo-optn1';
     burned:0, day:new Date().toISOString().slice(0,10), closed:[],
     open:[{ id:'opt2', kind:'dir', feed:'SOL', side:'YES', entry:100, exp, stake:500, xp:10, label:'t', src:'cr' }] });
   pxGate.t = now;
-  setMem(bk(exp), []);                                   // the oracle was never sampled in that window
+  for (let h = exp; h <= exp + GRACE + 3600e3; h += 3600e3) setMem(bk(h), []);  // the oracle was never sampled in that window
   const crB = getMem('u:demo-optn2').cr;
   r = await call('GET', { query: { action: 'state', wallet: 'demo-optn2' } });
   const st2 = getMem('u:demo-optn2');

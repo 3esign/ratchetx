@@ -2,7 +2,7 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RATCHET — a keyless prediction arcade on Solana | $RCX on pump.fun</title>
-<meta name="description" content="Call market moves on Solana with sealed, commit-reveal shots settled on Pyth oracle prices. No treasury, no admin key, no custody: 70% of every stake burns, 30% pays players peer-to-peer. $RCX launched on pump.fun, Token-2022 with mint and freeze authority revoked. The settlement program is on-chain and the proof page re-checks every claim.">
+<meta name="description" content="Call market moves on Solana with sealed, commit-reveal shots settled on Pyth oracle prices — and enter your own trading agent for a public, oracle-settled accuracy record. No treasury, no admin key, no custody: 70% of every stake burns, 30% pays players peer-to-peer. $RCX launched on pump.fun, Token-2022 with mint and freeze authority revoked. The settlement program is on-chain and the proof page re-checks every claim.">
 <meta name="keywords" content="Solana, pump.fun, PumpSwap, Pyth, prediction market, on-chain game, Token-2022, Anchor, RCX, commit-reveal, Solana gaming">
 <link rel="canonical" href="https://ratchetx.vercel.app">
 <meta name="theme-color" content="#07080a">
@@ -55,7 +55,26 @@ nav button{background:none;border:0;color:var(--dim);font:700 10.5px/1 var(--san
 nav button:hover{color:var(--ink2);background:var(--card)}
 nav button.on{color:#1a1206;background:var(--gold)}
 @media(max-width:980px){.hudstat.hide,.xpwrap{display:none}}
-@media(max-width:640px){.rname,.rankchip{display:none}nav button{padding:9px 8px;letter-spacing:.05em}}
+/* MOBILE HEADER.
+   .hudrow is a fixed-height flex row holding a logo, a rank chip, three stats,
+   a five-item nav and the connect button. On a phone that is ~600px of content
+   in a 430px viewport, so the row pushed the whole PAGE wide and every section
+   inherited a horizontal scrollbar. Most of the traffic a launch post sends is
+   on a phone, so this matters more than it looks.
+   Fix: the row may wrap, the nav scrolls sideways on its own, and nothing is
+   allowed to force the body wider than the screen. */
+@media(max-width:640px){
+  .rname,.rankchip{display:none}
+  .hudrow{height:auto;min-height:58px;flex-wrap:wrap;gap:8px;padding-top:8px;padding-bottom:8px}
+  nav{margin-left:0;order:3;flex:1 1 100%;overflow-x:auto;scrollbar-width:none;
+      -webkit-overflow-scrolling:touch;border-top:1px solid var(--line);padding-top:4px}
+  nav::-webkit-scrollbar{display:none}
+  nav button{padding:9px 9px;letter-spacing:.04em;white-space:nowrap;flex:0 0 auto}
+  .connect{margin-left:auto;padding:8px 12px;font-size:10px;max-width:46vw;
+           overflow:hidden;text-overflow:ellipsis}
+  .hudstat{font-size:9.5px}
+}
+html,body{max-width:100%;overflow-x:hidden}
 .mode{background:rgba(237,161,0,.09);border-bottom:1px solid rgba(237,161,0,.2);color:#eda100;
   font:600 10.5px/1.5 var(--mono);letter-spacing:.06em;text-align:center;padding:6px 14px}
 section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .3s ease}
@@ -85,12 +104,21 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .mcell{background:var(--card2);padding:12px 10px;text-align:center}
 .mcell u{display:block;text-decoration:none;font:700 8.5px/1 var(--mono);letter-spacing:.18em;color:var(--dim);margin-bottom:6px}
 .mcell b{display:block;font:800 17px/1 var(--mono);color:var(--ink);letter-spacing:-.01em}
-.agrow{display:grid;grid-template-columns:1fr auto;gap:8px;align-items:baseline;padding:10px 0;
-  border-bottom:1px solid var(--line)}
+.agrow{display:grid;grid-template-columns:minmax(0,auto) minmax(0,1fr);gap:8px;align-items:baseline;
+  padding:10px 0;border-bottom:1px solid var(--line)}
 .agrow:last-of-type{border-bottom:0}
-.agrow .an{font:800 11.5px/1 var(--mono);letter-spacing:.12em;color:var(--ink)}
+.agrow .an{font:800 11.5px/1.3 var(--mono);letter-spacing:.12em;color:var(--ink);
+  overflow-wrap:anywhere;min-width:0}
 .agrow .ab{font:400 11.5px/1.5 var(--sans);color:var(--dim);grid-column:1/-1;margin-top:-4px}
-.agrow .ac{font:800 11px/1 var(--mono);white-space:nowrap}
+/* an agent's record can carry a rank note ("UNRANKED, 6 MORE CALLS"), which
+   is far longer than the "61.9% (26/42)" this column was sized for. Left
+   nowrap it collided with the name; it now wraps and, when both are long,
+   drops onto its own line rather than overlapping. */
+.agrow .ac{font:800 11px/1.3 var(--mono);text-align:right;min-width:0;overflow-wrap:anywhere}
+@media(max-width:1200px){
+  .agrow{grid-template-columns:minmax(0,1fr)}
+  .agrow .ac{text-align:left;margin-top:2px}
+}
 .agrow .call{grid-column:1/-1;font:700 10px/1.5 var(--mono);letter-spacing:.06em;color:var(--ink2);margin-top:4px}
 .standing{margin:16px auto 0;max-width:760px;background:var(--card2);border:1px solid var(--line);
   border-radius:12px;padding:12px 14px;font:700 10.5px/1.6 var(--mono);letter-spacing:.06em;
@@ -120,27 +148,41 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
   font:800 11px/1 var(--mono);letter-spacing:.12em;color:var(--dim);transition:.12s}
 .ud.up.on{border-color:var(--grn);color:var(--grn);background:rgba(61,220,132,.08)}
 .ud.dn.on{border-color:var(--red);color:var(--red);background:rgba(255,82,82,.08)}
-.stakes{display:flex;gap:8px;margin:16px 0 12px}
+.stakes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:16px 0 12px}
+@media(min-width:760px){.stakes{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .stk{flex:1;border:1px solid var(--line);background:var(--card2);border-radius:11px;padding:12px 0;cursor:pointer;
   transition:.13s;color:var(--ink2);font:700 13px/1.2 var(--mono)}
 .stk small{display:block;font:600 8.5px/1 var(--mono);letter-spacing:.14em;color:var(--dim);margin-top:5px}
 .stk.on{border-color:var(--gold);color:var(--gold);box-shadow:0 0 24px -10px rgba(245,184,61,.5)}
-.stakeCustom{display:flex;align-items:center;gap:10px;margin-top:9px}
+.stakeCustom{display:flex;align-items:center;gap:10px;margin-top:9px;flex-wrap:wrap}
 .stakeCustom .scl{font:700 9px var(--mono);letter-spacing:.16em;color:var(--dim);white-space:nowrap}
 .stakeCustom input{flex:1;min-width:0;background:var(--card2);border:1px solid var(--line);border-radius:9px;
   padding:10px 12px;color:var(--ink);font:700 12.5px var(--mono);outline:none}
 .stakeCustom input:focus{border-color:var(--gold)}
 .stakeCustom input::-webkit-outer-spin-button,.stakeCustom input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .stakeCustom .scm{font:800 11px var(--mono);letter-spacing:.08em;color:var(--gold);white-space:nowrap;min-width:74px;text-align:right}
+/* the reload split is a sentence, not a chip: it gets its own line, wraps,
+   and never dictates how wide the panel has to be */
+.splitOut{font:800 10.5px/1.5 var(--mono);letter-spacing:.06em;color:var(--gold);
+  margin:9px 0 11px;white-space:normal;overflow-wrap:anywhere}
+.splitOut.none{color:var(--ink2)}
+.burnPick{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin-bottom:10px}
+@media(min-width:1180px){.burnPick{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.burnPick .stk{padding:11px 2px;font-size:12px}
+#oneBurn{font:800 13px/1.35 var(--sans);padding:14px 12px}
 .fire{width:100%;background:var(--gold);color:#1a1206;border:0;border-radius:12px;padding:16px;
   font:800 14px/1 var(--sans);letter-spacing:.06em;cursor:pointer;transition:.14s}
 .fire:hover{filter:brightness(1.1)}
 .fire:disabled{opacity:.35;cursor:default}
 .splitline{margin-top:9px;font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--dim);text-align:center}
 .splitline b{color:var(--goldD)}
-.rcol{display:flex;flex-direction:column;gap:13px;min-height:0;position:sticky;top:76px;
-  align-self:start;max-height:var(--railH,calc(100vh - 92px));overflow-y:auto;overscroll-behavior:contain;
-  scrollbar-width:thin;padding-right:2px}
+.rcol{display:flex;flex-direction:column;gap:13px;min-height:0;min-width:0;position:sticky;top:76px;
+  align-self:start;max-height:var(--railH,calc(100vh - 92px));overflow-y:auto;overflow-x:hidden;
+  overscroll-behavior:contain;scrollbar-width:thin;padding-right:2px}
+/* one nowrap child used to widen the whole rail and clip everything to its
+   left. Panels may never be wider than the column that holds them. */
+.rcol>.panel{min-width:0;max-width:100%}
+.rcol .panel *{min-width:0}
 .rcol::-webkit-scrollbar{width:6px}
 .rcol::-webkit-scrollbar-track{background:transparent}
 .rcol::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
@@ -275,6 +317,9 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <span id="burnChip" style="display:none;color:var(--red);background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">🔥 —</span>
     <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none;
       background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">GITHUB — READ THE CODE ↗</a>
+      <a href="https://github.com/3esign/ratchetx/blob/main/ARENA.md" target="_blank" rel="noopener"
+        style="font:700 10px var(--mono);letter-spacing:.1em;color:var(--gold);text-decoration:none;
+        background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">AGENTS — ENTER THE ARENA ↗</a>
   </div>
 </div>
 
@@ -306,7 +351,9 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         <div class="hh">HOW TO PLAY</div>
         <b style="color:var(--ink)">0 · Just play.</b> You do not need a wallet to fire a shot — every visitor gets
         a <b style="color:var(--ink)">GUEST</b> identity and can play immediately. Guest shots settle on the same
-        oracle and teach you the game, but they never enter a ladder or a pot. Connect when you want it to count.<br>
+        oracle and teach you the game, but they never enter a ladder or a pot. Connect when you want it to count.
+        <b style="color:var(--ink)">Your own agent can play as well</b> — same board, same oracle, same sealing —
+        and what it earns is a public accuracy record nobody can edit afterwards. See THE ARENA below.<br>
         <b style="color:var(--ink)">1 · Call it.</b> Pick a question, pick YES or NO, and stake any whole
         amount from 100 to 2,500. XP scales as <b style="color:var(--ink)">√(stake/100)</b> — so 25× the stake
         earns 5× the XP and never 25×, the ladder cannot be bought, and XP is only ever paid on a
@@ -391,15 +438,17 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="targets" id="targets"></div>
     <div class="tcap">STAKE — BIGGER BURN, BIGGER XP</div>
     <div class="stakes">
-      <button class="stk" data-s="100">100<small>×1 XP</small></button>
       <button class="stk on" data-s="500">500<small>×2.24 XP</small></button>
       <button class="stk" data-s="2500">2,500<small>×5 XP</small></button>
+      <button class="stk" data-s="10000">10,000<small>×10 XP</small></button>
+      <button class="stk" data-s="50000">50,000<small>×20 XP</small></button>
     </div>
     <div class="stakeCustom">
       <span class="scl">OR NAME YOUR OWN</span>
-      <input id="stakeIn" type="number" inputmode="numeric" min="100" max="2500" step="10" placeholder="100 – 2,500">
+      <input id="stakeIn" type="number" inputmode="numeric" min="100" max="100000" step="10" placeholder="100 – 100,000">
       <span class="scm" id="stakeMultOut">×2.24 XP</span>
     </div>
+    <div class="splitOut none" id="xpCapNote" style="margin:8px 0 0"></div>
     <div id="payLine" style="font:700 9.5px var(--mono);letter-spacing:.1em;color:var(--dim);margin-top:8px"></div>
     <button class="fire" id="fire" disabled>PICK A TARGET AND A SIDE</button>
     <div class="splitline">EVERY SHOT: <b>70% BURNED</b> · 30% POTS (15% DAILY / 15% WEEKLY) · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
@@ -416,18 +465,19 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         button. The PROOF page shows both live.</div>
       <div id="podiumBox" style="display:none;font:600 10px var(--mono);color:var(--dim);letter-spacing:.05em;
         background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:12px"></div>
-      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap" id="burnPick">
-        <button class="stk" data-b="1000" style="flex:1 1 60px">1,000</button>
-        <button class="stk on" data-b="5000" style="flex:1 1 60px">5,000</button>
-        <button class="stk" data-b="25000" style="flex:1 1 60px">25,000</button>
-        <button class="stk" data-b="100000" style="flex:1 1 60px">100,000</button>
+      <div class="burnPick" id="burnPick">
+        <button class="stk" data-b="1000">1,000</button>
+        <button class="stk on" data-b="5000">5,000</button>
+        <button class="stk" data-b="25000">25,000</button>
+        <button class="stk" data-b="100000">100,000</button>
       </div>
-      <div class="stakeCustom" style="margin-bottom:12px">
+      <div class="stakeCustom">
         <span class="scl">OR NAME YOUR OWN</span>
         <input id="burnIn" type="number" inputmode="numeric" min="1" step="100" placeholder="any amount of RCX">
-        <span class="scm" id="burnSplitOut">—</span>
       </div>
-      <button class="fire" id="oneBurn" style="margin-bottom:14px">🔥 RELOAD — 70% BURNS · 30% PAYS THE PODIUM</button>
+      <div class="splitOut" id="burnSplitOut">—</div>
+      <button class="fire" id="oneBurn">🔥 RELOAD</button>
+      <div class="splitline" style="margin:9px 0 14px;letter-spacing:.06em">70% BURNS · 30% TO THE PODIUM · <b>0% TO US</b></div>
       <div style="font:600 9.5px var(--mono);color:var(--dim);letter-spacing:.08em;margin-bottom:8px">
         MANUAL FALLBACK — send RCX to the incinerator yourself, paste the tx signature:</div>
       <div style="font:600 10px var(--mono);color:var(--dim);letter-spacing:.04em;margin-bottom:4px">INCINERATOR (tap to copy)</div>
@@ -472,6 +522,23 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       <div style="font:600 9px/1.6 var(--mono);letter-spacing:.08em;color:var(--dim);margin-top:12px;
         border-top:1px solid var(--line);padding-top:10px">AGENTS NEVER ENTER A LADDER, A POT, THE PODIUM OR THE
         BURN COUNTER. THEY STAKE NOTHING AND WIN NOTHING. THEY EXIST TO BE BEATEN.</div></div>
+    <!-- THE ARENA. The API and the docs existed before this block did, which
+         meant nobody standing on the page could tell the door was there. -->
+    <div class="panel" style="flex:none"><h3>THE ARENA <span id="arenaN" style="color:var(--ice)"></span></h3>
+      <div style="font:400 12.5px/1.6 var(--sans);color:var(--ink2);margin-bottom:11px">
+        <b style="color:var(--gold)">Your agent can play too.</b> Register a wallet, read the board over
+        HTTP, and fire through the same signed endpoint a person uses — same oracle, same sealing, same
+        settlement rule. What you get back is the part that does not exist anywhere else:
+        <b style="color:var(--ink)">a public, oracle-settled accuracy record</b> that cannot be edited
+        afterwards. Wins and losses, permanently.</div>
+      <div id="arenaBox" style="font:400 12.5px/1.6 var(--sans);color:var(--ink2)">—</div>
+      <a class="connect" id="arenaDocs" href="https://github.com/3esign/ratchetx/blob/main/ARENA.md"
+        target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:12px;border-radius:9px">
+        BUILD AN AGENT — READ THE DOCS ↗</a>
+      <div style="font:600 9px/1.6 var(--mono);letter-spacing:.08em;color:var(--dim);margin-top:10px;
+        border-top:1px solid var(--line);padding-top:10px">ENTRY NEEDS A WALLET THAT HAS TOUCHED $RCX. AN ARENA
+        ANYONE CAN JOIN FOR FREE IS A LEADERBOARD OF NOISE. RANKED AFTER 10 SETTLED CALLS — A 3-FOR-3 STREAK
+        IS NOT EVIDENCE.</div></div>
     <div class="panel" style="flex:1;min-height:0;display:flex;flex-direction:column"><h3>RECENT ACTION</h3><div class="kill" id="duelfeed"></div></div>
   </div>
 </div></div></section>
@@ -572,7 +639,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   </div>
 </div></section>
 
-<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="/api/snapshot" target="_blank" rel="noopener" style="color:var(--dim)">black box</a> · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a></div>
+<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="/api/snapshot" target="_blank" rel="noopener" style="color:var(--dim)">black box</a> · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a> · <a href="https://github.com/3esign/ratchetx/blob/main/AUDIT_2026-08-20.md" target="_blank" rel="noopener" style="color:var(--gold)">our own audit</a> · <a href="https://github.com/3esign/ratchetx/blob/main/ARENA.md" target="_blank" rel="noopener" style="color:var(--ice)">agent api</a></div>
 <div id="toast"></div>
 
 <script>
@@ -850,8 +917,9 @@ function paint(){
 }
 // the multiplier is sqrt(stake/min) — the same curve the server scores with, so
 // the number on screen can never disagree with the number you are awarded.
-const stakeRule=()=>(STATE&&STATE.stakeRule)||{min:100,max:2500};
-const stakeMult=st=>Math.sqrt(st/stakeRule().min);
+const stakeRule=()=>(STATE&&STATE.stakeRule)||{min:100,max:100000,xpMultCap:20,xpCapAt:40000};
+// mirrors the server exactly: sqrt growth, then a hard ceiling
+const stakeMult=st=>{const r=stakeRule();return Math.min(r.xpMultCap||20,Math.sqrt(st/r.min));};
 // THE FLEET. Four named agents, published methods, public records including
 // their losses. They are opponents, not players — nothing they do touches a
 // ladder, a pot or a counter.
@@ -872,6 +940,35 @@ function fleet(){
   }).join("");
   setHTML(box,html||'<span style="color:var(--dim)">the fleet has not woken up yet</span>');
 }
+
+// THE ARENA. Fetched separately from state and polled slowly: it is not on the
+// six-second path and an empty arena costs one read.
+let ARENA=null;
+async function loadArena(){
+  try{ const r=await fetch(API+"?action=arena"); const j=await r.json(); if(j.ok){ARENA=j;drawArena();} }catch{}
+}
+function drawArena(){
+  const box=$("arenaBox"); if(!box||!ARENA)return;
+  const rows=ARENA.agents||[];
+  const n=$("arenaN");
+  if(n)n.textContent=rows.length?`${rows.length} REGISTERED · ${rows.filter(a=>a.listed).length} RANKED`:"OPEN";
+  if(!rows.length){
+    setHTML(box,'<span style="color:var(--dim)">No agents registered yet. The four house agents above are '+
+      'the ones to beat — and one of them is currently losing badly.</span>');
+    return;
+  }
+  setHTML(box, rows.map(a=>{
+    const acc=a.acc==null?'<span style="color:var(--dim)">NO RECORD YET</span>'
+      :`<span style="color:${a.acc>=50?'var(--grn)':'var(--red)'}">${a.acc}%</span> `+
+       `<span style="color:var(--dim)">(${a.hits}/${a.n})</span>`;
+    const rank=a.listed?"":' <span style="color:var(--dim)">· UNRANKED, '+(ARENA.minCalls-a.n)+' MORE CALLS</span>';
+    return `<div class="agrow"><span class="an">${a.name}</span><span class="ac">${acc}${rank}</span>`+
+      `<span class="ab">${a.blurb||"&nbsp;"}</span>`+
+      `<span class="call"><span style="color:var(--dim)">BRIER</span> ${a.brier==null?"—":a.brier}`+
+      ` · <span style="color:var(--dim)">${a.w}</span></span></div>`;
+  }).join(""));
+}
+loadArena(); setInterval(loadArena, 60000);
 
 // YOUR LIVE POSITION. A ladder nobody can see themselves on is decoration.
 function standing(){
@@ -919,6 +1016,14 @@ function setStake(v,fromInput){
   const st=Math.max(r.min,Math.min(r.max,Math.floor(+v||r.min)));
   sel.stake=st;
   const out=$("stakeMultOut"); if(out)out.textContent="×"+stakeMult(st).toFixed(2)+" XP";
+  // The XP curve stops at x20 so rank cannot simply be bought. Anyone staking
+  // past that deserves to be told, in the moment, that the extra risk buys
+  // credits and not standing.
+  const note=$("xpCapNote"), r0=stakeRule();
+  if(note){const capAt=r0.xpCapAt||40000;
+    note.textContent = st>capAt
+      ? `XP IS CAPPED AT ×${r0.xpMultCap||20} ABOVE ${capAt.toLocaleString()} — ABOVE THIS YOU ARE PLAYING FOR CREDITS, NOT FOR RANK`
+      : "";}
   document.querySelectorAll(".stakes .stk").forEach(x=>x.classList.toggle("on",+x.dataset.s===st));
   const inp=$("stakeIn"); if(inp&&!fromInput&&document.activeElement!==inp)inp.value=st;
   payLine();
@@ -994,8 +1099,10 @@ function setBurn(v,fromInput){
   burnAmt=Math.max(BURN_MIN,Math.min(BURN_MAX,raw||BURN_MIN));
   document.querySelectorAll("#burnPick .stk").forEach(x=>x.classList.toggle("on",+x.dataset.b===burnAmt));
   const inp=$("burnIn"); if(inp&&!fromInput&&document.activeElement!==inp)inp.value=burnAmt;
-  const out=$("burnSplitOut"); if(out)out.textContent=burnSplitText(burnAmt);
-  const b=$("oneBurn"); if(b&&!PB)b.textContent=`🔥 RELOAD ${burnAmt.toLocaleString()} — 70% BURNS · 30% PAYS THE PODIUM`;
+  const out=$("burnSplitOut");
+  if(out){out.textContent=burnSplitText(burnAmt);
+    out.classList.toggle("none",/ALL OF IT BURNS/.test(out.textContent));}
+  const b=$("oneBurn"); if(b&&!PB)b.textContent=`🔥 RELOAD ${burnAmt.toLocaleString()} RCX`;
 }
 document.querySelectorAll("#burnPick .stk").forEach(b=>b.onclick=()=>setBurn(b.dataset.b,false));
 (()=>{const inp=$("burnIn"); if(!inp)return;
@@ -1028,7 +1135,7 @@ function setPB(o){PB=o;if(o)localStorage.setItem("ratchet_pb",JSON.stringify(o))
 function paintBurnBtn(){const b=$("oneBurn");if(!b)return;
   b.disabled=!!PB;
   b.textContent=PB?"⏳ VERIFYING RELOAD — CREDITS INCOMING…"
-    :`🔥 RELOAD ${burnAmt.toLocaleString()} — 70% BURNS · 30% PAYS THE PODIUM`;}
+    :`🔥 RELOAD ${burnAmt.toLocaleString()} RCX`;}
 async function tryPB(){
   if(!PB||!AUTH)return;
   if(Date.now()-PB.t>10*60e3){$("burnsig").value=PB.sig;setPB(null);paintBurnBtn();

@@ -49,7 +49,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h21-2026-08-20';
+const VERSION = 'h23-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -106,10 +106,20 @@ const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
 // published. This is what the game DOES for winners, not a change to the rule.
 const HIT_PAYOUT = 1.7;
 const STAKE_MIN = 100;
-const STAKE_MAX = 2500;
-const stakeMult = st => Math.sqrt(st / STAKE_MIN);
+const STAKE_MAX = 100000;
+// XP GROWS WITH THE SQUARE ROOT OF THE STAKE, AND THEN STOPS.
+// Raising the cap to 100,000 lets a player actually spend a big reload
+// instead of grinding it out 2,500 at a time. But the ladder pays real RCX
+// through the podium, so if XP kept climbing with the stake, rank would be
+// purchasable — the richest wallet would out-earn the most accurate one
+// without being right more often. The multiplier therefore caps at x20,
+// reached at 40,000. Above that you are risking more for the same rank:
+// playing for credits, not for standing. Stated on the page, not buried.
+const XP_MULT_CAP = 20;
+const XP_CAP_AT = STAKE_MIN * XP_MULT_CAP * XP_MULT_CAP;   // 40,000
+const stakeMult = st => Math.min(XP_MULT_CAP, Math.sqrt(st / STAKE_MIN));
 const badStake = st => !Number.isInteger(st) || st < STAKE_MIN || st > STAKE_MAX;
-const STAKES = { 100: 1, 500: 2, 2500: 5 };   // presets the UI still offers
+const STAKES = { 500: 2.24, 2500: 5, 10000: 10, 50000: 20 };   // presets the UI offers
 // THE BOARD (h4): targets are GENERATED, not hardcoded — a fresh mix
 // every hour, deterministic from the clock (seeded PRNG), so every
 // player and every server instance derives the same board with no
@@ -963,7 +973,7 @@ module.exports = async (req, res) => {
         split: SPLIT, potSplit: { day: POT_DAY_SHARE, week: 1 - POT_DAY_SHARE },
         prizes: { day: PRIZE_D, week: PRIZE_W },
         dayEnds: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1),
-        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number), hitPayout: HIT_PAYOUT },
+        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number), hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT },
         champ: { pct: CHAMP.pct, curve: CHAMP.curve, holdPct: CHAMP.holdPct, holdDays: CHAMP.holdDays,
           podium: (podNow.list || []).map(x => ({ w: shortW(x.w), ata: x.ata, pct: x.pct })) },
         season: seasonKey(), day: today(),
@@ -1101,7 +1111,7 @@ module.exports = async (req, res) => {
         flipsAt: (hour + 1) * 3600e3,
         prices: { src: prices.src, ages: prices.ages || null,
           ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x))) },
-        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT },
+        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT },
         sealRule: 'entry price must be fresher than min(60, max(30, 0.15 * windowSeconds)) seconds',
         settleRule: 'first recorded oracle sample at or after expiry; no sample within 15 minutes voids and refunds',
         targets: Object.entries(board).map(([id, t]) => ({
