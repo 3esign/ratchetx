@@ -44,12 +44,12 @@ const crypto = require('node:crypto');
 const { getJSON, getJSONStrict, setJSON, setnxJSON, delKey, scanKeys, durable, zincr, ztop, incrFloat, takeNum, hincr, hall, hseed} = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
-const { priceAt, sample: samplePx } = require('../lib/pxlog.js');
+const { priceAt, pathFor, sample: samplePx } = require('../lib/pxlog.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h23-2026-08-20';
+const VERSION = 'h26-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -106,7 +106,14 @@ const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
 // published. This is what the game DOES for winners, not a change to the rule.
 const HIT_PAYOUT = 1.7;
 const STAKE_MIN = 100;
-const STAKE_MAX = 100000;
+// ONE CEILING, AT BOTH DOORS, AND IT IS ONLY FAT-FINGER PROTECTION.
+// This used to be 100,000 to stop anyone buying rank with a big balance. That
+// job now belongs to XP_MULT_CAP below — XP stops growing at 40,000, so a
+// larger stake buys more risk and not one point more standing. With the
+// rank-buying answer handled somewhere better, a cap on how much of YOUR OWN
+// credits you may put at risk is just us deciding for you. The real limit is
+// your balance, and the server already enforces that.
+const STAKE_MAX = 1000000000;
 // XP GROWS WITH THE SQUARE ROOT OF THE STAKE, AND THEN STOPS.
 // Raising the cap to 100,000 lets a player actually spend a big reload
 // instead of grinding it out 2,500 at a time. But the ladder pays real RCX
@@ -115,6 +122,15 @@ const STAKE_MAX = 100000;
 // without being right more often. The multiplier therefore caps at x20,
 // reached at 40,000. Above that you are risking more for the same rank:
 // playing for credits, not for standing. Stated on the page, not buried.
+// A STREAK HAS TO PAY SOMETHING.
+// p.streak was tracked and displayed and did nothing, which makes it decoration.
+// It now multiplies XP — never credits, so the frozen economics are untouched —
+// and it rewards exactly what the ladder is supposed to reward: being right
+// repeatedly. Capped, and reset by a single miss, which is what makes it worth
+// protecting. Loss aversion is the strongest retention mechanic there is and
+// this is the honest version of it.
+const STREAK_STEP = 0.15, STREAK_CAP = 2.0;
+const streakMult = k => Math.min(STREAK_CAP, 1 + Math.max(0, k) * STREAK_STEP);
 const XP_MULT_CAP = 20;
 const XP_CAP_AT = STAKE_MIN * XP_MULT_CAP * XP_MULT_CAP;   // 40,000
 const stakeMult = st => Math.min(XP_MULT_CAP, Math.sqrt(st / STAKE_MIN));
@@ -132,6 +148,12 @@ const STAKES = { 500: 2.24, 2500: 5, 10000: 10, 50000: 20 };   // presets the UI
 // never touch an open bet. All feeds are external Pyth majors that no
 // player can move.
 const EVERGREEN = {
+  // A first-time visitor used to have to wait five minutes to find out anything,
+  // which is longer than most people stay. FLASH is the shortest window the
+  // oracle can honestly settle: the sponsored feeds heartbeat at 60s, so two
+  // minutes guarantees at least one print inside the window and usually several.
+  // Anything shorter would void more often than it settled.
+  SOL2:   { kind: 'dir', feed: 'SOL',  mins: 2,    baseXp: 8,  label: 'FLASH: SOL higher in 2 minutes' },
   SOL5:   { kind: 'dir', feed: 'SOL',  mins: 5,    baseXp: 10, label: 'SOL higher in 5 minutes' },
   PUMP30: { kind: 'dir', feed: 'PUMP', mins: 30,   baseXp: 14, label: 'PUMP higher in 30 minutes' },
   BTC60:  { kind: 'dir', feed: 'BTC',  mins: 60,   baseXp: 16, label: 'BTC higher in 1 hour' },
@@ -179,7 +201,8 @@ const RANKS = [['COG',0],['PISTON',300],['FLYWHEEL',900],['TURBINE',2200],['REAC
 // reloads (burned RCX), pot wins and the Gearbox. Every shot on the ladder
 // therefore costs something real or something earned.
 const WELCOME_GRANT = 5000;
-const ARENA_MIN_CALLS = 10;   // below this an agent is published but not ranked
+const ARENA_MIN_CALLS = 10;
+const PXFEEDS = ['SOL','BTC','ETH','BONK','WIF','JUP','PUMP'];   // below this an agent is published but not ranked
 // Prize curves. Unclaimed shares ROLL OVER into the next pot of the same cadence.
 const PRIZE_W = [0.40, 0.25, 0.15, 0.12, 0.08];   // weekly season: top 5
 const PRIZE_D = [0.50, 0.30, 0.20];               // daily pot: top 3
@@ -775,7 +798,12 @@ async function settle(p, prices) {
       await reverseStake(s.stake, p.w);           // a refunded stake feeds nothing
     }
     else if (outcome === s.side) {
-      p.shots++; s.res = 'hit'; p.hits++; p.streak++; p.best = Math.max(p.best, p.streak);
+      p.shots++; s.res = 'hit'; p.hits++;
+      const sm = streakMult(p.streak);          // the run you had BEFORE this shot
+      s.xpBase = s.xp;
+      s.streakMult = +sm.toFixed(2);
+      s.xp = Math.max(1, Math.round(s.xp * sm));
+      p.streak++; p.best = Math.max(p.best, p.streak);
       p.xp += s.xp; await bumpLadder(p.w, s.xp, p.qualified);
       s.back = Math.floor(s.stake * HIT_PAYOUT);      // being right pays
       p.cr += s.back;
@@ -973,7 +1001,7 @@ module.exports = async (req, res) => {
         split: SPLIT, potSplit: { day: POT_DAY_SHARE, week: 1 - POT_DAY_SHARE },
         prizes: { day: PRIZE_D, week: PRIZE_W },
         dayEnds: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1),
-        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number), hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT },
+        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number), hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP },
         champ: { pct: CHAMP.pct, curve: CHAMP.curve, holdPct: CHAMP.holdPct, holdDays: CHAMP.holdDays,
           podium: (podNow.list || []).map(x => ({ w: shortW(x.w), ata: x.ata, pct: x.pct })) },
         season: seasonKey(), day: today(),
@@ -1072,6 +1100,23 @@ module.exports = async (req, res) => {
     //  does not really exist anywhere — and anyone writing a bot wants a
     //  neutral place to prove it works.
     // ============================================================
+    // THE PATH A SHOT ACTUALLY TOOK.
+    // The price log exists so settlement cannot be gamed. Serving it back also
+    // makes a settled shot legible: you see every oracle print between your
+    // seal and your exit, including the one that decided it. Evidence and
+    // entertainment happen to be the same bytes here.
+    if (action === 'path') {
+      const feed = String(req.query.feed || '').toUpperCase();
+      const from = Number(req.query.from), to = Number(req.query.to);
+      if (!PXFEEDS.includes(feed)) return res.status(400).json({ ok:false, reason:'unknown feed' });
+      if (!Number.isFinite(from) || !Number.isFinite(to) || to <= from)
+        return res.status(400).json({ ok:false, reason:'bad window' });
+      if (to - from > 26 * 3600e3) return res.status(400).json({ ok:false, reason:'window too wide' });
+      const pad = 60e3;
+      const rows = await pathFor(feed, from - pad, to + pad);
+      return res.json({ ok:true, feed, from, to, n: rows.length, path: rows });
+    }
+
     if (action === 'agent-register') {
       const b = req.body || {};
       const w = b.auth && b.auth.wallet;
@@ -1111,7 +1156,7 @@ module.exports = async (req, res) => {
         flipsAt: (hour + 1) * 3600e3,
         prices: { src: prices.src, ages: prices.ages || null,
           ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x))) },
-        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT },
+        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP },
         sealRule: 'entry price must be fresher than min(60, max(30, 0.15 * windowSeconds)) seconds',
         settleRule: 'first recorded oracle sample at or after expiry; no sample within 15 minutes voids and refunds',
         targets: Object.entries(board).map(([id, t]) => ({

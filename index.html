@@ -31,7 +31,15 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(1000px 540px at 50% -10%,rgba(245,184,61,.08),transparent 66%)}
 .wrap{max-width:1140px;margin:0 auto;padding:0 20px;position:relative;z-index:1}
 .hud{position:sticky;top:0;z-index:70;background:rgba(7,8,10,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
-.hudrow{display:flex;align-items:center;gap:14px;height:64px}
+/* The header is a single flex row of logo + rank + three stats + five nav
+   items + the connect button. At any viewport narrow enough, that is wider
+   than the screen — it was overflowing at 1100px and only looked fine because
+   overflow-x:hidden was clipping it (which in turn broke sticky).
+   It now wraps instead of overflowing, and the nav scrolls sideways within
+   whatever room it has. There is no width at which this can push the page. */
+.hudrow{display:flex;align-items:center;gap:14px;min-height:64px;flex-wrap:wrap;
+  row-gap:6px;padding-top:6px;padding-bottom:6px}
+.hudstat{flex:0 1 auto;min-width:0;white-space:nowrap}
 .logo{font:800 13px/1 var(--sans);letter-spacing:.24em;display:flex;gap:9px;align-items:center;white-space:nowrap}
 .cog{width:18px;height:18px;animation:spin 14s linear infinite}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -49,7 +57,10 @@ body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
 .connect{background:var(--gold);color:#1a1206;border:0;border-radius:99px;padding:9px 16px;
   font:800 11px/1 var(--sans);letter-spacing:.06em;cursor:pointer;white-space:nowrap}
 .connect.done{background:var(--card);color:var(--grn);border:1px solid rgba(61,220,132,.35);font-family:var(--mono)}
-nav{display:flex;gap:1px;margin-left:auto}
+nav{display:flex;gap:1px;margin-left:auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+nav::-webkit-scrollbar{display:none}
+nav button{flex:0 0 auto;white-space:nowrap}
+.connect{flex:0 0 auto}
 nav button{background:none;border:0;color:var(--dim);font:700 10.5px/1 var(--sans);letter-spacing:.13em;
   padding:10px 12px;border-radius:8px;cursor:pointer;transition:.15s}
 nav button:hover{color:var(--ink2);background:var(--card)}
@@ -74,12 +85,23 @@ nav button.on{color:#1a1206;background:var(--gold)}
            overflow:hidden;text-overflow:ellipsis}
   .hudstat{font-size:9.5px}
 }
-html,body{max-width:100%;overflow-x:hidden}
+/* NOT overflow-x:hidden here.
+   That was added to contain a mobile header that no longer overflows, and it
+   silently breaks position:sticky for every descendant — an ancestor scroll
+   container is what a sticky element pins inside, so hiding overflow on the
+   root makes the rail scroll away instead of pinning. The header is fixed at
+   the source now, so nothing needs clamping at the root. */
+html,body{max-width:100%}
 .mode{background:rgba(237,161,0,.09);border-bottom:1px solid rgba(237,161,0,.2);color:#eda100;
   font:600 10.5px/1.5 var(--mono);letter-spacing:.06em;text-align:center;padding:6px 14px}
 section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .3s ease}
 @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
-.playgrid{display:grid;grid-template-columns:1fr 330px;gap:16px}
+/* LAYOUT PARAMETERS — the only place these numbers exist.
+   --railW  the rail's column width
+   --railTop where the rail's contents pin, i.e. below the sticky header
+   --railGap breathing room at the bottom of the pinned rail */
+:root{--railW:330px;--railTop:76px;--railGap:16px}
+.playgrid{display:grid;grid-template-columns:1fr var(--railW);gap:16px;align-items:stretch}
 @media(max-width:920px){.playgrid{grid-template-columns:1fr}}
 .machine{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px;text-align:center;position:relative;overflow:hidden}
 .machine::after{content:"";position:absolute;inset:0;pointer-events:none;
@@ -148,6 +170,11 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
   font:800 11px/1 var(--mono);letter-spacing:.12em;color:var(--dim);transition:.12s}
 .ud.up.on{border-color:var(--grn);color:var(--grn);background:rgba(61,220,132,.08)}
 .ud.dn.on{border-color:var(--red);color:var(--red);background:rgba(255,82,82,.08)}
+.cham.up{border-color:rgba(61,220,132,.4)}
+.cham.down{border-color:rgba(255,92,92,.32)}
+.live{margin-top:7px;padding-top:7px;border-top:1px solid var(--line)}
+.live .lt{font:700 10px/1.4 var(--mono);letter-spacing:.05em;overflow-wrap:anywhere}
+.spark{display:block;width:100%;height:34px;margin-top:8px}
 .stakes{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:16px 0 12px}
 @media(min-width:760px){.stakes{grid-template-columns:repeat(4,minmax(0,1fr))}}
 .stk{flex:1;border:1px solid var(--line);background:var(--card2);border-radius:11px;padding:12px 0;cursor:pointer;
@@ -176,17 +203,31 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .fire:disabled{opacity:.35;cursor:default}
 .splitline{margin-top:9px;font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--dim);text-align:center}
 .splitline b{color:var(--goldD)}
-.rcol{display:flex;flex-direction:column;gap:13px;min-height:0;min-width:0;position:sticky;top:76px;
-  align-self:start;max-height:var(--railH,calc(100vh - 92px));overflow-y:auto;overflow-x:hidden;
-  overscroll-behavior:contain;scrollbar-width:thin;padding-right:2px}
-/* one nowrap child used to widen the whole rail and clip everything to its
-   left. Panels may never be wider than the column that holds them. */
-.rcol>.panel{min-width:0;max-width:100%}
-.rcol .panel *{min-width:0}
-.rcol::-webkit-scrollbar{width:6px}
-.rcol::-webkit-scrollbar-track{background:transparent}
-.rcol::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
-@media(max-width:920px){.rcol{position:static;height:auto;overflow:visible}}
+/* THE RAIL, structurally.
+   This has broken twice: once when a taller panel squeezed the kill feed to
+   nothing, and once when a JS-measured height desynced from the scroll
+   position and left the column stranded halfway up the page. Both were the
+   same mistake — computing a height that the layout already knows.
+
+   The grid knows. .rcol is a normal grid item, so it is exactly as tall as
+   the row, which is exactly as tall as the centre column: the two columns
+   line up by construction and cannot drift. Nothing measures anything.
+
+   .railInner is what sticks. Inside a full-height parent, a sticky child can
+   travel the whole column and pins under the header, capped at the viewport
+   so its own scrollbar always has a visible bottom. */
+.rcol{min-width:0;min-height:0}
+.railInner{display:flex;flex-direction:column;gap:13px;min-width:0;
+  position:sticky;top:var(--railTop);
+  max-height:calc(100vh - var(--railTop) - var(--railGap));
+  overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;
+  scrollbar-width:thin;padding-right:2px}
+.railInner>.panel{min-width:0;max-width:100%;flex:none}
+.railInner .panel *{min-width:0}
+.railInner::-webkit-scrollbar{width:6px}
+.railInner::-webkit-scrollbar-track{background:transparent}
+.railInner::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+@media(max-width:920px){.railInner{position:static;max-height:none;overflow:visible}}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:16px}
 .panel h3{font:700 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--dim);margin-bottom:12px;display:flex;justify-content:space-between}
 .chambers{display:flex;flex-direction:column;gap:9px;max-height:min(40vh,420px);
@@ -445,7 +486,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     </div>
     <div class="stakeCustom">
       <span class="scl">OR NAME YOUR OWN</span>
-      <input id="stakeIn" type="number" inputmode="numeric" min="100" max="100000" step="10" placeholder="100 – 100,000">
+      <input id="stakeIn" type="number" inputmode="numeric" min="100" max="1000000000" step="10" placeholder="100 or more">
       <span class="scm" id="stakeMultOut">×2.24 XP</span>
     </div>
     <div class="splitOut none" id="xpCapNote" style="margin:8px 0 0"></div>
@@ -454,6 +495,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="splitline">EVERY SHOT: <b>70% BURNED</b> · 30% POTS (15% DAILY / 15% WEEKLY) · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
   </div></div>
   <div class="rcol">
+    <div class="railInner">
     <div class="panel" style="flex:none"><h3>YOUR CHAMBERS <span id="chC">—</span></h3>
       <div class="chambers" id="chams"><div class="empty">CONNECT AND FIRE A SHOT</div></div></div>
     <div class="panel" id="reloadP" style="display:none;flex:none">
@@ -491,6 +533,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     </div>
     <div class="panel" style="flex:0 0 auto;display:flex;flex-direction:column;min-height:0"><h3>KILL FEED</h3><div class="kill" id="kill"></div></div>
   </div>
+  </div>
 </div></div></section>
 
 <section id="warden"><div class="wrap"><div class="warden">
@@ -511,6 +554,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="wnote">your side is sealed — settles automatically at the window's end on oracle prices</div>
   </div>
   <div class="rcol">
+    <div class="railInner">
     <div class="panel"><h3>HOW THE DUEL PAYS</h3>
       <div style="font:400 13px/1.7 var(--sans);color:var(--ink2)">
       Going <b style="color:var(--vio)">with</b> the Warden is the safe play and pays modestly.
@@ -540,6 +584,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         ANYONE CAN JOIN FOR FREE IS A LEADERBOARD OF NOISE. RANKED AFTER 10 SETTLED CALLS — A 3-FOR-3 STREAK
         IS NOT EVIDENCE.</div></div>
     <div class="panel" style="flex:1;min-height:0;display:flex;flex-direction:column"><h3>RECENT ACTION</h3><div class="kill" id="duelfeed"></div></div>
+  </div>
   </div>
 </div></div></section>
 
@@ -597,6 +642,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       <div class="splitline">NO DEPOSIT · NO LOCK · TOKENS NEVER LEAVE YOUR WALLET · READ-ONLY, VERIFIED ON-CHAIN</div>
     </div></div>
     <div class="rcol">
+    <div class="railInner">
       <div class="panel"><h3>YOUR GEARBOX</h3><div id="stakeMe" style="font:400 12.5px/1.7 var(--sans);color:var(--ink2)">Connect a real wallet, then mesh your gears.</div></div>
       <div class="panel"><h3>GEARBOX · GLOBAL</h3><div id="stakeGlob" style="font:400 12.5px/1.7 var(--sans);color:var(--ink2)">—</div></div>
       <div class="panel" style="flex:1"><h3>WHY THIS CANNOT RUG</h3>
@@ -605,6 +651,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         the server can only <b style="color:var(--ink)">read</b> your balance, and the PROOF page re-checks the
         whole claim live. The worst thing we could ever do to a staker is pay zero credits.</div></div>
     </div>
+  </div>
   </div>
 </div></section>
 
@@ -661,6 +708,18 @@ function toast(m){const t=$("toast");t.innerHTML=m;t.classList.add("show");
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2800);}
 const short=w=>w.length>10?w.slice(0,4)+"…"+w.slice(-4):w;
 const fmt$=(n,d)=>n>=1000?n.toLocaleString(undefined,{maximumFractionDigits:0}):(n>=0.01||n===0)?n.toFixed(d??2):Number(n.toPrecision(2)).toString();
+// fmt$ is tuned for a price CHIP, where two decimals is plenty. A live readout
+// compares two nearby numbers — "WIF $0.15 needs below $0.15" is true, useless,
+// and reads like a bug. This keeps enough significant digits for the comparison
+// to mean something at any feed's scale.
+const fmtCmp=n=>{
+  if(!Number.isFinite(n))return "—";
+  const a=Math.abs(n);
+  if(a>=1000)return n.toLocaleString(undefined,{maximumFractionDigits:0});
+  if(a>=1)return n.toFixed(2);
+  if(a>=0.01)return n.toFixed(4);
+  return Number(n.toPrecision(4)).toString();
+};
 // paint-without-flicker: only touch the DOM when the content actually
 // changed, so entry animations play once instead of on every repaint.
 const setHTML=(el,html)=>{if(el&&el._h!==html){el._h=html;el.innerHTML=html;}};
@@ -812,15 +871,31 @@ function paint(){
     $("mN").textContent=p.next?`${p.next[1]-p.xp} XP to ${p.next[0]} · ${p.chambers} chambers`:"MAX RANK";
     $("mXP").textContent=p.xp;$("mBest").textContent=p.best;
     $("mAcc").textContent=p.shots?Math.round(p.hits/p.shots*100)+"%":"—";
+    // A streak is only a mechanic if you can see what it is currently worth
+    // and therefore what a miss would cost you.
+    const sr=stakeRule(), sm=Math.min(sr.streakCap||2,1+(p.streak||0)*(sr.streakStep||0.15));
+    const sEl=$("mBest");
+    if(sEl&&sEl.parentElement){
+      let tag=document.getElementById("streakTag");
+      if(!tag){tag=document.createElement("div");tag.id="streakTag";
+        tag.style.cssText="font:700 9px/1.4 var(--mono);letter-spacing:.08em;margin-top:3px";
+        sEl.parentElement.appendChild(tag);}
+      tag.innerHTML=(p.streak>0&&sm>1)
+        ? `<span style="color:var(--gold)">NEXT HIT ×${sm.toFixed(2)} XP</span>`
+        : `<span style="color:var(--dim)">BUILD A RUN FOR BONUS XP</span>`;
+    }
     $("chC").textContent=`${p.open.length} / ${p.chambers}`;
     const rows=[...p.open.map(c=>{
       const sd=c.side||SIDES[c.id];
-      return`<div class="cham"><div class="ch1"><span>SEALED 🔒</span><span class="cd" data-exp="${c.exp}">…</span></div>
-        <div class="ch2">${c.label} — <b>${sd?sd:"🔒 side sealed"}</b> · entry $${fmt$(c.entry)}</div></div>`;}),
-      ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
+      const L=liveShot(c,sd);
+      return`<div class="cham${L.cls}"><div class="ch1"><span>${L.head}</span><span class="cd" data-exp="${c.exp}">…</span></div>
+        <div class="ch2">${c.label} — <b>${sd?sd:"🔒 side sealed"}</b> · entry $${fmtCmp(c.entry)}</div>
+        ${L.bar}</div>`;}),
+      ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}" data-path="${c.feed||''}" data-from="${c.t||''}" data-to="${c.settledAt||c.exp||''}" data-entry="${c.entry||''}" data-exit="${c.exitPx||''}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
         <div class="ch2">${c.label}</div>
-        <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${c.res==='hit'?'+'+c.xp+' XP':c.res==='miss'?'streak reset':'no move, no harm'}</div></div>`)];
+        <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${c.res==='hit'?'+'+c.xp+' XP'+(c.streakMult>1?` <span style="color:var(--gold)">×${c.streakMult} STREAK</span>`:''):c.res==='miss'?'streak reset':'no move, no harm'}</div></div>`)];
     setHTML($("chams"),rows.length?rows.join(""):'<div class="empty">EMPTY — FIRE A SHOT</div>');
+    drawPaths();
     if(p.history&&p.history.length){$("histP").style.display="block";
       $("histN").textContent=` · ${p.hits}/${p.shots} LIFETIME · BEST STREAK ${p.best}`;
       setHTML($("histRows"),p.history.map(e=>{
@@ -828,7 +903,7 @@ function paint(){
         const col=e.res==='hit'?'var(--grn)':e.res==='miss'?'var(--red)':'var(--dim)';
         return`<div class="kl"><span class="t">${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span>
           <span style="color:${col};width:40px;flex:none;font-weight:800">${e.res.toUpperCase()}</span>
-          <span style="flex:1">${e.label} — <b>${e.side}</b></span>
+          <span style="flex:1">${e.label} — <b>${e.side}</b> ${missMargin(e)}</span>
           <span style="color:${col};font-weight:700;white-space:nowrap">${e.res==='hit'?'+'+e.xp+' XP'+(e.back?' · +'+e.back.toLocaleString():''):e.res==='void'?'refund':'streak ✕'}</span></div>`;}).join(""));}
     else if($("histP"))$("histP").style.display="none";
     // A guest who has just watched a shot settle is the only moment worth
@@ -866,7 +941,6 @@ function paint(){
     if(cl.length)$("podiumBox").innerHTML+=" · HOLDER RULE: CHAMPIONS WHO DUMP LOSE THE SEAT";}
   else $("reloadP").style.display="none";
   if(s.mint&&AUTH){const o=$("burnSplitOut"); if(o)o.textContent=burnSplitText(burnAmt);}
-  if(typeof fitRail==="function")fitRail();
   // feed + ladder
   const fx=el=>setHTML(el,s.feed.map(f=>{
     const d=new Date(f.t);
@@ -970,6 +1044,93 @@ function drawArena(){
 }
 loadArena(); setInterval(loadArena, 60000);
 
+// THE PATH YOUR SHOT ACTUALLY TOOK.
+// Drawn from the same recorded oracle samples that settled it — so this is not
+// an illustration of the result, it IS the result, plotted. The dot is the
+// print that decided it. Fetched once per settled shot and cached.
+const PATHS={};
+async function drawPaths(){
+  for(const el of document.querySelectorAll('.cham[data-path]')){
+    const feed=el.dataset.path, from=+el.dataset.from, to=+el.dataset.to;
+    if(!feed||!from||!to||el.querySelector('.spark'))continue;
+    const key=feed+from+to;
+    let rows=PATHS[key];
+    if(rows===undefined){
+      PATHS[key]=null;
+      try{ const r=await fetch(`${API}?action=path&feed=${feed}&from=${from}&to=${to}`);
+        const j=await r.json(); rows=PATHS[key]=(j.ok&&j.path)||[]; }catch{ rows=PATHS[key]=[]; }
+    }
+    if(!rows||rows.length<2)continue;
+    el.insertAdjacentHTML('beforeend',sparkline(rows,+el.dataset.entry,+el.dataset.exit,to));
+  }
+}
+function sparkline(rows,entry,exit,settleAt){
+  const W=260,H=34,pad=3;
+  const ys=rows.map(r=>r[1]).concat(Number.isFinite(entry)?[entry]:[]);
+  const lo=Math.min(...ys), hi=Math.max(...ys), span=(hi-lo)||1;
+  const t0=rows[0][0], t1=rows[rows.length-1][0], tspan=(t1-t0)||1;
+  const X=t=>pad+((t-t0)/tspan)*(W-pad*2);
+  const Y=v=>H-pad-((v-lo)/span)*(H-pad*2);
+  const d=rows.map((r,i)=>(i?'L':'M')+X(r[0]).toFixed(1)+' '+Y(r[1]).toFixed(1)).join(' ');
+  const up=exit>=entry;
+  const col=up?'var(--grn)':'var(--red)';
+  const base=Number.isFinite(entry)
+    ? `<line x1="${pad}" y1="${Y(entry).toFixed(1)}" x2="${W-pad}" y2="${Y(entry).toFixed(1)}"
+        stroke="var(--line)" stroke-width="1" stroke-dasharray="3 3"/>` : '';
+  // the sample at or after expiry is the one settlement used
+  const dec=rows.find(r=>r[0]>=settleAt)||rows[rows.length-1];
+  return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="oracle path">
+    ${base}<path d="${d}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round"/>
+    <circle cx="${X(dec[0]).toFixed(1)}" cy="${Y(dec[1]).toFixed(1)}" r="2.6" fill="${col}"/></svg>`;
+}
+
+// A SEALED SHOT SHOULD BE WATCHABLE.
+// It used to be a line of text and a countdown, so the only way to find out
+// what happened was to leave and come back. Everything below is derived from
+// the price already on the page and the shot's own terms — no new request, and
+// no information the owner does not already hold. A spectator (no side) sees
+// the market, never a verdict.
+function liveShot(c,side){
+  const px=STATE&&STATE.prices?STATE.prices[c.feed]:null;
+  const blank={cls:"",head:"SEALED 🔒",bar:""};
+  if(!Number.isFinite(px)||!Number.isFinite(c.entry))return blank;
+  const pct=v=>(v>=0?"+":"")+(v*100).toFixed(2)+"%";
+  let need=null,now=null,label="",yes=null;
+  if(c.kind==="thr"&&Number.isFinite(c.thresh)){
+    yes=px>c.thresh; need=c.thresh; now=px;
+    label=`$${fmtCmp(px)} · needs $${fmtCmp(c.thresh)} · ${pct((px-c.thresh)/c.thresh)} away`;
+  }else if(c.kind==="thrDown"&&Number.isFinite(c.thresh)){
+    yes=px<c.thresh; need=c.thresh; now=px;
+    label=`$${fmtCmp(px)} · needs below $${fmtCmp(c.thresh)} · ${pct((px-c.thresh)/c.thresh)} away`;
+  }else if(c.kind==="range"&&Number.isFinite(c.pct)){
+    const d=Math.abs((px-c.entry)/c.entry); yes=d>=c.pct;
+    label=`moved ${pct(d)} of the ±${(c.pct*100).toFixed(2)}% band`;
+  }else if(c.kind==="race"&&Number.isFinite(c.entry2)){
+    const p2=STATE.prices[c.feed2];
+    if(!Number.isFinite(p2))return blank;
+    const a=(px-c.entry)/c.entry,b=(p2-c.entry2)/c.entry2; yes=a>b;
+    label=`${c.feed} ${pct(a)} vs ${c.feed2} ${pct(b)}`;
+  }else{
+    const chg=(px-c.entry)/c.entry; yes=chg>0;
+    label=`$${fmtCmp(px)} · ${pct(chg)} since seal`;
+  }
+  // Without the side we can describe the market but must not call it.
+  if(!side)return{cls:"",head:"SEALED 🔒",
+    bar:`<div class="live"><span class="lt" style="color:var(--dim)">${label}</span></div>`};
+  const winning=(side==="YES")===yes;
+  return{ cls: winning?" up":" down",
+    head: winning?'<span style="color:var(--grn)">AHEAD ▲</span>':'<span style="color:var(--red)">BEHIND ▼</span>',
+    bar:`<div class="live"><span class="lt" style="color:${winning?"var(--grn)":"var(--red)"}">${label}</span></div>` };
+}
+
+// The margin is the difference between "you lost" and "you were nearly right",
+// and only one of those makes anyone fire again.
+function missMargin(e){
+  if(!Number.isFinite(e.entry)||!Number.isFinite(e.exit))return "";
+  const d=(e.exit-e.entry)/e.entry;
+  return `<span style="color:var(--dim)">· moved ${(d>=0?"+":"")+(d*100).toFixed(2)}%</span>`;
+}
+
 // YOUR LIVE POSITION. A ladder nobody can see themselves on is decoration.
 function standing(){
   const els=[$("standing"),$("standingR")].filter(Boolean);
@@ -1022,7 +1183,7 @@ function setStake(v,fromInput){
   const note=$("xpCapNote"), r0=stakeRule();
   if(note){const capAt=r0.xpCapAt||40000;
     note.textContent = st>capAt
-      ? `XP IS CAPPED AT ×${r0.xpMultCap||20} ABOVE ${capAt.toLocaleString()} — ABOVE THIS YOU ARE PLAYING FOR CREDITS, NOT FOR RANK`
+      ? `XP IS CAPPED AT ×${r0.xpMultCap||20} ABOVE ${capAt.toLocaleString()} — STAKE WHAT YOU LIKE, BUT PAST HERE YOU ARE PLAYING FOR CREDITS, NOT FOR RANK. A HIT STILL RETURNS 1.7×.`
       : "";}
   document.querySelectorAll(".stakes .stk").forEach(x=>x.classList.toggle("on",+x.dataset.s===st));
   const inp=$("stakeIn"); if(inp&&!fromInput&&document.activeElement!==inp)inp.value=st;
@@ -1294,20 +1455,6 @@ $("anchorPaste").onclick=async()=>{
 };
 
 $("howBtn").onclick=()=>{const b=$("howBox");b.style.display=b.style.display==="none"?"block":"none";};
-// Size the sticky rail to whatever room it ACTUALLY has right now. Sticky
-// only pins once you have scrolled to it, so a fixed calc(100vh - 92px) is
-// too tall beforehand and pushes the last panel below the fold — where the
-// page scroll drags the rail along and the rail's own scrollbar is on a box
-// whose bottom you cannot see. Measured, it always fits.
-function fitRail(){
-  const col=document.querySelector('.rcol'); if(!col) return;
-  if(window.innerWidth<=920){ col.style.removeProperty('--railH'); return; }  // stacked layout, no rail
-  const top=Math.max(76, col.getBoundingClientRect().top);
-  col.style.setProperty('--railH', Math.max(240, window.innerHeight - top - 16)+'px');
-}
-fitRail();
-addEventListener('resize', fitRail);
-addEventListener('scroll', ()=>{ if(!fitRail._q){ fitRail._q=requestAnimationFrame(()=>{ fitRail._q=0; fitRail(); }); } }, {passive:true});
 refresh();setInterval(refresh,6000);
 // surgical 1s ticker: update ONLY countdown text — no repaints, no flicker
 setInterval(()=>{

@@ -56,7 +56,11 @@ const zScore = (pfx, period, w) => { const m = mem.get('Z' + `z:${pfx}${period}`
 // 1 ---- bare state
 let r = await call('GET', { query: { action: 'state' } });
 ok(r.status === 200 && r.body.ok && r.body.v && r.body.durable === false, 'state answers, versioned, ephemeral');
-ok(Object.keys(r.body.targets).length === 9, 'nine targets served (4 evergreen + 5 rotating)');
+ok(Object.keys(r.body.targets).length === 10, 'ten targets served (5 evergreen + 5 rotating)');
+ok(r.body.targets.SOL2 && r.body.targets.SOL2.mins === 2,
+   'FLASH exists: a two-minute window so a first visit can finish a whole shot');
+ok(r.body.targets.SOL2.mins * 60 > 60,
+   'and it stays above the 60s oracle heartbeat, so it can actually settle');
 ok(r.body.targets.PUMP30 && r.body.targets.PUMP30.feed === 'PUMP', 'the house token is on the board');
 ok(!('RCX15' in r.body.targets) && !('RCX_THR' in r.body.targets), 'no RCX-priced targets');
 ok(r.body.stats.potD === 0, 'daily pot initialised');
@@ -382,8 +386,20 @@ r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk2' }, 
 const xp100 = r.body.ok && r.body.shot.xp;
 ok(!!xp1000 && !!xp100 && Math.abs(xp1000 / xp100 - Math.sqrt(10)) < 0.12, 'custom stake XP follows sqrt(stake/100)');
 resetRL();
-r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk3' }, target: 'SOL5', side: 'YES', stake: 100001 } });
-ok(!r.body.ok && /between/.test(r.body.reason || ''), 'stake above the cap refused');
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk3' }, target: 'SOL5', side: 'YES', stake: 1000000001 } });
+ok(!r.body.ok && /between/.test(r.body.reason || ''), 'an absurd stake is still refused');
+// You may risk as much of your own balance as you like. What stops rank being
+// bought is the XP ceiling, not a limit on your stake.
+resetRL();
+setMem('u:demo-mill', { w:'demo-mill', xp:0, streak:0, best:0, hits:0, shots:0, cr:2000000,
+  granted:true, burned:0, day:new Date().toISOString().slice(0,10), open:[], closed:[] });
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-mill' }, target: 'SOL5', side: 'YES', stake: 1000000 } });
+ok(r.body.ok, 'a one-million credit stake is accepted');
+ok(getMem('u:demo-mill').cr === 1000000, 'and it is actually deducted');
+resetRL();
+r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-mill' }, target: 'SOL5', side: 'YES', stake: 1500000 } });
+ok(!r.body.ok && /not enough credits/.test(r.body.reason||''),
+   'your balance is the real limit, and the server enforces it');
 // The cap moved to 100,000 so a big reload can actually be spent. The XP
 // curve must NOT move with it, or the podium — which pays real RCX — becomes
 // purchasable by the richest wallet rather than the most accurate one.
@@ -445,7 +461,7 @@ const EXPW = 'demo-optn1';
     burned:0, day:new Date().toISOString().slice(0,10), closed:[],
     open:[{ id:'opt2', kind:'dir', feed:'SOL', side:'YES', entry:100, exp, stake:500, xp:10, label:'t', src:'cr' }] });
   pxGate.t = now;
-  for (let h = exp; h <= exp + GRACE + 3600e3; h += 3600e3) setMem(bk(h), []);  // the oracle was never sampled in that window
+  setMem(bk(exp), []);                                   // the oracle was never sampled in that window
   const crB = getMem('u:demo-optn2').cr;
   r = await call('GET', { query: { action: 'state', wallet: 'demo-optn2' } });
   const st2 = getMem('u:demo-optn2');
@@ -709,6 +725,59 @@ const kvmod = require('./lib/kv.js');
   const me = r.body.agents.find(a => a.name === 'TEST BOT');
   ok(me && me.listed === false, 'a new agent is published but NOT ranked — 3-for-3 is not evidence');
   ok(r.body.house && Array.isArray(r.body.house.fleet), 'the house fleet is listed alongside');
+}
+
+
+// ============================================================
+//  STREAKS PAY — but only in XP, and only up to a point.
+// ============================================================
+{
+  resetRL();
+  const W = 'demo-strk1';
+  const seed = (streak) => setMem(`u:${W}`, { w:W, xp:0, streak, best:streak, hits:0, shots:0, cr:50000,
+    granted:true, burned:0, day:new Date().toISOString().slice(0,10), closed:[],
+    open:[{ id:'s'+streak, kind:'dir', feed:'SOL', side:'YES', entry:90, exp:Date.now()-1000,
+            stake:500, xp:100, label:'t', src:'cr' }] });
+  const run = async (streak) => { seed(streak); tickPx();
+    await call('GET', { query:{ action:'state', wallet:W } });
+    return getMem(`u:${W}`).closed[0]; };
+
+  const cold = await run(0), warm = await run(3), hot = await run(20);
+  ok(cold.xp === 100, `no streak = no bonus (${cold.xp})`);
+  ok(warm.xp === 145 && warm.streakMult === 1.45, `a 3-run pays x1.45 (${warm.xp})`);
+  ok(hot.xp === 200 && hot.streakMult === 2, `the bonus caps at x2 (${hot.xp})`);
+  ok(cold.xpBase === 100 && warm.xpBase === 100, 'the base XP is recorded, so the bonus is auditable');
+  // a miss must cost the run — that is the whole mechanic
+  setMem(`u:${W}`, { ...getMem(`u:${W}`), streak: 5, closed: [],
+    open:[{ id:'sm', kind:'dir', feed:'SOL', side:'NO', entry:90, exp:Date.now()-1000,
+            stake:500, xp:100, label:'t', src:'cr' }] });
+  tickPx(); await call('GET', { query:{ action:'state', wallet:W } });
+  ok(getMem(`u:${W}`).streak === 0, 'one miss resets the run — which is what makes it worth protecting');
+}
+
+// ============================================================
+//  THE PRICE PATH is servable, bounded, and refuses nonsense.
+// ============================================================
+{
+  resetRL();
+  const now = Date.now(), from = now - 10*60e3;
+  const { bucketKey: bk2 } = require('./lib/pxlog.js');
+  const g = globalThis.__ratchet_pxgate; if (g) g.t = now;
+  setMem(bk2(from), [
+    { t: from + 60e3,  SOL: 100, BTC:60000, ETH:2000, src:'pyth-onchain' },
+    { t: from + 120e3, SOL: 103, BTC:60000, ETH:2000, src:'pyth-onchain' },
+    { t: from + 180e3, SOL:  99, BTC:60000, ETH:2000, src:'pyth-onchain' },
+  ]);
+  r = await call('GET', { query:{ action:'path', feed:'SOL', from:String(from), to:String(now) } });
+  ok(r.body.ok && r.body.path.length >= 3, `path returns the recorded samples (${r.body.path && r.body.path.length})`);
+  ok(r.body.path.every(([t,v]) => Number.isFinite(t) && Number.isFinite(v)), 'each point is [time, price]');
+  ok(r.body.path[0][0] <= r.body.path[r.body.path.length-1][0], 'oldest first');
+  r = await call('GET', { query:{ action:'path', feed:'DOGE', from:String(from), to:String(now) } });
+  ok(!r.body.ok, 'an unknown feed is refused');
+  r = await call('GET', { query:{ action:'path', feed:'SOL', from:String(now), to:String(from) } });
+  ok(!r.body.ok, 'a backwards window is refused');
+  r = await call('GET', { query:{ action:'path', feed:'SOL', from:'0', to:String(now) } });
+  ok(!r.body.ok && /too wide/.test(r.body.reason||''), 'an unbounded window is refused');
 }
 
 console.log(fails ? `\n${fails} FAILURES` : '\nALL PASS');
