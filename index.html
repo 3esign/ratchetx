@@ -180,6 +180,11 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
   font:800 9.5px/1 var(--mono);letter-spacing:.1em;border-radius:99px;padding:6px 11px;
   margin-left:6px;vertical-align:middle;white-space:nowrap;transition:.14s}
 .getrcx:hover{filter:brightness(1.1)}
+@keyframes settleflash{
+  0%{box-shadow:0 0 0 0 rgba(245,184,61,.55);transform:scale(1)}
+  30%{box-shadow:0 0 26px 3px rgba(245,184,61,.35);transform:scale(1.015)}
+  100%{box-shadow:0 0 0 0 rgba(245,184,61,0);transform:scale(1)}}
+.cham.justsettled{animation:settleflash 1.1s ease-out}
 .cham.up{border-color:rgba(61,220,132,.4)}
 .cham.down{border-color:rgba(255,92,92,.32)}
 .live{margin-top:7px;padding-top:7px;border-top:1px solid var(--line)}
@@ -905,11 +910,12 @@ function paint(){
       return`<div class="cham${L.cls}"><div class="ch1"><span>${L.head}</span><span class="cd" data-exp="${c.exp}">…</span></div>
         <div class="ch2">${c.label} — <b>${sd?sd:"🔒 side sealed"}</b> · entry $${fmtCmp(c.entry)}</div>
         ${L.bar}</div>`;}),
-      ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}" data-path="${c.feed||''}" data-from="${c.t||''}" data-to="${c.settledAt||c.exp||''}" data-entry="${c.entry||''}" data-exit="${c.exitPx||''}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
+      ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}" data-settled="${c.id||''}" data-path="${c.feed||''}" data-from="${c.t||''}" data-to="${c.settledAt||c.exp||''}" data-entry="${c.entry||''}" data-exit="${c.exitPx||''}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
         <div class="ch2">${c.label}</div>
         <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${c.res==='hit'?'+'+c.xp+' XP'+(c.streakMult>1?` <span style="color:var(--gold)">×${c.streakMult} STREAK</span>`:''):c.res==='miss'?'streak reset':'no move, no harm'}</div></div>`)];
     setHTML($("chams"),rows.length?rows.join(""):'<div class="empty">EMPTY — FIRE A SHOT</div>');
     drawPaths();
+    scanSettlements(p);
     if(p.history&&p.history.length){$("histP").style.display="block";
       $("histN").textContent=` · ${p.hits}/${p.shots} LIFETIME · BEST STREAK ${p.best}`;
       setHTML($("histRows"),p.history.map(e=>{
@@ -1102,6 +1108,84 @@ function sparkline(rows,entry,exit,settleAt){
   return `<svg class="spark" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-label="oracle path">
     ${base}<path d="${d}" fill="none" stroke="${col}" stroke-width="1.6" stroke-linejoin="round"/>
     <circle cx="${X(dec[0]).toFixed(1)}" cy="${Y(dec[1]).toFixed(1)}" r="2.6" fill="${col}"/></svg>`;
+}
+
+// ============================================================
+//  YOU HAVE TO FIND OUT.
+//
+//  Settlement is lazy and windows run from two minutes to a day, so the
+//  moment a shot resolves is almost never a moment you are looking at the
+//  page. Until now that moment was invisible: the card quietly changed and
+//  the only way to learn anything was to come back and read a list. A game
+//  whose payoff you can miss entirely is a form you submitted.
+//
+//  Three levels, cheapest first, and none of them needs a server:
+//    · the tab title, always — costs nothing, asks nothing
+//    · a real notification, only if you granted it
+//    · a flash on the card, when you are actually looking
+//
+//  The permission ask is deliberately NOT on page load. Asking a stranger
+//  for notification rights before they have played is the pattern everyone
+//  denies by reflex. We ask once, after your first shot settles, when the
+//  question means something.
+// ============================================================
+const SETTLED_SEEN = new Set();
+let settleReady = false;     // first paint records history without announcing it
+let pendingSettles = 0;
+const BASE_TITLE = document.title;
+
+function markTitle(){
+  document.title = pendingSettles > 0 && document.hidden
+    ? `(${pendingSettles}) SETTLED · RATCHET` : BASE_TITLE;
+}
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) { pendingSettles = 0; markTitle(); }
+});
+
+function announceSettle(e){
+  const hit = e.res === "hit", vd = e.res === "void";
+  const head = vd ? "VOID — stake refunded" : hit ? "HIT ✓" : "MISS ✕";
+  const body = `${e.label}${e.res==="hit"&&e.back?` · +${e.back.toLocaleString()} credits`:""}`;
+  pendingSettles++; markTitle();
+  try{
+    if (window.Notification && Notification.permission === "granted")
+      new Notification(`RATCHET — ${head}`, { body, tag: "ratchet-"+e.id });
+  }catch{}
+  // if they ARE looking, the card itself should do the announcing
+  requestAnimationFrame(()=>{
+    const el=document.querySelector(`.cham[data-settled="${e.id}"]`);
+    if(el){ el.classList.remove("justsettled"); void el.offsetWidth; el.classList.add("justsettled"); }
+  });
+  offerNotifications();
+}
+
+// One ask, ever, and only once something has actually settled.
+function offerNotifications(){
+  if(!window.Notification || Notification.permission !== "default") return;
+  if(localStorage.getItem("ratchet_notif_asked")) return;
+  const bar=$("mode"); if(!bar) return;
+  localStorage.setItem("ratchet_notif_asked","1");
+  bar.style.display="block";
+  bar.innerHTML = `A shot just settled while you were here. Want to know when the next one does? `+
+    `<button id="notifYes" class="connect" style="padding:5px 12px;font-size:10px;margin-left:8px">TELL ME</button>`;
+  const btn=$("notifYes");
+  if(btn) btn.onclick=async()=>{
+    // requestPermission must come from a click, which is also the only
+    // honest place to ask from.
+    try{ await Notification.requestPermission(); }catch{}
+    bar.style.display="none"; if(window.STATE)paint();
+  };
+}
+
+function scanSettlements(p){
+  const rows=[...(p.closed||[]), ...(p.history||[])];
+  for(const e of rows){
+    if(!e || !e.id || !e.res || e.res==="open") continue;
+    if(SETTLED_SEEN.has(e.id)) continue;
+    SETTLED_SEEN.add(e.id);
+    if(settleReady) announceSettle(e);
+  }
+  settleReady = true;
 }
 
 // A SEALED SHOT SHOULD BE WATCHABLE.
