@@ -1,6 +1,7 @@
 {
-  "cleanUrls": true,
-  "headers": [
-    { "source": "/api/(.*)", "headers": [ { "key": "Cache-Control", "value": "no-store" } ] }
+  "crons": [
+    { "path": "/api/game",  "schedule": "5 0 * * *" },
+    { "path": "/api/proof", "schedule": "20 0 * * *" }
   ]
 }
+
