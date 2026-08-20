@@ -45,11 +45,13 @@ const { getJSON, getJSONStrict, setJSON, setnxJSON, delKey, scanKeys, durable, z
 const { verifyAuth, isDemo, isWalletShaped } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
 const { priceAt, pathFor, sample: samplePx } = require('../lib/pxlog.js');
+const { report: feedReport, noteSettle } = require('../lib/feedhealth.js');
+const { ACCOUNTS: PX_ACCOUNTS } = require('../lib/onchain_px.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h33-2026-08-20';
+const VERSION = 'h36-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -823,13 +825,17 @@ async function settle(p, prices) {
     // That is what stops an expired shot being a free option: it no longer
     // matters who triggers the settle, or when.
     const at = await priceAt(s.exp, now);
-    if (at.wait) { still.push(s); continue; }   // sample not in yet; look again later
+    // Every deferral and every void is a measured consequence of the oracle
+    // being late. We count them per feed and publish the totals — a late
+    // publish is not a log line here, it is somebody's refunded stake.
+    if (at.wait) { await noteSettle(s.feed, 'wait'); still.push(s); continue; }
     const px  = at.row ? at.row[s.feed] : undefined;
     const px2 = s.kind === 'race' ? (at.row ? at.row[s.feed2] : undefined) : 1;
     if (at.expired || !Number.isFinite(px) || !Number.isFinite(px2)) {
       // The grace window closed with no usable sample, or the feed was gone
       // when it closed. Refund rather than invent a number.
       changed = true;
+      if (at.expired) await noteSettle(s.feed, 'void');
       refund(p, s); s.res = 'void'; s.settledAt = now; s.exitPx = null;
       await reverseStake(s.stake, p.w);
       await append({ k:'settle', w: p.w, id: s.id, res: 'void',
@@ -880,6 +886,7 @@ async function settle(p, prices) {
       if (!isDemo(p.w)) await bumpFeed({ w: shortW(p.w), a: 'MISS - streak reset', c: 'miss' });
     }
     s.settledAt = now; s.exitPx = px; s.exitAt = at.row.t;
+    await noteSettle(s.feed, 'set');
     await append({ k:'settle', w: p.w, id: s.id, res: s.res, exitPx: px, exitAt: at.row.t,
       side: s.side, salt: s.salt, commit: s.commit });   // the reveal: sha256(side|salt) must equal the seal's commit
     await pushHist(p.w, { id: s.id, t: now, label: s.label, side: s.side, res: s.res,
@@ -949,6 +956,38 @@ module.exports = async (req, res) => {
     if (rateLimited(ip, isPost)) return res.status(429).json({ ok:false, reason:'slow down - too many requests from this address' });
 
     const action = (req.method === 'GET' ? req.query.action : (req.body||{}).action) || 'state';
+
+    // ============================================================
+    //  THE OBSERVATORY.
+    //  We settle real bets off Pyth's sponsored push feeds, which makes us a
+    //  consumer that cannot look away when one misbehaves. The measurements
+    //  are a by-product of settlement sampling we were already doing. Nobody
+    //  publishes third-party numbers on sponsored feed behaviour, so we do,
+    //  including the ones that make us look bad (ourDutyPct) and the limits
+    //  that stop any of it being over-quoted.
+    //  Public, unauthenticated, JSON. Read it, disagree with it, reproduce it.
+    //
+    //  IT SITS ABOVE THE PRICE FETCH ON PURPOSE. Everything below this line
+    //  needs a live oracle read first. This endpoint reports on the ORACLE'S
+    //  OWN HEALTH from samples already recorded — so it must still answer on
+    //  the day every price source is down, which is the day someone actually
+    //  wants to look at it. A health page that goes dark with the thing it
+    //  monitors is not a health page.
+    // ============================================================
+    if (action === 'feeds') {
+      const rep = await feedReport(Number(req.query.hours) || 24);
+      for (const f of Object.keys(rep.feeds)) {
+        rep.feeds[f].account = (PX_ACCOUNTS[f] || [])[0] || null;
+        rep.feeds[f].feedId  = (PX_ACCOUNTS[f] || [])[1] || null;
+      }
+      rep.ok = true; rep.v = VERSION;
+      rep.what = 'third-party measurement of Pyth sponsored push feeds on Solana, taken by a consumer that settles real bets on them';
+      rep.method = 'one read of each sponsored price account per minute over plain JSON-RPC; PriceUpdateV2 decoded locally; owner, discriminator, verification level and feed id all checked before a number is kept';
+      rep.reproduce = 'GET /api/game?action=path&feed=SOL&from=<ms>&to=<ms> returns the same samples these statistics are computed from';
+      res.setHeader('access-control-allow-origin', '*');
+      return res.json(rep);
+    }
+
     const prices = await getPrices();
     // Record what the oracle says, before anything settles on it. Throttled
     // to one write per instance per minute; a failed sample never fails the
