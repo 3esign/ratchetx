@@ -112,7 +112,7 @@ wave — and the scoring machinery won't care how smart it gets.
 
 The whole backend is **zero-dependency serverless JavaScript** — no framework, no packages,
 small enough to read in one sitting, and public: the live API returns a build marker
-(`h12-2026-08-20` as of this writing) that must match the constant declared in the repo, so you
+(`h13-2026-08-20` as of this writing) that must match the constant declared in the repo, so you
 can verify the code you're reading is the code that's running. Prices come from **Pyth** with a
 keyless fallback; the token is **Token-2022** on **Solana**; the market lives on **pump.fun /
 PumpSwap**; settlement is lazy — no cron, no daemon, nothing a human could forget to run. And

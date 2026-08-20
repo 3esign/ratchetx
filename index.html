@@ -85,6 +85,12 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .mcell{background:var(--card2);padding:12px 10px;text-align:center}
 .mcell u{display:block;text-decoration:none;font:700 8.5px/1 var(--mono);letter-spacing:.18em;color:var(--dim);margin-bottom:6px}
 .mcell b{display:block;font:800 17px/1 var(--mono);color:var(--ink);letter-spacing:-.01em}
+.standing{margin:16px auto 0;max-width:760px;background:var(--card2);border:1px solid var(--line);
+  border-radius:12px;padding:12px 14px;font:700 10.5px/1.6 var(--mono);letter-spacing:.06em;
+  color:var(--ink2);text-align:center}
+.standing b{color:var(--gold)}
+.standing .hot{color:var(--grn)}
+.standing .clock{color:var(--ice)}
 .mcell b small{font-size:9.5px;letter-spacing:.1em;color:var(--dim);margin-left:3px;font-weight:700}
 .hh{font:700 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--gold);margin:18px 0 8px;
   padding-top:14px;border-top:1px solid var(--line)}
@@ -272,6 +278,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="msub">FED BY EVERY SHOT · <b id="fedN">—</b> SHOTS FIRED · CAN ONLY GO UP <span style="color:var(--goldD)">(SIMULATED UNTIL VAULT DEPLOY)</span></div>
     <div class="prices" id="prices"></div>
     <div class="mgrid" id="machStats"></div>
+    <div class="standing" id="standing" style="display:none"></div>
     <div id="burnLine" style="display:none;margin-top:12px;font:700 12px var(--mono);letter-spacing:.08em;color:var(--red)"></div>
     <div style="margin:20px 0 4px;text-align:left">
       <button id="howBtn" style="width:100%;background:rgba(245,184,61,.07);border:1px solid rgba(245,184,61,.4);
@@ -460,6 +467,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   <div class="panel ladder" id="histP" style="display:none;margin-bottom:13px"><h3>SHOT HISTORY <span id="histN" style="color:var(--ice)"></span></h3>
     <div id="histRows" class="kill" style="max-height:340px;overflow:auto"></div></div>
   <div class="ranksrow" id="rkrow"></div>
+  <div class="standing" id="standingR" style="display:none;margin-bottom:13px"></div>
   <div class="panel ladder" style="margin-bottom:13px"><h3>TODAY'S LADDER · <span id="dayK"></span><span style="color:var(--gold)" id="potDN"></span></h3><div id="ladderDay"></div>
     <div style="font:600 9.5px/1.6 var(--mono);letter-spacing:.06em;color:var(--dim);margin-top:10px">
       PAYS AUTOMATICALLY AT 00:00 UTC, EVERY DAY: TOP 3 TAKE 50 / 30 / 20% OF THE DAILY POT AS CREDITS —
@@ -675,7 +683,7 @@ function paint(){
     sel.t=b.dataset.k;const sd=e.target.dataset.side;if(sd)sel.side=sd;paint();});
   const ok=sel.t&&sel.side&&who();
   $("fire").disabled=!ok;
-  payLine();
+  payLine();standing();
   const guest=!AUTH;
   $("fire").textContent=ok?(guest?`SEAL THE SHOT — ${sel.stake.toLocaleString()} (GUEST, UNRANKED) 🔒`
     :`SEAL THE SHOT — BURN ${sel.stake.toLocaleString()} 🔥`):"PICK A TARGET AND A SIDE";
@@ -803,6 +811,33 @@ function paint(){
 // the number on screen can never disagree with the number you are awarded.
 const stakeRule=()=>(STATE&&STATE.stakeRule)||{min:100,max:2500};
 const stakeMult=st=>Math.sqrt(st/stakeRule().min);
+// YOUR LIVE POSITION. A ladder nobody can see themselves on is decoration.
+function standing(){
+  const els=[$("standing"),$("standingR")].filter(Boolean);
+  if(!els.length||!STATE)return;
+  const s=STATE, p=s.player, pot=Math.floor(s.stats&&s.stats.potD||0);
+  const prizes=(s.prizes&&s.prizes.day)||[];
+  const left=Math.max(0,Math.round(((s.dayEnds||0)-Date.now())/1000));
+  const hh=Math.floor(left/3600), mm=Math.floor((left%3600)/60);
+  const clock=`<span class="clock">${hh}h ${String(mm).padStart(2,"0")}m</span>`;
+  let html;
+  if(!p||!AUTH){
+    html=`GUEST SHOTS DON'T RANK — CONNECT TO ENTER TODAY'S LADDER · `+
+      `POT <b>${pot.toLocaleString()}</b> · PAYS OUT IN ${clock}`;
+  }else if(p.dayRank&&p.dayRank<=prizes.length){
+    const win=Math.floor(pot*(prizes[p.dayRank-1]||0));
+    html=`YOU'RE <b>#${p.dayRank}</b> TODAY WITH <b>${(p.dayXp||0).toLocaleString()} XP</b> — `+
+      `IF THE DAY ENDED NOW YOU'D WIN <span class="hot">${win.toLocaleString()} CREDITS</span>`+
+      (p.dayRank<=3?` AND A <span class="hot">PODIUM SEAT</span>`:``)+` · ${clock} LEFT`;
+  }else{
+    const need=p.dayToSeat||0;
+    const last=Math.floor(pot*(prizes[prizes.length-1]||0));
+    html=(p.dayRank?`YOU'RE <b>#${p.dayRank}</b> OF ${p.dayField} TODAY`:`YOU HAVEN'T SCORED TODAY`)+
+      ` — <b>${need.toLocaleString()} XP</b> TAKES THE LAST PAYING SEAT `+
+      `(<span class="hot">${last.toLocaleString()} CREDITS</span> + THE PODIUM) · ${clock} LEFT`;
+  }
+  for(const el of els){el.style.display="block";if(el._h!==html){el._h=html;el.innerHTML=html;}}
+}
 function payLine(){
   const el=$("payLine"); if(!el)return;
   const r=(STATE&&STATE.stakeRule)||{}; const k=r.hitPayout;
@@ -1061,6 +1096,7 @@ setInterval(()=>{
   });
   if(STATE&&STATE.boardFlip){const l=Math.max(0,Math.round((STATE.boardFlip-Date.now())/1000));
     const el=$("boardIn");if(el)el.textContent=`NEW MIX IN ${Math.floor(l/60)}:${String(l%60).padStart(2,"0")}`;}
+  if(STATE)standing();
 },1000);
 </script>
 </body></html>

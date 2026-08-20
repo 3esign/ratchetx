@@ -48,7 +48,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h12-2026-08-20';
+const VERSION = 'h13-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -622,8 +622,23 @@ module.exports = async (req, res) => {
       const ladder = Object.entries(lb).filter(([wl]) => !isDemo(wl)).sort((a,b)=>b[1]-a[1]).slice(0,20)
         .map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
       const lbd = (await getJSON(`lbd:${today()}`)) || {};
-      const ladderDay = Object.entries(lbd).filter(([wl]) => !isDemo(wl)).sort((a,b)=>b[1]-a[1]).slice(0,10)
-        .map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
+      const dayRanked = Object.entries(lbd).filter(([wl]) => !isDemo(wl)).sort((a,b)=>b[1]-a[1]);
+      const ladderDay = dayRanked.slice(0,10).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
+      // YOUR LIVE POSITION: where you stand today, what today would pay you if it
+      // ended right now, and what it would take to move up. The ladder is only
+      // motivating when you can see yourself on it — including from outside the
+      // top ten, which the public board never shows.
+      if (player) {
+        const myIdx = dayRanked.findIndex(([wl]) => wl === w);
+        player.dayXp = myIdx >= 0 ? dayRanked[myIdx][1] : 0;
+        player.dayRank = myIdx >= 0 ? myIdx + 1 : null;
+        player.dayField = dayRanked.length;
+        // XP needed to take the last paying seat (0 if you already hold one)
+        const seats = PRIZE_D.length;
+        const cut = dayRanked[seats - 1];
+        player.dayToSeat = (player.dayRank && player.dayRank <= seats) ? 0
+          : Math.max(1, ((cut ? cut[1] : 0) + 1) - player.dayXp);
+      }
       return res.json({ ok:true, v: VERSION, durable,
         prices:{src:prices.src,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
         stats: st, feed: (await getJSON('g:feed')) || [], ladder, ladderDay,
@@ -633,6 +648,8 @@ module.exports = async (req, res) => {
           .filter(([,t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))),
         boardFlip: (boardHour() + 1) * 3600e3,
         split: SPLIT, potSplit: { day: POT_DAY_SHARE, week: 1 - POT_DAY_SHARE },
+        prizes: { day: PRIZE_D, week: PRIZE_W },
+        dayEnds: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1),
         stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number), hitPayout: HIT_PAYOUT },
         champ: { pct: CHAMP.pct, curve: CHAMP.curve, holdPct: CHAMP.holdPct, holdDays: CHAMP.holdDays,
           podium: (podNow.list || []).map(x => ({ w: shortW(x.w), ata: x.ata, pct: x.pct })) },
