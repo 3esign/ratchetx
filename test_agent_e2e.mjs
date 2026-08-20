@@ -2,9 +2,6 @@
 // passes, someone can actually clone the file and be on the board.
 import http from 'node:http';
 import crypto from 'node:crypto';
-import os from 'node:os';
-import path from 'node:path';
-import fs from 'node:fs';
 import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -62,6 +59,10 @@ globalThis.__ratchet_mem.set = (k, v) => {
   const g = globalThis.__ratchet_pxgate; if (g) g.t = 0;   // let the sampler fire each time
   return origSet(k, v);
 };
+import os from 'node:os';
+import path from 'node:path';
+import fs from 'node:fs';
+
 // a genuine 64-byte Solana keypair file
 const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
 const seed = privateKey.export({format:'der',type:'pkcs8'}).subarray(16);

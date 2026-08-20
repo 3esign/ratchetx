@@ -176,6 +176,10 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
   font:800 11px/1 var(--mono);letter-spacing:.12em;color:var(--dim);transition:.12s}
 .ud.up.on{border-color:var(--grn);color:var(--grn);background:rgba(61,220,132,.08)}
 .ud.dn.on{border-color:var(--red);color:var(--red);background:rgba(255,82,82,.08)}
+.getrcx{display:inline-block;background:var(--gold);color:#1a1206;text-decoration:none;
+  font:800 9.5px/1 var(--mono);letter-spacing:.1em;border-radius:99px;padding:6px 11px;
+  margin-left:6px;vertical-align:middle;white-space:nowrap;transition:.14s}
+.getrcx:hover{filter:brightness(1.1)}
 .cham.up{border-color:rgba(61,220,132,.4)}
 .cham.down{border-color:rgba(255,92,92,.32)}
 .live{margin-top:7px;padding-top:7px;border-top:1px solid var(--line)}
@@ -525,7 +529,8 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       </div>
       <div class="splitOut" id="burnSplitOut">—</div>
       <button class="fire" id="oneBurn">🔥 RELOAD</button>
-      <div class="splitline" style="margin:9px 0 14px;letter-spacing:.06em">70% BURNS · 30% TO THE PODIUM · <b>0% TO US</b></div>
+      <div class="splitline" style="margin:9px 0 10px;letter-spacing:.06em">70% BURNS · 30% TO THE PODIUM · <b>0% TO US</b></div>
+      <div id="getRcxRow" style="text-align:center;margin-bottom:14px"></div>
       <div style="font:600 9.5px var(--mono);color:var(--dim);letter-spacing:.08em;margin-bottom:8px">
         MANUAL FALLBACK — send RCX to the incinerator yourself, paste the tx signature:</div>
       <div style="font:600 10px var(--mono);color:var(--dim);letter-spacing:.04em;margin-bottom:4px">INCINERATOR (tap to copy)</div>
@@ -949,6 +954,12 @@ function paint(){
         :"NO PODIUM YET — UNTIL THE FIRST DAILY ROLLOVER, 100% OF EVERY RELOAD BURNS");
     if(cl.length)$("podiumBox").innerHTML+=" · HOLDER RULE: CHAMPIONS WHO DUMP LOSE THE SEAT";}
   else $("reloadP").style.display="none";
+  { const g=$("getRcxRow");
+    if(g){ const u=buyUrl();
+      // Only when it is the actual next step — a prompt to buy shown to
+      // someone who already holds plenty is just noise.
+      const low=!p||(p.cr||0)<5000;
+      g.innerHTML=(u&&low)?`<span style="font:600 9.5px var(--mono);letter-spacing:.06em;color:var(--dim)">NO $RCX YET?</span> ${buyBtn("GET SOME")}`:""; } }
   if(s.mint&&AUTH){const o=$("burnSplitOut"); if(o)o.textContent=burnSplitText(burnAmt);}
   // feed + ladder
   const fx=el=>setHTML(el,s.feed.map(f=>{
@@ -1141,6 +1152,24 @@ function missMargin(e){
 }
 
 // YOUR LIVE POSITION. A ladder nobody can see themselves on is decoration.
+// WHERE TO GET $RCX.
+// The qualification rule was right — free keypairs were farming a podium that
+// pays real tokens — but a wall without a door beside it is just a wall. Every
+// dead end below now carries the next step.
+//
+// Deliberately a link and not an embedded swap widget: the widget is slicker
+// and it means running somebody else's script on the page where people sign
+// wallet transactions. The whole claim here is that there is nothing to trust.
+// A new tab costs one click and keeps that literally true.
+function buyUrl(){
+  const m=STATE&&STATE.mint;
+  return m?`https://pump.fun/coin/${m}`:null;
+}
+function buyBtn(label){
+  const u=buyUrl(); if(!u)return "";
+  return `<a href="${u}" target="_blank" rel="noopener" class="getrcx">${label} ↗</a>`;
+}
+
 function standing(){
   const els=[$("standing"),$("standingR")].filter(Boolean);
   if(!els.length||!STATE)return;
@@ -1153,12 +1182,18 @@ function standing(){
   if(!p||!AUTH){
     html=`GUEST SHOTS DON'T RANK — CONNECT TO ENTER TODAY'S LADDER · `+
       `POT <b>${pot.toLocaleString()}</b> · PAYS OUT IN ${clock}`;
+  }else if(p.cr < (s.stakeRule&&s.stakeRule.min||100)){
+    // You cannot fire at all. Nothing else on this bar matters until that is
+    // fixed, so it says so and points at the fix.
+    html=`<b style="color:var(--red)">OUT OF CREDITS</b> — YOU NEED ${(s.stakeRule&&s.stakeRule.min||100)} TO FIRE. `+
+      `BURN $RCX FOR CREDITS, 1 FOR 1 — 70% BURNS, 30% PAYS THE PODIUM ${buyBtn("GET $RCX")}`;
   }else if(p.qualified===false){
     // A wallet costs nothing to generate, so a free grant that also carried
     // RANK meant a script could farm the pot that pays real RCX. Playing is
     // still free. Ranking is what now costs what an honest player spent.
     html=`<b style="color:var(--gold)">UNVERIFIED WALLET</b> — YOU CAN PLAY AND SCORE, BUT NOT YET RANK. `+
-      `HOLD OR BURN ANY AMOUNT OF $RCX ONCE AND YOU'RE IN · POT <b>${pot.toLocaleString()}</b> · PAYS OUT IN ${clock}`;
+      `HOLDING ANY AMOUNT OF $RCX PUTS YOU IN ${buyBtn("GET $RCX")} `+
+      `· POT <b>${pot.toLocaleString()}</b> · PAYS OUT IN ${clock}`;
   }else if(p.dayRank&&p.dayRank<=prizes.length){
     const win=Math.floor(pot*(prizes[p.dayRank-1]||0));
     html=`YOU'RE <b>#${p.dayRank}</b> TODAY WITH <b>${(p.dayXp||0).toLocaleString()} XP</b> — `+
