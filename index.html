@@ -113,7 +113,11 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .cham .xps{font:800 11px var(--mono);margin-top:6px}
 .empty{border:1px dashed var(--line);border-radius:11px;padding:13px;text-align:center;
   font:600 9.5px/1 var(--mono);letter-spacing:.16em;color:var(--dim)}
-.kill{display:flex;flex-direction:column;gap:1px;max-height:250px;overflow:hidden}
+.kill{display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-height:210px;overflow-y:auto;overscroll-behavior:contain}
+.kill::-webkit-scrollbar{width:6px}
+.kill::-webkit-scrollbar-track{background:transparent}
+.kill::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+.kill::-webkit-scrollbar-thumb:hover{background:var(--dim)}
 .kl{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid var(--line);
   font:600 11px var(--mono);color:var(--ink2);animation:in .35s ease}
 .kl:last-child{border:0}
@@ -300,7 +304,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         <button class="connect" style="border-radius:8px" id="burngo">CREDIT</button>
       </div>
     </div>
-    <div class="panel" style="flex:1"><h3>KILL FEED</h3><div class="kill" id="kill"></div></div>
+    <div class="panel" style="flex:1;display:flex;flex-direction:column"><h3>KILL FEED</h3><div class="kill" id="kill"></div></div>
   </div>
 </div></div></section>
 
@@ -328,7 +332,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       Going <b style="color:var(--gold)">against</b> it pays ×3.4 — beating a stated probability is the
       hardest thing in the game and the ladder knows it. The Warden's record accrues publicly either
       way, wins and losses alike.</div></div>
-    <div class="panel" style="flex:1"><h3>RECENT ACTION</h3><div class="kill" id="duelfeed"></div></div>
+    <div class="panel" style="flex:1;display:flex;flex-direction:column"><h3>RECENT ACTION</h3><div class="kill" id="duelfeed"></div></div>
   </div>
 </div></div></section>
 
@@ -601,8 +605,10 @@ function paint(){
   // feed + ladder
   const fx=el=>setHTML(el,s.feed.map(f=>{
     const d=new Date(f.t);
+    // every money event carries its signature: the feed line IS the receipt
+    const tx=f.sig?` · <a href="https://solscan.io/tx/${f.sig}" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none">tx ↗</a>`:"";
     return`<div class="kl"><span class="t">${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span>
-      <span class="wl">${f.w}</span><span style="color:${f.c==='hit'?'var(--grn)':f.c==='miss'?'var(--red)':'var(--ink2)'}">${f.a}</span></div>`}).join("")||'<div class="empty">QUIET — BE FIRST</div>');
+      <span class="wl">${f.w}</span><span style="color:${f.c==='hit'?'var(--grn)':f.c==='miss'?'var(--red)':'var(--ink2)'}">${f.a}${tx}</span></div>`}).join("")||'<div class="empty">QUIET — BE FIRST</div>');
   fx($("kill"));fx($("duelfeed"));
   $("seas").textContent=s.season.toUpperCase();
   $("potN").textContent=" · POT "+Math.floor(s.stats.pot||0).toLocaleString()+" 🔥";

@@ -111,19 +111,25 @@ wave — and the scoring machinery won't care how smart it gets.
 
 The whole backend is **zero-dependency serverless JavaScript** — no framework, no packages,
 small enough to read in one sitting, and public: the live API returns a build marker
-(`h7-2026-08-19` as of this writing) that must match the constant declared in the repo, so you
+(`h8-2026-08-20` as of this writing) that must match the constant declared in the repo, so you
 can verify the code you're reading is the code that's running. Prices come from **Pyth** with a
 keyless fallback; the token is **Token-2022** on **Solana**; the market lives on **pump.fun /
 PumpSwap**; settlement is lazy — no cron, no daemon, nothing a human could forget to run. And
-the on-chain migration has begun: commit-reveal sealing is live, an Anchor settlement program
-(seal → permissionless Pyth settle → reveal, no custody) is written and headed to devnet, and
-the endgame — an audited vault where a share of the game's own flow becomes SOL vesting to
+the on-chain migration is no longer a plan: commit-reveal sealing is live in the game, and the
+Anchor settlement program behind it — `ratchet_seal`, holding no funds and answering to no
+admin — is **deployed on Solana devnet and has run a full lifecycle in public**. A shot was
+sealed as nothing but a hash, settled by a permissionless crank against a Pyth price the
+program validated itself, and revealed and scored on-chain — where it recorded that the author
+of the program had guessed wrong. Every step has a transaction you can open (`ONCHAIN.md`).
+The endgame — an audited vault where a share of the game's own flow becomes SOL vesting to
 players, held by a program instead of anyone's wallet — ships only after review, because an
 immutable bug is forever and we will not rush the one component where a mistake is permanent.
 
 ## What we are not claiming
 
-The Machine's floor is **simulated and labeled so** until that audited vault exists. The Warden
+The devnet program is exactly that — **devnet**. It is research, not the live money path;
+the game you play today still settles on our server, which is the entire reason the proof page
+exists. The Machine's floor is **simulated and labeled so** until that audited vault exists. The Warden
 is a v0 heuristic and says so on its own page. Log entries from before the cryptographic-sealing
 upgrade contain what they contain — a hash chain cannot be rewritten, and we wouldn't want one
 that could. Rewards are play-credits and real RCX to champions, never minted tokens: there is

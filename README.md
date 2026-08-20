@@ -14,11 +14,11 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 Don't take our word for it — the site tells you. Both live endpoints return a build marker:
 
 ```
-https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h7-2026-08-19"
-https://ratchetx.vercel.app/api/proof               ->  "v": "h7-2026-08-19"
+https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h8-2026-08-20"
+https://ratchetx.vercel.app/api/proof               ->  "v": "h8-2026-08-20"
 ```
 
-`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h7-2026-08-19'`.
+`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h8-2026-08-20'`.
 If the live marker and the repo marker match, you are reading the code that is running.
 If they ever don't, the repo is stale and you should say so loudly.
 
@@ -48,6 +48,23 @@ settlement — so no one (including us, including the Black Box) can read an ope
 and everyone can verify every seal after the fact. Spectator APIs and snapshots never carry
 open sides.
 
+## The settlement layer now runs on-chain (devnet)
+
+`ratchet_seal` — an Anchor program with **no custody, no admin, no funds** — is deployed and
+proven end to end on Solana devnet:
+
+**Program `4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2`**
+
+`seal` writes only `sha256("SIDE|salt")` plus an entry price read from a Pyth **PriceUpdateV2**
+account it validates itself (owner, discriminator, Full verification — no trusted deserialiser).
+`settle` is a **permissionless crank**: anyone may settle after expiry, and only with a price
+published inside `[expiry, expiry+60]`, so a stale quote cannot be smuggled in. `reveal`
+recomputes the hash, checks it against the stored commitment, scores hit/miss on-chain and
+bumps a `PlayerRecord` PDA. Full transcript with transaction links: [`ONCHAIN.md`](ONCHAIN.md).
+
+Devnet is R&D, not the money path — the live game above still settles on the server, which is
+why the proof page exists. Source: `onchain/ratchet_seal_lib.rs` (288 lines, zero crates).
+
 ## The whole backend, small enough to read in one sitting
 
 Zero npm dependencies. No framework. No build step. No key that can touch funds.
@@ -67,6 +84,7 @@ Zero npm dependencies. No framework. No build step. No key that can touch funds.
 | `RESURRECTION.md` | the stranger's guide to bringing the machine back |
 | `test_harness.mjs` | offline tests over the pure decision functions — `node test_harness.mjs` |
 | `CHANGES_2026-08-19.md` | the hardening pass: what was wrong, what changed, why |
+| `ONCHAIN.md` | the devnet settlement program: what it proves, with transaction links |
 
 ## What the proof page verifies (live, every ~25s)
 
