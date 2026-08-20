@@ -77,26 +77,27 @@ async function seed(kv, px, rows) {
 {
   const { fh, px, kv } = fresh();
   const rows = [];
-  for (let i = 0; i < 20; i++) {
+  for (let i = 0; i < 100; i++) {
     const t = T0 + i * 60_000;
-    // half the window we were on Coinbase — Pyth was not read at all
-    const onPyth = i < 10;
+    // a ten-minute stretch on the fallback source: Pyth was not read at all
+    const onPyth = i < 40 || i >= 50;
     rows.push(onPyth
       ? { t, src: 'pyth-onchain', SOL: 200, ag: { SOL: 2 }, cf: { SOL: 1 }, pt: { SOL: Math.floor(t / 1000) - 2 } }
       : { t, src: 'coinbase', SOL: 200 });
   }
   await seed(kv, px, rows);
-  const r = await fh.report(1, T0 + 20 * 60_000);
-  assert.equal(r.samples, 20, 'all our samples counted');
-  assert.equal(r.pythSamples, 10, 'only the Pyth reads are attributed to Pyth');
-  assert.equal(r.feeds.SOL.samples, 10, 'per-feed stats use the Pyth rows only');
+  const r = await fh.report(2, T0 + 100 * 60_000);
+  assert.equal(r.samples, 100, 'all our samples counted');
+  assert.equal(r.pythSamples, 90, 'only the Pyth reads are attributed to Pyth');
+  assert.equal(r.feeds.SOL.samples, 90, 'per-feed stats use the Pyth rows only');
   assert.equal(r.feeds.SOL.coverage, 100, 'coverage is 100% — Pyth was perfect when we asked');
   assert.equal(r.feeds.SOL.misses, 0, 'a fallback minute is not a Pyth miss');
   assert.equal(r.feeds.SOL.gapMaxS, 60, 'and the 10-minute hole in OUR sampling is not reported as their gap');
   assert.equal(r.feeds.SOL.staleWindows, 0, 'our outage produces no stale window for them');
-  assert.deepEqual(r.srcMix, { 'pyth-onchain': 10, coinbase: 10 }, 'the mix is published so nobody has to guess');
+  assert.equal(r.feeds.SOL.blindWindows, 1, 'it is counted as one blind window of ours');
+  assert.deepEqual(r.srcMix, { 'pyth-onchain': 90, coinbase: 10 }, 'the mix is published so nobody has to guess');
   assert.ok(r.ourDutyPct != null, 'our own duty cycle is published first');
-  console.log('half the window on fallback -> 0 misses blamed on Pyth, srcMix published');
+  console.log('ten minutes on fallback -> 0 misses blamed on Pyth, 1 blind window, srcMix published');
 }
 
 // ---- 4. a feed dropped by our own validity checks IS a miss ----
@@ -116,6 +117,8 @@ async function seed(kv, px, rows) {
   assert.equal(w.coverage, 25, 'coverage says 25% out loud');
   assert.equal(w.gapMaxS, null, 'four-minute-apart looks cannot be differenced into a gap');
   assert.equal(w.blindWindows, 4, 'they are counted as OUR blind windows instead');
+  assert.equal(w.telemetry, 5, 'and only five reads carried telemetry at all');
+  assert.equal(w.thin, true, 'which is far too few to publish a distribution from');
   console.log('WIF unusable 3 minutes in 4 -> coverage 25%, 15 misses, said plainly');
 }
 
@@ -145,19 +148,67 @@ async function seed(kv, px, rows) {
 {
   const { fh, px, kv } = fresh();
   const rows = [];
-  for (let i = 0; i < 12; i++) {
+  for (let i = 0; i < 60; i++) {
     const t = T0 + i * 60_000;
     const row = { t, src: 'pyth-onchain', SOL: 100, ag: { SOL: 1 }, cf: { SOL: 1 }, pt: { SOL: Math.floor(t / 1000) - 1 } };
-    if (i === 3) row.cb = { SOL: 100 };        // 0 bps
-    if (i === 7) row.cb = { SOL: 100.5 };      // ~49.75 bps below pyth
+    if (i % 10 === 0) row.cb = { SOL: 100 };   // 0 bps, six of them
+    if (i === 35) row.cb = { SOL: 100.5 };     // ~49.75 bps below pyth
     rows.push(row);
   }
   await seed(kv, px, rows);
-  const s = (await fh.report(1, T0 + 12 * 60_000)).feeds.SOL;
-  assert.equal(s.divSamples, 2, 'only the minutes with a cross-check count');
-  assert.equal(s.divMedBps, 0, 'nearest-rank median of two is the lower');
+  const s = (await fh.report(2, T0 + 60 * 60_000)).feeds.SOL;
+  assert.equal(s.divSamples, 7, 'only the minutes with a cross-check count');
+  assert.equal(s.divMedBps, 0, 'the median of seven, six of which agreed exactly');
   assert.ok(Math.abs(s.divMaxBps - 49.75) < 0.1, `max divergence ~49.75bps, got ${s.divMaxBps}`);
-  console.log(`divergence -> 2 cross-checks, max ${s.divMaxBps}bps, measured not asserted`);
+  console.log(`divergence -> 7 cross-checks, max ${s.divMaxBps}bps, measured not asserted`);
+}
+
+// ---- 5b. A THIN STATISTIC IS WITHHELD, NOT PUBLISHED THIN ----
+// This shipped wrong once and was caught on the live site: price sampling had
+// been running for months, so a feed reported 257 usable reads and 100%
+// coverage while its "median gap" rested on a single pair of observations.
+// A median off one pair is not a median, and printing one on a page that
+// claims to measure somebody else's infrastructure is worse than printing
+// nothing at all.
+{
+  const { fh, px, kv } = fresh();
+  const rows = [];
+  for (let i = 0; i < 50; i++) {
+    const t = T0 + i * 60_000;
+    // A long history of PRICES, but telemetry only on the last handful —
+    // exactly the shape of a fleet that sampled long before this page shipped.
+    const row = { t, src: 'pyth-onchain', SOL: 200 + i * 0.1 };
+    if (i >= 47) { row.ag = { SOL: 3 }; row.cf = { SOL: 1.4 }; row.pt = { SOL: Math.floor(t / 1000) - 3 }; }
+    rows.push(row);
+  }
+  await seed(kv, px, rows);
+  const s = (await fh.report(2, T0 + 50 * 60_000)).feeds.SOL;
+  assert.equal(s.samples, 50, 'every usable price read is still counted — that part is real');
+  assert.equal(s.coverage, 100, 'and coverage is genuinely 100%');
+  assert.equal(s.telemetry, 3, 'but only three reads carried telemetry');
+  assert.equal(s.thin, true, 'so the feed is flagged thin');
+  assert.equal(s.gapMedS, null, 'and NO median gap is published');
+  assert.equal(s.gapMaxS, null, 'no worst gap');
+  assert.equal(s.ageMedS, null, 'no age distribution');
+  assert.equal(s.confMedBps, null, 'no confidence distribution');
+  assert.equal(s.staleWindows, null, 'and stale windows is null, not a flattering zero');
+  console.log('50 price reads but 3 telemetry reads -> every distribution withheld, counts kept');
+}
+
+// ---- 5c. and it publishes again the moment there is enough ----
+{
+  const { fh, px, kv } = fresh();
+  const rows = [];
+  for (let i = 0; i < 50; i++) {
+    const t = T0 + i * 60_000;
+    rows.push({ t, src: 'pyth-onchain', SOL: 200, ag: { SOL: 3 }, cf: { SOL: 1.4 }, pt: { SOL: Math.floor(t / 1000) - 3 } });
+  }
+  await seed(kv, px, rows);
+  const s = (await fh.report(2, T0 + 50 * 60_000)).feeds.SOL;
+  assert.equal(s.thin, false, 'fifty telemetry reads clears the threshold');
+  assert.equal(s.gapMedS, 60, 'and the distribution appears');
+  assert.equal(s.staleWindows, 0, 'zero stale windows is now a real zero');
+  console.log('50 telemetry reads -> distributions published, zero means zero');
 }
 
 // ---- 6. settlement consequences are counted per feed ----

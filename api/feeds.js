@@ -24,7 +24,7 @@
 const { report } = require('../lib/feedhealth.js');
 const { ACCOUNTS, MAX_AGE_S } = require('../lib/onchain_px.js');
 
-const VERSION = 'h36-2026-08-20';
+const VERSION = 'h37-2026-08-20';
 const SITE = 'https://ratchetx.vercel.app';
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -61,7 +61,13 @@ module.exports = async (req, res) => {
 
   const FEEDS = Object.keys(rep.feeds);
   const live = FEEDS.filter(f => rep.feeds[f].samples > 0);
-  const worst = live.slice().sort((a, b) => (rep.feeds[b].gapMaxS || 0) - (rep.feeds[a].gapMaxS || 0))[0];
+  // Only feeds whose distributions we are actually willing to publish can win
+  // "worst gap" — otherwise the headline names a feed off a single observation,
+  // which is precisely the thing the withholding rule exists to prevent.
+  const ranked = live.filter(f => rep.feeds[f].gapMaxS != null)
+    .sort((a, b) => rep.feeds[b].gapMaxS - rep.feeds[a].gapMaxS);
+  const worst = ranked[0];
+  const warming = live.length > 0 && live.every(f => rep.feeds[f].thin);
   const totalVoids = FEEDS.reduce((a, f) => a + rep.settle[f].voided, 0);
   const totalDefer = FEEDS.reduce((a, f) => a + rep.settle[f].deferred, 0);
   const totalSet = FEEDS.reduce((a, f) => a + rep.settle[f].settled, 0);
@@ -74,17 +80,19 @@ module.exports = async (req, res) => {
       <td><b>${esc(f)}</b><a class="acct" href="https://solscan.io/account/${esc(acct)}" target="_blank" rel="noopener">${esc(String(acct).slice(0, 4))}…${esc(String(acct).slice(-4))}</a></td>
       <td>${n0(d.samples)}</td>
       <td class="${d.coverage != null && d.coverage < 99 ? 'warn' : ''}">${d.coverage == null ? '—' : n2(d.coverage) + '%'}</td>
+      <td class="${d.thin ? 'warn' : ''}">${n0(d.telemetry)}</td>
       <td>${n0(d.updates)}</td>
       <td class="dim">${n0(d.blindWindows)}</td>
       <td>${secs(d.gapMedS)}</td>
       <td>${secs(d.gapP95S)}</td>
       <td class="${bad ? 'warn' : ''}">${secs(d.gapMaxS)}</td>
-      <td class="${(d.staleWindows || 0) > 0 ? 'warn' : 'good'}">${n0(d.staleWindows)}</td>
+      <td class="${d.staleWindows == null ? 'dim' : d.staleWindows > 0 ? 'warn' : 'good'}">${n0(d.staleWindows)}</td>
       <td>${secs(d.ageMedS)}</td>
       <td>${n2(d.confMedBps)}</td>
       <td>${n2(d.confP95Bps)}</td>
-      <td>${d.divSamples ? n2(d.divMedBps) : '—'}</td>
-      <td>${d.divSamples ? n2(d.divMaxBps) : '—'}</td>
+      <td>${n2(d.divMedBps)}</td>
+      <td>${n2(d.divMaxBps)}</td>
+      <td class="dim">${n0(d.divSamples)}</td>
       <td class="dim">${esc(ago(d.lastPublish))}</td>
     </tr>`;
   };
@@ -158,13 +166,24 @@ public and the observed ones are not, and because this kind of number has to com
 oracle to mean anything. Nothing here is a complaint. It is a measurement, with its own blind spots
 listed at the bottom.</p>
 
+${warming ? `<div class="card" style="border-color:#3a3218;background:linear-gradient(90deg,rgba(245,184,61,.06),transparent)">
+  <h2 style="color:var(--gold)">STILL WARMING UP</h2>
+  <p style="margin:0">Price sampling has been running since long before this page existed, so the read
+  counts below are already deep. The telemetry those reads carry — publish time, confidence band, age —
+  only started when the observatory shipped. Until a feed has at least
+  <b style="color:var(--ink)">${rep.minObs}</b> telemetry reads, its gap, age and confidence figures are
+  <b style="color:var(--ink)">withheld rather than published thin</b>: a median drawn from two
+  observations is not a median, and this page would rather show you a dash than a decimal point it
+  cannot stand behind. Nothing is broken. Check back in an hour.</p>
+</div>` : ''}
 <div class="strip">
   <div class="c"><u>OUR SAMPLING DUTY</u><b class="${rep.ourDutyPct != null && rep.ourDutyPct < 60 ? 'warn' : ''}">${rep.ourDutyPct == null ? '—' : n2(rep.ourDutyPct) + '%'}</b>
     <i>${n0(rep.samples)} of ${n0(rep.expectedSamples)} possible minutes. Ours, not theirs — a serverless instance nobody woke records nothing.</i></div>
   <div class="c"><u>READ FROM PYTH</u><b>${n0(rep.pythSamples)}</b>
     <i>samples where the on-chain accounts answered. ${esc(Object.entries(rep.srcMix).map(([k, v]) => `${k} ${v}`).join(' · ') || '—')}</i></div>
   <div class="c"><u>WORST GAP · UPPER BOUND</u><b class="${worst && rep.feeds[worst].gapMaxS > MAX_AGE_S ? 'warn' : 'good'}">${worst ? secs(rep.feeds[worst].gapMaxS) : '—'}</b>
-    <i>${worst ? esc(worst) : '—'} — longest interval we can attribute to the feed. Windows where we stopped looking are excluded, not counted against it.</i></div>
+    <i>${worst ? esc(worst) + ' — longest interval we can attribute to the feed. Windows where we stopped looking are excluded, not counted against it.'
+        : 'withheld until a feed has ' + rep.minObs + ' telemetry reads. A worst case drawn from two observations is not a worst case.'}</i></div>
   <div class="c"><u>SETTLEMENTS COST</u><b class="${totalVoids ? 'bad' : 'good'}">${n0(totalVoids)}</b>
     <i>bets voided and refunded because no oracle sample landed inside the 15-minute grace window. ${n0(totalDefer)} deferred, ${n0(totalSet)} settled clean.</i></div>
 </div>
@@ -173,17 +192,20 @@ listed at the bottom.</p>
   <h2>PER FEED · LAST ${esc(rep.windowHours)} HOURS</h2>
   <div class="scroll"><table>
     <thead><tr>
-      <th>FEED</th><th>SAMPLES</th><th>USABLE</th><th>ADVANCES</th><th title="windows we were not looking">BLIND (OURS)</th>
+      <th>FEED</th><th>SAMPLES</th><th>USABLE</th><th title="reads carrying publish_time and confidence">TELEMETRY</th><th>ADVANCES</th><th title="windows we were not looking">BLIND (OURS)</th>
       <th>GAP MED</th><th>GAP P95</th><th>GAP MAX</th><th>STALE&gt;${MAX_AGE_S}s</th>
       <th>AGE MED</th><th>CONF MED</th><th>CONF P95</th>
-      <th>DIV MED</th><th>DIV MAX</th><th>LAST PUBLISH</th>
+      <th>DIV MED</th><th>DIV MAX</th><th>DIV n</th><th>LAST PUBLISH</th>
     </tr></thead>
     <tbody>${FEEDS.map(row).join('')}</tbody>
   </table></div>
   <p style="margin:14px 0 0">
     <b style="color:var(--ink)">USABLE</b> — share of our Pyth reads where this feed passed every check
     (owner is a Pyth program, discriminator is PriceUpdateV2, verification level is Full, feed id matches,
-    publish age under ${MAX_AGE_S}s). <b style="color:var(--ink)">ADVANCES</b> — publish_time moves we could
+    publish age under ${MAX_AGE_S}s). <b style="color:var(--ink)">TELEMETRY</b> — reads that carried
+    publish_time, confidence and age, which is what every distribution to the right is computed from. It is
+    lower than SAMPLES because price sampling predates this page; below ${rep.minObs} the distributions are
+    withheld and the cell shows a dash. <b style="color:var(--ink)">ADVANCES</b> — publish_time moves we could
     attribute to the feed. <b style="color:var(--ink)">BLIND (OURS)</b> — pairs of looks more than
     ${Math.round(rep.blindMs / 1000)}s apart, where <i>we</i> stopped sampling; thrown out of every figure on this
     row rather than charged to the feed, because our outage is not their stall.
@@ -192,7 +214,9 @@ listed at the bottom.</p>
     interval we measure may contain publishes we never saw. <b style="color:var(--ink)">AGE</b> — how old the
     price was when we read it, truncated by our own ${MAX_AGE_S}s filter (anything older is a miss, not an age).
     <b style="color:var(--ink)">CONF</b> — the publishers' own confidence band, in basis points of price.
-    <b style="color:var(--ink)">DIV</b> — absolute distance from Coinbase spot, in basis points, sampled every 10 minutes.
+    <b style="color:var(--ink)">DIV</b> — absolute distance from Coinbase spot, in basis points, sampled
+    every 10 minutes, withheld below ${rep.minDiv} cross-checks; <b style="color:var(--ink)">DIV n</b> is how many
+    there have been.
   </p>
 </div>
 

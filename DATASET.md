@@ -59,6 +59,7 @@ for the next page. An empty page means you are at the end — poll the same curs
 | `settledAt` | ms | When settlement was recorded. |
 | `commit` | hex | The published commitment: `sha256("SIDE|salt")`. |
 | `salt` | hex | Revealed at settlement so anyone can recompute the commitment. |
+| `sealed` | bool | Whether this row carries a commitment at all. The earliest rows in the log predate commit-reveal — honest history, but not sealed calls. Filter on this if the seal is what you came for. |
 | `commitVerified` | bool\|null | We recompute `sha256(side + "|" + salt)` at export and report whether it matches `commit`. `null` when there is nothing to verify. Do not take our word for it — the inputs are in the row. |
 | `reason` | string\|null | Why a void was a void. |
 
@@ -91,6 +92,10 @@ against those anchors before treating old rows as fixed.
 - **Pseudonyms are a join key, not anonymity.** The salt is published, so anyone holding a wallet
   address can compute its id. The purpose is to let one player's rows be joined without publishing an
   address list. Wallets are public on Solana regardless.
+- **The earliest rows are not sealed.** Commit-reveal was added after the first handful of shots
+  settled. Those rows are kept — deleting inconvenient history is the one thing this dataset must never
+  do — but they carry `sealed: false`, no `side` and no `commit`. Filter them out of any analysis where
+  the seal is the point.
 - **Open shots are absent on purpose.** A row appears only after settlement, because an open shot's
   side is sealed and this export must not be the hole in that.
 - **Small numbers are small numbers.** At its current size this is a curiosity, not a study. The whole

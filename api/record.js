@@ -20,7 +20,7 @@ const { rows, toCsv, COLUMNS, SCHEMA, SALT, MAX_LIMIT } = require('../lib/record
 const { logCount } = require('../lib/log.js');
 const { getJSON } = require('../lib/kv.js');
 
-const VERSION = 'h36-2026-08-20';
+const VERSION = 'h37-2026-08-20';
 const SITE = 'https://ratchetx.vercel.app';
 const REPO = 'https://github.com/3esign/ratchetx';
 const esc = s => String(s == null ? '' : s)
@@ -155,6 +155,7 @@ This one is open, it grows every time somebody plays, and it cannot be back-fill
     ['settledAt', 'ms', 'When settlement was recorded.'],
     ['commit', 'hex', 'The published commitment: sha256("SIDE|salt").'],
     ['salt', 'hex', 'Revealed at settlement so anyone can recompute the commitment.'],
+    ['sealed', 'bool', 'Whether this row carries a commitment at all. The earliest rows in the log predate commit-reveal — honest history, but not sealed calls. Filter on this if the seal is what you came for.'],
     ['commitVerified', 'bool|null', 'We recompute sha256(side|salt) at export and report whether it matches. Do not take our word for it — the inputs are right there.'],
     ['reason', 'string|null', 'Why a void was a void.'],
   ].map(([f, t, m]) => `<tr><td>${esc(f)}</td><td>${esc(t)}</td><td>${m}</td></tr>`).join('')}
@@ -180,6 +181,10 @@ This one is open, it grows every time somebody plays, and it cannot be back-fill
     <li><b>Pseudonyms are a join key, not anonymity.</b> The salt is published above, so anyone holding a
       wallet address can compute its id. The point is to make one player's rows joinable without publishing
       an address list — not to hide anybody. Wallets are public on Solana regardless.</li>
+    <li><b>The earliest rows are not sealed.</b> Commit-reveal was added after the first handful of shots
+      settled. Those rows are kept, because deleting inconvenient history is exactly the thing this page
+      exists not to do — but they carry <code>sealed: false</code>, no side and no commitment, and they
+      should be filtered out of any analysis where the seal is the point.</li>
     <li><b>Open shots are absent, on purpose.</b> A row appears only after settlement, because an open
       shot's side is sealed and this export must not be the hole in that.</li>
     <li><b>The chain is evidence of order, not of honesty.</b> Alter a past entry and every hash after it
