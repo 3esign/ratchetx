@@ -139,7 +139,7 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .splitline{margin-top:9px;font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--dim);text-align:center}
 .splitline b{color:var(--goldD)}
 .rcol{display:flex;flex-direction:column;gap:13px;min-height:0;position:sticky;top:76px;
-  align-self:start;max-height:calc(100vh - 92px);overflow-y:auto;overscroll-behavior:contain;
+  align-self:start;max-height:var(--railH,calc(100vh - 92px));overflow-y:auto;overscroll-behavior:contain;
   scrollbar-width:thin;padding-right:2px}
 .rcol::-webkit-scrollbar{width:6px}
 .rcol::-webkit-scrollbar-track{background:transparent}
@@ -162,8 +162,11 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .cham .xps{font:800 11px var(--mono);margin-top:6px}
 .empty{border:1px dashed var(--line);border-radius:11px;padding:13px;text-align:center;
   font:600 9.5px/1 var(--mono);letter-spacing:.16em;color:var(--dim)}
-.kill{display:flex;flex-direction:column;gap:1px;flex:0 1 auto;min-height:0;
+.kill{display:flex;flex-direction:column;gap:1px;flex:1 1 auto;
   max-height:min(46vh,470px);overflow-y:auto;overscroll-behavior:contain}
+/* a feed with entries always gets a usable box; an empty one stays compact
+   so there is no dead space before anything has happened */
+.kill:not(:empty){min-height:190px}
 @media(max-width:920px){.kill{max-height:56vh}}
 .kill::-webkit-scrollbar{width:6px}
 .kill::-webkit-scrollbar-track{background:transparent}
@@ -413,10 +416,16 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         button. The PROOF page shows both live.</div>
       <div id="podiumBox" style="display:none;font:600 10px var(--mono);color:var(--dim);letter-spacing:.05em;
         background:var(--card2);border:1px solid var(--line);border-radius:8px;padding:9px 10px;margin-bottom:12px"></div>
-      <div style="display:flex;gap:8px;margin-bottom:12px" id="burnPick">
-        <button class="stk" data-b="1000">1,000</button>
-        <button class="stk on" data-b="5000">5,000</button>
-        <button class="stk" data-b="25000">25,000</button>
+      <div style="display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap" id="burnPick">
+        <button class="stk" data-b="1000" style="flex:1 1 60px">1,000</button>
+        <button class="stk on" data-b="5000" style="flex:1 1 60px">5,000</button>
+        <button class="stk" data-b="25000" style="flex:1 1 60px">25,000</button>
+        <button class="stk" data-b="100000" style="flex:1 1 60px">100,000</button>
+      </div>
+      <div class="stakeCustom" style="margin-bottom:12px">
+        <span class="scl">OR NAME YOUR OWN</span>
+        <input id="burnIn" type="number" inputmode="numeric" min="1" step="100" placeholder="any amount of RCX">
+        <span class="scm" id="burnSplitOut">—</span>
       </div>
       <button class="fire" id="oneBurn" style="margin-bottom:14px">🔥 RELOAD — 70% BURNS · 30% PAYS THE PODIUM</button>
       <div style="font:600 9.5px var(--mono);color:var(--dim);letter-spacing:.08em;margin-bottom:8px">
@@ -430,7 +439,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         <button class="connect" style="border-radius:8px" id="burngo">CREDIT</button>
       </div>
     </div>
-    <div class="panel" style="flex:1;min-height:0;display:flex;flex-direction:column"><h3>KILL FEED</h3><div class="kill" id="kill"></div></div>
+    <div class="panel" style="flex:0 0 auto;display:flex;flex-direction:column;min-height:0"><h3>KILL FEED</h3><div class="kill" id="kill"></div></div>
   </div>
 </div></div></section>
 
@@ -789,6 +798,8 @@ function paint(){
         :"NO PODIUM YET — UNTIL THE FIRST DAILY ROLLOVER, 100% OF EVERY RELOAD BURNS");
     if(cl.length)$("podiumBox").innerHTML+=" · HOLDER RULE: CHAMPIONS WHO DUMP LOSE THE SEAT";}
   else $("reloadP").style.display="none";
+  if(s.mint&&AUTH){const o=$("burnSplitOut"); if(o)o.textContent=burnSplitText(burnAmt);}
+  if(typeof fitRail==="function")fitRail();
   // feed + ladder
   const fx=el=>setHTML(el,s.feed.map(f=>{
     const d=new Date(f.t);
@@ -908,12 +919,14 @@ function setStake(v,fromInput){
   const st=Math.max(r.min,Math.min(r.max,Math.floor(+v||r.min)));
   sel.stake=st;
   const out=$("stakeMultOut"); if(out)out.textContent="×"+stakeMult(st).toFixed(2)+" XP";
-  document.querySelectorAll(".stk").forEach(x=>x.classList.toggle("on",+x.dataset.s===st));
+  document.querySelectorAll(".stakes .stk").forEach(x=>x.classList.toggle("on",+x.dataset.s===st));
   const inp=$("stakeIn"); if(inp&&!fromInput&&document.activeElement!==inp)inp.value=st;
   payLine();
   if(window.STATE)paint();
 }
-document.querySelectorAll(".stk").forEach(b=>b.onclick=()=>setStake(b.dataset.s,false));
+// scoped: #burnPick uses the same .stk class, and an unscoped binding made
+// every reload click also call setStake(undefined) -> silently back to 100
+document.querySelectorAll(".stakes .stk").forEach(b=>b.onclick=()=>setStake(b.dataset.s,false));
 (()=>{const inp=$("stakeIn"); if(!inp)return;
   inp.value=sel.stake;
   inp.oninput=()=>{const r=stakeRule();const raw=Math.floor(+inp.value||0);
@@ -960,9 +973,38 @@ $("stakeBtn").onclick=async()=>{
 };
 $("incin")&&($("incin").onclick=()=>{navigator.clipboard.writeText($("incin").textContent);toast("incinerator address copied")});
 let burnAmt=5000;
-document.querySelectorAll("#burnPick .stk").forEach(b=>b.onclick=()=>{
-  document.querySelectorAll("#burnPick .stk").forEach(x=>x.classList.remove("on"));
-  b.classList.add("on");burnAmt=+b.dataset.b;});
+const BURN_MIN=1, BURN_MAX=1000000000;   // ceiling is fat-finger protection only; the chain enforces your real balance
+/** Show what the transaction will ACTUALLY do with this amount — using the
+ *  live podium and the live cut, so when there is nobody to pay it says so
+ *  instead of promising a 30% split that will silently burn. */
+function burnSplitText(amt){
+  const s=STATE;   // top-level `let` is not a window property
+  const podium=(s&&s.champ&&s.champ.podium)||[];
+  const cutPct=(s&&s.champ&&s.champ.pct)||0;
+  const legs=podium.map(c=>Math.floor(amt*cutPct*c.pct)).filter(x=>x>=1);
+  const toPod=legs.reduce((a,b)=>a+b,0);
+  const burns=amt-toPod;
+  if(!amt)return "—";
+  return toPod>0
+    ? `${burns.toLocaleString()} 🔥 · ${toPod.toLocaleString()} → PODIUM`
+    : `${burns.toLocaleString()} 🔥 · NO PODIUM YET — ALL OF IT BURNS`;
+}
+function setBurn(v,fromInput){
+  const raw=Math.floor(+v||0);
+  burnAmt=Math.max(BURN_MIN,Math.min(BURN_MAX,raw||BURN_MIN));
+  document.querySelectorAll("#burnPick .stk").forEach(x=>x.classList.toggle("on",+x.dataset.b===burnAmt));
+  const inp=$("burnIn"); if(inp&&!fromInput&&document.activeElement!==inp)inp.value=burnAmt;
+  const out=$("burnSplitOut"); if(out)out.textContent=burnSplitText(burnAmt);
+  const b=$("oneBurn"); if(b&&!PB)b.textContent=`🔥 RELOAD ${burnAmt.toLocaleString()} — 70% BURNS · 30% PAYS THE PODIUM`;
+}
+document.querySelectorAll("#burnPick .stk").forEach(b=>b.onclick=()=>setBurn(b.dataset.b,false));
+(()=>{const inp=$("burnIn"); if(!inp)return;
+  inp.oninput=()=>{const raw=Math.floor(+inp.value||0);
+    if(raw>=BURN_MIN&&raw<=BURN_MAX)setBurn(raw,true);
+    else{const out=$("burnSplitOut");if(out)out.textContent=raw?"OUT OF RANGE":"—";}};
+  inp.onblur=()=>setBurn(inp.value,false);
+  inp.onkeydown=e=>{if(e.key==="Enter")inp.blur();};})();
+
 async function loadW3(){
   if(window.solanaWeb3)return window.solanaWeb3;
   const urls=[
@@ -981,10 +1023,12 @@ async function loadW3(){
 }
 // ---- pending-burn tracker: survives refresh, retries until verified ----
 let PB=null;try{PB=JSON.parse(localStorage.getItem("ratchet_pb"))}catch{}
+setBurn(5000,false);   // after PB exists: setBurn reads it, and `let` has no hoisting
 function setPB(o){PB=o;if(o)localStorage.setItem("ratchet_pb",JSON.stringify(o));else localStorage.removeItem("ratchet_pb")}
 function paintBurnBtn(){const b=$("oneBurn");if(!b)return;
   b.disabled=!!PB;
-  b.textContent=PB?"⏳ VERIFYING RELOAD — CREDITS INCOMING…":"🔥 RELOAD — 70% BURNS · 30% PAYS THE PODIUM";}
+  b.textContent=PB?"⏳ VERIFYING RELOAD — CREDITS INCOMING…"
+    :`🔥 RELOAD ${burnAmt.toLocaleString()} — 70% BURNS · 30% PAYS THE PODIUM`;}
 async function tryPB(){
   if(!PB||!AUTH)return;
   if(Date.now()-PB.t>10*60e3){$("burnsig").value=PB.sig;setPB(null);paintBurnBtn();
@@ -1143,6 +1187,20 @@ $("anchorPaste").onclick=async()=>{
 };
 
 $("howBtn").onclick=()=>{const b=$("howBox");b.style.display=b.style.display==="none"?"block":"none";};
+// Size the sticky rail to whatever room it ACTUALLY has right now. Sticky
+// only pins once you have scrolled to it, so a fixed calc(100vh - 92px) is
+// too tall beforehand and pushes the last panel below the fold — where the
+// page scroll drags the rail along and the rail's own scrollbar is on a box
+// whose bottom you cannot see. Measured, it always fits.
+function fitRail(){
+  const col=document.querySelector('.rcol'); if(!col) return;
+  if(window.innerWidth<=920){ col.style.removeProperty('--railH'); return; }  // stacked layout, no rail
+  const top=Math.max(76, col.getBoundingClientRect().top);
+  col.style.setProperty('--railH', Math.max(240, window.innerHeight - top - 16)+'px');
+}
+fitRail();
+addEventListener('resize', fitRail);
+addEventListener('scroll', ()=>{ if(!fitRail._q){ fitRail._q=requestAnimationFrame(()=>{ fitRail._q=0; fitRail(); }); } }, {passive:true});
 refresh();setInterval(refresh,6000);
 // surgical 1s ticker: update ONLY countdown text — no repaints, no flicker
 setInterval(()=>{
