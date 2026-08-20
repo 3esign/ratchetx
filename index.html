@@ -1,14 +1,21 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RATCHET — The Machine That Cannot Lie | $RCX</title>
-<meta name="description" content="Fire sealed shots at the market. Beat the Warden. Climb the ranks. The floor only goes up.">
-<meta property="og:title" content="RATCHET — the floor only goes up">
-<meta property="og:description" content="Fire sealed shots at the market, settled on real oracle prices. Beat the Warden. Burn $RCX to play — 70% burned, 0% to the team. Everything verified on-chain, live.">
+<title>RATCHET — a keyless prediction arcade on Solana | $RCX on pump.fun</title>
+<meta name="description" content="Call market moves on Solana with sealed, commit-reveal shots settled on Pyth oracle prices. No treasury, no admin key, no custody: 70% of every stake burns, 30% pays players peer-to-peer. $RCX launched on pump.fun, Token-2022 with mint and freeze authority revoked. The settlement program is on-chain and the proof page re-checks every claim.">
+<meta name="keywords" content="Solana, pump.fun, PumpSwap, Pyth, prediction market, on-chain game, Token-2022, Anchor, RCX, commit-reveal, Solana gaming">
+<link rel="canonical" href="https://ratchetx.vercel.app">
+<meta name="theme-color" content="#07080a">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<meta property="og:title" content="RATCHET — a keyless prediction arcade on Solana, launched on pump.fun">
+<meta property="og:site_name" content="RATCHET">
+<meta property="og:description" content="Sealed shots settled on Pyth oracle prices. 70% of everything burns, 30% pays players inside their own transactions, 0% to the team. No admin key, no treasury, no custody — and the settlement program now runs on-chain. Every claim re-checked against Solana every 30 seconds.">
 <meta property="og:image" content="https://ratchetx.vercel.app/og.png">
 <meta property="og:url" content="https://ratchetx.vercel.app">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="RATCHET — a keyless prediction arcade on Solana">
+<meta name="twitter:description" content="Commit-reveal shots settled on Pyth. 70% burns, 30% to players, 0% to the team. No key can touch a token — and the proof page would say so in 30 seconds if that changed.">
 <meta name="twitter:image" content="https://ratchetx.vercel.app/og.png">
 <style>
 :root{
@@ -51,7 +58,7 @@ nav button.on{color:#1a1206;background:var(--gold)}
 @media(max-width:640px){.rname,.rankchip{display:none}nav button{padding:9px 8px;letter-spacing:.05em}}
 .mode{background:rgba(237,161,0,.09);border-bottom:1px solid rgba(237,161,0,.2);color:#eda100;
   font:600 10.5px/1.5 var(--mono);letter-spacing:.06em;text-align:center;padding:6px 14px}
-section{display:none;padding:28px 0 100px}section.on{display:block;animation:in .3s ease}
+section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .3s ease}
 @keyframes in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 .playgrid{display:grid;grid-template-columns:1fr 330px;gap:16px}
 @media(max-width:920px){.playgrid{grid-template-columns:1fr}}
@@ -112,7 +119,7 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .splitline{margin-top:9px;font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--dim);text-align:center}
 .splitline b{color:var(--goldD)}
 .rcol{display:flex;flex-direction:column;gap:13px;min-height:0;position:sticky;top:76px;
-  align-self:start;height:calc(100vh - 92px);overflow-y:auto;overscroll-behavior:contain;
+  align-self:start;max-height:calc(100vh - 92px);overflow-y:auto;overscroll-behavior:contain;
   scrollbar-width:thin;padding-right:2px}
 .rcol::-webkit-scrollbar{width:6px}
 .rcol::-webkit-scrollbar-track{background:transparent}
@@ -135,7 +142,7 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .cham .xps{font:800 11px var(--mono);margin-top:6px}
 .empty{border:1px dashed var(--line);border-radius:11px;padding:13px;text-align:center;
   font:600 9.5px/1 var(--mono);letter-spacing:.16em;color:var(--dim)}
-.kill{display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-height:150px;
+.kill{display:flex;flex-direction:column;gap:1px;flex:0 1 auto;min-height:0;
   max-height:min(46vh,470px);overflow-y:auto;overscroll-behavior:contain}
 @media(max-width:920px){.kill{max-height:56vh}}
 .kill::-webkit-scrollbar{width:6px}
@@ -187,6 +194,9 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .rkc.now{border-color:var(--gold)}
 .rkc b{font:800 11px/1 var(--mono);letter-spacing:.14em;display:block;margin-bottom:5px}
 .rkc span{font:600 9px/1 var(--mono);color:var(--dim)}
+.ladder>div[id]{max-height:min(52vh,540px);overflow-y:auto;overscroll-behavior:contain}
+.ladder>div[id]::-webkit-scrollbar,#chks::-webkit-scrollbar{width:6px}
+.ladder>div[id]::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 .ladder .lr{display:grid;grid-template-columns:34px 1fr 90px;gap:10px;align-items:center;
   padding:11px 14px;border-bottom:1px solid var(--line);font:600 12.5px var(--mono);color:var(--ink2)}
 .ladder .lr:last-child{border:0}
@@ -212,7 +222,8 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   background:var(--card2);border:1px solid var(--gold);border-radius:12px;padding:14px 22px;
   font:700 13px var(--sans);transition:.35s cubic-bezier(.2,.9,.3,1.2);box-shadow:0 8px 40px rgba(0,0,0,.5);max-width:88vw;text-align:center}
 #toast.show{transform:translateX(-50%) translateY(0);visibility:visible}
-</style></head><body>
+</style><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"RATCHET","applicationCategory":"GameApplication","operatingSystem":"Web","url":"https://ratchetx.vercel.app","description":"A keyless prediction arcade on Solana. Sealed commit-reveal shots settled on Pyth oracle prices, 70% of every stake burned, 30% paid to players peer-to-peer, 0% to the team.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"sameAs":["https://github.com/3esign/ratchetx","https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump"]}</script>
+</head><body>
 
 <div class="hud"><div class="wrap hudrow">
   <div class="logo"><svg class="cog" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="#f5b83d" stroke-width="1.8"/><path d="M12 2.6v4M12 17.4v4M2.6 12h4M17.4 12h4M5.4 5.4l2.8 2.8M15.8 15.8l2.8 2.8M18.6 5.4l-2.8 2.8M8.2 15.8l-2.8 2.8" stroke="#f5b83d" stroke-width="1.6" stroke-linecap="round"/></svg>RATCHET</div>
@@ -256,8 +267,9 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="mgrid" id="machStats"></div>
     <div id="burnLine" style="display:none;margin-top:12px;font:700 12px var(--mono);letter-spacing:.08em;color:var(--red)"></div>
     <div style="margin:20px 0 4px;text-align:left">
-      <button id="howBtn" style="background:none;border:1px solid var(--line);border-radius:8px;color:var(--ink2);
-        font:700 10px var(--mono);letter-spacing:.14em;padding:8px 12px;cursor:pointer">? HOW IT WORKS — READ THIS FIRST</button>
+      <button id="howBtn" style="width:100%;background:rgba(245,184,61,.07);border:1px solid rgba(245,184,61,.4);
+        border-radius:10px;color:var(--gold);font:800 11.5px var(--mono);letter-spacing:.16em;
+        padding:13px 14px;cursor:pointer">? HOW IT WORKS — WHAT THIS IS, HOW TO WIN, WHAT IT IS BUILT ON</button>
       <div id="howBox" style="display:none;background:var(--card2);border:1px solid var(--line);border-radius:12px;
         padding:18px 20px;margin-top:10px;text-align:left;font:400 13px/1.7 var(--sans);color:var(--ink2)">
 

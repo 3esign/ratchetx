@@ -23,7 +23,7 @@ const { getPrices } = require('../lib/prices.js');
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h9-2026-08-20';
+const VERSION = 'h10-2026-08-20';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
