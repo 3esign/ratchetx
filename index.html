@@ -287,6 +287,9 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         the chain every 30 seconds on the PROOF tab — and each line can turn red.
 
         <div class="hh">HOW TO PLAY</div>
+        <b style="color:var(--ink)">0 · Just play.</b> You do not need a wallet to fire a shot — every visitor gets
+        a <b style="color:var(--ink)">GUEST</b> identity and can play immediately. Guest shots settle on the same
+        oracle and teach you the game, but they never enter a ladder or a pot. Connect when you want it to count.<br>
         <b style="color:var(--ink)">1 · Call it.</b> Pick a question, pick YES or NO, and stake any whole
         amount from 100 to 2,500. XP scales as <b style="color:var(--ink)">√(stake/100)</b> — so 25× the stake
         earns 5× the XP and never 25×, the ladder cannot be bought, and XP is only ever paid on a
@@ -298,7 +301,11 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         <b style="color:var(--ink)">2 · It settles itself.</b> When the window closes, the shot settles on
         <b style="color:var(--ink)">Pyth oracle prices</b>, the same source used at seal. There is no cron and no
         operator: the next request that touches your account does the work.<br>
-        <b style="color:var(--ink)">3 · Climb.</b> HIT earns XP, MISS resets your streak. XP comes only from being
+        <b style="color:var(--ink)">3 · Being right pays.</b> A HIT returns <b style="color:var(--grn)">1.7× your
+        stake in credits</b> and earns XP; a MISS feeds the Machine. Break-even sits near 59% accuracy — beat the
+        market consistently and you play forever, guess and you run down. You can only ever win credits by risking
+        credits you already hold, so it is a skill filter, not a faucet, and no token is ever minted.<br>
+        <b style="color:var(--ink)">4 · Climb.</b> XP comes only from being
         <i>right</i>, never from spending. Ranks run COG → PISTON → FLYWHEEL → TURBINE → REACTOR and unlock more
         simultaneous chambers — <b style="color:var(--ink)">never better odds</b>.
 
@@ -372,6 +379,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       <input id="stakeIn" type="number" inputmode="numeric" min="100" max="2500" step="10" placeholder="100 – 2,500">
       <span class="scm" id="stakeMultOut">×2.24 XP</span>
     </div>
+    <div id="payLine" style="font:700 9.5px var(--mono);letter-spacing:.1em;color:var(--dim);margin-top:8px"></div>
     <button class="fire" id="fire" disabled>PICK A TARGET AND A SIDE</button>
     <div class="splitline">EVERY SHOT: <b>70% BURNED</b> · 30% POTS (15% DAILY / 15% WEEKLY) · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
   </div></div>
@@ -558,13 +566,21 @@ const fmt$=(n,d)=>n>=1000?n.toLocaleString(undefined,{maximumFractionDigits:0}):
 const setHTML=(el,html)=>{if(el&&el._h!==html){el._h=html;el.innerHTML=html;}};
 
 // ---------- wallet ----------
+// Every visitor gets a demo identity immediately, so the game is playable on
+// arrival instead of behind a CONNECT button. Demo shots never touch a ladder,
+// a pot or the feed — that is enforced on the server, not just labelled here.
+function guestId(){
+  if(DEMO)return DEMO;
+  DEMO=localStorage.getItem("ratchet_demo")||("demo-"+Math.random().toString(36).slice(2,8));
+  localStorage.setItem("ratchet_demo",DEMO);
+  return DEMO;
+}
 async function connect(){
   const prov=window.solana||window.phantom&&window.phantom.solana;
-  if(!prov){ // demo identity
-    DEMO="demo-"+Math.random().toString(36).slice(2,8);
-    localStorage.setItem("ratchet_demo",DEMO);
-    $("cx").textContent="DEMO · "+DEMO.slice(5);$("cx").classList.add("done");
-    toast("No wallet found — DEMO mode: play freely, but demo shots never enter the ladders or pots. Install Phantom to play ranked.");
+  if(!prov){ // no wallet at all — stay a guest, and say why
+    guestId();
+    $("cx").textContent="GUEST · "+DEMO.slice(5);$("cx").classList.add("done");
+    toast("No wallet found — you're playing as a GUEST: free, but guest shots never enter the ladders or pots. Install Phantom to play ranked.");
     refresh();return;
   }
   try{
@@ -586,8 +602,9 @@ $("cx").onclick=connect;
   try{const a=JSON.parse(localStorage.getItem("ratchet_auth"));
     if(a&&Date.now()-a.ts<2*3600e3){AUTH=a;$("cx").textContent=short(a.wallet);$("cx").classList.add("done");}
   }catch{}
-  const d=localStorage.getItem("ratchet_demo");
-  if(!AUTH&&d){DEMO=d;$("cx").textContent="DEMO · "+d.slice(5);$("cx").classList.add("done");}
+  // no wallet connected -> you are a GUEST and can fire immediately. The button
+  // still says CONNECT, because connecting is what makes a shot count.
+  if(!AUTH){guestId();$("cx").textContent="GUEST · "+DEMO.slice(5);}
 })();
 const who=()=>AUTH?AUTH.wallet:DEMO;
 
@@ -658,7 +675,10 @@ function paint(){
     sel.t=b.dataset.k;const sd=e.target.dataset.side;if(sd)sel.side=sd;paint();});
   const ok=sel.t&&sel.side&&who();
   $("fire").disabled=!ok;
-  $("fire").textContent=!who()?"CONNECT TO FIRE":ok?`SEAL THE SHOT — BURN ${sel.stake.toLocaleString()} 🔥`:"PICK A TARGET AND A SIDE";
+  payLine();
+  const guest=!AUTH;
+  $("fire").textContent=ok?(guest?`SEAL THE SHOT — ${sel.stake.toLocaleString()} (GUEST, UNRANKED) 🔒`
+    :`SEAL THE SHOT — BURN ${sel.stake.toLocaleString()} 🔥`):"PICK A TARGET AND A SIDE";
   // warden
   $("wq").textContent=s.warden.q+"?";
   $("wp").innerHTML=s.warden.p+"<small>%</small>";
@@ -695,8 +715,16 @@ function paint(){
         return`<div class="kl"><span class="t">${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span>
           <span style="color:${col};width:40px;flex:none;font-weight:800">${e.res.toUpperCase()}</span>
           <span style="flex:1">${e.label} — <b>${e.side}</b></span>
-          <span style="color:${col};font-weight:700;white-space:nowrap">${e.res==='hit'?'+'+e.xp+' XP':e.res==='void'?'refund':'streak ✕'}</span></div>`;}).join(""));}
+          <span style="color:${col};font-weight:700;white-space:nowrap">${e.res==='hit'?'+'+e.xp+' XP'+(e.back?' · +'+e.back.toLocaleString():''):e.res==='void'?'refund':'streak ✕'}</span></div>`;}).join(""));}
     else if($("histP"))$("histP").style.display="none";
+    // A guest who has just watched a shot settle is the only moment worth
+    // interrupting. Once, ever, and never again.
+    if(!AUTH&&p.history&&p.history.length&&!localStorage.getItem("ratchet_asked")){
+      localStorage.setItem("ratchet_asked","1");
+      const won=p.history[0]&&p.history[0].res==="hit";
+      toast(won?"You called that one right — connect a wallet to make the next one count: XP, ladders, pots and real $RCX."
+               :"That one settled against you. Connect a wallet and the next one counts for XP, the ladders and the pots.");
+    }
     if(p.champion&&STATE.champ){const c=p.champion;
       $("champP").style.display="block";
       $("champBody").innerHTML=`Your seat pays <b style="color:var(--gold)">${Math.round(c.pct*STATE.champ.pct*100)}% of every reload</b>, straight to your wallet — no claim needed.
@@ -775,6 +803,14 @@ function paint(){
 // the number on screen can never disagree with the number you are awarded.
 const stakeRule=()=>(STATE&&STATE.stakeRule)||{min:100,max:2500};
 const stakeMult=st=>Math.sqrt(st/stakeRule().min);
+function payLine(){
+  const el=$("payLine"); if(!el)return;
+  const r=(STATE&&STATE.stakeRule)||{}; const k=r.hitPayout;
+  if(!k){el.textContent="";return;}
+  const back=Math.floor(sel.stake*k);
+  el.innerHTML=`A HIT RETURNS <b style="color:var(--grn)">${back.toLocaleString()} CREDITS</b> `+
+    `(${k}× YOUR STAKE) · A MISS FEEDS THE MACHINE`;
+}
 function setStake(v,fromInput){
   const r=stakeRule();
   const st=Math.max(r.min,Math.min(r.max,Math.floor(+v||r.min)));
@@ -782,6 +818,7 @@ function setStake(v,fromInput){
   const out=$("stakeMultOut"); if(out)out.textContent="×"+stakeMult(st).toFixed(2)+" XP";
   document.querySelectorAll(".stk").forEach(x=>x.classList.toggle("on",+x.dataset.s===st));
   const inp=$("stakeIn"); if(inp&&!fromInput&&document.activeElement!==inp)inp.value=st;
+  payLine();
   if(window.STATE)paint();
 }
 document.querySelectorAll(".stk").forEach(b=>b.onclick=()=>setStake(b.dataset.s,false));

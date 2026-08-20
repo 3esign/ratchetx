@@ -48,7 +48,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h11-2026-08-20';
+const VERSION = 'h12-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -92,6 +92,18 @@ const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
 //   sublinear, so 25x the stake earns 5x the XP, never 25x — the ladder cannot
 //   be bought — and XP is still only ever awarded on a HIT, so a bigger stake
 //   buys leverage on being right and nothing whatsoever on being right.
+// BEING RIGHT HAS TO PAY (h12). Until now a HIT awarded XP and nothing else, so
+// a player's credit balance only ever fell — a perfect predictor still ran to
+// zero, and after the one-time grant there was no way back except buying RCX.
+//
+// A hit now returns HIT_PAYOUT x the stake in credits. At 1.7x, break-even sits
+// around 59% accuracy: beat the market consistently and you play forever, guess
+// and you run down. It is a skill filter, not a faucet — you can only ever win
+// credits by risking credits you already hold, and no token is ever minted.
+//
+// The frozen 70/30/0 split is untouched: every stake is still divided exactly as
+// published. This is what the game DOES for winners, not a change to the rule.
+const HIT_PAYOUT = 1.7;
 const STAKE_MIN = 100;
 const STAKE_MAX = 2500;
 const stakeMult = st => Math.sqrt(st / STAKE_MIN);
@@ -487,7 +499,10 @@ async function settle(p, prices) {
     else if (outcome === s.side) {
       p.shots++; s.res = 'hit'; p.hits++; p.streak++; p.best = Math.max(p.best, p.streak);
       p.xp += s.xp; await bumpLadder(p.w, s.xp);
-      if (!isDemo(p.w)) await bumpFeed({ w: shortW(p.w), a: `HIT +${s.xp} XP`, c: 'hit' });
+      s.back = Math.floor(s.stake * HIT_PAYOUT);      // being right pays
+      p.cr += s.back;
+      if (!isDemo(p.w)) await bumpFeed({ w: shortW(p.w),
+        a: `HIT +${s.xp} XP · +${s.back.toLocaleString()} credits`, c: 'hit' });
     } else {
       p.shots++; s.res = 'miss'; p.streak = 0;
       if (!isDemo(p.w)) await bumpFeed({ w: shortW(p.w), a: 'MISS - streak reset', c: 'miss' });
@@ -496,7 +511,7 @@ async function settle(p, prices) {
     await append({ k:'settle', w: p.w, id: s.id, res: s.res, exitPx: px,
       side: s.side, salt: s.salt, commit: s.commit });   // the reveal: sha256(side|salt) must equal the seal's commit
     await pushHist(p.w, { id: s.id, t: now, label: s.label, side: s.side, res: s.res,
-      xp: s.res === 'hit' ? s.xp : 0, stake: s.stake, entry: s.entry, exit: px });
+      xp: s.res === 'hit' ? s.xp : 0, back: s.back || 0, stake: s.stake, entry: s.entry, exit: px });
     p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
   }
   p.open = still;
@@ -618,7 +633,7 @@ module.exports = async (req, res) => {
           .filter(([,t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))),
         boardFlip: (boardHour() + 1) * 3600e3,
         split: SPLIT, potSplit: { day: POT_DAY_SHARE, week: 1 - POT_DAY_SHARE },
-        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number) },
+        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number), hitPayout: HIT_PAYOUT },
         champ: { pct: CHAMP.pct, curve: CHAMP.curve, holdPct: CHAMP.holdPct, holdDays: CHAMP.holdDays,
           podium: (podNow.list || []).map(x => ({ w: shortW(x.w), ata: x.ata, pct: x.pct })) },
         season: seasonKey(), day: today(),

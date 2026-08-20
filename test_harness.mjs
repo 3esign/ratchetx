@@ -66,12 +66,15 @@ ok(Math.abs(st.burned - 350) < 1e-9 && Math.abs(st.potD - 75) < 1e-9 && Math.abs
 ok((getMem('g:feed') || []).length === 0, 'demo seal absent from public feed');
 
 // force-settle the demo shot as a HIT
+const crAtSeal = getMem('u:demo-abc123').cr;
 let p = getMem('u:demo-abc123');
 p.open[0].exp = Date.now() - 1000; p.open[0].entry = 90; setMem('u:demo-abc123', p);
 r = await call('GET', { query: { action: 'state', wallet: 'demo-abc123' } });
 // 22, not 20: the stake curve is now continuous sqrt(stake/100), so the 500 preset
 // pays x2.24 instead of the old flat x2. Disclosed in the changelog.
 ok(r.body.player.hits === 1 && r.body.player.xp === 22, 'demo shot settled as hit');
+// being right must pay: 500 staked, 1.7x back = 850 credits returned
+ok(r.body.player.cr === crAtSeal + 850, 'a hit returns 1.7x the stake in credits');
 const wk = Object.keys(mem).length; // touch
 const seasonLb = Object.entries(mem).filter(([k]) => k.startsWith('lb'));
 ok(!getMem(`lb:${r.body.season}`) && !getMem(`lbd:${r.body.day}`), 'demo XP reached NO ladder');

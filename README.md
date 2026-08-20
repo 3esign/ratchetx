@@ -14,11 +14,11 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 Don't take our word for it — the site tells you. Both live endpoints return a build marker:
 
 ```
-https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h11-2026-08-20"
-https://ratchetx.vercel.app/api/proof               ->  "v": "h11-2026-08-20"
+https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h12-2026-08-20"
+https://ratchetx.vercel.app/api/proof               ->  "v": "h12-2026-08-20"
 ```
 
-`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h11-2026-08-20'`.
+`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h12-2026-08-20'`.
 If the live marker and the repo marker match, you are reading the code that is running.
 If they ever don't, the repo is stale and you should say so loudly.
 
