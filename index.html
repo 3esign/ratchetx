@@ -79,6 +79,9 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .mcell u{display:block;text-decoration:none;font:700 8.5px/1 var(--mono);letter-spacing:.18em;color:var(--dim);margin-bottom:6px}
 .mcell b{display:block;font:800 17px/1 var(--mono);color:var(--ink);letter-spacing:-.01em}
 .mcell b small{font-size:9.5px;letter-spacing:.1em;color:var(--dim);margin-left:3px;font-weight:700}
+.hh{font:700 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--gold);margin:18px 0 8px;
+  padding-top:14px;border-top:1px solid var(--line)}
+#howBox .hh:first-child{margin-top:0;padding-top:0;border-top:0}
 .tcap{font:700 10px/1 var(--mono);letter-spacing:.22em;color:var(--dim);margin:22px 0 12px;text-align:left}
 .targets{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 @media(max-width:640px){.targets{grid-template-columns:1fr}}
@@ -109,11 +112,18 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .splitline{margin-top:9px;font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--dim);text-align:center}
 .splitline b{color:var(--goldD)}
 .rcol{display:flex;flex-direction:column;gap:13px;min-height:0;position:sticky;top:76px;
-  align-self:start;height:calc(100vh - 92px)}
-@media(max-width:920px){.rcol{position:static;height:auto}}
+  align-self:start;height:calc(100vh - 92px);overflow-y:auto;overscroll-behavior:contain;
+  scrollbar-width:thin;padding-right:2px}
+.rcol::-webkit-scrollbar{width:6px}
+.rcol::-webkit-scrollbar-track{background:transparent}
+.rcol::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
+@media(max-width:920px){.rcol{position:static;height:auto;overflow:visible}}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:16px}
 .panel h3{font:700 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--dim);margin-bottom:12px;display:flex;justify-content:space-between}
-.chambers{display:flex;flex-direction:column;gap:9px}
+.chambers{display:flex;flex-direction:column;gap:9px;max-height:min(40vh,420px);
+  overflow-y:auto;overscroll-behavior:contain}
+.chambers::-webkit-scrollbar,.kill::-webkit-scrollbar{width:6px}
+.chambers::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 .cham{border:1px solid rgba(125,211,252,.22);background:rgba(125,211,252,.04);border-radius:11px;padding:11px 13px;animation:in .35s ease}
 .cham .ch1{display:flex;justify-content:space-between;font:600 10px/1 var(--mono);letter-spacing:.1em;color:var(--ice);margin-bottom:6px}
 .cham .ch2{font:650 12.5px/1.3 var(--sans)}
@@ -125,9 +135,9 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .cham .xps{font:800 11px var(--mono);margin-top:6px}
 .empty{border:1px dashed var(--line);border-radius:11px;padding:13px;text-align:center;
   font:600 9.5px/1 var(--mono);letter-spacing:.16em;color:var(--dim)}
-.kill{display:flex;flex-direction:column;gap:1px;flex:1 1 0;min-height:150px;
-  overflow-y:auto;overscroll-behavior:contain}
-@media(max-width:920px){.kill{flex:0 0 auto;max-height:56vh}}
+.kill{display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-height:150px;
+  max-height:min(46vh,470px);overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:920px){.kill{max-height:56vh}}
 .kill::-webkit-scrollbar{width:6px}
 .kill::-webkit-scrollbar-track{background:transparent}
 .kill::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
@@ -247,35 +257,84 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div id="burnLine" style="display:none;margin-top:12px;font:700 12px var(--mono);letter-spacing:.08em;color:var(--red)"></div>
     <div style="margin:20px 0 4px;text-align:left">
       <button id="howBtn" style="background:none;border:1px solid var(--line);border-radius:8px;color:var(--ink2);
-        font:700 10px var(--mono);letter-spacing:.14em;padding:8px 12px;cursor:pointer">? HOW TO PLAY</button>
+        font:700 10px var(--mono);letter-spacing:.14em;padding:8px 12px;cursor:pointer">? HOW IT WORKS — READ THIS FIRST</button>
       <div id="howBox" style="display:none;background:var(--card2);border:1px solid var(--line);border-radius:12px;
-        padding:16px 18px;margin-top:10px;text-align:left;font:400 13px/1.7 var(--sans);color:var(--ink2)">
-        <b style="color:var(--ink)">1 · Call it.</b> Pick a market question, pick YES or NO, pick a stake. Your shot is
-        <b style="color:var(--ice)">sealed</b> — nobody can see your side until the timer ends, so you cannot be
-        front-run or copied.<br>
+        padding:18px 20px;margin-top:10px;text-align:left;font:400 13px/1.7 var(--sans);color:var(--ink2)">
+
+        <div class="hh">THE POINT</div>
+        Every token says <i>trust us</i>. RATCHET is built so there is nothing to trust: no treasury, no admin
+        key, no wallet that could take your tokens. You call market moves, the machine scores you on real oracle
+        prices, and the rewards move between players' own wallets. Every claim on this page is re-checked against
+        the chain every 30 seconds on the PROOF tab — and each line can turn red.
+
+        <div class="hh">HOW TO PLAY</div>
+        <b style="color:var(--ink)">1 · Call it.</b> Pick a question, pick YES or NO, pick a stake (100 ×1 XP,
+        500 ×2, 2,500 ×5). Each card quotes the level it is asking about — <s style="text-decoration:none;color:var(--ice)">NOW</s>
+        is the live price, <s style="text-decoration:none;color:var(--ice)">CLEARS / BREAKS / BAND</s> is what has
+        to happen. Your shot is <b style="color:var(--ice)">sealed</b>: only a hash of your side is stored, so
+        nobody — including us — can read it before it settles.<br>
         <b style="color:var(--ink)">2 · It settles itself.</b> When the window closes, the shot settles on
-        <b style="color:var(--ink)">real Pyth oracle prices</b> — the same source at seal and settle. HIT earns XP,
-        MISS resets your streak. XP only ever comes from being <i>right</i>, never from spending more.<br>
-        <b style="color:var(--ink)">3 · Climb.</b> XP ranks you COG → PISTON → FLYWHEEL → TURBINE → REACTOR. Higher
-        ranks unlock more simultaneous chambers — never better odds.<br>
-        <b style="color:var(--ink)">4 · Get paid — on two clocks.</b> 30% of every stake feeds the pots: half the
-        <b style="color:var(--gold)">DAILY pot</b> (top 3 take 50/30/20% at 00:00 UTC) and half the
-        <b style="color:var(--gold)">WEEKLY season pot</b> (top 5 take 40/25/15/12/8% every Sunday 00:00 UTC).
-        Both pay <b style="color:var(--gold)">automatically</b> — no claim button, no waiting. Unclaimed shares
-        roll into the next pot.<br>
-        <b style="color:var(--ink)">5 · Stake by holding.</b> The GEARBOX tab pays registered wallets daily
-        play-credits on their on-chain balance — tokens never move, nothing is ever deposited.<br>
-        <b style="color:var(--ink)">6 · Real RCX for champions.</b> 30% of <i>every reload</i> is paid
-        straight to the daily podium's wallets (50/30/20) inside the reloader's own transaction —
-        keyless, no pool, no claim button. Hold the podium, earn the flow — and keep at least half of
-        your 7-day champion pay in your wallet: <b style="color:var(--ink)">champions who dump lose the seat</b>
-        to the next player up. Your console shows a live "safe to sell" number.<br>
-        <span style="color:var(--dim)">There is ONE currency: CREDITS. A new wallet is granted 5,000 once —
-        after that credits come only from reloads, pot wins and the Gearbox. 1 burned RCX = 1 credit, and
-        that burn is verified on-chain, forever. Demo play is truly unranked: it never enters any ladder
-        and is never paid from any pot.
-        The 70/30/0 split under the fire button is frozen: 0% ever goes to the team; the creator is paid from
-        trading fees on the token only.</span>
+        <b style="color:var(--ink)">Pyth oracle prices</b>, the same source used at seal. There is no cron and no
+        operator: the next request that touches your account does the work.<br>
+        <b style="color:var(--ink)">3 · Climb.</b> HIT earns XP, MISS resets your streak. XP comes only from being
+        <i>right</i>, never from spending. Ranks run COG → PISTON → FLYWHEEL → TURBINE → REACTOR and unlock more
+        simultaneous chambers — <b style="color:var(--ink)">never better odds</b>.
+
+        <div class="hh">HOW YOU WIN</div>
+        <b style="color:var(--ink)">The pots.</b> 30% of every stake feeds two pots on two clocks: the
+        <b style="color:var(--gold)">DAILY pot</b> (top 3 take 50/30/20 at 00:00 UTC) and the
+        <b style="color:var(--gold)">WEEKLY season pot</b> (top 5 take 40/25/15/12/8 on Sunday). Paid
+        automatically, no claim button; unclaimed shares roll over.<br>
+        <b style="color:var(--ink)">The Champion's Cut — real $RCX.</b> 30% of <i>every reload</i> goes straight
+        to the daily podium's wallets (50/30/20) <b style="color:var(--ink)">inside the reloader's own
+        transaction</b>. No pool, no custody, no claim button — the tokens never sit anywhere. To hold a seat you
+        must actually hold RCX, and keep at least half of your last 7 days of champion pay:
+        <b style="color:var(--ink)">champions who dump lose the seat</b> to the next player up. Your console shows
+        a live "safe to sell" number.<br>
+        <b style="color:var(--ink)">The Gearbox — staking with no deposit.</b> Register with one signature. Your
+        tokens <i>never move</i>. The machine reads your on-chain balance and pays daily credits on it. Nothing is
+        deposited, so there is nothing to rug and nothing to withdraw.
+
+        <div class="hh">THE ECONOMY</div>
+        <b style="color:var(--red)">70% burns</b> · <b style="color:var(--gold)">30% to players</b> ·
+        <b style="color:var(--ink)">0% to the team</b> — at both doors, frozen, printed on the buttons. Stakes feed
+        the pots; reloads burn and pay the champions. The creator is paid one way only: the standard pump.fun
+        creator fee on trading volume, to a published wallet.<br>
+        One currency: <b style="color:var(--ink)">CREDITS</b>. A new wallet is granted 5,000 once. After that,
+        credits come only from reloads (1 burned RCX = 1 credit, verified on-chain), pot wins and the Gearbox.
+        Rewards are credits and real RCX moved between players — <b style="color:var(--ink)">never minted tokens.
+        There is no faucet and there never will be.</b>
+
+        <div class="hh">THE TECHNOLOGY</div>
+        <b style="color:var(--ink)">Solana</b> · settlement in seconds at fees where "anyone can settle this" is
+        economically real. <b style="color:var(--ink)">Token-2022</b> · mint and freeze authority revoked, readable
+        by anyone. <b style="color:var(--ink)">pump.fun / PumpSwap</b> · fair launch, no presale, no team
+        allocation; liquidity protocol-held since graduation. <b style="color:var(--ink)">Pyth</b> · first-party
+        oracle prices, identical at seal and settle.<br>
+        <b style="color:var(--ink)">Commit–reveal sealing.</b> Every seal writes sha256("SIDE|salt") into a
+        hash-chained event log. Settlement reveals side and salt, so anyone can verify any shot afterwards and
+        nobody can read one before. You cannot be front-run or copy-traded.<br>
+        <b style="color:var(--ink)">The Black Box.</b> The complete machine — every player, credit, burn signature
+        and log entry — downloads at /api/snapshot, and any player can anchor the log's head into a Solana memo
+        from their own wallet (+25 XP). A stranger can verify a snapshot against those anchors and resurrect the
+        whole game on their own hosting. Kill our server and you have paused RATCHET; you cannot end it.<br>
+        <b style="color:var(--ink)">The settlement layer is going on-chain.</b> A Solana program that holds no
+        funds and answers to no admin — seal, permissionless Pyth settle, reveal and score — is deployed and
+        proven on devnet: <span style="color:var(--ice);word-break:break-all">4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2</span>.
+        Its first verdict was a loss for the wallet that deployed it. 288 lines of Rust, zero dependencies. The
+        live game still settles on our server — which is exactly why the PROOF page exists.
+
+        <div class="hh">WHY IT CANNOT RUG YOU</div>
+        There is no team wallet in any reward path, no pool holding player funds, no key in this system that can
+        touch a token, and no mint that can print one. That is not a promise we are making — it is a set of
+        properties you can read off the chain, and the PROOF tab reads them for you every 30 seconds.
+
+        <div class="hh">WHAT WE DO NOT CLAIM</div>
+        <span style="color:var(--dim)">The floor number at the top of this page is <b>simulated and labelled so</b>
+        until the audited vault ships. The on-chain program is on <b>devnet</b> — research, not yet the live money
+        path. The Warden is a v0 heuristic and says so on its own page. Log entries written before cryptographic
+        sealing contain what they contain; a hash chain cannot be rewritten and we would not want one that could.
+        None of this is financial advice — it is a game about being right, and most people aren't.</span>
       </div>
     </div>
     <div class="tcap">THE BOARD · <span id="boardIn" style="color:var(--gold)">NEW MIX EVERY HOUR</span> · SETTLES ON REAL ORACLE PRICES</div>
@@ -290,9 +349,9 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="splitline">EVERY SHOT: <b>70% BURNED</b> · 30% POTS (15% DAILY / 15% WEEKLY) · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
   </div></div>
   <div class="rcol">
-    <div class="panel"><h3>YOUR CHAMBERS <span id="chC">—</span></h3>
+    <div class="panel" style="flex:none"><h3>YOUR CHAMBERS <span id="chC">—</span></h3>
       <div class="chambers" id="chams"><div class="empty">CONNECT AND FIRE A SHOT</div></div></div>
-    <div class="panel" id="reloadP" style="display:none">
+    <div class="panel" id="reloadP" style="display:none;flex:none">
       <h3>RELOAD — BURN TO PLAY RANKED</h3>
       <div style="font:400 12.5px/1.6 var(--sans);color:var(--ink2);margin-bottom:10px">
         <b style="color:var(--gold)">1 RCX = 1 credit.</b> Every reload splits by the frozen rule:
