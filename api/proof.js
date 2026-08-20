@@ -16,14 +16,15 @@
 //  Claiming the big number would be literally true and causally
 //  false, and this page exists to never do that.
 // ============================================================
-const { getJSON, setJSON } = require('../lib/kv.js');
+const { getJSON, setJSON, hall} = require('../lib/kv.js');
 const { rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { getPrices } = require('../lib/prices.js');
+const { verifyChain, logCount } = require('../lib/log.js');
 
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h16-2026-08-20';
+const VERSION = 'h20-2026-08-20';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
@@ -60,7 +61,10 @@ module.exports = async (req, res) => {
       prices ? `${prices.src.toUpperCase()} · SOL $${prices.SOL.toFixed(2)} · ${Date.now() - t0}ms round-trip`
              : 'both price sources unreachable — shots cannot settle until this is green');
 
-    const st = (await getJSON('g:stats')) || {};
+    // totals live in an atomic hash now; fall back to the legacy blob until the
+    // first write migrates it
+    const stH = await hall('h:stats');
+    const st = Object.keys(stH).length ? stH : ((await getJSON('g:stats')) || {});
     let supply = null;
     if (!MINT) {
       push('mint', 'grey', 'Token checks arm at TGE', 'RATCHET_MINT is not set yet — every line below goes live the moment it is');
@@ -173,6 +177,32 @@ module.exports = async (req, res) => {
             : 'full-log retention arms on the next event — snapshot exports the state either way')
         : 'arms with the first logged event',
       '/api/snapshot');
+
+    // ---- THE CHAIN, ACTUALLY VERIFIED.
+    // Retention was reported here; integrity was not. The page said the log
+    // was kept, and asked you to take the hashes on faith. Now it recomputes
+    // every hash from genesis on each check, and compares the entry count
+    // against the server-issued index — so a dropped event is reported rather
+    // than hidden by a chain that is merely self-consistent.
+    try {
+      const issued = await logCount();
+      if (issued > 0) {
+        const all = [];
+        for (let c = 0; c * 500 < issued; c++)
+          for (const e of (await getJSON(`g:log:c:${c}`)) || []) all.push(e);
+        const v = verifyChain(all, bbHead, issued);
+        push('chain', v.ok ? 'green' : 'red',
+          v.ok ? 'Every hash in the log recomputes from genesis'
+               : 'The log does not verify — and this check is how you would know',
+          v.ok
+            ? `${all.length.toLocaleString()} entries replayed hash-by-hash, ${issued.toLocaleString()} issued by the server and ${all.length.toLocaleString()} stored. Rewriting any past event changes every hash after it, so this line turns red and stays red`
+            : `broken at index ${v.brokenAt} — ${v.reason}. Nothing here is being hidden from you: the verifier reports the break instead of papering over it`,
+          '/api/snapshot');
+      }
+    } catch (e) {
+      push('chain', 'grey', 'Chain verification unavailable',
+        'the log could not be read to verify right now — ' + String(e && e.message || e).slice(0, 80));
+    }
 
     const logHead = await getJSON('g:log:head');
     const anchors = (await getJSON('g:anchors')) || [];

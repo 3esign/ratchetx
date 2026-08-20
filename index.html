@@ -875,6 +875,12 @@ function standing(){
   if(!p||!AUTH){
     html=`GUEST SHOTS DON'T RANK — CONNECT TO ENTER TODAY'S LADDER · `+
       `POT <b>${pot.toLocaleString()}</b> · PAYS OUT IN ${clock}`;
+  }else if(p.qualified===false){
+    // A wallet costs nothing to generate, so a free grant that also carried
+    // RANK meant a script could farm the pot that pays real RCX. Playing is
+    // still free. Ranking is what now costs what an honest player spent.
+    html=`<b style="color:var(--gold)">UNVERIFIED WALLET</b> — YOU CAN PLAY AND SCORE, BUT NOT YET RANK. `+
+      `HOLD OR BURN ANY AMOUNT OF $RCX ONCE AND YOU'RE IN · POT <b>${pot.toLocaleString()}</b> · PAYS OUT IN ${clock}`;
   }else if(p.dayRank&&p.dayRank<=prizes.length){
     const win=Math.floor(pot*(prizes[p.dayRank-1]||0));
     html=`YOU'RE <b>#${p.dayRank}</b> TODAY WITH <b>${(p.dayXp||0).toLocaleString()} XP</b> — `+

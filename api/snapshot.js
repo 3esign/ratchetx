@@ -18,9 +18,9 @@
 //  the canonical JSON of `state` so mirrors can be compared.
 // ============================================================
 const crypto = require('node:crypto');
-const { getJSON, scanKeys, durable } = require('../lib/kv.js');
+const { getJSON, scanKeys, durable, hall} = require('../lib/kv.js');
 
-const VERSION = 'h16-2026-08-20';
+const VERSION = 'h20-2026-08-20';
 const MINT = process.env.RATCHET_MINT || '';
 
 const memo = globalThis.__ratchet_snap || (globalThis.__ratchet_snap = { t: 0, body: null });
@@ -34,14 +34,20 @@ module.exports = async (req, res) => {
 
     // ---- the full log, from the retention chunks
     const head = (await getJSON('g:log:head')) || null;
+    // The server-issued index count travels with the export, so an outside
+    // verifier can tell a complete log from a truncated one.
+    const issued = Number(await getJSON('g:log:n')) || (head ? head.i : 0);
     const log = [];
     if (head) {
-      const chunks = Math.ceil(head.i / 500);
+      const chunks = Math.ceil(Math.max(head.i, issued) / 500);
       for (let c = 0; c < chunks; c++) {
         const part = (await getJSON(`g:log:c:${c}`)) || [];
         for (const e of part) log.push(e);
       }
     }
+
+    const _sh = await hall('h:stats');
+    const statsOut = Object.keys(_sh).length ? _sh : ((await getJSON('g:stats')) || null);
 
     // ---- every player, every replay gate, every game singleton
     const players = {};
@@ -51,7 +57,7 @@ module.exports = async (req, res) => {
       // WITHOUT side/salt (the commit stays, so seals remain verifiable).
       // A machine resurrected from a snapshot therefore VOID-REFUNDS any
       // still-open shots — restore.mjs does this and says so.
-      if (p) players[k.slice(2)] = { ...p, open: (p.open || []).map(({ side, salt, ...rest }) => rest) };
+      if (p) players[k.slice(2)] = { ...p, open: (p.open || []).map(({ side, salt, xp, ...rest }) => rest) };
     }
     const sigs = {};
     for (const k of await scanKeys('sig:*')) {
@@ -71,7 +77,7 @@ module.exports = async (req, res) => {
 
     const state = {
       mint: MINT || null,
-      stats: (await getJSON('g:stats')) || null,
+      stats: statsOut,
       season: (await getJSON('g:season')) || null,
       day: (await getJSON('g:day')) || null,
       podium: (await getJSON('g:podium')) || null,
@@ -91,7 +97,7 @@ module.exports = async (req, res) => {
       boards, players, sigs, hists,
       logHead: head,
       log,
-    };
+ logIssued: issued,    };
 
     const canonical = JSON.stringify(state);
     const out = {

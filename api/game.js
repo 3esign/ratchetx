@@ -41,14 +41,15 @@
 //      hits and misses alike. v0 heuristic, scored like everyone.
 // ============================================================
 const crypto = require('node:crypto');
-const { getJSON, getJSONStrict, setJSON, setnxJSON, delKey, scanKeys, durable } = require('../lib/kv.js');
+const { getJSON, getJSONStrict, setJSON, setnxJSON, delKey, scanKeys, durable, zincr, ztop, incrFloat, takeNum, hincr, hall, hseed} = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
+const { priceAt, sample: samplePx } = require('../lib/pxlog.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h16-2026-08-20';
+const VERSION = 'h20-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -168,6 +169,7 @@ const RANKS = [['COG',0],['PISTON',300],['FLYWHEEL',900],['TURBINE',2200],['REAC
 // reloads (burned RCX), pot wins and the Gearbox. Every shot on the ladder
 // therefore costs something real or something earned.
 const WELCOME_GRANT = 5000;
+const ARENA_MIN_CALLS = 10;   // below this an agent is published but not ranked
 // Prize curves. Unclaimed shares ROLL OVER into the next pot of the same cadence.
 const PRIZE_W = [0.40, 0.25, 0.15, 0.12, 0.08];   // weekly season: top 5
 const PRIZE_D = [0.50, 0.30, 0.20];               // daily pot: top 3
@@ -205,15 +207,88 @@ async function loadPlayer(w) {
   // migration: fold any legacy paper balance into credits, once, keeping what they had
   if (p.bal) { p.cr = (p.cr || 0) + p.bal; p.bal = 0; p.granted = true; }
   if (!p.granted) { p.cr = (p.cr || 0) + WELCOME_GRANT; p.granted = true; }
+  // QUALIFICATION — the anti-Sybil rule.
+  // The welcome grant is free and a keypair costs nothing to generate, so a
+  // script could mint unlimited fully-ranked players and farm the ladder that
+  // pays real RCX to the podium. Guests were already blocked; free keypairs
+  // were not, which made the guest guard mostly decorative.
+  //
+  // Playing stays free for everyone. RANKING is what now costs what an honest
+  // player already spent: a wallet enters the paying ladders once it has
+  // touched RCX — burned some, or simply been seen holding some. Everyone who
+  // was already playing is grandfathered, so nobody loses standing to this.
+  if (p.qualified == null) p.qualified = !!(p.shots > 0 || p.xp > 0 || p.burned > 0);
   if (p.day !== today()) p.day = today();
+  // OUT-OF-BAND CREDITS.
+  // A reload or a pot payout used to write straight into the player blob. A
+  // concurrent request holding an older snapshot would then save over it, and
+  // for a reload the burn signature was already consumed — real RCX destroyed
+  // with no way to reclaim it. Those credits are now deposited into an atomic
+  // counter and drained here, so a lost race delays a credit by one request
+  // instead of erasing it.
+  const owed = await takeNum(`pend:${w}`);
+  if (owed > 0) { p.cr = (p.cr || 0) + owed; p._drained = (p._drained || 0) + owed; }
+  const owed7 = await takeNum(`c7:${w}`);
+  if (owed7 > 0) {
+    // champion pay lands on the day it is drained, which is the champion's
+    // next request — effectively same-day, and never lost.
+    p.champ7 = p.champ7 || {};
+    p.champ7[today()] = (p.champ7[today()] || 0) + owed7;
+    p._drained7 = (p._drained7 || 0) + owed7;
+  }
+  // keep the holder window from growing without bound
+  if (p.champ7) for (const k of Object.keys(p.champ7))
+    if (Date.now() - new Date(k + 'T00:00:00Z').getTime() > (CHAMP.holdDays + 1) * 86400e3) delete p.champ7[k];
   p._existed = existed;
   return p;
 }
-async function savePlayer(p) { const q = { ...p }; delete q._existed; delete q._src; await setJSON(`u:${p.w}`, q); }
+/** If the write fails after loadPlayer drained a queue, put it back rather
+ *  than swallowing it. The deposit is atomic in both directions. */
+async function savePlayer(p) {
+  const q = { ...p };
+  delete q._existed; delete q._src; delete q._drained; delete q._drained7;
+  try {
+    await setJSON(`u:${p.w}`, q);
+  } catch (e) {
+    if (p._drained > 0)  { try { await incrFloat(`pend:${p.w}`, p._drained); } catch {} }
+    if (p._drained7 > 0) { try { await incrFloat(`c7:${p.w}`, p._drained7); } catch {} }
+    throw e;
+  }
+}
+// TOTALS ARE ATOMIC.
+// They were a JSON blob: read, mutate, write. Two stakes landing together
+// counted as one, and at a period boundary a payout could be undone by a
+// stake that had read the pot before it was paid — resurrecting a pot that
+// had just been distributed in full. They are a Redis hash now: every
+// increment is server-side atomic, and HGETALL still costs one round trip.
+const STATS = 'h:stats';
+let statsSeeded = false;
+async function seedStats() {
+  if (statsSeeded) return;
+  statsSeeded = true;
+  try {
+    const legacy = await getJSONStrict('g:stats');
+    if (legacy) await hseed(STATS, {
+      burned: +legacy.burned || 0, pot: +legacy.pot || 0, potD: +legacy.potD || 0,
+      shots: +legacy.shots || 0, realBurned: +legacy.realBurned || 0,
+      champPaid: +legacy.champPaid || 0, stakePaid: +legacy.stakePaid || 0,
+      stakers: +legacy.stakers || 0 });
+  } catch { statsSeeded = false; }        // let the next request try again
+}
 async function loadStats() {
-  const st = (await getJSONStrict('g:stats')) || { burned:0, pot:0, floor:FLOOR_BASE, shots:0 };
-  if (st.potD == null) st.potD = 0;
+  await seedStats();
+  const st = await hall(STATS);
+  for (const f of ['burned','pot','potD','shots','realBurned','champPaid','stakePaid','stakers'])
+    if (!Number.isFinite(st[f])) st[f] = 0;
+  // derived, not stored: a stored high-water mark could be stepped BACKWARDS
+  // by a stale write, which is exactly what "monotone by construction" must
+  // never allow. Computing it from the burn total makes it monotone for real.
+  st.floor = Math.max(FLOOR_BASE, FLOOR_BASE + st.burned * 1e-9);
   return st;
+}
+/** Apply a set of deltas atomically, field by field. */
+async function bumpStats(deltas) {
+  for (const [f, v] of Object.entries(deltas)) if (v) await hincr(STATS, f, v);
 }
 async function bumpFeed(entry) {
   const f = (await getJSON('g:feed')) || [];
@@ -221,13 +296,46 @@ async function bumpFeed(entry) {
   await setJSON('g:feed', f.slice(0, 40));
 }
 // Ranked boards only ever see real, signature-verified wallets.
-async function bumpLadder(w, xp) {
+// LADDERS ARE ATOMIC.
+// They used to be a JSON hash updated read-modify-write. Two settles landing
+// together lost one player's XP, and — far worse — a single timed-out GET
+// returned null, so the very next write replaced the ENTIRE board with one
+// row. These are the keys that decide the daily pot and seat the podium, so
+// they now live in a Redis sorted set: ZINCRBY is server-side atomic and no
+// reader can rewrite the whole ladder from a stale snapshot.
+const zkey = (pfx, period) => `z:${pfx}${period}`;
+const migSeen = globalThis.__ratchet_mig || (globalThis.__ratchet_mig = new Set());
+
+/** One-time lift of a legacy JSON ladder into its sorted set. Idempotent
+ *  across instances via SETNX, and skipped entirely once this instance has
+ *  seen the period. */
+async function migrateLadder(pfx, period) {
+  const k = zkey(pfx, period);
+  if (migSeen.has(k)) return;
+  migSeen.add(k);
+  try {
+    if (!(await setnxJSON(`mig:${k}`, { t: Date.now() }))) return;   // already lifted
+    const old = await getJSON(`${pfx}${period}`);
+    if (!old) return;
+    for (const [w, xp] of Object.entries(old)) {
+      if (!isDemo(w) && Number.isFinite(xp) && xp > 0) await zincr(k, xp, w);
+    }
+  } catch { migSeen.delete(k); }        // let the next request try again
+}
+
+/** Ranked [wallet, xp] descending. n omitted = the whole board. */
+async function ladderTop(pfx, period, n) {
+  await migrateLadder(pfx, period);
+  return (await ztop(zkey(pfx, period), n)).filter(([w]) => !isDemo(w));
+}
+
+async function bumpLadder(w, xp, qualified) {
   if (isDemo(w)) return;
-  for (const k of [`lb:${seasonKey()}`, `lbd:${today()}`]) {
-    const lb = (await getJSON(k)) || {};
-    lb[w] = (lb[w] || 0) + xp;
-    await setJSON(k, lb);
-  }
+  if (qualified === false) return;      // unverified wallet: plays, does not rank
+  await migrateLadder('lb:', seasonKey());
+  await migrateLadder('lbd:', today());
+  await zincr(zkey('lb:', seasonKey()), xp, w);
+  await zincr(zkey('lbd:', today()), xp, w);
 }
 
 // ---- which token program owns the mint (classic vs Token-2022), cached 1h.
@@ -303,9 +411,8 @@ async function rolloverPots() {
     if (ptr === d.cur) continue;
     if (!(await setnxJSON(`${d.lock}${ptr}`, { t: Date.now() }))) { await setJSON(d.ptr, d.cur); continue; }
     try {
-      const lb = (await getJSON(`${d.pfx}${ptr}`)) || {};
-      const ranked = Object.entries(lb).filter(([w]) => !isDemo(w))
-        .sort((a, b) => b[1] - a[1]).slice(0, d.prizes.length);
+      const board = await ladderTop(d.pfx, ptr);
+      const ranked = board.slice(0, d.prizes.length);
       const st = await loadStats();
       const pot = Math.floor(st[d.potF] || 0);
       let paid = 0; const winners = [];
@@ -313,15 +420,17 @@ async function rolloverPots() {
         const share = Math.floor(pot * d.prizes[i]);
         if (share <= 0) continue;
         const [w, xp] = ranked[i];
-        const p = await loadPlayer(w);
-        p.cr += share;
-        await savePlayer(p);
+        // The winner may be mid-request elsewhere; depositing cannot be
+        // clobbered by their concurrent save the way a direct write could.
+        await incrFloat(`pend:${w}`, share);
         paid += share;
         winners.push({ w: shortW(w), xp, share });
         await bumpFeed({ w: shortW(w), a: `${d.tag} #${i+1} · won ${share.toLocaleString()} credits`, c: 'hit' });
       }
-      st[d.potF] = pot - paid;               // rollover: unclaimed shares stay in the pot
-      await setJSON('g:stats', st);
+      // Debit exactly what was paid. Writing the whole blob back here could
+      // resurrect a pot that a concurrent stake had already re-inflated from a
+      // pre-payout snapshot — the same pot then paid out twice.
+      await bumpStats({ [d.potF]: -paid });   // unclaimed shares stay in the pot
       await setJSON(d.res, { period: ptr, pot, paid, rolled: pot - paid, winners, t: Date.now() });
       await append({ k: d.k, period: ptr, pot, paid, winners });
       if (d.k === 'daypot' && MINT) {
@@ -333,14 +442,18 @@ async function rolloverPots() {
         // top 3 ELIGIBLE by XP: must have an RCX account AND satisfy the
         // HOLDER RULE (still holding >= 50% of last-7-days champion pay).
         // A dumper is skipped silently and the next player up is seated.
-        const podRanked = Object.entries(lb).filter(([pw]) => !isDemo(pw)).sort((a, b) => b[1] - a[1]);
+        const podRanked = board;
         const list = [];
         for (const [pw] of podRanked) {
           if (list.length >= CHAMP.curve.length) break;
           const acc = await findAta(pw);
           if (!acc) continue;                                   // no RCX account -> not payable
           const cp = await getJSONStrict(`u:${pw}`);
-          const earned7 = champWindowSum(cp && cp.champ7, Date.now(), CHAMP.holdDays);
+          // Count what is banked but not yet drained too — a champion who has
+          // not opened the site since being paid must not look like they
+          // earned less, which would make the seat EASIER to keep.
+          const banked = Number(await getJSON(`c7:${pw}`)) || 0;
+          const earned7 = champWindowSum(cp && cp.champ7, Date.now(), CHAMP.holdDays) + banked;
           if (acc.bal + 1e-9 < earned7 * CHAMP.holdPct) continue; // dumped -> seat forfeited
           list.push({ w: pw, ata: acc.ata, pct: CHAMP.curve[list.length] });
         }
@@ -464,7 +577,7 @@ async function wardenTick(prices) {
 // ============================================================
 const AGENTS = [
   { id:'mom', name:'MOMENTUM',   blurb:'rides the last hour of drift — strength continues, weakness continues' },
-  { id:'rev', name:'REVERSION',  blurb:'fades the last hour — assumes the move overshot and snaps back' },
+  { id:'rev', name:'REVERSION',  blurb:'expects less than the board does — fades stretched moves, bets ranges hold' },
   { id:'vol', name:'VOLATILITY', blurb:'plays for movement, never direction — takes the outside of every band' },
   { id:'con', name:'CONTRARIAN', blurb:'fights the Warden — takes the other side of the house AI, every hour' },
 ];
@@ -481,9 +594,24 @@ function agentSide(agentId, t, prices, drift, seedN, wardenUp) {
     if (k === 'range')    return Math.abs(d) > (t.pct || 0) * 0.5 ? 'YES' : 'NO';
     return d >= 0 ? 'YES' : 'NO';                       // race: leader keeps leading
   }
-  // REVERSION is the strict inverse of MOMENTUM — including when drift is flat,
-  // where negating the input would have made the two agents identical.
-  if (agentId === 'rev')  return agentSide('mom', t, prices, d, seedN, wardenUp) === 'YES' ? 'NO' : 'YES';
+  if (agentId === 'rev') {
+    // REVERSION used to be the strict inverse of MOMENTUM. That is not a
+    // strategy, it is a sign flip: the two records were complementary by
+    // construction, so the fleet had four names and three opinions. (It
+    // showed: 7/8 against 0/6 over the same calls.)
+    //
+    // It now has its own falsifiable thesis — the market travels LESS far
+    // than the board is asking, and stretched moves get given back. That
+    // agrees with MOMENTUM on quiet hours and splits from it on loud ones,
+    // which is what an independent opinion looks like.
+    const typ = TYPVOL[t.feed] || 0.01;
+    const stretched = Math.abs(d) > typ * 1.3;     // an overshoot worth fading
+    if (k === 'dir')      return stretched ? (d > 0 ? 'NO' : 'YES') : (d >= 0 ? 'YES' : 'NO');
+    if (k === 'thr')      return 'NO';             // it will not clear the level
+    if (k === 'thrDown')  return 'NO';             // it will not fall that far
+    if (k === 'range')    return 'NO';             // the band holds
+    return d >= 0 ? 'NO' : 'YES';                  // race: the laggard closes the gap
+  }
   if (agentId === 'vol') {
     if (k === 'range')    return 'YES';                 // always bets the band breaks
     if (k === 'thr' || k === 'thrDown') return Math.abs(d) > (t.pct || 0) * 0.3 ? 'YES' : 'NO';
@@ -516,9 +644,11 @@ async function agentsTick(prices) {
     const px = prices[o.feed];
     if (now < o.exp || !Number.isFinite(px)) { still.push(o); continue; }
     let outcome;
+    // Same question, same rule as a human gets. THE BOX was scored strictly
+    // outside for agents and inclusively for players — two rules for one board.
     if (o.kind === 'thr')          outcome = px > o.thresh;
     else if (o.kind === 'thrDown') outcome = px < o.thresh;
-    else if (o.kind === 'range')   outcome = px > o.hi || px < o.lo;
+    else if (o.kind === 'range')   outcome = Math.abs((px - o.entry) / o.entry) >= o.pct;
     else                           outcome = px > o.entry;
     const said = o.side === 'YES';
     const hit = said === outcome;
@@ -588,26 +718,38 @@ async function settle(p, prices) {
   const still = [];
   for (const s of p.open) {
     if (now < s.exp) { still.push(s); continue; }
-    const px = prices[s.feed];
-    const px2 = s.kind === 'race' ? prices[s.feed2] : 1;
-    if (!Number.isFinite(px) || !Number.isFinite(px2)) {
-      // feed missing this tick — stay open, unless it has been gone a
-      // full day past expiry (e.g. a delisted feed): then VOID-refund
-      // so no shot can hang forever.
-      if (now - s.exp < STALE_VOID_MS) { still.push(s); continue; }
+    // THE EXIT PRICE IS NOT "THE PRICE NOW".
+    // It is the first oracle sample we recorded at or after this shot's
+    // expiry — the same first-crossing rule the on-chain program enforces.
+    // That is what stops an expired shot being a free option: it no longer
+    // matters who triggers the settle, or when.
+    const at = await priceAt(s.exp, now);
+    if (at.wait) { still.push(s); continue; }   // sample not in yet; look again later
+    const px  = at.row ? at.row[s.feed] : undefined;
+    const px2 = s.kind === 'race' ? (at.row ? at.row[s.feed2] : undefined) : 1;
+    if (at.expired || !Number.isFinite(px) || !Number.isFinite(px2)) {
+      // The grace window closed with no usable sample, or the feed was gone
+      // when it closed. Refund rather than invent a number.
       changed = true;
       refund(p, s); s.res = 'void'; s.settledAt = now; s.exitPx = null;
-      await reverseStake(s.stake);
-      await append({ k:'settle', w: p.w, id: s.id, res: 'void', reason: 'feed-gone' });
+      await reverseStake(s.stake, p.w);
+      await append({ k:'settle', w: p.w, id: s.id, res: 'void',
+        reason: at.expired ? 'no-oracle-sample-in-window' : 'feed-gone' });
       await pushHist(p.w, { id: s.id, t: now, label: s.label, side: s.side, res: 'void', xp: 0, stake: s.stake, entry: s.entry, exit: null });
       p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
       continue;
     }
     changed = true;
     let outcome;
-    if (s.kind === 'thr') outcome = px > s.thresh ? 'YES' : 'NO';
-    else if (s.kind === 'thrDown') outcome = px < s.thresh ? 'YES' : 'NO';
-    else if (s.kind === 'range') outcome = Math.abs((px - s.entry) / s.entry) >= s.pct ? 'YES' : 'NO';
+    // A non-event must not pay a side. thr/thrDown/range used to resolve NO
+    // on an exact standstill, handing the discounted-XP side a full 1.7x for
+    // a market that did nothing. They now void on a tie like dir and race do.
+    if (s.kind === 'thr') outcome = Math.abs(px - s.thresh) / s.thresh < EPS ? 'VOID' : (px > s.thresh ? 'YES' : 'NO');
+    else if (s.kind === 'thrDown') outcome = Math.abs(px - s.thresh) / s.thresh < EPS ? 'VOID' : (px < s.thresh ? 'YES' : 'NO');
+    else if (s.kind === 'range') {
+      const d = Math.abs((px - s.entry) / s.entry);
+      outcome = Math.abs(d - s.pct) < EPS ? 'VOID' : (d >= s.pct ? 'YES' : 'NO');
+    }
     else if (s.kind === 'race') {
       const a = (px - s.entry) / s.entry, b2 = (px2 - s.entry2) / s.entry2;
       if (Math.abs(a - b2) < EPS) outcome = 'VOID';
@@ -620,11 +762,11 @@ async function settle(p, prices) {
     }
     if (outcome === 'VOID') {
       refund(p, s); s.res = 'void';
-      await reverseStake(s.stake);           // a refunded stake feeds nothing
+      await reverseStake(s.stake, p.w);           // a refunded stake feeds nothing
     }
     else if (outcome === s.side) {
       p.shots++; s.res = 'hit'; p.hits++; p.streak++; p.best = Math.max(p.best, p.streak);
-      p.xp += s.xp; await bumpLadder(p.w, s.xp);
+      p.xp += s.xp; await bumpLadder(p.w, s.xp, p.qualified);
       s.back = Math.floor(s.stake * HIT_PAYOUT);      // being right pays
       p.cr += s.back;
       if (!isDemo(p.w)) await bumpFeed({ w: shortW(p.w),
@@ -633,8 +775,8 @@ async function settle(p, prices) {
       p.shots++; s.res = 'miss'; p.streak = 0;
       if (!isDemo(p.w)) await bumpFeed({ w: shortW(p.w), a: 'MISS - streak reset', c: 'miss' });
     }
-    s.settledAt = now; s.exitPx = px;
-    await append({ k:'settle', w: p.w, id: s.id, res: s.res, exitPx: px,
+    s.settledAt = now; s.exitPx = px; s.exitAt = at.row.t;
+    await append({ k:'settle', w: p.w, id: s.id, res: s.res, exitPx: px, exitAt: at.row.t,
       side: s.side, salt: s.salt, commit: s.commit });   // the reveal: sha256(side|salt) must equal the seal's commit
     await pushHist(p.w, { id: s.id, t: now, label: s.label, side: s.side, res: s.res,
       xp: s.res === 'hit' ? s.xp : 0, back: s.back || 0, stake: s.stake, entry: s.entry, exit: px });
@@ -647,29 +789,53 @@ async function settle(p, prices) {
 // Take the stake AFTER all validation has passed. 70% burn, 30% pots
 // (split half daily / half weekly). The floor is monotone by
 // construction: it only ever ratchets to a new maximum.
+// ENTRY FRESHNESS.
+// The sponsored feeds print on a 60s heartbeat or a 0.5% move, so in a quiet
+// market the price we hold can lag the real market by most of a heartbeat.
+// Settlement is immune to that now (it reads the recorded sample), but SEALING
+// was not: a player watching a live feed could open a position against a stale
+// print and start ahead. On a five-minute chamber, a 55-second-old entry is a
+// fifth of the window.
+//
+// The bound is proportionate to the window, because that is where the harm
+// scales — 55 seconds means nothing to a 24-hour call. We refuse the seal
+// rather than invent a fresher price; the next print is never far away.
+//
+// Note this is deliberately stricter than the 120s we accept for DISPLAYING a
+// price. Showing a slightly old number is honest (the age is printed next to
+// it). Letting someone open a position against it is not.
+const maxSealAge = mins => Math.min(60, Math.max(30, Math.round(0.15 * mins * 60)));
+
 async function takeStake(p, stake) {
   if (badStake(stake)) return `stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}`;
   if (p.cr < stake) return `not enough credits — you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`;
   p.cr -= stake; p._src = 'cr';
-  const st = await loadStats();
-  st.burned += stake * SPLIT.burn;
-  st.potD  += stake * SPLIT.pot * POT_DAY_SHARE;
-  st.pot   += stake * SPLIT.pot * (1 - POT_DAY_SHARE);
-  st.shots++;
-  st.floor = Math.max(st.floor || FLOOR_BASE, FLOOR_BASE + st.burned * 1e-9);
-  await setJSON('g:stats', st);
+  // A guest identity is free and unlimited, so guest stakes must not touch
+  // any published total. They already never reach a ladder, the feed or the
+  // podium; the pots and the burn counter were the hole. The guest still
+  // pays the credits and plays the identical game.
+  if (isDemo(p.w)) return null;
+  await seedStats();
+  await bumpStats({
+    burned: stake * SPLIT.burn,
+    potD:   stake * SPLIT.pot * POT_DAY_SHARE,
+    pot:    stake * SPLIT.pot * (1 - POT_DAY_SHARE),
+    shots:  1,
+  });
   return null;
 }
 
 // A VOIDed shot gives the stake back — so its contribution to the burn
 // and pot counters is reversed too (clamped at zero; the shots-fired
 // count and the floor's high-water mark stay, both deliberately).
-async function reverseStake(stake) {
-  const st = await loadStats();
-  st.burned = Math.max(0, st.burned - stake * SPLIT.burn);
-  st.potD   = Math.max(0, st.potD   - stake * SPLIT.pot * POT_DAY_SHARE);
-  st.pot    = Math.max(0, st.pot    - stake * SPLIT.pot * (1 - POT_DAY_SHARE));
-  await setJSON('g:stats', st);
+async function reverseStake(stake, w) {
+  if (w && isDemo(w)) return;          // never took it; never give it back
+  await seedStats();
+  await bumpStats({
+    burned: -stake * SPLIT.burn,
+    potD:   -stake * SPLIT.pot * POT_DAY_SHARE,
+    pot:    -stake * SPLIT.pot * (1 - POT_DAY_SHARE),
+  });
 }
 
 module.exports = async (req, res) => {
@@ -680,6 +846,10 @@ module.exports = async (req, res) => {
 
     const action = (req.method === 'GET' ? req.query.action : (req.body||{}).action) || 'state';
     const prices = await getPrices();
+    // Record what the oracle says, before anything settles on it. Throttled
+    // to one write per instance per minute; a failed sample never fails the
+    // request. This record is what makes settlement deterministic.
+    samplePx(prices).catch(() => {});
 
     if (action === 'blockhash') {
       const r = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
@@ -707,13 +877,31 @@ module.exports = async (req, res) => {
         // SEALED means sealed: state?wallet= is an open spectator view, so
         // open shots are served WITHOUT side/salt (commit only). The owner
         // gets the side back in the fire response and keeps it locally.
-        player.open = (p.open || []).map(({ side, salt, ...rest }) => rest);
+        // xp is computed from the side (yesMult vs noMult), so shipping it on
+        // an open shot leaks the very thing the commit is meant to hide. The
+        // owner already got it in the fire response.
+        player.open = (p.open || []).map(({ side, salt, xp, ...rest }) => rest);
         delete player._existed; delete player._src;
         player.history = ((await getJSON(`hist:${w}`)) || []).slice(0, 60);
+        player.qualified = !!p.qualified;
         // CHAMPION CONSOLE data: seat share, 7d earnings, live balance
         // (cached 60s), and the exact amount sellable without losing the
         // seat — so champions can exit smart instead of dumping blind.
+        let changed2 = false;
         const seat = (podNow.list || []).find(x => x.w === w);
+        // An unverified wallet is checked too: simply HOLDING RCX qualifies
+        // you, so a player who bought on pump.fun enters the ladders without
+        // having to burn anything. Cached 60s, and once you qualify we never
+        // look again.
+        if (!p.qualified && MINT && !isDemo(w) && !seat && !p.stakeOn) {
+          let qb = await getJSON(`champbal:${w}`);
+          if (!qb || Date.now() - qb.t > 60_000) {
+            const acc = await findAta(w);
+            qb = { bal: acc ? acc.bal : 0, t: Date.now() };
+            await setJSON(`champbal:${w}`, qb);
+          }
+          if (qb.bal > 0) { p.qualified = true; changed2 = true; }
+        }
         if ((seat || p.stakeOn) && MINT && !isDemo(w)) {
           let cb = await getJSON(`champbal:${w}`);
           if (!cb || Date.now() - cb.t > 60_000) {
@@ -721,6 +909,7 @@ module.exports = async (req, res) => {
             cb = { bal: acc ? acc.bal : 0, t: Date.now() };
             await setJSON(`champbal:${w}`, cb);
           }
+          if (cb.bal > 0 && !p.qualified) { p.qualified = true; changed2 = true; }
           if (seat) {
             const earned7 = champWindowSum(p.champ7, Date.now(), CHAMP.holdDays);
             player.champion = { pct: seat.pct, earned7: Math.floor(earned7), bal: Math.floor(cb.bal),
@@ -732,9 +921,7 @@ module.exports = async (req, res) => {
             p.stakeDay = today();
             if (y > 0) {
               p.cr += y; p.stakeEarned = (p.stakeEarned || 0) + y;
-              const st0 = await loadStats();
-              st0.stakePaid = (st0.stakePaid || 0) + y;
-              await setJSON('g:stats', st0);
+              await bumpStats({ stakePaid: y });
               await append({ k: 'stakeyield', w, bal: Math.floor(cb.bal), y });
             }
             await savePlayer(p);
@@ -743,13 +930,12 @@ module.exports = async (req, res) => {
             perDay: stakeYield(cb.bal), earned: p.stakeEarned || 0,
             rate: STAKE.rate, minBal: STAKE.minBal, capBal: STAKE.capBal };
         }
+        if (changed2) { player.qualified = true; await savePlayer(p); }
       }
       const st = await loadStats();
-      const lb = (await getJSON(`lb:${seasonKey()}`)) || {};
-      const ladder = Object.entries(lb).filter(([wl]) => !isDemo(wl)).sort((a,b)=>b[1]-a[1]).slice(0,20)
-        .map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
-      const lbd = (await getJSON(`lbd:${today()}`)) || {};
-      const dayRanked = Object.entries(lbd).filter(([wl]) => !isDemo(wl)).sort((a,b)=>b[1]-a[1]);
+      const lbRows = await ladderTop('lb:', seasonKey());
+      const ladder = lbRows.slice(0,20).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
+      const dayRanked = await ladderTop('lbd:', today());
       const ladderDay = dayRanked.slice(0,10).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
       // YOUR LIVE POSITION: where you stand today, what today would pay you if it
       // ended right now, and what it would take to move up. The ladder is only
@@ -811,6 +997,13 @@ module.exports = async (req, res) => {
         const t = board[b.target];
         if (!t || (b.side!=='YES' && b.side!=='NO')) { await savePlayer(p); return res.status(400).json({ ok:false, reason:'that question left the board - pick from the current mix' }); }
         if (!Number.isFinite(prices[t.feed]) || (t.feed2 && !Number.isFinite(prices[t.feed2]))) { await savePlayer(p); return res.status(409).json({ ok:false, reason:'that feed is offline right now - try another target' }); }
+        // refuse to seal against a print that is stale relative to the window
+        const ages = prices.ages || {};
+        const lim = maxSealAge(t.mins);
+        const stale = [t.feed, t.feed2].filter(Boolean)
+          .map(f => ({ f, a: ages[f] })).filter(x => Number.isFinite(x.a) && x.a > lim);
+        if (stale.length) { await savePlayer(p); return res.status(409).json({ ok:false,
+          reason: `the oracle's last ${stale[0].f} print is ${stale[0].a}s old and this window needs one under ${lim}s — the feed updates on a 60s heartbeat or a 0.5% move, so try again in a moment` }); }
         spec = t;
       } else if (b.side!=='with' && b.side!=='against') { await savePlayer(p); return res.status(400).json({ ok:false, reason:'bad side' }); }
 
@@ -825,7 +1018,8 @@ module.exports = async (req, res) => {
                                         : (t.noMult != null ? t.noMult : 1);
         shot = { id: Math.random().toString(36).slice(2,10),
           kind, feed:t.feed, side:b.side,
-          entry: prices[t.feed], exp: Date.now()+t.mins*60e3, stake,
+          entry: prices[t.feed], entryAge: (prices.ages || {})[t.feed],
+          exp: Date.now()+t.mins*60e3, stake,
           xp: Math.max(1, Math.round(t.baseXp * stakeMult(stake) * xpMult)), label: t.label };
         if (kind === 'thr') shot.thresh = prices[t.feed] * (1 + t.pct);
         if (kind === 'thrDown') shot.thresh = prices[t.feed] * (1 - t.pct);
@@ -849,6 +1043,107 @@ module.exports = async (req, res) => {
       return res.json({ ok:true, shot, cr: p.cr });
     }
 
+    // ============================================================
+    //  THE ARENA — open the game to other people's agents.
+    //
+    //  Deliberately NOT a new surface. An agent registers, then fires
+    //  through the exact same signed endpoints a human uses, settles on the
+    //  exact same oracle, under the exact same sealing rules. There is no
+    //  agent fast-path to exploit because there is no agent path at all —
+    //  only a label and a separate board.
+    //
+    //  Registration requires a QUALIFIED wallet, which means the operator
+    //  has touched RCX. That is the whole anti-spam design: an arena of free
+    //  identities would be a leaderboard of noise, and accuracy rankings are
+    //  only worth reading if entering costs something.
+    //
+    //  What makes this worth building is not the API. It is that a public,
+    //  oracle-settled, tamper-evident accuracy record for a trading agent
+    //  does not really exist anywhere — and anyone writing a bot wants a
+    //  neutral place to prove it works.
+    // ============================================================
+    if (action === 'agent-register') {
+      const b = req.body || {};
+      const w = b.auth && b.auth.wallet;
+      if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'an agent needs a real wallet — guests cannot enter the arena' });
+      const v = verifyAuth(b.auth);
+      if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
+      const name = String(b.name || '').trim().toUpperCase();
+      if (!/^[A-Z0-9][A-Z0-9 _-]{1,22}$/.test(name))
+        return res.status(400).json({ ok:false, reason:'name must be 2-23 characters: letters, digits, space, hyphen or underscore' });
+      const blurb = String(b.blurb || '').trim().slice(0, 120);
+      const p = await loadPlayer(w);
+      if (!p.qualified) return res.status(403).json({ ok:false,
+        reason:'this wallet has not touched RCX yet. Hold or burn some first — an arena anyone can enter for free is a leaderboard of noise' });
+      // names are first-come, and a name cannot be stolen from a live agent
+      const taken = await getJSON(`agentname:${name}`);
+      if (taken && taken.w !== w) return res.status(409).json({ ok:false, reason:'that name is taken' });
+      if (!taken) await setJSON(`agentname:${name}`, { w, t: Date.now() });
+      const first = !p.agent;
+      p.agent = { name, blurb, since: (p.agent && p.agent.since) || Date.now() };
+      await savePlayer(p);
+      const reg = (await getJSON('g:arena')) || [];
+      if (!reg.includes(w)) { reg.push(w); await setJSON('g:arena', reg.slice(0, 500)); }
+      if (first) {
+        await append({ k:'agentjoin', w, name });
+        await bumpFeed({ w: name, a: 'entered THE ARENA', c: 'seal' });
+      }
+      return res.json({ ok:true, agent: p.agent, qualified: true,
+        howToPlay: '/api/game?action=board  then  POST {action:"shot", auth, target, side, stake}' });
+    }
+
+    // A machine-readable board: everything an agent needs to make a call,
+    // and nothing it would have to scrape out of the page.
+    if (action === 'board') {
+      const hour = boardHour();
+      const board = targetBoard(hour);
+      return res.json({ ok:true, v: VERSION, hour,
+        flipsAt: (hour + 1) * 3600e3,
+        prices: { src: prices.src, ages: prices.ages || null,
+          ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x))) },
+        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT },
+        sealRule: 'entry price must be fresher than min(60, max(30, 0.15 * windowSeconds)) seconds',
+        settleRule: 'first recorded oracle sample at or after expiry; no sample within 15 minutes voids and refunds',
+        targets: Object.entries(board).map(([id, t]) => ({
+          id, kind: t.kind || 'dir', feed: t.feed, feed2: t.feed2 || null,
+          mins: t.mins, pct: t.pct || null, baseXp: t.baseXp,
+          yesMult: t.yesMult != null ? t.yesMult : 1,
+          noMult: t.noMult != null ? t.noMult : 1,
+          label: t.label,
+        })) });
+    }
+
+    // The arena board itself: every registered agent, scored the same way
+    // the Warden is — hits AND Brier, because an oracle that only shows you
+    // its wins is a horoscope with a UI.
+    if (action === 'arena') {
+      const reg = (await getJSON('g:arena')) || [];
+      const rows = [];
+      for (const aw of reg.slice(0, 200)) {
+        const ap = await getJSON(`u:${aw}`);
+        if (!ap || !ap.agent) continue;
+        const hist = (await getJSON(`hist:${aw}`)) || [];
+        const scored = hist.filter(h => h.res === 'hit' || h.res === 'miss');
+        const n = scored.length;
+        const hits = scored.filter(h => h.res === 'hit').length;
+        // Brier over a flat 50% prior: an agent that never states a
+        // confidence is scored on outcomes alone, which is the honest
+        // floor until the API carries a probability.
+        const brier = n ? scored.reduce((a, h) => a + Math.pow(0.5 - (h.res === 'hit' ? 1 : 0), 2), 0) / n : null;
+        rows.push({ name: ap.agent.name, blurb: ap.agent.blurb || '',
+          since: ap.agent.since, w: shortW(aw), n, hits,
+          acc: n ? +(hits / n * 100).toFixed(1) : null,
+          brier: brier == null ? null : +brier.toFixed(4),
+          xp: ap.xp || 0, streak: ap.streak || 0,
+          listed: n >= ARENA_MIN_CALLS });
+      }
+      rows.sort((a, b) => (b.listed - a.listed) || ((b.acc || 0) - (a.acc || 0)) || (b.n - a.n));
+      return res.json({ ok:true, v: VERSION, minCalls: ARENA_MIN_CALLS,
+        note: `an agent is ranked after ${ARENA_MIN_CALLS} settled calls — before that its record is published but unranked, because a 3-for-3 streak is not evidence`,
+        house: await agentsTick(prices),
+        agents: rows });
+    }
+
     if (action === 'stake') {
       if (!MINT) return res.status(400).json({ ok:false, reason:'token not launched yet' });
       const b = req.body || {};
@@ -858,13 +1153,17 @@ module.exports = async (req, res) => {
       if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
       const p = await loadPlayer(w);
       const turnOn = b.on !== false;
+      const was = !!p.stakeOn;
       p.stakeOn = turnOn;
       if (turnOn && !p.stakeDay) p.stakeDay = today();   // first yield lands TOMORROW — no same-day flash-hold
       await savePlayer(p);
-      const st = await loadStats();
-      st.stakers = Math.max(0, (st.stakers || 0) + (turnOn ? 1 : -1));
-      await setJSON('g:stats', st);
-      await append({ k: 'stake', w, on: turnOn });
+      // Only a real transition moves the counter. Re-sending the same value
+      // used to increment it every time, so one wallet could report itself as
+      // five hundred "wallets meshed" — and flood the feed and the log doing it.
+      if (was !== turnOn) {
+        await bumpStats({ stakers: turnOn ? 1 : -1 });
+        await append({ k: 'stake', w, on: turnOn });
+      }
       if (turnOn) await bumpFeed({ w: shortW(w), a: 'joined the STAKERS · holding pays daily', c: 'seal' });
       return res.json({ ok: true, on: turnOn });
     }
@@ -891,23 +1190,30 @@ module.exports = async (req, res) => {
         return res.status(409).json({ ok:false, reason:'that burn was already credited' });
       const p = await loadPlayer(w);
       const credit = Math.floor(d.amount * CREDIT_PER_TOKEN);
-      p.cr += credit; p.burned += (d.burned != null ? d.burned : d.amount);
+      // deposit atomically first: from here the credit cannot be lost, even if
+      // this request dies before it saves
+      await incrFloat(`pend:${w}`, credit);
+      // claim whatever is banked — which may be more than we just put in, if a
+      // pot payout landed in the meantime. Add exactly what we took.
+      const got = await takeNum(`pend:${w}`);
+      p.cr += got; p._drained = (p._drained || 0) + got;
+      p.burned += (d.burned != null ? d.burned : d.amount);
+      p.qualified = true;         // you burned RCX: you are in the ladders
       await savePlayer(p);
-      const st = await loadStats();
-      st.realBurned = (st.realBurned || 0) + (d.burned != null ? d.burned : d.amount);
-      if (d.champPaid) st.champPaid = (st.champPaid || 0) + d.champPaid;
+      await bumpStats({
+        realBurned: (d.burned != null ? d.burned : d.amount),
+        champPaid: d.champPaid || 0,
+      });
       // record each champion's take in their 7-day holder window
       if (d.champLegs && d.champLegs.length) {
         for (const leg of d.champLegs) {
-          const cp = await loadPlayer(leg.w);
-          cp.champ7 = cp.champ7 || {};
-          cp.champ7[today()] = (cp.champ7[today()] || 0) + leg.amt;
-          for (const k of Object.keys(cp.champ7))
-            if (Date.now() - new Date(k + 'T00:00:00Z').getTime() > (CHAMP.holdDays + 1) * 86400e3) delete cp.champ7[k];
-          await savePlayer(cp);
+          // Deposit into the champion's queue instead of loading, mutating and
+          // saving THEIR record from inside someone else's request. That
+          // read-modify-write could roll back a shot they were firing at the
+          // same moment, or drop the credit entirely.
+          await incrFloat(`c7:${leg.w}`, leg.amt);
         }
       }
-      await setJSON('g:stats', st);
       await append({ k:'reload', w, sig, amount: d.amount, burned: d.burned, champs: d.champPaid || 0 });
       await bumpFeed({ w: shortW(w), a: `BURNED ${(d.burned != null ? d.burned : d.amount).toLocaleString()} RCX${d.champPaid ? ` · +${d.champPaid.toLocaleString()} RCX to the podium` : ''} · reloaded`, c: 'seal', sig });
       return res.json({ ok:true, credited: credit, cr: p.cr });
@@ -937,7 +1243,7 @@ module.exports = async (req, res) => {
       const paidXp = await setnxJSON(`anch:${w}`, { t: Date.now() }, 86400) ? 25 : 0;
       if (paidXp) {
         const p = await loadPlayer(w);
-        p.xp += paidXp; await bumpLadder(w, paidXp);
+        p.xp += paidXp; await bumpLadder(w, paidXp, p.qualified);
         await savePlayer(p);
       }
       await append({ k:'anchor', w, i: d.i, sig, xp: paidXp });

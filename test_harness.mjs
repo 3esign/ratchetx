@@ -4,6 +4,7 @@
 // hit/miss/void, demo-ladder exclusion, real-wallet ladder, stake
 // source refunds, daily+weekly rollover with lock release, stale-feed
 // auto-void, warden seal+settle+record, rate limiter, atomic sig gate.
+import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
@@ -38,6 +39,19 @@ let fails = 0;
 const ok = (cond, name) => { console.log((cond ? 'PASS' : 'FAIL') + '  ' + name); if (!cond) fails++; };
 const getMem = k => (mem.has(k) ? JSON.parse(mem.get(k)) : null);
 const setMem = (k, v) => mem.set(k, JSON.stringify(v));
+// Ladders are Redis sorted sets now (ZINCRBY is atomic). In memory mode the
+// backend keeps them as a Map under a 'Z' prefix.
+// section 10 tests the rate limiter deliberately; after that it is spent, and
+// the remaining tests are not about it
+const resetRL = () => { const rl = globalThis.__ratchet_rl; if (rl && rl.clear) rl.clear(); };
+
+// Global totals are a Redis hash now (HINCRBYFLOAT is atomic per field). In
+// memory mode the backend keeps it as a Map under an 'H' prefix.
+const hMem = () => mem.get('H' + 'h:stats') || new Map();
+const stats = () => Object.fromEntries(hMem());
+const FLOOR_MIN_OK = 0;
+const setStat = (f, v) => { if (!mem.has('H' + 'h:stats')) mem.set('H' + 'h:stats', new Map()); mem.get('H' + 'h:stats').set(f, v); };
+const zScore = (pfx, period, w) => { const m = mem.get('Z' + `z:${pfx}${period}`); return m ? (m.get(w) || 0) : 0; };
 
 // 1 ---- bare state
 let r = await call('GET', { query: { action: 'state' } });
@@ -47,6 +61,28 @@ ok(r.body.targets.PUMP30 && r.body.targets.PUMP30.feed === 'PUMP', 'the house to
 ok(!('RCX15' in r.body.targets) && !('RCX_THR' in r.body.targets), 'no RCX-priced targets');
 ok(r.body.stats.potD === 0, 'daily pot initialised');
 ok(getMem('g:warden:open')?.length === 1, 'warden line sealed once');
+
+// Settlement now reads the recorded price log, not "the price right now".
+// A shot can only settle once a sample exists AT OR AFTER its expiry, so a
+// force-settle in a test has to let the sampler fire again first. Clearing
+// the per-instance gate is exactly what the passage of a minute does.
+const tickPx = () => { const g = globalThis.__ratchet_pxgate; if (g) g.t = 0; };
+
+// A REAL signing wallet. The guest-vs-real pot guard can only be tested from
+// both sides, and the real side needs a signature the server actually accepts.
+const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+function b58encode(buf) {
+  let n = 0n; for (const b of buf) n = n * 256n + BigInt(b);
+  let out = ''; while (n > 0n) { out = B58[Number(n % 58n)] + out; n /= 58n; }
+  for (const b of buf) { if (b === 0) out = '1' + out; else break; }
+  return out;
+}
+const { publicKey: _pk, privateKey: _sk } = crypto.generateKeyPairSync('ed25519');
+const SIGNER = b58encode(_pk.export({ format: 'der', type: 'spki' }).subarray(12));
+const authFor = (w = SIGNER) => {
+  const ts = Date.now();
+  return { wallet: w, ts, sig: crypto.sign(null, Buffer.from(`RATCHET | ${w} | ${ts}`, 'utf8'), _sk).toString('base64') };
+};
 
 // 2 ---- state?wallet=garbage must not mint records
 r = await call('GET', { query: { action: 'state', wallet: '<script>alert(1)</script>' } });
@@ -61,14 +97,16 @@ ok(r.body.player && r.body.player.cr === 5000 && !r.body.player.bal, 'fresh wall
 // 3 ---- demo fires a shot; ladder must stay empty; feed must stay empty
 r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-abc123' }, target: 'SOL5', side: 'YES', stake: 500 } });
 ok(r.body.ok && r.body.shot.src === 'cr', 'demo shot sealed from the one credit balance');
-let st = getMem('g:stats');
-ok(Math.abs(st.burned - 350) < 1e-9 && Math.abs(st.potD - 75) < 1e-9 && Math.abs(st.pot - 75) < 1e-9, 'stake split 70/15/15');
+let st = stats();
+// A guest identity is free and unlimited. If a guest stake moved the pot, the
+// pot — which pays real wallets in credits — would be free to inflate.
+ok(!st.burned && !st.potD && !st.pot && !st.shots, 'demo stake feeds NO pot, NO burn counter');
 ok((getMem('g:feed') || []).length === 0, 'demo seal absent from public feed');
 
 // force-settle the demo shot as a HIT
 const crAtSeal = getMem('u:demo-abc123').cr;
 let p = getMem('u:demo-abc123');
-p.open[0].exp = Date.now() - 1000; p.open[0].entry = 90; setMem('u:demo-abc123', p);
+p.open[0].exp = Date.now() - 1000; p.open[0].entry = 90; setMem('u:demo-abc123', p); tickPx();
 r = await call('GET', { query: { action: 'state', wallet: 'demo-abc123' } });
 // 22, not 20: the stake curve is now continuous sqrt(stake/100), so the 500 preset
 // pays x2.24 instead of the old flat x2. Disclosed in the changelog.
@@ -80,24 +118,34 @@ const seasonLb = Object.entries(mem).filter(([k]) => k.startsWith('lb'));
 ok(!getMem(`lb:${r.body.season}`) && !getMem(`lbd:${r.body.day}`), 'demo XP reached NO ladder');
 ok((getMem('g:feed') || []).length === 0, 'demo hit absent from public feed');
 
+// 3b ---- the same stake from a REAL, signed wallet MUST move the counters.
+// Without this the guest test above could pass simply by the pot being broken.
+r = await call('POST', { body: { action: 'shot', auth: authFor(), target: 'SOL5', side: 'YES', stake: 500 } });
+ok(r.body.ok, 'signed real wallet accepted');
+const stR = stats();
+ok(stR && Math.abs(stR.burned - 350) < 1e-9 && Math.abs(stR.potD - 75) < 1e-9 && Math.abs(stR.pot - 75) < 1e-9,
+   'real stake splits 70/15/15 into burn + pots');
+ok(!(await call('POST', { body: { action: 'shot', auth: { ...authFor(), sig: 'AAAA' }, target: 'SOL5', side: 'YES', stake: 500 } })).body.ok,
+   'forged signature rejected');
+
 // 4 ---- real wallet (auth stub: monkey-patch verify via demo prefix not possible; write record directly)
 // Simulate a real wallet's settled hit by direct KV surgery + settle path:
 const RW = 'So11111111111111111111111111111111111111112';
-setMem(`u:${RW}`, { w: RW, xp: 0, streak: 0, best: 0, hits: 0, shots: 0, bal: 5000, cr: 100,
+setMem(`u:${RW}`, { w: RW, xp: 0, streak: 0, best: 0, hits: 0, shots: 0, bal: 5000, cr: 100, qualified: true,
   day: new Date().toISOString().slice(0, 10),
   open: [{ id: 'x1', kind: 'dir', feed: 'SOL', side: 'YES', entry: 90, exp: Date.now() - 1000, stake: 100, xp: 10, label: 't', src: 'cr' }],
   closed: [] });
 r = await call('GET', { query: { action: 'state', wallet: RW } });
 ok(r.body.player.hits === 1, 'real wallet hit settled');
-ok((getMem(`lb:${r.body.season}`) || {})[RW] === 10 && (getMem(`lbd:${r.body.day}`) || {})[RW] === 10, 'real XP on daily AND weekly boards');
+ok(zScore('lb:', r.body.season, RW) === 10 && zScore('lbd:', r.body.day, RW) === 10, 'real XP on daily AND weekly boards');
 ok((getMem('g:feed') || []).some(f => f.a.includes('HIT')), 'real hit visible in feed');
 
 // 5 ---- VOID refunds to source and reverses pot/burn
 setMem(`u:${RW}`, { ...getMem(`u:${RW}`), open: [{ id: 'x2', kind: 'dir', feed: 'SOL', side: 'YES', entry: 100.000001, exp: Date.now() - 1000, stake: 100, xp: 10, label: 't', src: 'cr' }] });
-const crBefore = getMem(`u:${RW}`).cr; st = getMem('g:stats');
+const crBefore = getMem(`u:${RW}`).cr; st = stats();
 const bBefore = st.burned, dBefore = st.potD, wBefore = st.pot;
 r = await call('GET', { query: { action: 'state', wallet: RW } });
-let pr = getMem(`u:${RW}`); st = getMem('g:stats');
+let pr = getMem(`u:${RW}`); st = stats();
 ok(pr.cr === crBefore + 100, 'VOID refunded to credits (the source)');
 ok(Math.abs(bBefore - st.burned - 70) < 1e-9 && Math.abs(dBefore - st.potD - 15) < 1e-9 && Math.abs(wBefore - st.pot - 15) < 1e-9, 'VOID reversed burn+pots');
 ok(pr.shots === 1, 'VOID not counted in accuracy denominator');
@@ -112,10 +160,15 @@ ok(pr.open.length === 0 && pr.cr === crBefore2 + 100 && pr.closed[0].res === 'vo
 // 7 ---- daily + weekly rollover pays only real wallets, releases lock, rolls remainder
 setMem('g:day', '2020-01-01');                       // force a day boundary
 setMem('lbd:2020-01-01', { [RW]: 50, 'demo-zzz': 900 });
-st = getMem('g:stats'); st.potD = 1000; setMem('g:stats', st);
+setStat('potD', 1000); st = stats();
 const crB4 = getMem(`u:${RW}`).cr;
 r = await call('GET', { query: { action: 'state' } });
-pr = getMem(`u:${RW}`); st = getMem('g:stats');
+// The pot deposits into an atomic queue rather than writing the winner's
+// record from inside someone else's request. It lands on their next load —
+// which is also what makes it impossible for a concurrent save to erase it.
+ok(Number(mem.get(`pend:${RW}`)) === 500, 'daily pot BANKED for #1, not written into their record');
+await call('GET', { query: { action: 'state', wallet: RW } });
+pr = getMem(`u:${RW}`); st = stats();
 ok(pr.cr === crB4 + 500, 'daily pot paid #1 (50%) to the real wallet');
 ok(!getMem('u:demo-zzz'), 'demo wallet excluded from payout');
 ok(st.potD === 500, 'unpaid daily shares rolled over');
@@ -129,16 +182,18 @@ ok(getMem('g:dayResults')?.winners?.length === 1, 'day results recorded');
 
 setMem('g:season', 's1999w1');                       // force a season boundary
 setMem('lb:s1999w1', { [RW]: 50 });
-st = getMem('g:stats'); st.pot = 1000; setMem('g:stats', st);
+setStat('pot', 1000); st = stats();
 const crB5 = getMem(`u:${RW}`).cr;
 r = await call('GET', { query: { action: 'state' } });
+await call('GET', { query: { action: 'state', wallet: RW } });
 pr = getMem(`u:${RW}`);
 ok(pr.cr === crB5 + 400, 'weekly pot paid #1 (40%)');
-ok(getMem('g:stats').pot === 600, 'weekly remainder rolled');
+ok(stats().pot === 600, 'weekly remainder rolled');
 
 // 8 ---- warden settles into a public record
 const wopen = getMem('g:warden:open');
 wopen[0].exp = Date.now() - 1000; wopen[0].thresh = 1;   // SOL(100) > 1 => outcome YES
+tickPx();
 setMem('g:warden:open', wopen);
 r = await call('GET', { query: { action: 'state' } });
 ok(r.body.wardenRec.n === 1 && typeof r.body.wardenRec.brier === 'number', 'warden call settled into record');
@@ -146,10 +201,10 @@ ok((getMem('g:warden:hist') || []).length === 1, 'warden history recorded');
 
 // 9 ---- feed-offline shot refused BEFORE stake is taken
 delete PX.SOL;
-st = getMem('g:stats'); const shotsB4 = st.shots;
+st = stats(); const shotsB4 = st.shots;
 r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-abc123' }, target: 'SOL5', side: 'YES', stake: 100 } });
 ok(!r.body.ok && r.status === 409, 'offline feed refused');
-ok(getMem('g:stats').shots === shotsB4, 'no stats mutation on refusal');
+ok(stats().shots === shotsB4, 'no stats mutation on refusal');
 PX.SOL = 100;
 
 // 10 ---- rate limiter
@@ -269,7 +324,7 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   ok(openShot && !('side' in openShot) && !('salt' in openShot) && openShot.commit, 'seal: spectator state strips side + salt, keeps commit');
   // force-settle: reveal lands in the log and verifies against the commit
   const pd = getMem('u:demo-sealed');
-  pd.open[0].exp = Date.now() - 1000; pd.open[0].entry = 90; setMem('u:demo-sealed', pd);
+  pd.open[0].exp = Date.now() - 1000; pd.open[0].entry = 90; setMem('u:demo-sealed', pd); tickPx();
   await call('GET', { query: { action: 'state', wallet: 'demo-sealed' }, ip: '4.4.4.3' });
   const chunk2 = getMem('g:log:c:0') || [];
   const settleEv = [...chunk2].reverse().find(e => e.ev.k === 'settle' && e.ev.id === q.body.shot.id);
@@ -318,16 +373,326 @@ ok(r.body.ok && r.body.checks.some(c => c.id === 'pots'), 'proof answers with po
 ok(r.body.checks.some(c => c.id === 'champs' && /peer-to-peer/.test(c.label)), 'proof carries the champions line');
 ok(r.body.checks.some(c => c.id === 'credits' && /never minted/.test(c.detail)), 'credits line carries no-faucet wording');
 
-console.log(fails ? `\n${fails} FAILURES` : '\nALL PASS');
-process.exit(fails ? 1 : 0);
 
 // 2c ---- CUSTOM STAKES: any whole amount in range, scored on the same sqrt curve
+resetRL();
 r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk1' }, target: 'SOL5', side: 'YES', stake: 1000 } });
 const xp1000 = r.body.ok && r.body.shot.xp;
 r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk2' }, target: 'SOL5', side: 'YES', stake: 100 } });
 const xp100 = r.body.ok && r.body.shot.xp;
 ok(!!xp1000 && !!xp100 && Math.abs(xp1000 / xp100 - Math.sqrt(10)) < 0.12, 'custom stake XP follows sqrt(stake/100)');
+resetRL();
 r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk3' }, target: 'SOL5', side: 'YES', stake: 2501 } });
 ok(!r.body.ok && /between/.test(r.body.reason || ''), 'stake above the cap refused');
 r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-stk4' }, target: 'SOL5', side: 'YES', stake: 250.5 } });
 ok(!r.body.ok, 'fractional stake refused');
+
+// ============================================================
+//  REGRESSION: the free-option exploit must stay closed.
+//
+//  Before h17, settle() used the price at the MOMENT OF SETTLING. Since
+//  nothing settles a shot except a request naming that wallet, and that
+//  request needs no signature, a player could sit on an expired shot and
+//  fire the settle only once the market had come good. Patience won almost
+//  every shot. These tests fail if that ever comes back.
+// ============================================================
+const { bucketKey: bk, SETTLE_GRACE_MS: GRACE } = require('./lib/pxlog.js');
+const pxGate = globalThis.__ratchet_pxgate;
+
+const EXPW = 'demo-optn1';
+{
+  const now = Date.now(), exp = now - 10 * 60e3;         // expired 10 minutes ago
+  setMem(`u:${EXPW}`, { w: EXPW, xp:0, streak:0, best:0, hits:0, shots:0, cr:5000, granted:true,
+    burned:0, day:new Date().toISOString().slice(0,10), closed:[],
+    open:[{ id:'opt1', kind:'dir', feed:'SOL', side:'YES', entry:100, exp, stake:500, xp:10, label:'t', src:'cr' }] });
+
+  // The oracle went DOWN at expiry and recovered hard afterwards.
+  pxGate.t = now;                                        // stop the sampler adding rows
+  setMem(bk(exp), [
+    { t: exp + 1000, SOL: 90,  BTC:60000, ETH:2000, src:'pyth-onchain' },   // at expiry: a MISS
+    { t: now  - 500, SOL: 500, BTC:60000, ETH:2000, src:'pyth-onchain' },   // now: would be a HIT
+  ]);
+
+  r = await call('GET', { query: { action: 'state', wallet: EXPW } });
+  const st1 = getMem(`u:${EXPW}`);
+  ok(st1.open.length === 0 && st1.closed[0].res === 'miss',
+     'late settle uses the price AT EXPIRY, not the favourable one now');
+  ok(st1.closed[0].exitPx === 90, `exit price pinned to the expiry sample (got ${st1.closed[0].exitPx})`);
+  ok(st1.closed[0].exitAt === exp + 1000, 'the settling sample is recorded, so anyone can recompute it');
+}
+
+// A shot whose grace window closed with no sample must VOID, never guess.
+{
+  const now = Date.now(), exp = now - (GRACE + 5 * 60e3);
+  setMem(`u:demo-optn2`, { w:'demo-optn2', xp:0, streak:0, best:0, hits:0, shots:0, cr:5000, granted:true,
+    burned:0, day:new Date().toISOString().slice(0,10), closed:[],
+    open:[{ id:'opt2', kind:'dir', feed:'SOL', side:'YES', entry:100, exp, stake:500, xp:10, label:'t', src:'cr' }] });
+  pxGate.t = now;
+  setMem(bk(exp), []);                                   // the oracle was never sampled in that window
+  const crB = getMem('u:demo-optn2').cr;
+  r = await call('GET', { query: { action: 'state', wallet: 'demo-optn2' } });
+  const st2 = getMem('u:demo-optn2');
+  ok(st2.closed[0].res === 'void' && st2.cr === crB + 500,
+     'no sample inside the grace window -> VOID and refund, never a guessed price');
+}
+
+// Waiting must not be a strategy: the outcome is identical whenever it settles.
+{
+  const now = Date.now(), exp = now - 60e3;
+  pxGate.t = now;
+  setMem(bk(exp), [{ t: exp + 500, SOL: 90, BTC:60000, ETH:2000, src:'pyth-onchain' },
+                   { t: now - 100, SOL: 900, BTC:60000, ETH:2000, src:'pyth-onchain' }]);
+  const results = [];
+  for (const w of ['demo-w8a', 'demo-w8b']) {
+    setMem(`u:${w}`, { w, xp:0, streak:0, best:0, hits:0, shots:0, cr:5000, granted:true,
+      burned:0, day:new Date().toISOString().slice(0,10), closed:[],
+      open:[{ id:'w8', kind:'dir', feed:'SOL', side:'YES', entry:100, exp, stake:500, xp:10, label:'t', src:'cr' }] });
+    await call('GET', { query: { action: 'state', wallet: w } });
+    results.push(getMem(`u:${w}`).closed[0].exitPx);
+  }
+  ok(results[0] === results[1] && results[0] === 90, 'two settlers, different moments, identical exit price');
+}
+
+// The sealed side must not leak through xp on any spectator path.
+{
+  // this deep into the run the per-instance rate limiter has tripped; it is
+  // not what this test is about
+  resetRL();
+  r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-leak1' }, target: 'SOL5', side: 'NO', stake: 500 } });
+  ok(r.body.ok && typeof r.body.shot.xp === 'number', 'owner still gets xp in the fire response');
+  r = await call('GET', { query: { action: 'state', wallet: 'demo-leak1' } });
+  const o = r.body.player.open[0];
+  ok(o && !('side' in o) && !('salt' in o) && !('xp' in o),
+     'spectator view carries no side, no salt and no xp (xp is computed FROM the side)');
+}
+
+// A market that did nothing must not pay a side.
+{
+  const now = Date.now(), exp = now - 60e3;
+  pxGate.t = now;
+  setMem(bk(exp), [{ t: exp + 500, SOL: 100, BTC:60000, ETH:2000, src:'pyth-onchain' }]);
+  for (const [kind, shot] of [
+    ['thr',     { kind:'thr',     feed:'SOL', thresh:100 }],
+    ['thrDown', { kind:'thrDown', feed:'SOL', thresh:100 }],
+    ['range',   { kind:'range',   feed:'SOL', entry:100, pct:0 }],
+  ]) {
+    const w = 'demo-tie' + kind.toLowerCase().slice(0,3);
+    setMem(`u:${w}`, { w, xp:0, streak:0, best:0, hits:0, shots:0, cr:5000, granted:true,
+      burned:0, day:new Date().toISOString().slice(0,10), closed:[],
+      open:[{ id:'tie', side:'NO', entry:100, exp, stake:500, xp:10, label:'t', src:'cr', ...shot }] });
+    await call('GET', { query: { action: 'state', wallet: w } });
+    const c = getMem(`u:${w}`).closed[0];
+    ok(c.res === 'void', `${kind}: a standstill voids instead of paying the NO side 1.7x`);
+  }
+}
+
+
+// ============================================================
+//  REGRESSION: ladders are atomic, credits survive a lost race.
+// ============================================================
+const kvmod = require('./lib/kv.js');
+
+// Concurrent settles used to lose XP to each other, and one flaky read
+// replaced the whole board with a single row. Neither can happen now.
+{
+  const per = 'testperiod';
+  await Promise.all(Array.from({ length: 40 }, () => kvmod.zincr(`z:lb:${per}`, 25, 'PLAYER_A')));
+  await kvmod.zincr(`z:lb:${per}`, 10, 'PLAYER_B');
+  const rows = await kvmod.ztop(`z:lb:${per}`);
+  ok(rows.length === 2, 'concurrent bumps do not replace the board with one row');
+  ok(rows[0][0] === 'PLAYER_A' && rows[0][1] === 1000, `40 concurrent bumps all landed (${rows[0][1]}/1000)`);
+  ok(rows[1][1] === 10, "the other player's XP survived the burst");
+}
+
+// A legacy JSON ladder must be lifted into the sorted set exactly once.
+{
+  setMem('lbd:2019-05-05', { REALW: 120, 'demo-skipme': 900 });
+  setMem('g:day', '2019-05-05');
+  await call('GET', { query: { action: 'state' } });        // triggers the rollover -> migration
+  const m = mem.get('Z' + 'z:lbd:2019-05-05');
+  ok(m && m.get('REALW') === 120, 'legacy ladder migrated into the sorted set');
+  ok(!m || !m.has('demo-skipme'), 'migration does not carry demo rows onto a paying board');
+}
+
+// THE ONE THAT DESTROYED REAL TOKENS: a credit deposited out-of-band must
+// survive a concurrent stale writer saving over the player record.
+{
+  const W = 'demo-race1';
+  setMem(`u:${W}`, { w: W, xp:0, streak:0, best:0, hits:0, shots:0, cr:1000, granted:true,
+    burned:0, day:new Date().toISOString().slice(0,10), open:[], closed:[] });
+  await kvmod.incrFloat(`pend:${W}`, 100000);              // a reload banks 100k
+  setMem(`u:${W}`, { w: W, xp:0, streak:0, best:0, hits:0, shots:0, cr:1000, granted:true,
+    burned:0, day:new Date().toISOString().slice(0,10), open:[], closed:[] });  // stale writer clobbers
+  resetRL();
+  r = await call('GET', { query: { action: 'state', wallet: W } });
+  ok(getMem(`u:${W}`).cr === 101000, `banked credit survived the clobber (cr=${getMem(`u:${W}`).cr})`);
+  ok((Number(mem.get(`pend:${W}`)) || 0) === 0, 'the queue is drained exactly once, not replayed');
+}
+
+// Champion pay is deposited into the champion's queue, not written into
+// their record from inside the payer's request.
+{
+  const C = 'demo-champ1';
+  setMem(`u:${C}`, { w: C, xp:0, streak:0, best:0, hits:0, shots:0, cr:0, granted:true,
+    burned:0, day:new Date().toISOString().slice(0,10), open:[], closed:[], champ7:{} });
+  await kvmod.incrFloat(`c7:${C}`, 777);
+  resetRL();
+  await call('GET', { query: { action: 'state', wallet: C } });
+  const cp = getMem(`u:${C}`);
+  const total = Object.values(cp.champ7 || {}).reduce((a, b) => a + b, 0);
+  ok(total === 777, `champion pay landed in the holder window (${total})`);
+}
+
+
+// ============================================================
+//  REGRESSION: global totals are atomic, and the floor is monotone for real.
+// ============================================================
+{
+  const kv2 = require('./lib/kv.js');
+  // 60 stakes landing together must all count. As a read-modify-write blob,
+  // overlapping writers collapsed into one and the pot silently under-counted.
+  await Promise.all(Array.from({ length: 60 }, () => kv2.hincr('h:conc', 'potD', 25)));
+  const h = await kv2.hall('h:conc');
+  ok(h.potD === 1500, `60 concurrent bumps all landed (${h.potD}/1500)`);
+
+  // A payout debits exactly what it paid, so a stake that read the pre-payout
+  // pot can no longer resurrect a pot that was already distributed.
+  await kv2.hincr('h:conc', 'potD', -1500);
+  ok((await kv2.hall('h:conc')).potD === 0, 'a paid-out pot debits to zero and stays there');
+}
+
+// The floor is derived from the burn total, so no stale write can step the
+// headline number backwards — "monotone by construction" is now literally true.
+{
+  resetRL();
+  const before = stats();
+  const f1 = (await call('GET', { query: { action: 'state' } })).body.stats.floor;
+  setStat('burned', (before.burned || 0) + 5_000_000);
+  const f2 = (await call('GET', { query: { action: 'state' } })).body.stats.floor;
+  ok(f2 > f1, 'floor rises with the burn total');
+  setStat('burned', 0);                       // a stale writer tries to undo it
+  const f3 = (await call('GET', { query: { action: 'state' } })).body.stats.floor;
+  ok(f3 >= FLOOR_MIN_OK, 'floor never reads below its base');
+  setStat('burned', before.burned || 0);
+}
+
+// Re-sending the same staking state must not inflate the published count.
+{
+  resetRL();
+  const w = 'demo-stkidem';
+  const s0 = stats().stakers || 0;
+  for (let i = 0; i < 5; i++)
+    await call('POST', { body: { action: 'stake', auth: { wallet: w }, on: true } });
+  ok((stats().stakers || 0) === s0, 'demo wallets never count as stakers');
+}
+
+
+// ============================================================
+//  REGRESSION: you cannot open a position against a stale oracle print.
+// ============================================================
+{
+  resetRL();
+  const saved = { ...PX };
+  // A 5-minute chamber needs a print under 45s old; 55s is most of a heartbeat
+  // and would have handed a player watching a live feed a real head start.
+  PX.ages = { SOL: 55, BTC: 55, ETH: 55, BONK: 55, WIF: 55, JUP: 55, PUMP: 55 };
+  r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-fresh1' }, target: 'SOL5', side: 'YES', stake: 500 } });
+  ok(!r.body.ok && /print is 55s old/.test(r.body.reason || ''), 'stale print refused on a 5-minute window');
+  ok(!getMem('u:demo-fresh1') || getMem('u:demo-fresh1').cr === 5000, 'refusal costs the player nothing');
+
+  // The same staleness is meaningless over an hour, so it must still seal.
+  r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-fresh2' }, target: 'BTC60', side: 'YES', stake: 500 } });
+  ok(r.body.ok, 'the same age still seals on a 1-hour window — the bound is proportionate');
+  ok(r.body.shot.entryAge === 55, 'the entry price age is recorded on the shot');
+
+  PX.ages = { SOL: 3, BTC: 3, ETH: 3, BONK: 3, WIF: 3, JUP: 3, PUMP: 3 };
+  r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-fresh3' }, target: 'SOL5', side: 'YES', stake: 500 } });
+  ok(r.body.ok, 'a fresh print seals normally');
+  for (const k of Object.keys(PX)) delete PX[k];
+  Object.assign(PX, saved);
+}
+
+
+// ============================================================
+//  REGRESSION: a free keypair plays, but does not rank.
+// ============================================================
+{
+  resetRL();
+  const UNQ = 'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA';   // a wallet-shaped stranger
+  setMem(`u:${UNQ}`, { w: UNQ, xp: 0, streak: 0, best: 0, hits: 0, shots: 0, cr: 5000,
+    granted: true, qualified: false, burned: 0, day: new Date().toISOString().slice(0, 10),
+    open: [{ id: 'q1', kind: 'dir', feed: 'SOL', side: 'YES', entry: 90, exp: Date.now() - 1000,
+             stake: 100, xp: 40, label: 't', src: 'cr' }], closed: [] });
+  tickPx();
+  r = await call('GET', { query: { action: 'state', wallet: UNQ } });
+  const up = getMem(`u:${UNQ}`);
+  ok(up.hits === 1 && up.xp === 40, 'an unverified wallet still plays and still scores');
+  ok(zScore('lbd:', r.body.day, UNQ) === 0 && zScore('lb:', r.body.season, UNQ) === 0,
+     'but its XP reaches NO paying ladder — a free keypair cannot farm the podium');
+
+  // Grandfathering: anyone already playing keeps their standing.
+  const OLD = 'BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB';
+  setMem(`u:${OLD}`, { w: OLD, xp: 500, streak: 0, best: 0, hits: 3, shots: 9, cr: 100,
+    granted: true, burned: 0, day: new Date().toISOString().slice(0, 10),
+    open: [{ id: 'q2', kind: 'dir', feed: 'SOL', side: 'YES', entry: 90, exp: Date.now() - 1000,
+             stake: 100, xp: 15, label: 't', src: 'cr' }], closed: [] });   // note: no `qualified` field
+  tickPx();
+  r = await call('GET', { query: { action: 'state', wallet: OLD } });
+  ok(getMem(`u:${OLD}`).qualified === true, 'an existing player is grandfathered, not demoted');
+  ok(zScore('lbd:', r.body.day, OLD) === 15, 'and keeps ranking exactly as before');
+}
+
+
+// ============================================================
+//  THE ARENA — registration, gating, and the machine-readable board.
+// ============================================================
+{
+  resetRL();
+  // a signed but UNQUALIFIED wallet must not be able to enter
+  const { publicKey: pk2, privateKey: sk2 } = crypto.generateKeyPairSync('ed25519');
+  const W2 = b58encode(pk2.export({ format: 'der', type: 'spki' }).subarray(12));
+  const auth2 = () => { const ts = Date.now();
+    return { wallet: W2, ts, sig: crypto.sign(null, Buffer.from(`RATCHET | ${W2} | ${ts}`, 'utf8'), sk2).toString('base64') }; };
+  setMem(`u:${W2}`, { w: W2, xp:0, streak:0, best:0, hits:0, shots:0, cr:5000, granted:true,
+    qualified:false, burned:0, day:new Date().toISOString().slice(0,10), open:[], closed:[] });
+  r = await call('POST', { body: { action: 'agent-register', auth: auth2(), name: 'FREELOADER' } });
+  ok(!r.body.ok && /has not touched RCX/.test(r.body.reason || ''),
+     'an unqualified wallet cannot enter the arena — free identities would make the board noise');
+
+  // the qualified signer from earlier can
+  resetRL();
+  const pq = getMem(`u:${SIGNER}`) || {}; pq.qualified = true; pq.w = SIGNER;
+  setMem(`u:${SIGNER}`, pq);
+  r = await call('POST', { body: { action: 'agent-register', auth: authFor(), name: 'test bot', blurb: 'reads the drift' } });
+  ok(r.body.ok && r.body.agent.name === 'TEST BOT', 'a qualified wallet registers, name normalised');
+  ok(getMem(`u:${SIGNER}`).agent.since > 0, 'the agent record is stored on the wallet');
+
+  // names cannot be stolen
+  resetRL();
+  setMem(`u:${W2}`, { ...getMem(`u:${W2}`), qualified: true });
+  r = await call('POST', { body: { action: 'agent-register', auth: auth2(), name: 'TEST BOT' } });
+  ok(!r.body.ok && /taken/.test(r.body.reason || ''), 'a live agent name cannot be taken over');
+
+  // bad names refused
+  resetRL();
+  r = await call('POST', { body: { action: 'agent-register', auth: auth2(), name: 'x' } });
+  ok(!r.body.ok, 'a one-character name is refused');
+
+  // the machine board carries everything an agent needs
+  r = await call('GET', { query: { action: 'board' } });
+  const bd = r.body;
+  ok(bd.ok && Array.isArray(bd.targets) && bd.targets.length >= 9, 'board lists every target');
+  ok(bd.targets.every(t => t.id && t.feed && t.mins > 0 && t.label), 'each target is fully specified');
+  ok(bd.stakeRule && bd.settleRule && bd.sealRule, 'the board publishes the rules it will be judged by');
+  ok(bd.flipsAt > Date.now(), 'and says when the mix changes');
+
+  // the arena board scores and gates on sample size
+  r = await call('GET', { query: { action: 'arena' } });
+  ok(r.body.ok && Array.isArray(r.body.agents), 'arena answers');
+  const me = r.body.agents.find(a => a.name === 'TEST BOT');
+  ok(me && me.listed === false, 'a new agent is published but NOT ranked — 3-for-3 is not evidence');
+  ok(r.body.house && Array.isArray(r.body.house.fleet), 'the house fleet is listed alongside');
+}
+
+console.log(fails ? `\n${fails} FAILURES` : '\nALL PASS');
+process.exit(fails ? 1 : 0);
