@@ -54,9 +54,13 @@ ok(r.body.ok && r.body.player === null && !getMem('u:<script>alert(1)</script>')
 r = await call('GET', { query: { action: 'state', wallet: 'So11111111111111111111111111111111111111112' } });
 ok(r.body.player !== null && !getMem('u:So11111111111111111111111111111111111111112'), 'fresh wallet served but NOT persisted');
 
+// 2b ---- ONE CURRENCY: a fresh wallet is granted once, and there is no paper balance
+r = await call('GET', { query: { action: 'state', wallet: 'So11111111111111111111111111111111111111112' } });
+ok(r.body.player && r.body.player.cr === 5000 && !r.body.player.bal, 'fresh wallet granted 5,000 credits, no paper balance');
+
 // 3 ---- demo fires a shot; ladder must stay empty; feed must stay empty
 r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-abc123' }, target: 'SOL5', side: 'YES', stake: 500 } });
-ok(r.body.ok && r.body.shot.src === 'bal', 'demo shot sealed from paper');
+ok(r.body.ok && r.body.shot.src === 'cr', 'demo shot sealed from the one credit balance');
 let st = getMem('g:stats');
 ok(Math.abs(st.burned - 350) < 1e-9 && Math.abs(st.potD - 75) < 1e-9 && Math.abs(st.pot - 75) < 1e-9, 'stake split 70/15/15');
 ok((getMem('g:feed') || []).length === 0, 'demo seal absent from public feed');
@@ -94,11 +98,11 @@ ok(Math.abs(bBefore - st.burned - 70) < 1e-9 && Math.abs(dBefore - st.potD - 15)
 ok(pr.shots === 1, 'VOID not counted in accuracy denominator');
 
 // 6 ---- stale feed auto-void after 24h
-setMem(`u:${RW}`, { ...pr, open: [{ id: 'x3', kind: 'dir', feed: 'GONE', side: 'YES', entry: 1, exp: Date.now() - 25 * 3600e3, stake: 100, xp: 10, label: 'dead feed', src: 'bal' }] });
-const balBefore = getMem(`u:${RW}`).bal;
+setMem(`u:${RW}`, { ...pr, open: [{ id: 'x3', kind: 'dir', feed: 'GONE', side: 'YES', entry: 1, exp: Date.now() - 25 * 3600e3, stake: 100, xp: 10, label: 'dead feed', src: 'cr' }] });
+const crBefore2 = getMem(`u:${RW}`).cr;
 r = await call('GET', { query: { action: 'state', wallet: RW } });
 pr = getMem(`u:${RW}`);
-ok(pr.open.length === 0 && pr.bal === balBefore + 100 && pr.closed[0].res === 'void', 'dead-feed shot auto-voided with refund');
+ok(pr.open.length === 0 && pr.cr === crBefore2 + 100 && pr.closed[0].res === 'void', 'dead-feed shot auto-voided with refund');
 
 // 7 ---- daily + weekly rollover pays only real wallets, releases lock, rolls remainder
 setMem('g:day', '2020-01-01');                       // force a day boundary

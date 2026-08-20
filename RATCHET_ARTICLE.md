@@ -38,8 +38,9 @@ shots on RCX's own price and **removed them the same day**, because a thin marke
 is a bet you can settle yourself. The board only asks questions nobody can rig.
 
 XP comes from being right, never from spending. Ranks run COG → PISTON → FLYWHEEL → TURBINE →
-REACTOR and unlock more simultaneous chambers — never better odds. Paper refills daily, so the
-game is free to play forever.
+REACTOR and unlock more simultaneous chambers — never better odds. There is one currency:
+credits. A new wallet is granted 5,000 once; after that, credits come only from reloads, pot
+wins and staking — so every shot on the ladder cost someone something.
 
 ## Sealed now means cryptographically sealed
 
@@ -111,7 +112,7 @@ wave — and the scoring machinery won't care how smart it gets.
 
 The whole backend is **zero-dependency serverless JavaScript** — no framework, no packages,
 small enough to read in one sitting, and public: the live API returns a build marker
-(`h8-2026-08-20` as of this writing) that must match the constant declared in the repo, so you
+(`h9-2026-08-20` as of this writing) that must match the constant declared in the repo, so you
 can verify the code you're reading is the code that's running. Prices come from **Pyth** with a
 keyless fallback; the token is **Token-2022** on **Solana**; the market lives on **pump.fun /
 PumpSwap**; settlement is lazy — no cron, no daemon, nothing a human could forget to run. And

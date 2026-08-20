@@ -48,7 +48,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h8-2026-08-20';
+const VERSION = 'h9-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -139,7 +139,11 @@ function targetBoard(hour) {
 }
 const boardHour = () => Math.floor(Date.now() / 3600e3);
 const RANKS = [['COG',0],['PISTON',300],['FLYWHEEL',900],['TURBINE',2200],['REACTOR',5000]];
-const DAILY_ALLOWANCE = 5000;
+// ONE CURRENCY (h9). There is no second 'paper' balance and no daily handout:
+// a wallet is granted credits ONCE, and after that credits come only from
+// reloads (burned RCX), pot wins and the Gearbox. Every shot on the ladder
+// therefore costs something real or something earned.
+const WELCOME_GRANT = 5000;
 // Prize curves. Unclaimed shares ROLL OVER into the next pot of the same cadence.
 const PRIZE_W = [0.40, 0.25, 0.15, 0.12, 0.08];   // weekly season: top 5
 const PRIZE_D = [0.50, 0.30, 0.20];               // daily pot: top 3
@@ -172,9 +176,12 @@ function rateLimited(ip, isPost) {
 async function loadPlayer(w) {
   let p = await getJSONStrict(`u:${w}`);   // strict: a flaky read must NOT mint a fresh record
   const existed = !!p;
-  if (!p) p = { w, xp:0, streak:0, best:0, hits:0, shots:0, bal:DAILY_ALLOWANCE, cr:0, burned:0, day:today(), open:[], closed:[] };
+  if (!p) p = { w, xp:0, streak:0, best:0, hits:0, shots:0, bal:0, cr:WELCOME_GRANT, granted:true, burned:0, day:today(), open:[], closed:[] };
   if (p.cr == null) { p.cr = 0; p.burned = 0; }
-  if (p.day !== today()) { p.day = today(); p.bal = Math.max(p.bal, DAILY_ALLOWANCE); }
+  // migration: fold any legacy paper balance into credits, once, keeping what they had
+  if (p.bal) { p.cr = (p.cr || 0) + p.bal; p.bal = 0; p.granted = true; }
+  if (!p.granted) { p.cr = (p.cr || 0) + WELCOME_GRANT; p.granted = true; }
+  if (p.day !== today()) p.day = today();
   p._existed = existed;
   return p;
 }
@@ -187,7 +194,7 @@ async function loadStats() {
 async function bumpFeed(entry) {
   const f = (await getJSON('g:feed')) || [];
   f.unshift({ t: Date.now(), ...entry });
-  await setJSON('g:feed', f.slice(0, 24));
+  await setJSON('g:feed', f.slice(0, 40));
 }
 // Ranked boards only ever see real, signature-verified wallets.
 async function bumpLadder(w, xp) {
@@ -413,7 +420,7 @@ async function wardenTick(prices) {
   return rec;
 }
 
-function refund(p, s) { if (s.src === 'cr') p.cr += s.stake; else p.bal += s.stake; }
+function refund(p, s) { p.cr += s.stake; }
 
 // full per-player shot history — every settled shot, capped at 200,
 // served to the client and exported by the Black Box. The hash-chained
@@ -489,9 +496,8 @@ async function settle(p, prices) {
 // construction: it only ever ratchets to a new maximum.
 async function takeStake(p, stake) {
   if (!STAKES[stake]) return 'bad stake';
-  if (p.cr >= stake) { p.cr -= stake; p._src = 'cr'; }
-  else if (p.bal >= stake) { p.bal -= stake; p._src = 'bal'; }
-  else return `not enough - credits ${p.cr}, paper ${p.bal} (paper refills daily${MINT ? ', or burn to reload' : ''})`;
+  if (p.cr < stake) return `not enough credits — you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`;
+  p.cr -= stake; p._src = 'cr';
   const st = await loadStats();
   st.burned += stake * SPLIT.burn;
   st.potD  += stake * SPLIT.pot * POT_DAY_SHARE;
@@ -668,7 +674,7 @@ module.exports = async (req, res) => {
       await savePlayer(p);
       await append({ k:'seal', w, id: shot.id, feed: shot.feed, stake, exp: shot.exp, entry: shot.entry, commit: shot.commit });
       if (!isDemo(w)) await bumpFeed({ w: shortW(w), a: `sealed a shot · ${stake} 🔥`, c:'seal' });
-      return res.json({ ok:true, shot, bal: p.bal });
+      return res.json({ ok:true, shot, cr: p.cr });
     }
 
     if (action === 'stake') {

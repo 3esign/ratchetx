@@ -72,6 +72,13 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .pr{border:1px solid var(--line);background:var(--card2);border-radius:99px;padding:6px 12px;
   font:700 10.5px/1 var(--mono);color:var(--ink2)}
 .pr b{color:var(--ink)}
+.mgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin:18px auto 0;
+  width:100%;max-width:760px;background:var(--line);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+@media(min-width:760px){.mgrid{grid-template-columns:repeat(6,minmax(0,1fr))}}
+.mcell{background:var(--card2);padding:12px 10px;text-align:center}
+.mcell u{display:block;text-decoration:none;font:700 8.5px/1 var(--mono);letter-spacing:.18em;color:var(--dim);margin-bottom:6px}
+.mcell b{display:block;font:800 17px/1 var(--mono);color:var(--ink);letter-spacing:-.01em}
+.mcell b small{font-size:9.5px;letter-spacing:.1em;color:var(--dim);margin-left:3px;font-weight:700}
 .tcap{font:700 10px/1 var(--mono);letter-spacing:.22em;color:var(--dim);margin:22px 0 12px;text-align:left}
 .targets{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
 @media(max-width:640px){.targets{grid-template-columns:1fr}}
@@ -82,6 +89,9 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .tgt .tq{font:650 13.5px/1.35 var(--sans);margin-bottom:9px;min-height:37px}
 .tgt .tmeta{display:flex;justify-content:space-between;font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--dim)}
 .tgt .tmeta s{text-decoration:none;color:var(--ice)}
+.tgt .tmkt{display:flex;justify-content:space-between;gap:8px;margin-top:9px;padding-top:9px;
+  border-top:1px solid var(--line);font:700 9.5px/1.3 var(--mono);letter-spacing:.06em;color:var(--dim)}
+.tgt .tmkt b{color:var(--ink2);font-weight:800}
 .updown{display:flex;gap:7px;margin-top:11px}
 .ud{flex:1;border:1px solid var(--line);background:none;border-radius:8px;padding:8px 0;cursor:pointer;text-align:center;
   font:800 11px/1 var(--mono);letter-spacing:.12em;color:var(--dim);transition:.12s}
@@ -98,7 +108,9 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .fire:disabled{opacity:.35;cursor:default}
 .splitline{margin-top:9px;font:600 9.5px/1 var(--mono);letter-spacing:.1em;color:var(--dim);text-align:center}
 .splitline b{color:var(--goldD)}
-.rcol{display:flex;flex-direction:column;gap:13px}
+.rcol{display:flex;flex-direction:column;gap:13px;min-height:0;position:sticky;top:76px;
+  align-self:start;height:calc(100vh - 92px)}
+@media(max-width:920px){.rcol{position:static;height:auto}}
 .panel{background:var(--card);border:1px solid var(--line);border-radius:15px;padding:16px}
 .panel h3{font:700 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--dim);margin-bottom:12px;display:flex;justify-content:space-between}
 .chambers{display:flex;flex-direction:column;gap:9px}
@@ -113,7 +125,9 @@ section{display:none;padding:28px 0 100px}section.on{display:block;animation:in 
 .cham .xps{font:800 11px var(--mono);margin-top:6px}
 .empty{border:1px dashed var(--line);border-radius:11px;padding:13px;text-align:center;
   font:600 9.5px/1 var(--mono);letter-spacing:.16em;color:var(--dim)}
-.kill{display:flex;flex-direction:column;gap:1px;flex:1 1 auto;min-height:210px;overflow-y:auto;overscroll-behavior:contain}
+.kill{display:flex;flex-direction:column;gap:1px;flex:1 1 0;min-height:150px;
+  overflow-y:auto;overscroll-behavior:contain}
+@media(max-width:920px){.kill{flex:0 0 auto;max-height:56vh}}
 .kill::-webkit-scrollbar{width:6px}
 .kill::-webkit-scrollbar-track{background:transparent}
 .kill::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
@@ -194,8 +208,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   <div class="logo"><svg class="cog" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="#f5b83d" stroke-width="1.8"/><path d="M12 2.6v4M12 17.4v4M2.6 12h4M17.4 12h4M5.4 5.4l2.8 2.8M15.8 15.8l2.8 2.8M18.6 5.4l-2.8 2.8M8.2 15.8l-2.8 2.8" stroke="#f5b83d" stroke-width="1.6" stroke-linecap="round"/></svg>RATCHET</div>
   <div class="rankchip"><div class="rbadge" id="hB">·</div>
     <div><div class="rname" id="hR">—</div><div class="xpwrap"><div class="xpbar"><i id="hX" style="width:0"></i></div></div></div></div>
-  <div class="hudstat hide" id="hCrWrap" style="display:none">CREDITS <b id="hCr">0</b></div>
-  <div class="hudstat hide">PAPER <b id="hBal">—</b></div>
+  <div class="hudstat hide" id="hCrWrap">CREDITS <b id="hCr">—</b></div>
   <div class="hudstat hide">STREAK <b class="streakf" id="hS">0</b></div>
   <div class="hudstat hide">FLOOR <b id="hF" style="color:var(--ink)">—</b></div>
   <nav>
@@ -230,7 +243,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="msub" id="beat" style="margin-bottom:2px"></div>
     <div class="msub">FED BY EVERY SHOT · <b id="fedN">—</b> SHOTS FIRED · CAN ONLY GO UP <span style="color:var(--goldD)">(SIMULATED UNTIL VAULT DEPLOY)</span></div>
     <div class="prices" id="prices"></div>
-    <div class="prices" id="machStats" style="margin-top:8px"></div>
+    <div class="mgrid" id="machStats"></div>
     <div id="burnLine" style="display:none;margin-top:12px;font:700 12px var(--mono);letter-spacing:.08em;color:var(--red)"></div>
     <div style="margin:20px 0 4px;text-align:left">
       <button id="howBtn" style="background:none;border:1px solid var(--line);border-radius:8px;color:var(--ink2);
@@ -257,9 +270,10 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         keyless, no pool, no claim button. Hold the podium, earn the flow — and keep at least half of
         your 7-day champion pay in your wallet: <b style="color:var(--ink)">champions who dump lose the seat</b>
         to the next player up. Your console shows a live "safe to sell" number.<br>
-        <span style="color:var(--dim)">PAPER refills daily so you can always play free — demo play is truly
-        unranked: it never enters any ladder and is never paid from any pot.
-        CREDITS come from burning RCX — 1 burned = 1 credit — and that burn is verified on-chain, forever.
+        <span style="color:var(--dim)">There is ONE currency: CREDITS. A new wallet is granted 5,000 once —
+        after that credits come only from reloads, pot wins and the Gearbox. 1 burned RCX = 1 credit, and
+        that burn is verified on-chain, forever. Demo play is truly unranked: it never enters any ladder
+        and is never paid from any pot.
         The 70/30/0 split under the fire button is frozen: 0% ever goes to the team; the creator is paid from
         trading fees on the token only.</span>
       </div>
@@ -304,7 +318,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
         <button class="connect" style="border-radius:8px" id="burngo">CREDIT</button>
       </div>
     </div>
-    <div class="panel" style="flex:1;display:flex;flex-direction:column"><h3>KILL FEED</h3><div class="kill" id="kill"></div></div>
+    <div class="panel" style="flex:1;min-height:0;display:flex;flex-direction:column"><h3>KILL FEED</h3><div class="kill" id="kill"></div></div>
   </div>
 </div></div></section>
 
@@ -332,7 +346,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
       Going <b style="color:var(--gold)">against</b> it pays ×3.4 — beating a stated probability is the
       hardest thing in the game and the ladder knows it. The Warden's record accrues publicly either
       way, wins and losses alike.</div></div>
-    <div class="panel" style="flex:1;display:flex;flex-direction:column"><h3>RECENT ACTION</h3><div class="kill" id="duelfeed"></div></div>
+    <div class="panel" style="flex:1;min-height:0;display:flex;flex-direction:column"><h3>RECENT ACTION</h3><div class="kill" id="duelfeed"></div></div>
   </div>
 </div></div></section>
 
@@ -520,19 +534,36 @@ function paint(){
     $("pfLink").textContent="PUMP.FUN"+(s.mcap?" · MC $"+(s.mcap>=1e6?(s.mcap/1e6).toFixed(2)+"M":s.mcap>=1e3?(s.mcap/1e3).toFixed(1)+"K":s.mcap):"")+" ↗";
   }
   $("beat").innerHTML=`<b style="color:var(--grn)">● LIVE</b> · ORACLE ${s.prices.src.toUpperCase()} · STATE ${s.durable?"DURABLE":"EPHEMERAL"} · LOG ${s.log?("#"+s.log.i):"—"}`;
-  $("machStats").innerHTML=`<span class="pr">SHOTS <b>${s.stats.shots.toLocaleString()}</b></span>
-    <span class="pr">POT TODAY <b style="color:var(--gold)">${Math.floor(s.stats.potD||0).toLocaleString()}</b></span>
-    <span class="pr">POT SEASON <b style="color:var(--gold)">${Math.floor(s.stats.pot||0).toLocaleString()}</b></span>
-    ${s.stats.champPaid?`<span class="pr">CHAMPIONS PAID <b style="color:var(--grn)">${Math.floor(s.stats.champPaid).toLocaleString()} RCX</b></span>`:""}
-    ${s.stats.stakers?`<span class="pr">STAKERS <b>${s.stats.stakers.toLocaleString()}</b></span>`:""}`;
+  const cell=(k,v,c)=>`<div class="mcell"><u>${k}</u><b${c?` style="color:${c}"`:""}>${v}</b></div>`;
+  setHTML($("machStats"),
+    cell("BURNED FOREVER",`${Math.floor(s.stats.realBurned||0).toLocaleString()}<small>RCX</small>`,"var(--red)")+
+    cell("SHOTS FIRED",s.stats.shots.toLocaleString())+
+    cell("POT · TODAY",`${Math.floor(s.stats.potD||0).toLocaleString()}`,"var(--gold)")+
+    cell("POT · SEASON",`${Math.floor(s.stats.pot||0).toLocaleString()}`,"var(--gold)")+
+    cell("CHAMPION PAY",`${Math.floor(s.stats.champPaid||0).toLocaleString()}<small>RCX</small>`,"var(--grn)")+
+    cell("STAKERS",(s.stats.stakers||0).toLocaleString()));
   if(s.v)$("footV").textContent="build "+s.v+" · ";
   $("prices").innerHTML=Object.entries(s.prices).filter(([k])=>k!=="src").map(([k,v])=>
     `<span class="pr">${k} <b>$${fmt$(v)}</b></span>`).join("")+`<span class="pr">SRC <b>${s.prices.src.toUpperCase()}</b></span>`;
+  // MARKET CONTEXT: every question also states the level it is asking about,
+  // priced off the same oracle the shot will settle on. Thresholds are struck
+  // from the price at YOUR seal, so the level shown is the level you would get
+  // by sealing right now.
+  const mkt=t=>{
+    const p=s.prices[t.feed];if(!Number.isFinite(p))return"";
+    const d=x=>"$"+fmt$(x);
+    if(t.kind==="race"){const q=s.prices[t.feed2];
+      return `<span>${t.feed} <b>${d(p)}</b></span><span>${t.feed2} <b>${Number.isFinite(q)?d(q):"—"}</b></span>`;}
+    if(t.kind==="thr")     return `<span>NOW <b>${d(p)}</b></span><span>CLEARS <b style="color:var(--grn)">${d(p*(1+t.pct))}</b></span>`;
+    if(t.kind==="thrDown") return `<span>NOW <b>${d(p)}</b></span><span>BREAKS <b style="color:var(--red)">${d(p*(1-t.pct))}</b></span>`;
+    if(t.kind==="range")   return `<span>NOW <b>${d(p)}</b></span><span>BAND <b>${d(p*(1-t.pct))} – ${d(p*(1+t.pct))}</b></span>`;
+    return `<span>NOW <b>${d(p)}</b></span><span>STRIKE <b>AT SEAL</b></span>`;};
   // targets
   setHTML($("targets"),Object.entries(s.targets).map(([k,t])=>`
     <button class="tgt ${sel.t===k?'pick':''}" data-k="${k}">
       <div class="tq">${t.label}?</div>
       <div class="tmeta"><span>WINDOW <s>${t.mins>=60?(t.mins/60)+"H":t.mins+"M"}</s></span><span>BASE ${t.baseXp} XP</span></div>
+      <div class="tmkt">${mkt(t)}</div>
       <div class="updown">
         <span class="ud up ${sel.t===k&&sel.side==='YES'?'on':''}" data-k="${k}" data-side="YES">YES</span>
         <span class="ud dn ${sel.t===k&&sel.side==='NO'?'on':''}" data-k="${k}" data-side="NO">NO</span>
@@ -553,8 +584,7 @@ function paint(){
   const p=s.player;
   if(p){
     $("hR").textContent=p.rank;$("hB").textContent=p.rank[0];$("mB").textContent=p.rank[0];
-    $("hBal").textContent=p.bal.toLocaleString();
-    if(s.mint){$("hCrWrap").style.display="";$("hCr").textContent=p.cr.toLocaleString();}
+    $("hCr").textContent=Math.floor(p.cr||0).toLocaleString();
     $("hS").textContent=p.streak+"🔥";
     const curTh=[0,300,900,2200,5000][p.rankIdx]||0;
     $("hX").style.width=(p.next?Math.max(0,Math.min(100,(p.xp-curTh)/(p.next[1]-curTh)*100)):100)+"%";
