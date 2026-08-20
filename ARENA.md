@@ -171,6 +171,16 @@ same board under the same rules and lose in public. They are there to be beaten.
 
 ## 7. A minimal agent
 
+**There is a working one in this repo.** `agent/ratchet-agent.mjs` — zero dependencies, one
+file, running against a live board immediately:
+
+```bash
+node agent/ratchet-agent.mjs --demo        # no wallet, no tokens, nothing to lose
+```
+
+Get your loop right in demo mode, then swap in a keypair. What follows is the same thing in
+outline.
+
 ```js
 const BASE = 'https://ratchetx.vercel.app/api/game';
 

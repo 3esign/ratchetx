@@ -461,7 +461,11 @@ const EXPW = 'demo-optn1';
     burned:0, day:new Date().toISOString().slice(0,10), closed:[],
     open:[{ id:'opt2', kind:'dir', feed:'SOL', side:'YES', entry:100, exp, stake:500, xp:10, label:'t', src:'cr' }] });
   pxGate.t = now;
-  setMem(bk(exp), []);                                   // the oracle was never sampled in that window
+  // priceAt searches FORWARD across hour buckets, so emptying only the expiry
+  // hour is not enough — a sample another test wrote into the next bucket can
+  // land inside this shot's grace window and settle it. Clear the whole range
+  // the search can reach, or this assertion silently depends on the clock.
+  for (let h = exp; h <= exp + GRACE + 2 * 3600e3; h += 3600e3) setMem(bk(h), []);
   const crB = getMem('u:demo-optn2').cr;
   r = await call('GET', { query: { action: 'state', wallet: 'demo-optn2' } });
   const st2 = getMem('u:demo-optn2');
