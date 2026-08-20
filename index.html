@@ -698,9 +698,14 @@ function paint(){
   if(s.mint&&AUTH){$("reloadP").style.display="block";$("incin").textContent=s.incinerator;
     const cl=(s.champ&&s.champ.podium)||[];
     $("podiumBox").style.display="block";
+    // An empty podium AFTER the first rollover means something specific: the day's top
+    // three hold no RCX, so there is nobody the Champion's Cut is allowed to pay. Say
+    // that, instead of implying the machine has not run yet.
     $("podiumBox").innerHTML=cl.length
       ?"YOUR RELOAD PAYS TODAY'S PODIUM: "+cl.map((c,i)=>`${i+1}. <span style="color:var(--gold)">${c.w}</span> ${Math.round((s.champ.pct*c.pct)*100)}%`).join(" · ")+" — THE REST BURNS"
-      :"NO PODIUM YET — UNTIL THE FIRST DAILY ROLLOVER, 100% OF EVERY RELOAD BURNS";
+      :(s.lastDay
+        ?"<span style=\"color:var(--gold)\">THE PODIUM IS OPEN.</span> THE LAST LADDER'S TOP 3 HOLD NO $RCX, SO THERE IS NOBODY THE CHAMPION'S CUT CAN PAY — 100% OF EVERY RELOAD BURNS. HOLD $RCX AND FINISH TOP 3 TODAY, AND 30% OF EVERY RELOAD LANDS IN YOUR WALLET ALL DAY."
+        :"NO PODIUM YET — UNTIL THE FIRST DAILY ROLLOVER, 100% OF EVERY RELOAD BURNS");
     if(cl.length)$("podiumBox").innerHTML+=" · HOLDER RULE: CHAMPIONS WHO DUMP LOSE THE SEAT";}
   else $("reloadP").style.display="none";
   // feed + ladder
