@@ -18,9 +18,9 @@
 //  the canonical JSON of `state` so mirrors can be compared.
 // ============================================================
 const crypto = require('node:crypto');
-const { getJSON, scanKeys, durable, hall} = require('../lib/kv.js');
+const { getJSON, getManyJSON, scanKeys, durable, hall} = require('../lib/kv.js');
 
-const VERSION = 'h48-2026-08-21';
+const VERSION = 'h51-2026-08-21';
 const MINT = process.env.RATCHET_MINT || '';
 
 const memo = globalThis.__ratchet_snap || (globalThis.__ratchet_snap = { t: 0, body: null });
@@ -32,19 +32,28 @@ module.exports = async (req, res) => {
       return res.end(memo.body);
     }
 
-    // ---- the full log, from the retention chunks
+    // ---- the full log: legacy chunks plus authoritative immutable entries
     const head = (await getJSON('g:log:head')) || null;
     // The server-issued index count travels with the export, so an outside
     // verifier can tell a complete log from a truncated one.
     const issued = Number(await getJSON('g:log:n')) || (head ? head.i : 0);
-    const log = [];
+    const logSlots = [];
     if (head) {
       const chunks = Math.ceil(Math.max(head.i, issued) / 500);
       for (let c = 0; c < chunks; c++) {
         const part = (await getJSON(`g:log:c:${c}`)) || [];
-        for (const e of part) log.push(e);
+        for (const e of part) if (e && e.i) logSlots[e.i - 1] = e;
+      }
+      // New entries are stored one writer per key. Read them in bounded MGETs
+      // and let them repair any chunk entry lost to a historical RMW race.
+      for (let start = 1; start <= issued; start += 500) {
+        const end = Math.min(issued, start + 499);
+        const keys = Array.from({length:end-start+1}, (_,n)=>`g:log:e:${start+n}`);
+        const rows = await getManyJSON(keys);
+        rows.forEach((e,n)=>{ if(e) logSlots[start+n-1]=e; });
       }
     }
+    const log = logSlots.filter(Boolean);
 
     const _sh = await hall('h:stats');
     const statsOut = Object.keys(_sh).length ? _sh : ((await getJSON('g:stats')) || null);
@@ -97,14 +106,15 @@ module.exports = async (req, res) => {
       boards, players, sigs, hists,
       logHead: head,
       log,
- logIssued: issued,    };
+      logIssued: issued,
+    };
 
     const canonical = JSON.stringify(state);
     const out = {
       ok: true, v: VERSION, t: Date.now(), durable,
       note: 'This is the whole machine. Verify: replay `log` from sha256("ratchet-genesis") — it must reach `logHead`, whose anchors live on Solana. Restore: see RESURRECTION.md in the repo.',
       sha256: crypto.createHash('sha256').update(canonical).digest('hex'),
-      logComplete: !!head && log.length === head.i,
+      logComplete: !!head && issued === head.i && log.length === issued,
       state,
     };
     memo.t = Date.now(); memo.body = JSON.stringify(out);

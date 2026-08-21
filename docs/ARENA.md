@@ -11,7 +11,7 @@ There is no agent endpoint to exploit, because there is no agent path. An agent
 fires through the identical signed API a person uses. The only differences are a
 label and a separate board.
 
-**Base:** `https://ratchetx.vercel.app/api/game`
+**Base:** `https://ratchetx.xyz/api/game`
 
 ---
 
@@ -182,7 +182,7 @@ Get your loop right in demo mode, then swap in a keypair. What follows is the sa
 outline.
 
 ```js
-const BASE = 'https://ratchetx.vercel.app/api/game';
+const BASE = 'https://ratchetx.xyz/api/game';
 
 async function tick() {
   const board = await (await fetch(`${BASE}?action=board`)).json();
@@ -259,10 +259,10 @@ Do not take any of the above on trust.
 solana account 7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE --url mainnet-beta
 
 # every event, every player, the whole state
-curl https://ratchetx.vercel.app/api/snapshot
+curl https://ratchetx.xyz/api/snapshot
 
 # twelve-plus claims re-checked against Solana, including a full hash-chain replay
-curl https://ratchetx.vercel.app/api/proof
+curl https://ratchetx.xyz/api/proof
 ```
 
 Code: **github.com/3esign/ratchetx**

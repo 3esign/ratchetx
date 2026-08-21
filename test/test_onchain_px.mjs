@@ -7,7 +7,7 @@ const DISC = crypto.createHash('sha256').update('account:PriceUpdateV2').digest(
 const OWNER = 'pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT';
 
 // Build a byte-exact PriceUpdateV2 the way the Solana account really holds it.
-function mkAccount({ feedId, price, expo, publishTime, prevPublishTime, full = true, disc = DISC }) {
+function mkAccount({ feedId, price, conf, expo, publishTime, prevPublishTime, full = true, disc = DISC }) {
   const parts = [];
   parts.push(disc);                                   // 8  discriminator
   parts.push(crypto.randomBytes(32));                 // 32 write_authority
@@ -15,7 +15,7 @@ function mkAccount({ feedId, price, expo, publishTime, prevPublishTime, full = t
   parts.push(Buffer.from(feedId, 'hex'));             // 32 feed_id
   const n = (fn, v, len) => { const b = Buffer.alloc(len); b[fn](v, 0); return b; };
   parts.push(n('writeBigInt64LE', BigInt(price), 8));       // price
-  parts.push(n('writeBigUInt64LE', BigInt(Math.round(Math.abs(price)*0.0004)), 8)); // conf
+  parts.push(n('writeBigUInt64LE', BigInt(conf == null ? Math.round(Math.abs(price)*0.0004) : conf), 8)); // conf
   parts.push(n('writeInt32LE', expo, 4));                   // exponent
   parts.push(n('writeBigInt64LE', BigInt(publishTime), 8)); // publish_time
   parts.push(n('writeBigInt64LE', BigInt(prevPublishTime), 8)); // prev_publish_time
@@ -117,6 +117,8 @@ await mustThrow('wrong owner',        s => { if (s.sym==='SOL') s.owner = 'Token
 await mustThrow('bad discriminator',  s => { if (s.sym==='BTC') s.disc = Buffer.alloc(8); });
 await mustThrow('partial verification', s => { if (s.sym==='ETH') s.full = false; });
 await mustThrow('stale price',        s => { if (s.sym==='SOL') s.publishTime = now - 400; });
+await mustThrow('future price',       s => { if (s.sym==='SOL') s.publishTime = now + 30; });
+await mustThrow('wide confidence',    s => { if (s.sym==='BTC') s.conf = Math.abs(s.price); });
 await mustThrow('negative price',     s => { if (s.sym==='BTC') s.price = -1; });
 
 // ---- 4. full stack: prices.js prefers on-chain, degrades honestly ---

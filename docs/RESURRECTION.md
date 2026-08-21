@@ -14,7 +14,7 @@ the chain itself timestamps what happened, outside anyone's control.
 
 ## What the Black Box adds
 
-`GET https://ratchetx.vercel.app/api/snapshot` returns the machine's entire soul: every player
+`GET https://ratchetx.xyz/api/snapshot` returns the machine's entire soul: every player
 (credits, XP, streaks, holder windows), every ladder, every replay-gated burn signature, the
 podium, the Warden's record, and the **complete hash-chained event log**. Download it whenever
 you like. The `sha256` field fingerprints the state; the log inside replays from

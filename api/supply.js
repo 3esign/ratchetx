@@ -25,8 +25,8 @@ const { getJSON, hall } = require('../lib/kv.js');
 const { rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { series } = require('../lib/supplylog.js');
 
-const VERSION = 'h48-2026-08-21';
-const SITE = 'https://ratchetx.vercel.app';
+const VERSION = 'h51-2026-08-21';
+const SITE = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
 const SOLSCAN = 'https://solscan.io';
 const MINT = process.env.RATCHET_MINT || '';
 // Complete days required before a burn rate is published at all.

@@ -3,7 +3,7 @@
 *Why we built a degen game with no treasury, no admin keys, real token rewards that pay
 peer-to-peer, and a proof page that would rat us out before we could.*
 
-**Play: [ratchetx.vercel.app](https://ratchetx.vercel.app) · $RCX on
+**Play: [ratchetx.xyz](https://ratchetx.xyz) · $RCX on
 [pump.fun](https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump) ·
 CA `FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump` ·
 [read the code](https://github.com/3esign/ratchetx)**
@@ -149,7 +149,7 @@ betray us in thirty seconds flat.
 The floor only goes up. Everything else is sealed until it's over. Come fire a shot — the first
 ones are free, and the Machine is hungry.
 
-**Play: [ratchetx.vercel.app](https://ratchetx.vercel.app)**
+**Play: [ratchetx.xyz](https://ratchetx.xyz)**
 **CA: `FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump`**
 
 ---

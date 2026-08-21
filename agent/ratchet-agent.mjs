@@ -23,7 +23,7 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 
-const BASE = process.env.RATCHET_API || 'https://ratchetx.vercel.app/api/game';
+const BASE = process.env.RATCHET_API || 'https://ratchetx.xyz/api/game';
 const args = process.argv.slice(2);
 const arg = (k, d) => { const i = args.indexOf(k); return i >= 0 ? args[i + 1] : d; };
 const DEMO = args.includes('--demo');

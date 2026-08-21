@@ -2,15 +2,15 @@
 
 **20 August 2026**
 
-## What happened
+## What changed
 
-Pyth's Core upgrade (26 Aug 2026, 16:00 UTC) puts the Hermes HTTP API behind a paid
-plan. Pyth's own words: *"accessing any Pyth Price Feeds API will require a Pyth data
-plan"*, and *"plans start at $500 per month."* The free Pyth Terminal tier is listed
-explicitly as **"No Pyth API access"** — it is view-only, for browsing feeds in a
-dashboard. There is no free API key.
+Pyth moved the Core/API-key cutover to **18 August 2026**. The current upgraded Hermes
+endpoint is `https://pyth.dourolabs.app/hermes`; authenticated requests use
+`PYTH_API_KEY`. Pricing is intentionally not frozen in this repository because Pyth can
+change it. Check the current Pyth plan page before making a purchasing decision.
 
-RATCHET was reading prices from Hermes. That route is now $6,000/year.
+RATCHET's API key is configured as a failover. The live primary route does not depend on
+Hermes: it reads Pyth's sponsored push-feed accounts directly from Solana.
 
 ## What we did instead
 
@@ -22,14 +22,14 @@ account is not something anyone can bill for.
 So the game now reads the oracle where it actually lives.
 
 `lib/onchain_px.js` fetches the seven sponsored feed accounts over plain Solana JSON-RPC
-and decodes them itself. No SDK, no dependency, no key.
+and decodes them itself. No oracle SDK and no Pyth API key are required for that route.
 
 ### Source order (`lib/prices.js`)
 
 | # | Source | Cost | When |
 |---|--------|------|------|
 | 1 | **Pyth on-chain** — sponsored accounts on Solana | free | always the primary |
-| 2 | Pyth Hermes | $500/mo | only if `PYTH_API_KEY` is set |
+| 2 | Pyth Hermes | current Pyth plan | only if `PYTH_API_KEY` is set |
 | 3 | Coinbase spot | free | last resort, and never silent |
 
 If we ever fall past step 1, `prices.degraded` says so and the page prints it. The banner
@@ -67,6 +67,8 @@ A price is used only if **all** of this holds:
 - the `feed_id` inside the account matches the feed we asked for
 - `publish_time` is under 120 seconds old (two heartbeats of headroom)
 - the decoded price is finite and positive
+- the confidence interval is no wider than 2% of the price
+- `publish_time` is not more than 5 seconds in the future
 
 A **core** feed (SOL/BTC/ETH) failing any of these throws, and we fall to the next
 source. An **optional** feed failing simply drops off the board — its targets disappear
@@ -74,7 +76,8 @@ rather than settle on a number we do not trust. That was already the rule; it st
 
 ## Freshness
 
-Sponsored feeds run a **1-minute heartbeat with a 0.5% deviation trigger**. In a moving
+Sponsored feeds target a **1-minute heartbeat with a 0.5% deviation trigger**. This is
+not a hard availability guarantee. In a moving
 market they update constantly. In a dead-flat market they go quiet — which is fine,
 because the shortest chamber on the board is five minutes, and a five-minute directional
 call in a market that has not moved 0.5% was a coin flip anyway.
@@ -85,8 +88,9 @@ Rather than hide this, the page shows each price's publish age. A number that sa
 ## Configuration
 
 ```
-SOLANA_RPC=<your mainnet RPC>     # optional but recommended
-PYTH_API_KEY=<key>                # optional; only if you buy a Pyth plan
+SOLANA_RPC=<your mainnet RPC>     # optional but recommended (SOLANA_RPC_URL also accepted)
+PYTH_API_KEY=<key>                # configured failover credential
+PYTH_HERMES_URL=https://pyth.dourolabs.app/hermes
 ```
 
 Unset, `SOLANA_RPC` rotates three public endpoints
@@ -101,11 +105,12 @@ fetch, so a burst of readers costs two RPC calls, not two per reader.
 
 ## Why this is better than what it replaced
 
-It is free, and it stays free — nobody can move a pricing page and break the game.
+It avoids a metered oracle HTTP path, but still depends on Solana RPC availability and
+Pyth continuing to sponsor these accounts. Those dependencies are monitored and surfaced.
 
 It is also **more honest**. The website now reads the exact same account the settlement
 program validates on-chain. Before, the page trusted an HTTP endpoint and the program
 trusted an account, and you had to take our word that they agreed. Now they are the same
 bytes, and anyone can fetch them.
 
-The paywall made the architecture better.
+The API transition made the architecture more directly verifiable.

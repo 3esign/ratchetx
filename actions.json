@@ -1,0 +1,8 @@
+{
+  "rules": [
+    {
+      "pathPattern": "/anchor",
+      "apiPath": "/api/blink?action=anchor"
+    }
+  ]
+}

@@ -2,11 +2,19 @@
   "name": "ratchet",
   "version": "0.1.0",
   "private": true,
-  "description": "RATCHET — a keyless prediction arcade on Solana. Sealed commit-reveal shots settled on Pyth prices read straight off the chain. Zero dependencies.",
+  "description": "RATCHET — a keyless prediction arcade on Solana. Sealed commit-reveal shots settled on Pyth prices read straight off the chain.",
   "license": "MIT",
-  "repository": { "type": "git", "url": "https://github.com/3esign/ratchetx" },
-  "engines": { "node": ">=18" },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/3esign/ratchetx"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "test": "node scripts/run-tests.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
   }
 }

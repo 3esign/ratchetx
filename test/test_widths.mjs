@@ -2,9 +2,14 @@
 // child forcing the page wider than the screen — so this checks every width in
 // the real range rather than the four I happened to think of.
 import { chromium } from 'playwright';
-const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium' });
+import { installFixtureRoutes } from './browser_fixture.mjs';
+const BASE = process.env.RATCHET_LAYOUT_SERVER || 'http://127.0.0.1:8247/';
+const launch = process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath:process.env.PLAYWRIGHT_CHROMIUM_PATH }
+  : process.platform === 'win32' ? { channel:'chrome' } : {};
+const b = await chromium.launch(launch);
 const p = await b.newPage({ viewport:{width:1440,height:900} });
-await p.goto('http://127.0.0.1:8247/', { waitUntil:'networkidle' });
+await installFixtureRoutes(p);
+await p.goto(BASE, { waitUntil:'networkidle' });
 await p.waitForTimeout(1400);
 const bad = [];
 for (let w = 360; w <= 1920; w += 20) {
@@ -25,3 +30,4 @@ for (let w = 360; w <= 1920; w += 20) {
 await b.close();
 console.log(bad.length ? bad.slice(0,12).join('\n') + `\n\n${bad.length} WIDTHS OVERFLOW`
   : 'NO HORIZONTAL OVERFLOW AT ANY WIDTH FROM 360 TO 1920');
+process.exitCode = bad.length ? 1 : 0;

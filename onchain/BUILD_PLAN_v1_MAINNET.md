@@ -41,17 +41,19 @@ is provably **the first price published at or after the window closed**. Exactly
 existence satisfies it. There is nothing left to pick.
 
 Settling strictly means posting the crossing update from Hermes rather than reading whatever the
-sponsored account currently holds. To guarantee a shot can never be stranded because nobody did
-that in time, after **1 hour** anyone may settle on any update at or after expiry. The shot records
-which rule was used (`strict: 1` or `0`) so an auditor can tell them apart forever.
+sponsored account currently holds. Strict settlement is accepted only before the one-hour
+deadline. After that deadline the shot is **voidable, never settleable**, so settle and void are
+not two caller-selectable outcomes at the same time.
 
 ### Rent comes back
 
 A `Shot` account is 165 bytes — about **0.00204 SOL** of rent. Without a way to reclaim it, every
 shot mirrored on-chain would lock that forever, which makes step 3 economically silly.
 
-`close_shot` reclaims it once a shot is Revealed. Anyone may call it; `has_one = player` pins the
-refund to the wallet that paid, so a stranger cranking cleanup cannot redirect a lamport.
+`close_shot` reclaims it once a shot is Revealed **or Voided**. Anyone may call it; `has_one =
+player` pins the refund to the wallet that paid, so a stranger cranking cleanup cannot redirect a
+lamport. The earlier draft described a void path but did not implement it, permanently locking the
+rent of every unresolvable shot; v1 now includes the instruction explicitly.
 
 **Next action:** paste v1 into a fresh Playground project, Build, deploy to devnet, and re-run the
 smoke test — plus a `close_shot` call at the end to prove the rent returns.

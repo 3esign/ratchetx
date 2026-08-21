@@ -3,12 +3,12 @@
 An open, continuously growing corpus of **predictions that were sealed before the outcome existed,
 backed by a stake, and settled by a deterministic oracle rule**.
 
-- **Endpoint:** `https://ratchetx.vercel.app/api/record`
+- **Endpoint:** `https://ratchetx.xyz/api/record`
 - **Licence:** public domain. No key, no signup, no attribution requirement, no rate deal.
 - **Schema version:** 1 — additive only. New columns may appear; existing columns never change meaning.
 
 ```
-curl -s 'https://ratchetx.vercel.app/api/record?format=ndjson&limit=1000&after=0'
+curl -s 'https://ratchetx.xyz/api/record?format=ndjson&limit=1000&after=0'
 ```
 
 ## Why this exists
@@ -105,7 +105,7 @@ against those anchors before treating old rows as fixed.
 
 ## Related
 
-- [`/api/feeds`](https://ratchetx.vercel.app/api/feeds) — what the Pyth feeds were doing at the time,
+- [`/api/feeds`](https://ratchetx.xyz/api/feeds) — what the Pyth feeds were doing at the time,
   measured minute by minute.
-- [`/api/supply`](https://ratchetx.vercel.app/api/supply) — supply destroyed, read off the mint account.
-- [`/api/snapshot`](https://ratchetx.vercel.app/api/snapshot) — the full black box.
+- [`/api/supply`](https://ratchetx.xyz/api/supply) — supply destroyed, read off the mint account.
+- [`/api/snapshot`](https://ratchetx.xyz/api/snapshot) — the full black box.

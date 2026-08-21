@@ -19,8 +19,8 @@ const { pathFor } = require('../lib/pxlog.js');
 const { isWalletShaped, isDemo } = require('../lib/verify.js');
 const crypto = require('node:crypto');
 
-const VERSION = 'h48-2026-08-21';
-const SITE = 'https://ratchetx.vercel.app';
+const VERSION = 'h51-2026-08-21';
+const SITE = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
 const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')

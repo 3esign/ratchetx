@@ -1,10 +1,15 @@
 import { chromium } from 'playwright';
-const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium' });
+import { installFixtureRoutes } from './browser_fixture.mjs';
+const BASE = process.env.RATCHET_LAYOUT_SERVER || 'http://127.0.0.1:8247/';
+const launch = process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath:process.env.PLAYWRIGHT_CHROMIUM_PATH }
+  : process.platform === 'win32' ? { channel:'chrome' } : {};
+const b = await chromium.launch(launch);
 let bad = 0;
 for (const vp of [{w:1920,h:1080},{w:1440,h:900},{w:1366,h:768},{w:1280,h:700},{w:1100,h:620},{w:920,h:800},{w:430,h:900}]) {
   const p = await b.newPage({ viewport:{width:vp.w,height:vp.h} });
+  await installFixtureRoutes(p);
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
-  await p.goto('http://127.0.0.1:8255/?reset=1', { waitUntil:'networkidle' });
+  await p.goto(new URL('?reset=1', BASE).href, { waitUntil:'networkidle' });
   await p.waitForTimeout(1400);
   const stacked = vp.w <= 920;
   const probe = () => p.evaluate(()=>{
@@ -51,3 +56,4 @@ for (const vp of [{w:1920,h:1080},{w:1440,h:900},{w:1366,h:768},{w:1280,h:700},{
 }
 await b.close();
 console.log(bad ? `\n${bad} PROBLEM(S)` : '\nCOLUMNS ALIGN AND THE RAIL PINS CORRECTLY AT EVERY WIDTH');
+process.exitCode = bad ? 1 : 0;

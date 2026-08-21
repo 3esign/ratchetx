@@ -35,16 +35,16 @@ declare_id!("4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2");
 // posted from Hermes into an ephemeral PriceUpdateV2 account. A shot nobody
 // settles strictly is voided after VOID_AFTER_SECS and the stake returns —
 // no outcome is invented, by anyone, ever.
-const MAX_SETTLE_LATENESS: i64 = 86_400;
-// A shot nobody could settle strictly inside this window is VOIDABLE rather
-// than settleable — the stake returns and no outcome is invented.
-const VOID_AFTER_SECS: i64 = 3600;
+// Strict settlement and voiding meet at one deadline. They must not overlap:
+// if both were admissible after an hour, a caller could choose the outcome.
+const SETTLE_DEADLINE_SECS: i64 = 3600;
 const MAX_STALENESS_AT_SEAL: u64 = 60;
+const MAX_CONF_BPS: u128 = 200; // reject a confidence band wider than 2%
 
 // Real owners of PriceUpdateV2 accounts. Receiver = hermes-posted updates;
 // push oracle = Pyth's sponsored feed accounts (handy on devnet).
-// PYTH CORE UPGRADE — the DAO upgrades on 2026-08-26 16:00 UTC, and Pyth's
-// own guidance for a NEW deployment is to use the upgraded Pro-compatible
+// PYTH CORE UPGRADE — the API-key cutover moved to 2026-08-18. Pyth's
+// guidance for a NEW deployment is to use the upgraded Pro-compatible
 // receiver rather than the legacy addresses. We accept BOTH generations so
 // the program keeps working across the cutover in either direction, and so
 // a price account posted before the upgrade is still readable after it.
@@ -76,6 +76,7 @@ pub mod ratchet_seal {
         let feed_id = get_feed_id_from_hex(&feed_id_hex)?;
         let pu = load_price_update(&ctx.accounts.price_update)?;
         let msg = pu.price_no_older_than(&Clock::get()?, MAX_STALENESS_AT_SEAL, &feed_id)?;
+        check_confidence(&msg)?;
         let entry_e6 = scale_to_e6(msg.price, msg.exponent)?;
 
         let shot = &mut ctx.accounts.shot;
@@ -99,12 +100,14 @@ pub mod ratchet_seal {
         require!(shot.state == ShotState::Sealed as u8, RatchetError::WrongState);
         let now = Clock::get()?.unix_timestamp;
         require!(now >= shot.expiry_ts, RatchetError::NotExpired);
+        require!(now < shot.expiry_ts + SETTLE_DEADLINE_SECS,
+            RatchetError::SettlementDeadlinePassed);
 
         let pu = load_price_update(&ctx.accounts.price_update)?;
         let msg = &pu.price_message;
         require!(msg.feed_id == shot.feed_id, RatchetError::BadFeed);
         require!(msg.publish_time >= shot.expiry_ts, RatchetError::PriceOutsideWindow);
-        require!(msg.publish_time <= shot.expiry_ts + MAX_SETTLE_LATENESS,
+        require!(msg.publish_time <= shot.expiry_ts + SETTLE_DEADLINE_SECS,
             RatchetError::PriceOutsideWindow);
         // Pyth's own guidance: treat prev_publish_time == publish_time, or a
         // missing crossing update, as unresolvable — never let a late cranker
@@ -113,6 +116,7 @@ pub mod ratchet_seal {
         // cannot be settled strictly is VOIDED and the stake goes back.
         require!(msg.prev_publish_time < msg.publish_time, RatchetError::NotFirstUpdate);
         require!(msg.prev_publish_time < shot.expiry_ts, RatchetError::NotFirstUpdate);
+        check_confidence(msg)?;
         let exit_e6 = scale_to_e6(msg.price, msg.exponent)?;
 
         shot.exit_e6 = exit_e6;
@@ -155,6 +159,19 @@ pub mod ratchet_seal {
         Ok(())
     }
 
+    /// Permissionless liveness exit. Once the strict settlement deadline has
+    /// passed, the outcome can no longer be invented; the shot becomes
+    /// closeable and its rent can return to the player.
+    pub fn void_shot(ctx: Context<VoidShot>) -> Result<()> {
+        let shot = &mut ctx.accounts.shot;
+        require!(shot.state == ShotState::Sealed as u8, RatchetError::WrongState);
+        require!(Clock::get()?.unix_timestamp >= shot.expiry_ts + SETTLE_DEADLINE_SECS,
+            RatchetError::NotVoidable);
+        shot.state = ShotState::Voided as u8;
+        emit!(Voided { shot: shot.key(), player: shot.player });
+        Ok(())
+    }
+
     /// Reclaim the rent once a shot has been revealed. Anyone may call it; the
     /// lamports always return to the player who paid them (`has_one = player`).
     /// Without this, every shot mirrored on-chain would lock ~0.002 SOL forever.
@@ -180,6 +197,14 @@ fn scale_to_e6(price: i64, exponent: i32) -> Result<i64> {
         price.checked_div(10i64.checked_pow((-shift) as u32).ok_or(RatchetError::MathOverflow)?)
     };
     v.ok_or(error!(RatchetError::MathOverflow))
+}
+
+fn check_confidence(msg: &PriceFeedMessage) -> Result<()> {
+    require!(msg.price > 0, RatchetError::BadPrice);
+    require!((msg.conf as u128).saturating_mul(10_000)
+        <= (msg.price as u128).saturating_mul(MAX_CONF_BPS),
+        RatchetError::TooUncertain);
+    Ok(())
 }
 
 // ---- manual, honest validation of a real Pyth price account ----
@@ -223,9 +248,17 @@ pub struct Settle<'info> {
 }
 
 #[derive(Accounts)]
+pub struct VoidShot<'info> {
+    #[account(mut)]
+    pub shot: Account<'info, Shot>,
+    pub cranker: Signer<'info>,
+}
+
+#[derive(Accounts)]
 pub struct CloseShot<'info> {
     #[account(mut, close = player, has_one = player,
-        constraint = shot.state == ShotState::Revealed as u8 @ RatchetError::WrongState)]
+        constraint = shot.state == ShotState::Revealed as u8
+                  || shot.state == ShotState::Voided as u8 @ RatchetError::WrongState)]
     pub shot: Account<'info, Shot>,
     /// CHECK: rent recipient, pinned by `has_one = player` to the shot's own player
     #[account(mut)]
@@ -308,8 +341,8 @@ pub struct Shot {
     pub side: u8,
     pub hit: u8,
     pub state: u8,
-    /// 1 = settled on the provable first price after expiry, 0 = settled by the
-    /// late fallback. Stored so an auditor can tell the two apart forever.
+    /// 1 = settled on the provable first price after expiry. Zero means not yet
+    /// settled (or legacy draft data); this version has no permissive fallback.
     pub strict: u8,
 }
 impl Shot { pub const SIZE: usize = 32 + 8 + 32 + 32 + 8*6 + 5; }
@@ -323,11 +356,12 @@ pub struct PlayerRecord {
 impl PlayerRecord { pub const SIZE: usize = 32 + 8 + 8; }
 
 #[repr(u8)]
-pub enum ShotState { Sealed = 1, Settled = 2, Revealed = 3 }
+pub enum ShotState { Sealed = 1, Settled = 2, Revealed = 3, Voided = 4 }
 
 #[event] pub struct Sealed   { pub shot: Pubkey, pub player: Pubkey, pub feed_id: [u8;32], pub expiry_ts: i64, pub entry_e6: i64 }
 #[event] pub struct Settled  { pub shot: Pubkey, pub exit_e6: i64, pub publish_time: i64, pub cranker: Pubkey, pub strict: u8 }
 #[event] pub struct Revealed { pub shot: Pubkey, pub player: Pubkey, pub side: u8, pub hit: u8 }
+#[event] pub struct Voided   { pub shot: Pubkey, pub player: Pubkey }
 
 #[error_code]
 pub enum RatchetError {
@@ -342,6 +376,10 @@ pub enum RatchetError {
     #[msg("window has not expired yet")] NotExpired,
     #[msg("price update outside the settle window")] PriceOutsideWindow,
     #[msg("reveal does not match the sealed commitment")] CommitMismatch,
-    #[msg("not the first price published after expiry - post the crossing update, or wait for the fallback")] NotFirstUpdate,
+    #[msg("not the first price published after expiry")] NotFirstUpdate,
+    #[msg("strict settlement deadline has passed")] SettlementDeadlinePassed,
+    #[msg("shot is not voidable yet")] NotVoidable,
+    #[msg("oracle price must be positive")] BadPrice,
+    #[msg("oracle confidence band is too wide")] TooUncertain,
     #[msg("math overflow")] MathOverflow,
 }

@@ -1,17 +1,22 @@
 // A shot settles while the player is elsewhere. Do they find out?
 import { chromium } from 'playwright';
-const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium' });
+import { installFixtureRoutes } from './browser_fixture.mjs';
+const BASE = process.env.RATCHET_LAYOUT_SERVER || 'http://127.0.0.1:8247/';
+const launch = process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath:process.env.PLAYWRIGHT_CHROMIUM_PATH }
+  : process.platform === 'win32' ? { channel:'chrome' } : {};
+const b = await chromium.launch(launch);
 let bad=0; const check=(c,l)=>{ if(!c)bad++; console.log((c?'PASS  ':'FAIL  ')+l); };
 
 // --- 1. tab hidden: the title has to carry it ---
 {
   const ctx = await b.newContext({ viewport:{width:1440,height:900} });
   const p = await ctx.newPage();
+  await installFixtureRoutes(p,'settle');
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
-  await p.goto('http://127.0.0.1:8255/', { waitUntil:'domcontentloaded' });
+  await p.goto(BASE, { waitUntil:'domcontentloaded' });
   await p.evaluate(()=>localStorage.setItem('ratchet_auth', JSON.stringify(
     { wallet:'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM', ts:Date.now(), sig:'x' })));
-  await p.goto('http://127.0.0.1:8255/?who=settle&reset=1', { waitUntil:'networkidle' });
+  await p.goto(new URL('?who=settle&reset=1', BASE).href, { waitUntil:'networkidle' });
   await p.waitForTimeout(1200);
   const base = await p.title();
   check(!/SETTLED/.test(base), 'a fresh load announces nothing — history is recorded, not replayed');
@@ -36,10 +41,11 @@ let bad=0; const check=(c,l)=>{ if(!c)bad++; console.log((c?'PASS  ':'FAIL  ')+l
 {
   const ctx = await b.newContext({ viewport:{width:1440,height:900} });
   const p = await ctx.newPage();
-  await p.goto('http://127.0.0.1:8255/', { waitUntil:'domcontentloaded' });
+  await installFixtureRoutes(p,'settle');
+  await p.goto(BASE, { waitUntil:'domcontentloaded' });
   await p.evaluate(()=>localStorage.setItem('ratchet_auth', JSON.stringify(
     { wallet:'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM', ts:Date.now(), sig:'x' })));
-  await p.goto('http://127.0.0.1:8255/?who=settle&reset=1', { waitUntil:'networkidle' });
+  await p.goto(new URL('?who=settle&reset=1', BASE).href, { waitUntil:'networkidle' });
   let m={flashed:false,banner:'',hasBtn:false};
   for (let i=0;i<30;i++){ await p.waitForTimeout(400);
     m = await p.evaluate(()=>({
@@ -60,11 +66,12 @@ let bad=0; const check=(c,l)=>{ if(!c)bad++; console.log((c?'PASS  ':'FAIL  ')+l
 {
   const ctx = await b.newContext({ viewport:{width:1440,height:900} });
   const p = await ctx.newPage();
-  await p.goto('http://127.0.0.1:8255/', { waitUntil:'domcontentloaded' });
+  await installFixtureRoutes(p,'settle');
+  await p.goto(BASE, { waitUntil:'domcontentloaded' });
   await p.evaluate(()=>{ localStorage.setItem('ratchet_notif_asked','1');
     localStorage.setItem('ratchet_auth', JSON.stringify(
     { wallet:'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM', ts:Date.now(), sig:'x' })); });
-  await p.goto('http://127.0.0.1:8255/?who=settle&reset=1', { waitUntil:'networkidle' });
+  await p.goto(new URL('?who=settle&reset=1', BASE).href, { waitUntil:'networkidle' });
   await p.waitForTimeout(9000);
   check(!(await p.evaluate(()=>!!document.getElementById('notifYes'))),
         'someone who already answered is never asked again');
@@ -72,3 +79,4 @@ let bad=0; const check=(c,l)=>{ if(!c)bad++; console.log((c?'PASS  ':'FAIL  ')+l
 }
 await b.close();
 console.log(bad? `\n${bad} PROBLEM(S)` : '\nTHE PLAYER FINDS OUT');
+process.exitCode = bad ? 1 : 0;

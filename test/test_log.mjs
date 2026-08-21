@@ -48,6 +48,10 @@ const kvOf = () => require('../lib/kv.js');
   assert.equal(new Set(idx).size, 25, 'every concurrent append got a unique index');
   assert.deepEqual(idx, Array.from({ length: 25 }, (_, i) => i + 2), 'indices are gapless');
   assert.equal(await log.logCount(), 26, 'counter matches');
+  const kv = kvOf();
+  const immutable = await kv.getManyJSON(Array.from({ length: 26 }, (_, i) => `g:log:e:${i + 1}`));
+  assert.equal(immutable.filter(Boolean).length, 26, 'every index has a single-writer immutable record');
+  assert.equal(new Set(immutable.map(e => e.i)).size, 26, 'immutable records retain every concurrent event');
   console.log('25 concurrent appends -> 25 unique gapless indices, none overwritten');
 }
 

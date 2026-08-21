@@ -53,6 +53,14 @@ const at5 = await priceAt(T0 + 880*60e3, T0 + 901*60e3);   // expiry 20min befor
 assert.equal(at5.expired, true, 'sample beyond grace must be refused');
 console.log('sample 20min past a 15min grace -> refused, void');
 
+// ---- 5b. oracle-source pinning: fallback may refund, never settle ----
+const sourceExpiry = T0 + 1000 * 60e3;
+await force(sourceExpiry + 1000, { ...mk(777), src: 'coinbase' });
+const mixed = await priceAt(sourceExpiry, sourceExpiry + SETTLE_GRACE_MS + 1000, 'pyth-onchain');
+assert.equal(mixed.expired, true, 'a Coinbase row cannot settle a Pyth-sealed shot');
+assert.equal(mixed.row, undefined);
+console.log('Pyth entry + Coinbase-only exit window -> void/refund');
+
 // ---- 6. patience cannot win: waiting only ever refunds ----
 const outcomes = new Set();
 for (const when of [expiry+1, expiry+60e3, expiry+3600e3, expiry+86400e3]) {

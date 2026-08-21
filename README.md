@@ -1,6 +1,6 @@
 # RATCHET — the machine that cannot lie
 
-Live: **https://ratchetx.vercel.app** · Token: **$RCX** on
+Live: **https://ratchetx.xyz** · Token: **$RCX** on
 [pump.fun](https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump) ·
 CA `FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump` (Token-2022) ·
 graduated — liquidity in PumpSwap pool `3gbSEBMBbfqrC7wT7craJNkUhxNTBFyNjhrmedcHJusV`
@@ -14,11 +14,11 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 Don't take our word for it — the site tells you. Both live endpoints return a build marker:
 
 ```
-https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h41-2026-08-21"
-https://ratchetx.vercel.app/api/proof               ->  "v": "h41-2026-08-21"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h51-2026-08-21"
+https://ratchetx.xyz/api/proof               ->  "v": "h51-2026-08-21"
 ```
 
-`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h41-2026-08-21'`.
+All public APIs in this repo declare `const VERSION = 'h51-2026-08-21'`.
 If the live marker and the repo marker match, you are reading the code that is running.
 If they ever don't, the repo is stale and you should say so loudly.
 
@@ -57,17 +57,23 @@ proven end to end on Solana devnet:
 
 `seal` writes only `sha256("SIDE|salt")` plus an entry price read from a Pyth **PriceUpdateV2**
 account it validates itself (owner, discriminator, Full verification — no trusted deserialiser).
-`settle` is a **permissionless crank**: anyone may settle after expiry, and only with a price
-published inside `[expiry, expiry+60]`, so a stale quote cannot be smuggled in. `reveal`
+The deployed v0 `settle` is a **permissionless crank**, but it permits a choice among updates in
+`[expiry, expiry+60]`, has no confidence gate, and has no void/close path. It is legacy devnet
+evidence, not a mainnet candidate. The reviewed v1 draft uses a first-crossing rule, confidence
+gate, disjoint settlement/void deadlines, and permissionless cleanup. `reveal`
 recomputes the hash, checks it against the stored commitment, scores hit/miss on-chain and
 bumps a `PlayerRecord` PDA. Full transcript with transaction links: [`docs/ONCHAIN.md`](docs/ONCHAIN.md).
 
 Devnet is R&D, not the money path — the live game above still settles on the server, which is
-why the proof page exists. Source: `onchain/ratchet_seal_lib.rs` (288 lines, zero crates).
+why the proof page exists. Legacy deployed source: `onchain/ratchet_seal_lib.rs`; reviewed draft:
+`onchain/ratchet_seal_lib_v1.rs`.
 
 ## The whole backend, small enough to read in one sitting
 
-Zero npm dependencies. No framework. No build step. No key that can touch funds.
+Zero production npm dependencies. The Blink transaction is serialized locally and the
+exact Web3 browser bundle used for wallet transactions is vendored under `vendor/`, so
+no third-party CDN executes inside the page. No framework. No build step.
+No key that can touch funds.
 
 | file | what it is |
 |---|---|
@@ -91,7 +97,7 @@ Zero npm dependencies. No framework. No build step. No key that can touch funds.
 | `scripts/restore.mjs` | verify a snapshot's hash chain and resurrect the machine into fresh storage |
 | `scripts/run-tests.mjs` | every suite, isolated per process — `npm test` |
 | `docs/` | the written record: audit, changelog, dataset schema, on-chain transcript |
-| `test/` | 22 suites. Not decoration — most exist because something was actually wrong |
+| `test/` | 25 suites. Not decoration — most exist because something was actually wrong |
 
 ## Layout
 
@@ -101,7 +107,7 @@ lib/        the parts worth reading: oracle decode, price record, settlement, ha
 agent/      a zero-dependency reference agent for the arena
 onchain/    the Solana settlement program
 scripts/    the test runner and the snapshot restorer
-test/       22 suites
+test/       25 suites
 docs/       audit, changelog, dataset schema, on-chain transcript
 ```
 
@@ -111,21 +117,22 @@ docs/       audit, changelog, dataset schema, on-chain transcript
 npm test
 ```
 
-No dependencies to install — the whole project is zero-dependency, and the tests are plain Node.
+Run `npm install` first. The tests themselves are plain Node; the two direct packages serve only
+the Solana Action/Blink endpoint.
 Each suite runs in its own process, because these tests stub modules through `require.cache` and
-state leaking between files has produced false passes here before. Two suites drive a real browser
+state leaking between files has produced false passes here before. Five suites drive a real browser
 against a locally served copy of the site and skip themselves if no server is running.
 
 ## Three things this repo publishes that are not about the game
 
-- [**The observatory**](https://ratchetx.vercel.app/api/feeds) — continuous third-party measurement
+- [**The observatory**](https://ratchetx.xyz/api/feeds) — continuous third-party measurement
   of Pyth's sponsored push feeds on Solana, taken by a consumer that settles real stakes on them.
   Observed publish gaps, confidence bands, divergence against an unrelated venue, and how many
   settlements the feeds' timing actually cost.
-- [**The supply clock**](https://ratchetx.vercel.app/api/supply) — $RCX supply destroyed, read
+- [**The supply clock**](https://ratchetx.xyz/api/supply) — $RCX supply destroyed, read
   daily off the Token-2022 mint account, split honestly between what players burned and what the
   launchpad burned at graduation.
-- [**The record**](https://ratchetx.vercel.app/api/record) — an open, public-domain dataset of
+- [**The record**](https://ratchetx.xyz/api/record) — an open, public-domain dataset of
   predictions sealed before the outcome, backed by a stake, and settled by a deterministic oracle
   rule. Schema in [`docs/DATASET.md`](docs/DATASET.md). No key, CORS-open, paginated.
 
@@ -147,11 +154,14 @@ program ships. A checklist that can only be green is decoration; every line here
 Deploy this folder to Vercel as-is. It works with no configuration (ephemeral demo mode,
 and the page says so). Environment variables, all optional except the mint:
 
-`RATCHET_MINT` (arms real burns) · `SOLANA_RPC_URL` (fast RPC lane; public RPCs are the
+`RATCHET_MINT` (arms real burns) · `PUBLIC_ORIGIN` (production default: `https://ratchetx.xyz`) ·
+`SOLANA_RPC_URL` or `SOLANA_RPC` (fast RPC lane; public RPCs are the
 fallback) · `KV_REST_API_URL` + `KV_REST_API_TOKEN` (durable state) · `CREDIT_PER_TOKEN`
-(default 1) · `RATCHET_LP_BURN_TX` (optional override for the LP proof line) · **`PYTH_API_KEY`** (required from
-2026-08-26 16:00 UTC — the Pyth Core upgrade makes a key mandatory; without it the game falls back
-to a thinner price source and says so on the page) · `PYTH_HERMES_URL` (override the Hermes host)
+(default 1) · `RATCHET_LP_BURN_TX` (optional override for the LP proof line) · **`PYTH_API_KEY`** (required for
+direct Hermes calls since 2026-08-18; without it the game falls back
+to a thinner price source only if the primary on-chain route fails, and says so on the page) ·
+`PYTH_HERMES_URL` (override the Hermes host) · `RATCHET_SEAL_PROGRAM_ID` +
+`RATCHET_SEAL_RPC_URL` + `RATCHET_SEAL_CLUSTER` (all required before the optional mirror UI appears)
 
 No private key exists anywhere in this system. There is nothing to steal and nothing to rug —
 not as a promise, as a property. Read the code; that's what it's for.

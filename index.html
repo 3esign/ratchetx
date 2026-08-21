@@ -4,19 +4,19 @@
 <title>RATCHET — a keyless prediction arcade on Solana | $RCX on pump.fun</title>
 <meta name="description" content="Call market moves on Solana with sealed, commit-reveal shots settled on Pyth oracle prices — and enter your own trading agent for a public, oracle-settled accuracy record. No treasury, no admin key, no custody: 70% of every stake burns, 30% pays players peer-to-peer. $RCX launched on pump.fun, Token-2022 with mint and freeze authority revoked. The settlement program is on-chain and the proof page re-checks every claim.">
 <meta name="keywords" content="Solana, pump.fun, PumpSwap, Pyth, prediction market, on-chain game, Token-2022, Anchor, RCX, commit-reveal, Solana gaming">
-<link rel="canonical" href="https://ratchetx.vercel.app">
+<link rel="canonical" href="https://ratchetx.xyz">
 <meta name="theme-color" content="#07080a">
 <meta name="robots" content="index,follow,max-image-preview:large">
 <meta property="og:title" content="RATCHET — a keyless prediction arcade on Solana, launched on pump.fun">
 <meta property="og:site_name" content="RATCHET">
 <meta property="og:description" content="Sealed shots settled on Pyth oracle prices. 70% of everything burns, 30% pays players inside their own transactions, 0% to the team. No admin key, no treasury, no custody — and the settlement program now runs on-chain. Every claim re-checked against Solana every 30 seconds.">
-<meta property="og:image" content="https://ratchetx.vercel.app/og.png">
-<meta property="og:url" content="https://ratchetx.vercel.app">
+<meta property="og:image" content="https://ratchetx.xyz/og-v2.png">
+<meta property="og:url" content="https://ratchetx.xyz">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="RATCHET — a keyless prediction arcade on Solana">
 <meta name="twitter:description" content="Commit-reveal shots settled on Pyth. 70% burns, 30% to players, 0% to the team. No key can touch a token — and the proof page would say so in 30 seconds if that changed.">
-<meta name="twitter:image" content="https://ratchetx.vercel.app/og.png">
+<meta name="twitter:image" content="https://ratchetx.xyz/og-v2.png">
 <style>
 :root{
   --bg:#07080a;--card:#0f1115;--card2:#161a21;--line:rgba(255,255,255,.07);
@@ -400,7 +400,32 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   background:var(--card2);border:1px solid var(--gold);border-radius:12px;padding:14px 22px;
   font:700 13px var(--sans);transition:.35s cubic-bezier(.2,.9,.3,1.2);box-shadow:0 8px 40px rgba(0,0,0,.5);max-width:88vw;text-align:center}
 #toast.show{transform:translateX(-50%) translateY(0);visibility:visible}
-</style><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"RATCHET","applicationCategory":"GameApplication","operatingSystem":"Web","url":"https://ratchetx.vercel.app","description":"A keyless prediction arcade on Solana. Sealed commit-reveal shots settled on Pyth oracle prices, 70% of every stake burned, 30% paid to players peer-to-peer, 0% to the team.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"sameAs":["https://github.com/3esign/ratchetx","https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump"]}</script>
+/* h51 visual system — restrained private-club/casino character: stronger
+   hierarchy and quieter surfaces without changing any game interaction. */
+:root{--bg:#08090b;--card:#111319;--card2:#171a20;--line:rgba(214,181,111,.12);
+  --ink:#f4f1ea;--ink2:#a8a7a2;--dim:#6f716f;--gold:#d8ac52;--goldD:#85692f;
+  --ice:#8eb9c8;--red:#df6b67;--grn:#63bb8a}
+body{background:radial-gradient(900px 500px at 50% -120px,rgba(216,172,82,.10),transparent 65%),linear-gradient(180deg,#090a0c 0%,#07080a 100%)}
+body::before{background:linear-gradient(90deg,transparent,rgba(255,255,255,.012),transparent)}
+.wrap{max-width:1200px;padding-left:28px;padding-right:28px}
+.hud{background:rgba(8,9,11,.94);border-bottom-color:rgba(216,172,82,.15)}
+.hudrow{min-height:70px;gap:16px}
+.logo{font-family:Georgia,"Times New Roman",serif;font-size:14px;font-weight:700;letter-spacing:.28em}
+nav button{font-size:10px;letter-spacing:.16em;padding:11px 14px}
+nav button.on,.connect{background:linear-gradient(135deg,#e0b85e,#c99638);box-shadow:0 6px 22px rgba(0,0,0,.22)}
+section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
+.machine,.panel{border-color:rgba(214,181,111,.13);box-shadow:0 18px 55px rgba(0,0,0,.20)}
+.machine{border-radius:16px;padding:32px;background:linear-gradient(155deg,#13151a,#0e1014)}
+.machine::after{opacity:.28}
+.panel{border-radius:12px;padding:18px;background:linear-gradient(155deg,#13151a,#101217)}
+.panel h3,.eyebrow,.tcap{letter-spacing:.24em;color:#85847e}.targets{gap:12px}
+.tgt{border-radius:10px;padding:17px;background:linear-gradient(145deg,#191c22,#14171c);transition:border-color .16s,box-shadow .16s,background .16s}
+.tgt:hover{transform:none;border-color:rgba(216,172,82,.32);box-shadow:0 12px 28px rgba(0,0,0,.20)}
+.tgt.pick{background:linear-gradient(145deg,rgba(216,172,82,.11),#15171b);box-shadow:inset 0 0 0 1px rgba(216,172,82,.10),0 14px 36px rgba(0,0,0,.22)}
+.fire{border-radius:9px;background:linear-gradient(135deg,#e0b85e,#c99638);box-shadow:0 10px 24px rgba(0,0,0,.22)}
+.stk,.cin,.stakeCustom input{border-radius:8px}.foot{line-height:1.9}
+@media(max-width:640px){.wrap{padding-left:16px;padding-right:16px}.machine{padding:22px 16px}.panel{padding:16px}}
+</style><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"RATCHET","applicationCategory":"GameApplication","operatingSystem":"Web","url":"https://ratchetx.xyz","description":"A keyless prediction arcade on Solana. Sealed commit-reveal shots settled on Pyth oracle prices, 70% of every stake burned, 30% paid to players peer-to-peer, 0% to the team.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"sameAs":["https://github.com/3esign/ratchetx","https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump"]}</script>
 </head><body>
 
 <div class="hud"><div class="wrap hudrow">
@@ -410,6 +435,8 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   <div class="hudstat hide" id="hCrWrap">CREDITS <b id="hCr">—</b></div>
   <a class="hudstat hide" id="hRcxWrap" target="_blank" rel="noopener" style="text-decoration:none">$RCX <b id="hRcx">—</b></a>
   <div class="hudstat hide">STREAK <b class="streakf" id="hS">0</b></div>
+    <div class="hudstat hide">SHOTS <b id="hShots">0</b></div>
+    <div class="hudstat hide">WIN <b id="hWinPct">0%</b></div>
   <div class="hudstat hide">FLOOR <b id="hF" style="color:var(--ink)">—</b></div>
   <nav>
     <button class="on" data-go="play">PLAY</button>
@@ -839,7 +866,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   </div>
 </div></section>
 
-<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="/api/snapshot" target="_blank" rel="noopener" style="color:var(--dim)">black box</a> · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a> · <a href="https://github.com/3esign/ratchetx/blob/main/docs/AUDIT_2026-08-20.md" target="_blank" rel="noopener" style="color:var(--gold)">our own audit</a> · <a href="https://github.com/3esign/ratchetx/blob/main/docs/ARENA.md" target="_blank" rel="noopener" style="color:var(--ice)">agent api</a> · <a href="/api/feeds" style="color:var(--ice)">observatory</a> · <a href="/api/supply" style="color:var(--gold)">supply clock</a> · <a href="/api/record" style="color:var(--grn)">the record</a></div>
+<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="/api/snapshot" target="_blank" rel="noopener" style="color:var(--dim)">black box</a> · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a> · <a href="https://github.com/3esign/ratchetx/blob/main/docs/AUDIT_2026-08-21.md" target="_blank" rel="noopener" style="color:var(--gold)">our own audit</a> · <a href="https://github.com/3esign/ratchetx/blob/main/docs/ARENA.md" target="_blank" rel="noopener" style="color:var(--ice)">agent api</a> · <a href="/api/feeds" style="color:var(--ice)">observatory</a> · <a href="/api/supply" style="color:var(--gold)">supply clock</a> · <a href="/api/record" style="color:var(--grn)">the record</a></div>
 <div id="toast"></div>
 
 <script>
@@ -857,7 +884,7 @@ document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("section").forEach(x=>x.classList.remove("on"));
   b.classList.add("on");$(b.dataset.go).classList.add("on");});
 function copyCA(){const c=$("caChip").dataset.ca;if(c){navigator.clipboard.writeText(c);toast("CA copied: "+c.slice(0,10)+"…")}}
-function toast(m){const t=$("toast");t.innerHTML=m;t.classList.add("show");
+function toast(m){const t=$("toast");t.textContent=String(m);t.classList.add("show");
   clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove("show"),2800);}
 const short=w=>w.length>10?w.slice(0,4)+"…"+w.slice(-4):w;
 const fmt$=(n,d)=>n>=1000?n.toLocaleString(undefined,{maximumFractionDigits:0}):(n>=0.01||n===0)?n.toFixed(d??2):Number(n.toPrecision(2)).toString();
@@ -876,6 +903,7 @@ const fmtCmp=n=>{
 // paint-without-flicker: only touch the DOM when the content actually
 // changed, so entry animations play once instead of on every repaint.
 const setHTML=(el,html)=>{if(el&&el._h!==html){el._h=html;el.innerHTML=html;}};
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 
 // ---------- wallet ----------
 // Every visitor gets a demo identity immediately, so the game is playable on
@@ -1043,7 +1071,7 @@ function paint(){
   payLine();standing();fleet();
   const guest=!AUTH;
   $("fire").textContent=ok?(guest?`SEAL THE SHOT — ${sel.stake.toLocaleString()} (GUEST, UNRANKED) 🔒`
-    :`SEAL THE SHOT — BURN ${sel.stake.toLocaleString()} 🔥`):"PICK A TARGET AND A SIDE";
+    :`SEAL THE SHOT — STAKE ${sel.stake.toLocaleString()} 🔥`):"PICK A TARGET AND A SIDE";
   // warden
   // The Warden is allowed to have nothing to say. Its probability comes from
   // volatility measured off the price log, and when there is not enough log to
@@ -1089,6 +1117,8 @@ function paint(){
         else w.classList.add("hide");
       } }
     $("hS").textContent=p.streak+"🔥";
+      if($("hShots")) $("hShots").textContent=p.shots||0;
+      if($("hWinPct")) $("hWinPct").textContent=(p.shots?(p.hits||0)/p.shots*100:0).toFixed(1)+"%";
     const curTh=[0,300,900,2200,5000][p.rankIdx]||0;
     $("hX").style.width=(p.next?Math.max(0,Math.min(100,(p.xp-curTh)/(p.next[1]-curTh)*100)):100)+"%";
     $("mR").textContent=p.rank+(DEMO?" · DEMO (UNRANKED)":"");
@@ -1126,6 +1156,16 @@ function paint(){
         <div class="ch2">${c.label}</div>
         <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${c.res==='hit'?'+'+c.xp+' XP'+(c.streakMult>1?` <span style="color:var(--gold)">×${c.streakMult} STREAK</span>`:''):c.res==='miss'?'streak reset':'no move, no harm'}${
           AUTH&&c.id?` <button class="shareb" data-share="${c.id}">SHARE PROOF</button>`:''}</div></div>`)];
+    
+    // Add MIRROR ON-CHAIN logic to open shots (only those with commit hashes)
+    for(let i=0;i<p.open.length;i++){
+      const c = p.open[i];
+      if(AUTH && STATE.mirror && STATE.mirror.enabled && ['dir','thr','thrDown'].includes(c.kind) && c.id && c.commit && !c.mirrored){
+        rows[i] = rows[i].replace('</div></div>', ` <div style="margin-top:6px;text-align:right"><button class="mirrorb shareb" data-id="${c.id}" data-feed="${c.feed}" data-exp="${c.exp}" data-kind="${c.kind}" data-thresh="${c.thresh||0}" data-pct="${c.pct||0}" data-feed2="${c.feed2||''}" data-commit="${c.commit}" style="border-color:var(--ink2);color:var(--ice)">MIRROR ON-CHAIN</button></div></div>`);
+      } else if (c.mirrored) {
+        rows[i] = rows[i].replace('</div></div>', ` <div style="margin-top:6px;text-align:right"><span style="color:var(--ice);font:700 9.5px var(--mono);letter-spacing:.05em">⚓ MIRRORED ON-CHAIN</span></div></div>`);
+      }
+    }
     setHTML($("chams"),rows.length?rows.join(""):'<div class="empty">EMPTY — FIRE A SHOT</div>');
     drawPaths();
     scanSettlements(p);
@@ -1284,8 +1324,8 @@ function fleet(){
       `<span style="color:var(--dim)">OPEN CALL:</span> ${o.label} — <b style="color:${o.side==='YES'?'var(--grn)':'var(--red)'}">${o.side}</b>`
       +` · <span class="cd" data-exp="${o.exp}"></span>`).join("<br>")
       :'<span style="color:var(--dim)">no open call this hour</span>';
-    return `<div class="agrow"><span class="an">${a.name}</span><span class="ac">${acc}</span>`+
-      `<span class="ab">${a.blurb}</span><span class="call">${call}</span></div>`;
+    return `<div class="agrow"><span class="an">${esc(a.name)}</span><span class="ac">${acc}</span>`+
+      `<span class="ab">${esc(a.blurb)}</span><span class="call">${call}</span></div>`;
   }).join("");
   setHTML(box,html||'<span style="color:var(--dim)">the fleet has not woken up yet</span>');
 }
@@ -1390,9 +1430,9 @@ function drawArena(){
     // No Brier column. It was mean((0.5-outcome)^2) over a flat prior, which
     // is exactly 0.25 for every agent at every record — a constant printed to
     // four decimals. It comes back when agents can state a confidence.
-    return `<div class="agrow"><span class="an">${a.name}</span><span class="ac">${acc}${rank}</span>`+
-      `<span class="ab">${a.blurb||"&nbsp;"}</span>`+
-      `<span class="call"><span style="color:var(--dim)">${a.n} SETTLED · ${a.w}</span></span></div>`;
+    return `<div class="agrow"><span class="an">${esc(a.name)}</span><span class="ac">${acc}${rank}</span>`+
+      `<span class="ab">${a.blurb?esc(a.blurb):"&nbsp;"}</span>`+
+      `<span class="call"><span style="color:var(--dim)">${a.n} SETTLED · ${esc(a.w)}</span></span></div>`;
   }).join(""));
 }
 loadArena(); setInterval(loadArena, 60000);
@@ -1600,6 +1640,9 @@ function holdsRcx(p){
   if (r.bal == null) return null;
   return r.bal > 0;
 }
+function openJupiter() {
+  window.open(buyUrl(), "_blank", "noopener,noreferrer");
+}
 function reloadBtn(label){
   return `<button onclick="document.querySelector('[data-go=play]').click();`
     + `document.getElementById('reloadP').scrollIntoView({behavior:'smooth',block:'center'});`
@@ -1609,7 +1652,7 @@ function reloadBtn(label){
 }
 function buyBtn(label){
   const u=buyUrl(); if(!u)return "";
-  return `<a href="${u}" target="_blank" rel="noopener" class="getrcx">${label} ↗</a>`;
+  return `<button onclick="openJupiter()" class="getrcx" style="cursor:pointer;border:none">${label} ↗</button>`;
 }
 
 function standing(){
@@ -1771,11 +1814,7 @@ document.querySelectorAll("#burnPick .stk").forEach(b=>b.onclick=()=>setBurn(b.d
 
 async function loadW3(){
   if(window.solanaWeb3)return window.solanaWeb3;
-  const urls=[
-    "https://unpkg.com/@solana/web3.js@1.95.8/lib/index.iife.min.js",
-    "https://cdn.jsdelivr.net/npm/@solana/web3.js@1.95.8/lib/index.iife.min.js",
-    "https://cdnjs.cloudflare.com/ajax/libs/solana-web3.js/1.95.8/index.iife.min.js"
-  ];
+  const urls=["/vendor/solana-web3-1.98.4.min.js"];
   for(const u of urls){
     try{
       await new Promise((ok,no)=>{const s=document.createElement("script");
@@ -1783,7 +1822,7 @@ async function loadW3(){
       if(window.solanaWeb3)return window.solanaWeb3;
     }catch{}
   }
-  throw new Error("no CDN could serve the Solana library");
+  throw new Error("the local Solana transaction library could not load");
 }
 // ---- pending-burn tracker: survives refresh, retries until verified ----
 let PB=null;try{PB=JSON.parse(localStorage.getItem("ratchet_pb"))}catch{}
@@ -2020,6 +2059,56 @@ $("anchorPaste").onclick=async()=>{
 };
 
 $("howBtn").onclick=()=>{const b=$("howBox");b.style.display=b.style.display==="none"?"block":"none";};
+
+async function mirrorShot(btn) {
+  if(!AUTH){toast("connect wallet first");return}
+  const shotId = btn.dataset.id;
+  btn.disabled = true;
+  btn.textContent = "BUILDING TX...";
+  try {
+    const W3 = await loadW3(), prov = window.solana||window.phantom.solana;
+    const res = await post({ action: "mirror_build", auth: AUTH, id: shotId });
+    if(!res.ok) throw new Error(res.reason);
+    
+    const PROGRAM = new W3.PublicKey(res.programId);
+    const playerPubkey = new W3.PublicKey(AUTH.wallet);
+    
+    const fromHex = h => new Uint8Array(h.match(/.{1,2}/g).map(b => parseInt(b, 16)));
+    const nonceBuf = fromHex(res.nonceHex);
+    const shotSeed = new TextEncoder().encode("shot");
+    const [shotPda] = W3.PublicKey.findProgramAddressSync([shotSeed, playerPubkey.toBytes(), nonceBuf], PROGRAM);
+    const feedKey = new W3.PublicKey(res.feedKey);
+    const sysId = new W3.PublicKey("11111111111111111111111111111111");
+    
+    const ix = new W3.TransactionInstruction({
+      programId: PROGRAM,
+      keys: [
+        { pubkey: shotPda, isSigner: false, isWritable: true },
+        { pubkey: playerPubkey, isSigner: true, isWritable: true },
+        { pubkey: feedKey, isSigner: false, isWritable: false },
+        { pubkey: sysId, isSigner: false, isWritable: false }
+      ],
+      data: fromHex(res.ixData)
+    });
+    
+    const tx = new W3.Transaction({ recentBlockhash: res.blockhash, feePayer: playerPubkey });
+    tx.add(ix);
+    
+    btn.textContent = "SIGNING...";
+    const { signature } = await prov.signAndSendTransaction(tx);
+    btn.textContent = "CONFIRMING...";
+    await new Promise(r=>setTimeout(r,4000));
+    const confirm = await post({ action: "mirror_confirm", auth: AUTH, id: shotId, sig: signature });
+    if(!confirm.ok) throw new Error(confirm.reason);
+    toast("⚓ SHOT MIRRORED ON-CHAIN +100 XP!");
+    refresh();
+  } catch(err) {
+    toast("Mirror failed: " + ((err&&err.message)||err));
+    btn.textContent = "MIRROR ON-CHAIN";
+    btn.disabled = false;
+  }
+}
+document.addEventListener("click", async e => { const b=e.target.closest&&e.target.closest(".mirrorb"); if(b) mirrorShot(b); });
 refresh();setInterval(refresh,6000);
 // surgical 1s ticker: update ONLY countdown text — no repaints, no flicker
 setInterval(()=>{

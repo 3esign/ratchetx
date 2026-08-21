@@ -1,12 +1,17 @@
 import { chromium } from 'playwright';
-const b = await chromium.launch({ executablePath:'/opt/pw-browsers/chromium' });
+import { installFixtureRoutes } from './browser_fixture.mjs';
+const BASE = process.env.RATCHET_LAYOUT_SERVER || 'http://127.0.0.1:8247/';
+const launch = process.env.PLAYWRIGHT_CHROMIUM_PATH ? { executablePath:process.env.PLAYWRIGHT_CHROMIUM_PATH }
+  : process.platform === 'win32' ? { channel:'chrome' } : {};
+const b = await chromium.launch(launch);
 let bad=0; const check=(c,l)=>{ if(!c)bad++; console.log((c?'PASS  ':'FAIL  ')+l); };
 const p = await b.newPage({ viewport:{width:1440,height:1000} });
+await installFixtureRoutes(p);
 const errs=[]; p.on('pageerror',e=>errs.push(e.message));
-await p.goto('http://127.0.0.1:8258/?reset=1', { waitUntil:'domcontentloaded' });
+await p.goto(new URL('?reset=1', BASE).href, { waitUntil:'domcontentloaded' });
 await p.evaluate(()=>localStorage.setItem('ratchet_auth', JSON.stringify(
   { wallet:'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM', ts:Date.now(), sig:'x' })));
-await p.goto('http://127.0.0.1:8258/', { waitUntil:'networkidle' });
+await p.goto(BASE, { waitUntil:'networkidle' });
 await p.evaluate(()=>{ const a=[...document.querySelectorAll('a,button')].find(x=>x.textContent.trim()==='WARDEN'); if(a)a.click(); });
 await p.waitForTimeout(1800);
 const m = await p.evaluate(()=>({
@@ -28,8 +33,6 @@ check((await p.evaluate(()=>document.getElementById('cPct').style.display))==='b
       'choosing "rises by" reveals the % field');
 check(!m.wide, 'no horizontal overflow');
 check(errs.length===0, 'no js errors'+(errs.length?': '+errs.join('|'):''));
-const r = await p.evaluate(()=>{ const e=document.getElementById('chalBox').closest('.panel').getBoundingClientRect();
-  return {x:Math.max(0,e.x-10),y:Math.max(0,e.y-10),w:e.width+20,h:e.height+20}; });
-await p.screenshot({ path:'/home/claude/challenges.png', clip:{x:r.x,y:r.y,width:r.w,height:Math.min(1000,r.h)} });
 await b.close();
 console.log(bad?`\n${bad} PROBLEM(S)`:'\nCHALLENGE BOARD OK');
+process.exitCode = bad ? 1 : 0;

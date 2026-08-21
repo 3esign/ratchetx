@@ -1,40 +1,39 @@
-# LAUNCH DAY - PUMP.FUN (operator's venue choice, 2026-08-19)
+# Post-launch identity and DEX readiness — RatchetX / RCX
 
-Do this after the game is live and the API banner is gone. ~15 minutes, no code.
+The token is already live. This replaces the obsolete pre-launch form checklist so nobody
+accidentally publishes the old `Ratchet` / `RATCHET` identity.
 
-## Before you start
-- [ ] Game live at ratchetx.vercel.app with the API working (no orange banner)
-- [ ] You are on the machine with YOUR wallet (Phantom) holding a little SOL
-- [ ] logo.png from this folder saved somewhere easy to find
+## Frozen identity
 
-## The steps
-1. Go to **pump.fun** -> "Create coin". Connect wallet
-   **HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM** - this wallet becomes the creator
-   and receives the creator fee share on trading volume. Launch from no other wallet.
-2. Fill the form:
-   - Name: **Ratchet**   Ticker: **RATCHET**
-   - Image: **logo.png**
-   - Description: from metadata.json
-   - Website: **https://ratchetx.vercel.app**  (the token is born pointing at a working game)
-3. Optional dev buy: your call. Zero is a clean screenshot; small is fine. Never large.
-4. Launch and sign. **Copy the mint address (the CA).**
-5. Turn on real burns - NO script needed with the GitHub flow:
-   Vercel dashboard -> ratchetx project -> Settings -> Environment Variables ->
-   Add: name **RATCHET_MINT**, value = the CA, environment Production -> Save ->
-   Deployments tab -> ... menu on the latest -> Redeploy.
-6. Do the ceremonial FIRST BURN: send a small amount of RATCHET from your wallet to the
-   incinerator (address shown in the game's RELOAD panel), paste the signature, watch it
-   appear in the kill feed with a tx link. Screenshot that.
-7. Anchor the log once (PROOF page, ANCHOR button). Now announce:
-   "The floor only goes up. Everything else is sealed until it's over.
-    Utility live at TGE - burn to play right now. [site] [CA]"
+- Name: **RatchetX**
+- Symbol: **RCX**
+- Mint: `FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump`
+- PumpSwap pair: `3gbSEBMBbfqrC7wT7craJNkUhxNTBFyNjhrmedcHJusV`
+- Website: `https://ratchetx.xyz`
+- Creator-fee wallet: `HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM`
+- Image: `logo.png` (512 × 512)
 
-## Fees - how you get paid
-Creator fee share accrues automatically on pump.fun (and PumpSwap after graduation,
-~0.05% of volume in SOL). Claim it on pump.fun from the creator wallet whenever you
-like. The game never touches that money. Exact percentages are pump.fun's to change -
-the site UI at launch time is the source of truth.
+## Before paying for a DEX profile
+
+- [ ] `ratchetx.xyz` and `www.ratchetx.xyz` are attached in Vercel, HTTPS is issued, and
+      one hostname redirects permanently to the canonical one.
+- [ ] Production `PUBLIC_ORIGIN=https://ratchetx.xyz` is set.
+- [ ] `/api/game?action=state`, `/api/feeds`, `/api/supply`, `/api/record`, social preview,
+      and a wallet connect/fire flow are checked on the custom domain.
+- [ ] The real X/Twitter URL is chosen. Do not publish a placeholder or invent a handle.
+- [ ] DEX Screener still shows the mint and pair above; paste values from this file, not
+      from memory.
+- [ ] The profile uses **RatchetX / RCX** and the exact description in `metadata.json`.
+- [ ] Save screenshots and the payment receipt; recheck the listing after processing.
+
+DEX Screener automatically indexes a token after it has a pool and at least one transaction.
+Its paid Enhanced Token Info product changes presentation/metadata, not the contract or
+liquidity. Verify the current price and requirements in the DEX Screener marketplace at the
+time of purchase; those terms are not frozen in this repository.
 
 ## Never
-- Never share the wallet's seed phrase or private key with anyone or any tool.
-- Never quietly change the game's split (70/30/0) after publishing. The split is the product.
+
+- Never share the creator wallet seed phrase or private key with a site, tool, or contractor.
+- Never pay until the custom domain and actual social link are live.
+- Never describe credits as cash, income, or redeemable token rewards.
+- Never quietly change the published 70% burn / 30% player-pots / 0% team split.

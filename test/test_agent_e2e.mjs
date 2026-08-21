@@ -53,7 +53,11 @@ const origSet = globalThis.__ratchet_mem.set.bind(globalThis.__ratchet_mem);
 globalThis.__ratchet_mem.set = (k, v) => {
   if (typeof k === 'string' && k.startsWith('u:') && typeof v === 'string' && v.includes('"open"')) {
     try { const o = JSON.parse(v);
-      if (o.open) { o.open.forEach(sh => { sh.exp = Date.now() - 2000; }); v = JSON.stringify(o); }
+      // This test compresses a two-minute market into milliseconds. It is not
+      // the source-pinning test (test_settle covers that), so make these
+      // synthetic positions legacy/source-agnostic to avoid the real sampler's
+      // 45-second dedupe interval blocking the artificial settlement.
+      if (o.open) { o.open.forEach(sh => { sh.exp = Date.now() - 60_000; delete sh.oracleSrc; }); v = JSON.stringify(o); }
     } catch {}
   }
   const g = globalThis.__ratchet_pxgate; if (g) g.t = 0;   // let the sampler fire each time

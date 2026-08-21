@@ -1,5 +1,8 @@
 // ============================================================
-//  RATCHET SEAL v0.1 — Stage 3 on-chain settlement (DEVNET)
+//  RATCHET SEAL v0.1 — DEPLOYED DEVNET LEGACY, NOT A MAINNET CANDIDATE.
+//  It permits a choice among updates in a 60-second window, has no confidence
+//  gate, and cannot close or void shot accounts. Use ratchet_seal_lib_v1.rs
+//  for the reviewed successor and re-prove it end to end before deployment.
 //  Self-contained: zero external crates beyond anchor-lang —
 //  the zero-dependency house style, now in Rust.
 //

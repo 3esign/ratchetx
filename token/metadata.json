@@ -1,9 +1,8 @@
 {
-  "name": "Ratchet",
-  "symbol": "RATCHET",
-  "description": "Feed the Machine. Fire sealed shots at the market, settled on oracle prices. Beat the Warden - an AI that keeps its own public record. Every stake: 70% burned, 30% season pot, 0% to the team. The creator takes trading fees only. The rules are published, frozen, and the proof page re-checks them live.",
+  "name": "RatchetX",
+  "symbol": "RCX",
+  "description": "Feed the Machine. Fire sealed shots at the market, settled on oracle prices. Beat the Warden - an AI that keeps its own public record. Every stake: 70% burned, 30% to player pots, 0% to the team. The creator takes trading fees only. The rules are published, frozen, and the proof page re-checks them live.",
   "creator_fee_wallet": "HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM",
-  "website": "https://ratchetx.vercel.app",
-  "twitter": "SET_IF_YOU_MAKE_ONE",
+  "website": "https://ratchetx.xyz",
   "image": "logo.png"
 }

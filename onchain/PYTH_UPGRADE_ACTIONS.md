@@ -5,11 +5,13 @@ that has a deadline on it. In order of urgency.
 
 ---
 
-## ⚠ 1 · THE LIVE GAME LOSES ITS PRICE SOURCE ON 26 AUGUST, 16:00 UTC
+## 1 · API cutover — completed and rechecked
 
-**"Every Core user will need an API Key"** after **2026-08-26 16:00 UTC** — the Pyth Core upgrade.
+Pyth moved the Core/API-key cutover to **2026-08-18**. The live game was rechecked on
+2026-08-21: all seven sponsored accounts decoded successfully and the game reported
+`src: "pyth-onchain"`. The configured API key remains a failover credential.
 
-`lib/prices.js` calls `hermes.pyth.network` with no key. After the cutover that call fails, and the
+The previous version called `hermes.pyth.network` with no key. After the cutover that would fail, and the
 game silently drops to the Coinbase fallback, which covers **only SOL, BTC and ETH**. Consequences,
 all of them bad and none of them loud:
 
@@ -19,18 +21,18 @@ all of them bad and none of them loud:
 - worst of all, a shot **sealed** on Pyth could **settle** on Coinbase — breaking the one promise
   that has to hold: same source at seal and at settle
 
-**Fixed in code, needs one action from you:**
+**Fixed in code:**
 
-- `lib/prices.js` now sends `Authorization: Bearer $PYTH_API_KEY` whenever `PYTH_API_KEY` is set,
-  and `PYTH_HERMES_URL` can point at the upgraded endpoint. Nothing changes until you set them.
+- `lib/prices.js` sends `Authorization: Bearer $PYTH_API_KEY` and defaults to the upgraded
+  `https://pyth.dourolabs.app/hermes` endpoint.
 - A 401/403 from Hermes now produces an explicit error naming the upgrade and the missing key,
   instead of a bare status code.
 - If it ever does fall back, `prices.degraded` is returned in the state and the site shows a banner:
   **ORACLE DEGRADED — running on the fallback price source, not Pyth.** Falling back is acceptable;
   falling back invisibly is not.
 
-**Your action: get a Pyth API key before 26 August 16:00 UTC and set `PYTH_API_KEY` in Vercel.**
-That is the whole fix. Do it this week — the cutover is the same day as the Belgrade summit.
+No API-key action remains. Keep the credential secret and verify the sponsored route plus
+the authenticated failover during every launch preflight.
 
 ---
 

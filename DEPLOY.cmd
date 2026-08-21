@@ -37,7 +37,7 @@ echo.
 if errorlevel 1 goto :fail
 echo  ============================================================
 echo  SUCCESS - your site is live at the URL printed above.
-echo  VERIFY: open  https://ratchetx.vercel.app/api/game?action=state
+echo  VERIFY: open  https://ratchetx.xyz/api/game?action=state
 echo  and check it contains  "v":"h1-2026-08-19"
 echo  ============================================================
 goto :end

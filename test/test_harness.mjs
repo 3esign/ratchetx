@@ -73,7 +73,7 @@ const zScore = (pfx, period, w) => { const m = mem.get('Z' + `z:${pfx}${period}`
 // 1 ---- bare state
 let r = await call('GET', { query: { action: 'state' } });
 ok(r.status === 200 && r.body.ok && r.body.v && r.body.durable === false, 'state answers, versioned, ephemeral');
-ok(Object.keys(r.body.targets).length === 10, 'ten targets served (5 evergreen + 5 rotating)');
+ok(Object.keys(r.body.targets).length === 12, 'twelve targets served (7 evergreen + 5 rotating)');
 ok(r.body.targets.SOL2 && r.body.targets.SOL2.mins === 2,
    'FLASH exists: a two-minute window so a first visit can finish a whole shot');
 ok(r.body.targets.SOL2.mins * 60 > 60,
@@ -81,6 +81,28 @@ ok(r.body.targets.SOL2.mins * 60 > 60,
 ok(r.body.targets.PUMP30 && r.body.targets.PUMP30.feed === 'PUMP', 'the house token is on the board');
 ok(!('RCX15' in r.body.targets) && !('RCX_THR' in r.body.targets), 'no RCX-priced targets');
 ok(r.body.stats.potD === 0, 'daily pot initialised');
+
+// Mirror receipts are only creditable when every sealed term matches. This
+// decoder is pure so the dangerous boundary stays testable with mirroring
+// disabled in normal environments.
+{
+  const disc = Buffer.from('66caaba31b9869f2', 'hex');
+  const nonce = Buffer.alloc(8); nonce.writeBigUInt64LE(42n);
+  const commit = Buffer.alloc(32, 7);
+  const feed = Buffer.from('ab'.repeat(32));
+  const len = Buffer.alloc(4); len.writeUInt32LE(feed.length);
+  const exp = Buffer.alloc(8); exp.writeBigInt64LE(123456n);
+  const threshold = Buffer.alloc(8); threshold.writeBigInt64LE(987654n);
+  const data = Buffer.concat([disc, nonce, commit, len, feed, exp, Buffer.from([1]), threshold]);
+  const seal = game.parseMirrorSeal(data);
+  ok(seal && seal.nonce === 42n && seal.commit === '07'.repeat(32)
+     && seal.feed === 'ab'.repeat(32) && seal.expiry === 123456
+     && seal.kind === 1 && seal.thresholdE6 === 987654n,
+     'mirror confirmation decodes every sealed term');
+  const altered = Buffer.from(data); altered[altered.length - 1] ^= 1;
+  ok(game.parseMirrorSeal(altered).thresholdE6 !== seal.thresholdE6,
+     'mirror receipt exposes altered terms instead of checking only commitment');
+}
 // THE WARDEN MUST NOT SPEAK BEFORE IT CAN MEASURE.
 // Its stated probability comes from volatility measured off the price log.
 // With no log there is no estimate, and the correct output is silence — the
@@ -95,6 +117,13 @@ ok(r.body.warden && r.body.warden.p === null,
 // force-settle in a test has to let the sampler fire again first. Clearing
 // the per-instance gate is exactly what the passage of a minute does.
 const tickPx = () => { const g = globalThis.__ratchet_pxgate; if (g) g.t = 0; };
+const seedStubPx = ts => {
+  const key = require('../lib/pxlog.js').bucketKey(ts);
+  const rows = getMem(key) || [];
+  rows.push({ t:ts + 10, src:'stub', SOL:PX.SOL, BTC:PX.BTC, ETH:PX.ETH,
+    BONK:PX.BONK, WIF:PX.WIF, JUP:PX.JUP, PUMP:PX.PUMP });
+  rows.sort((a,b)=>a.t-b.t); setMem(key, rows);
+};
 
 // A REAL signing wallet. The guest-vs-real pot guard can only be tested from
 // both sides, and the real side needs a signature the server actually accepts.
@@ -134,7 +163,7 @@ ok((getMem('g:feed') || []).length === 0, 'demo seal absent from public feed');
 // force-settle the demo shot as a HIT
 const crAtSeal = getMem('u:demo-abc123').cr;
 let p = getMem('u:demo-abc123');
-p.open[0].exp = Date.now() - 1000; p.open[0].entry = 90; setMem('u:demo-abc123', p); tickPx();
+p.open[0].exp = Date.now() - 1000; p.open[0].entry = 90; seedStubPx(p.open[0].exp); setMem('u:demo-abc123', p); tickPx();
 r = await call('GET', { query: { action: 'state', wallet: 'demo-abc123' } });
 // 22, not 20: the stake curve is now continuous sqrt(stake/100), so the 500 preset
 // pays x2.24 instead of the old flat x2. Disclosed in the changelog.
@@ -156,6 +185,26 @@ ok(stR && Math.abs(stR.burned - 350) < 1e-9 && Math.abs(stR.potD - 75) < 1e-9 &&
 ok(!(await call('POST', { body: { action: 'shot', auth: { ...authFor(), sig: 'AAAA' }, target: 'SOL5', side: 'YES', stake: 500 } })).body.ok,
    'forged signature rejected');
 
+// Two simultaneous spends from one player used to load the same balance and
+// both succeed; the player blob then kept one deduction while global pots kept
+// both. One per-wallet update lock must make exactly one request win.
+{
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+  const w = b58encode(publicKey.export({format:'der',type:'spki'}).subarray(12));
+  const au = () => { const ts=Date.now(); return {wallet:w,ts,
+    sig:crypto.sign(null,Buffer.from(`RATCHET | ${w} | ${ts}`),privateKey).toString('base64')}; };
+  setMem(`u:${w}`, {w,xp:0,streak:0,best:0,hits:0,shots:0,cr:1000,granted:true,
+    qualified:true,burned:0,day:new Date().toISOString().slice(0,10),open:[],closed:[]});
+  const [a,b] = await Promise.all([
+    call('POST',{ip:'20.0.0.1',body:{action:'shot',auth:au(),target:'SOL5',side:'YES',stake:1000}}),
+    call('POST',{ip:'20.0.0.2',body:{action:'shot',auth:au(),target:'SOL5',side:'NO', stake:1000}}),
+  ]);
+  ok([a,b].filter(x=>x.body.ok).length===1 && [a,b].some(x=>x.status===409),
+     'concurrent spends from one wallet admit exactly one');
+  ok(getMem(`u:${w}`).cr===0 && getMem(`u:${w}`).open.length===1,
+     'one stake deducted and one shot stored — no double-spend side effects');
+}
+
 // 4 ---- real wallet (auth stub: monkey-patch verify via demo prefix not possible; write record directly)
 // Simulate a real wallet's settled hit by direct KV surgery + settle path:
 const RW = 'So11111111111111111111111111111111111111112';
@@ -163,6 +212,7 @@ setMem(`u:${RW}`, { w: RW, xp: 0, streak: 0, best: 0, hits: 0, shots: 0, bal: 50
   day: new Date().toISOString().slice(0, 10),
   open: [{ id: 'x1', kind: 'dir', feed: 'SOL', side: 'YES', entry: 90, exp: Date.now() - 1000, stake: 100, xp: 10, label: 't', src: 'cr' }],
   closed: [] });
+seedStubPx(getMem(`u:${RW}`).open[0].exp);
 r = await call('GET', { query: { action: 'state', wallet: RW } });
 ok(r.body.player.hits === 1, 'real wallet hit settled');
 ok(zScore('lb:', r.body.season, RW) === 10 && zScore('lbd:', r.body.day, RW) === 10, 'real XP on daily AND weekly boards');
@@ -170,6 +220,7 @@ ok((getMem('g:feed') || []).some(f => f.a.includes('HIT')), 'real hit visible in
 
 // 5 ---- VOID refunds to source and reverses pot/burn
 setMem(`u:${RW}`, { ...getMem(`u:${RW}`), open: [{ id: 'x2', kind: 'dir', feed: 'SOL', side: 'YES', entry: 100.000001, exp: Date.now() - 1000, stake: 100, xp: 10, label: 't', src: 'cr' }] });
+seedStubPx(getMem(`u:${RW}`).open[0].exp);
 const crBefore = getMem(`u:${RW}`).cr; st = stats();
 const bBefore = st.burned, dBefore = st.potD, wBefore = st.pot;
 r = await call('GET', { query: { action: 'state', wallet: RW } });
@@ -304,8 +355,8 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   const mkTx = deltas => {
     const pre = [], post = [];
     for (const [owner, [a, b]] of Object.entries(deltas)) {
-      pre.push({ mint: 'M', owner, uiTokenAmount: { uiAmount: a } });
-      post.push({ mint: 'M', owner, uiTokenAmount: { uiAmount: b } });
+      pre.push({ mint: 'M', owner, uiTokenAmount: { amount: String(a), decimals: 0, uiAmount: a } });
+      post.push({ mint: 'M', owner, uiTokenAmount: { amount: String(b), decimals: 0, uiAmount: b } });
     }
     return { blockTime: Math.floor(Date.now() / 1000), meta: { err: null, preTokenBalances: pre, postTokenBalances: post } };
   };
@@ -325,6 +376,11 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   ok(d.ok && d.amount === 8500 && d.burned === 7000 && d.champPaid === 1500, 'champ: self-on-podium nets fairly');
   d = D(mkTx({ P: [10000, 0] }), { ...base, podium: [] });
   ok(d.ok && d.amount === 10000, 'champ: empty podium = pure burn, unchanged');
+  const unreadable = mkTx({ P: [10000, 0] });
+  delete unreadable.meta.preTokenBalances[0].uiTokenAmount.amount;
+  d = D(unreadable, base);
+  ok(!d.ok && /unreadable token balance/.test(d.reason),
+    'burn verifier refuses an unreadable balance instead of treating it as zero');
 }
 
 // 11a ---- THE BOARD: deterministic hourly mix, new kinds, grace window
@@ -375,7 +431,15 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   ok(openShot && !('side' in openShot) && !('salt' in openShot) && openShot.commit, 'seal: spectator state strips side + salt, keeps commit');
   // force-settle: reveal lands in the log and verifies against the commit
   const pd = getMem('u:demo-sealed');
-  pd.open[0].exp = Date.now() - 1000; pd.open[0].entry = 90; setMem('u:demo-sealed', pd); tickPx();
+  pd.open[0].exp = Date.now() - 1000; pd.open[0].entry = 90; setMem('u:demo-sealed', pd);
+  // Earlier tests intentionally seeded rows from another oracle lane. Add an
+  // explicit matching-source row; source pinning must not depend on sampler
+  // timing or the per-instance 45-second dedupe gate.
+  const sealBucket = require('../lib/pxlog.js').bucketKey(pd.open[0].exp);
+  const sealRows = getMem(sealBucket) || [];
+  sealRows.push({ t:Date.now(), src:'stub', SOL:PX.SOL, BTC:PX.BTC, ETH:PX.ETH,
+    BONK:PX.BONK, WIF:PX.WIF, JUP:PX.JUP, PUMP:PX.PUMP });
+  sealRows.sort((a,b)=>a.t-b.t); setMem(sealBucket, sealRows); tickPx();
   await call('GET', { query: { action: 'state', wallet: 'demo-sealed' }, ip: '4.4.4.3' });
   const chunk2 = getMem('g:log:c:0') || [];
   const settleEv = [...chunk2].reverse().find(e => e.ev.k === 'settle' && e.ev.id === q.body.shot.id);
@@ -645,19 +709,19 @@ const kvmod = require('../lib/kv.js');
   ok((await kv2.hall('h:conc')).potD === 0, 'a paid-out pot debits to zero and stays there');
 }
 
-// The floor is derived from the burn total, so no stale write can step the
-// headline number backwards — "monotone by construction" is now literally true.
+// The simulated floor is derived only from VERIFIED ON-CHAIN RCX burns. Paper
+// stake accounting must not move a headline that claims to represent supply.
 {
   resetRL();
   const before = stats();
   const f1 = (await call('GET', { query: { action: 'state' } })).body.stats.floor;
-  setStat('burned', (before.burned || 0) + 5_000_000);
+  setStat('realBurned', (before.realBurned || 0) + 5_000_000);
   const f2 = (await call('GET', { query: { action: 'state' } })).body.stats.floor;
-  ok(f2 > f1, 'floor rises with the burn total');
-  setStat('burned', 0);                       // a stale writer tries to undo it
+  ok(f2 > f1, 'floor rises with verified on-chain burns');
+  setStat('realBurned', 0);                   // a stale writer tries to undo it
   const f3 = (await call('GET', { query: { action: 'state' } })).body.stats.floor;
   ok(f3 >= FLOOR_MIN_OK, 'floor never reads below its base');
-  setStat('burned', before.burned || 0);
+  setStat('realBurned', before.realBurned || 0);
 }
 
 // Re-sending the same staking state must not inflate the published count.
@@ -931,6 +995,17 @@ const kvmod = require('../lib/kv.js');
   resetRL();
   r = await call('POST', { body:{ action:'challenge', auth:au(WA,skA), kind:'dir', feed:'BTC', mins:10, side:'NO', stake:500 } });
   ok(!r.body.ok && /one at a time/.test(r.body.reason||''), 'one open challenge per wallet');
+
+  // An underfunded taker used to win the atomic acceptance key before the
+  // balance check and permanently brick somebody else's offer.
+  const { publicKey:pkC, privateKey:skC } = crypto.generateKeyPairSync('ed25519');
+  const WC = b58encode(pkC.export({format:'der',type:'spki'}).subarray(12));
+  setMem(`u:${WC}`, {w:WC,xp:0,streak:0,best:0,hits:0,shots:0,cr:0,granted:true,
+    qualified:true,burned:0,day:new Date().toISOString().slice(0,10),open:[],closed:[]});
+  resetRL();
+  r = await call('POST', { body:{ action:'accept', auth:au(WC,skC), id:cid } });
+  ok(!r.body.ok && !getMem(`chaltaken:${cid}`),
+     'an underfunded taker releases the acceptance gate');
 
   // the taker gets the opposite side, struck now
   resetRL();
