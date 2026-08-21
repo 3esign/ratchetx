@@ -103,5 +103,28 @@ const html = fs.readFileSync('../index.html', 'utf8');
     'while a champion who HAS been paid still gets the real floor, both ways');
 }
 
+// ---- 8. EVERY REPO LINK THE SITE PUBLISHES MUST RESOLVE ----
+// Moving files into docs/ broke four links across two releases: the footer's
+// "our own audit", README's RESURRECTION.md, and the schema link on the very
+// page whose whole claim is "check this yourself". A link audit is cheap; a
+// 404 handed to someone who came to verify you is not.
+{
+  const root = new URL('../', import.meta.url).pathname;
+  const files = ['index.html','README.md','api/record.js','api/feeds.js','api/supply.js',
+                 'api/shot.js','api/proof.js','api/game.js'];
+  const missing = [];
+  for (const f of files) {
+    let src = '';
+    try { src = require('fs').readFileSync(root + f, 'utf8'); } catch { continue; }
+    for (const m of src.matchAll(/blob\/main\/([A-Za-z0-9_./-]+)/g)) {
+      const target = m[1].replace(/[.,)]+$/, '');
+      if (!require('fs').existsSync(root + target)) missing.push(`${f} -> ${target}`);
+    }
+  }
+  ok(missing.length === 0,
+     missing.length ? `every published repo link resolves — BROKEN: ${missing.join(', ')}`
+                    : 'every published repo link resolves to a file in this repo');
+}
+
 console.log(fails ? `\n${fails} FAILED` : '\nEVIDENCE STANDARD OK');
 process.exit(fails ? 1 : 0);

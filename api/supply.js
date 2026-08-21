@@ -25,7 +25,7 @@ const { getJSON, hall } = require('../lib/kv.js');
 const { rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { series } = require('../lib/supplylog.js');
 
-const VERSION = 'h46-2026-08-21';
+const VERSION = 'h48-2026-08-21';
 const SITE = 'https://ratchetx.vercel.app';
 const SOLSCAN = 'https://solscan.io';
 const MINT = process.env.RATCHET_MINT || '';

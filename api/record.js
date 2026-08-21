@@ -20,7 +20,7 @@ const { rows, toCsv, COLUMNS, SCHEMA, SALT, MAX_LIMIT } = require('../lib/record
 const { logCount } = require('../lib/log.js');
 const { getJSON } = require('../lib/kv.js');
 
-const VERSION = 'h46-2026-08-21';
+const VERSION = 'h48-2026-08-21';
 const SITE = 'https://ratchetx.vercel.app';
 const REPO = 'https://github.com/3esign/ratchetx';
 const esc = s => String(s == null ? '' : s)
@@ -131,7 +131,7 @@ This one is open, it grows every time somebody plays, and it cannot be back-fill
   <p style="margin:10px 0 0"><a href="?format=ndjson&limit=25">ndjson sample</a> ·
     <a href="?format=csv&limit=25">csv sample</a> ·
     <a href="?format=json&limit=5">json sample</a> ·
-    <a href="${REPO}/blob/main/DATASET.md">schema doc</a></p>
+    <a href="${REPO}/blob/main/docs/DATASET.md">schema doc</a></p>
 </div>
 
 <div class="card">
