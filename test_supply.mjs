@@ -150,4 +150,56 @@ const T0 = Date.UTC(2026, 6, 1, 9, 0, 0);
   console.log('no mint -> the clock says so instead of printing zeroes');
 }
 
+// ---- 9. A RATE FROM ONE DAY IS NOT A RATE ----
+// This shipped wrong: on its first day the page read 49 tokens burned and
+// reported "49/day - half of what is left is gone in 26,238 years". The
+// arithmetic was correct and the statement was nonsense.
+{
+  for (const k of Object.keys(require.cache)) delete require.cache[k];
+  globalThis.__ratchet_mem = new Map();
+  const kv = require('./lib/kv.js');
+  const sl = require('./lib/supplylog.js');
+  process.env.RATCHET_MINT = 'FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump';
+  await kv.setJSON('g:supply0', { supply: 1_000_000_000, t: T0 });
+  await kv.hseed('h:stats', { realBurned: 1000 });
+
+  const render = async () => {
+    for (const k of Object.keys(require.cache)) delete require.cache[k];
+    const burn = require('./lib/burn.js');
+    burn.rpcCall = async (m) => {
+      if (m === 'getAccountInfo') return { value: { data: { parsed: { info: {
+        supply: '939000000000000', decimals: 6, mintAuthority: null, freezeAuthority: null } } } } };
+      if (m === 'getTokenAccountsByOwner') return { value: [] };
+      if (m === 'getSignaturesForAddress') return [];
+      return null;
+    };
+    const supply = require('./api/supply.js');
+    return new Promise(done => {
+      const res = { _s: 200, setHeader() {}, status(c) { this._s = c; return this; },
+        end(b) { done(String(b)); } };
+      supply({ query: {} }, res);
+    });
+  };
+
+  // two readings = ONE complete day
+  globalThis.__ratchet_supgate = { t: 0 };
+  await sl.snap({ supply: 939_000_049, playerBurned: 0 }, T0);
+  globalThis.__ratchet_supgate = { t: 0 };
+  await sl.snap({ supply: 939_000_000, playerBurned: 49 }, T0 + DAY);
+  let html = await render();
+  assert.ok(/withheld until 3 complete days/.test(html), 'one complete day -> the rate is withheld');
+  assert.ok(!/49\/day/.test(html), 'and the one-day figure is never printed');
+  assert.ok(!/years/.test(html) || !/26,?238/.test(html), 'and no absurd projection appears');
+
+  // three more readings = three complete days
+  for (let i = 2; i <= 4; i++) {
+    globalThis.__ratchet_supgate = { t: 0 };
+    await sl.snap({ supply: 939_000_000 - (i - 1) * 50, playerBurned: 49 * i }, T0 + i * DAY);
+  }
+  html = await render();
+  assert.ok(!/withheld until/.test(html), 'three complete days -> the rate is published');
+  assert.ok(/\/day/.test(html), 'and it reads as a per-day figure');
+  console.log('burn rate -> withheld at one day, published at three');
+}
+
 console.log('\nsupply clock: all assertions passed');

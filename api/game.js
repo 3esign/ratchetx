@@ -45,13 +45,13 @@ const { getJSON, getJSONStrict, setJSON, setnxJSON, delKey, scanKeys, durable, z
 const { verifyAuth, isDemo, isWalletShaped } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
 const { priceAt, pathFor, sample: samplePx } = require('../lib/pxlog.js');
-const { report: feedReport, noteSettle } = require('../lib/feedhealth.js');
+const { report: feedReport, noteSettle, ensureRollups } = require('../lib/feedhealth.js');
 const { ACCOUNTS: PX_ACCOUNTS } = require('../lib/onchain_px.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h38-2026-08-20';
+const VERSION = 'h39-2026-08-21';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -975,6 +975,11 @@ module.exports = async (req, res) => {
     //  monitors is not a health page.
     // ============================================================
     if (action === 'feeds') {
+      // Summarise any completed day whose raw buckets are still alive. This
+      // is the deadline nobody sees: the buckets carry a four-day TTL, so a
+      // day not folded before then is gone permanently. Throttled to one
+      // pass per instance per ten minutes, and never allowed to fail the page.
+      try { await ensureRollups(); } catch {}
       const rep = await feedReport(Number(req.query.hours) || 24);
       for (const f of Object.keys(rep.feeds)) {
         rep.feeds[f].account = (PX_ACCOUNTS[f] || [])[0] || null;
@@ -1024,6 +1029,11 @@ module.exports = async (req, res) => {
     }
 
     if (action === 'state') {
+      // The daily cron lands here at 00:05 UTC, which is exactly when the
+      // previous day has just closed and its buckets are freshest. Rolling
+      // the observatory's history from the same tick that rolls the pots
+      // means the record survives even if nobody ever opens /api/feeds.
+      try { await ensureRollups(); } catch {}
       await rolloverPots();
       const wardenRec = await wardenTick(prices);
       const fleet = await agentsTick(prices);

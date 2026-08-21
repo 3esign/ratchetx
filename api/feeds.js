@@ -21,10 +21,10 @@
 //  a measurement that cannot be wrong about itself cannot be trusted about
 //  anyone else.
 // ============================================================
-const { report } = require('../lib/feedhealth.js');
+const { report, ensureRollups, history, foldHistory } = require('../lib/feedhealth.js');
 const { ACCOUNTS, MAX_AGE_S } = require('../lib/onchain_px.js');
 
-const VERSION = 'h38-2026-08-20';
+const VERSION = 'h39-2026-08-21';
 const SITE = 'https://ratchetx.vercel.app';
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -42,9 +42,13 @@ module.exports = async (req, res) => {
   // One clamp, in one place: report() owns the bounds and reports back the
   // window it actually used. Everything below reads rep.windowHours so the
   // page can never label a 24h report as the 9999h someone asked for.
-  let rep;
+  let rep, hist = [], all = null;
   try {
+    // Fold any completed day whose buckets are still alive, before reporting.
+    try { await ensureRollups(); } catch {}
     rep = await report(Number(req.query.hours));
+    hist = await history(120);
+    all = foldHistory(hist);
   } catch (e) {
     res.setHeader('content-type', 'text/html; charset=utf-8');
     return res.status(503).end(`<!doctype html><meta charset="utf-8"><title>RATCHET · observatory</title>
@@ -56,7 +60,7 @@ module.exports = async (req, res) => {
   if (String(req.query.format || '').toLowerCase() === 'json') {
     res.setHeader('access-control-allow-origin', '*');
     res.setHeader('cache-control', 'public, max-age=60');
-    return res.json({ ok: true, v: VERSION, ...rep });
+    return res.json({ ok: true, v: VERSION, ...rep, allTime: all, days: hist });
   }
 
   const FEEDS = Object.keys(rep.feeds);
@@ -234,6 +238,43 @@ ${settleRows ? `<div class="card">
   <p style="margin:0">No settlements measured yet — these counters started at ${esc(VERSION)}. This box
   fills in as shots settle.</p></div>`}
 
+
+${all ? `<div class="card">
+  <h2>SINCE WE STARTED · ${esc(all.first)} → ${esc(all.last)}</h2>
+  <p style="margin:0 0 14px">The table above is a 24-hour window, because the raw per-minute record is
+  kept for four days and then expires — it exists for settlement, not for posterity. Every completed day
+  is folded into a summary before that happens and the summary is kept for a year. This is the part that
+  cannot be built by trying harder later. It can only be built by having started earlier.</p>
+  <div class="strip" style="margin-bottom:14px">
+    <div class="c"><u>DAYS MEASURED</u><b>${n0(all.days)}</b><i>complete UTC days folded and kept</i></div>
+    <div class="c"><u>SAMPLES KEPT</u><b>${n0(all.samples)}</b><i>oracle reads behind every figure below</i></div>
+    <div class="c"><u>BEST DAY'S DUTY</u><b>${n2(all.dutyBestPct)}%</b><i>the densest day we have managed so far</i></div>
+    <div class="c"><u>STALE WINDOWS · ALL TIME</u><b class="${FEEDS.reduce((a,f)=>a+(all.feeds[f].staleWindows||0),0) ? 'warn' : 'good'}">${n0(FEEDS.reduce((a,f)=>a+(all.feeds[f].staleWindows||0),0))}</b>
+      <i>attributable intervals longer than ${MAX_AGE_S}s, across every feed and every day</i></div>
+  </div>
+  <div class="scroll"><table style="min-width:760px">
+    <thead><tr><th>FEED</th><th>SAMPLES</th><th>USABLE</th><th>TELEMETRY</th>
+      <th>TYPICAL CONF</th><th>STALE</th><th>BLIND (OURS)</th><th>REWINDS</th>
+      <th>WORST GAP EVER</th><th>WORST DIVERGENCE</th></tr></thead>
+    <tbody>${FEEDS.map(f => { const a = all.feeds[f]; return `<tr>
+      <td><b>${esc(f)}</b></td>
+      <td>${n0(a.samples)}</td>
+      <td class="${a.coverage != null && a.coverage < 99 ? 'warn' : ''}">${a.coverage == null ? '—' : n2(a.coverage) + '%'}</td>
+      <td>${n0(a.telemetry)}</td>
+      <td>${n2(a.confTypicalBps)}</td>
+      <td class="${a.staleWindows ? 'warn' : 'good'}">${n0(a.staleWindows)}</td>
+      <td class="dim">${n0(a.blindWindows)}</td>
+      <td class="${a.rewinds ? 'bad' : 'dim'}">${n0(a.rewinds)}</td>
+      <td class="${a.worstGapS != null && a.worstGapS > MAX_AGE_S ? 'warn' : ''}">${secs(a.worstGapS)}${a.worstGapDay ? ` <span class="dim">${esc(a.worstGapDay)}</span>` : ''}</td>
+      <td>${n2(a.worstDivBps)}${a.worstDivDay ? ` <span class="dim">${esc(a.worstDivDay)}</span>` : ''}</td>
+    </tr>`; }).join('')}</tbody>
+  </table></div>
+  <p class="note"><b style="color:var(--ink)">REWINDS</b> counts publish_time moving backwards, which should
+  never happen. It is here because a number that is always zero is worth publishing precisely so that the
+  day it is not, somebody notices.</p>
+</div>` : `<div class="card"><h2>SINCE WE STARTED</h2>
+  <p style="margin:0">No completed day has been folded yet. The first summary is written after the first
+  full UTC day of measurement, and from then on the record outlives the raw samples it came from.</p></div>`}
 <div class="card">
   <h2>METHOD</h2>
   <ul>
@@ -248,6 +289,10 @@ ${settleRows ? `<div class="card">
     <li>Settlement uses the first recorded sample at or after a shot's expiry — the same first-crossing
       rule (<code>prev_publish_time &lt; expiry &lt;= publish_time</code>) the on-chain program enforces —
       so these samples are not a side record. They are the evidence.</li>
+    <li>Completed days are folded into a kept summary before their raw samples expire, so the all-time
+      view above keeps growing while the per-minute record stays a four-day rolling window. The fold uses
+      exactly the same code as the live report — a day summarised months ago was computed the same way
+      as the last hour.</li>
     <li>Every sample behind every statistic is served back raw:
       <code>/api/game?action=path&amp;feed=SOL&amp;from=&lt;ms&gt;&amp;to=&lt;ms&gt;</code>. Recompute anything here, or
       disagree with it, without asking us.</li>

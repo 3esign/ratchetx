@@ -25,10 +25,12 @@ const { getJSON, hall } = require('../lib/kv.js');
 const { rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { series } = require('../lib/supplylog.js');
 
-const VERSION = 'h38-2026-08-20';
+const VERSION = 'h39-2026-08-21';
 const SITE = 'https://ratchetx.vercel.app';
 const SOLSCAN = 'https://solscan.io';
 const MINT = process.env.RATCHET_MINT || '';
+// Complete days required before a burn rate is published at all.
+const MIN_RATE_DAYS = 3;
 const PUMP = MINT ? `https://pump.fun/coin/${MINT}` : 'https://pump.fun';
 
 const esc = s => String(s == null ? '' : s)
@@ -129,10 +131,18 @@ module.exports = async (req, res) => {
   const playerSupply = Math.max(0, playerBurned - incBal);
   const otherDestroyed = destroyed != null ? Math.max(0, destroyed - playerSupply) : null;
 
-  // Burn rate from the last seven complete days — never the partial one.
+  // Burn rate from the last seven complete days — never the partial one, and
+  // never at all below MIN_RATE_DAYS.
+  //
+  // One complete day is not a rate. On the first day this page ran it read
+  // 49 tokens burned and confidently reported "49/day — half of what is left
+  // is gone in 26,238 years", which is not a projection, it is arithmetic
+  // performed on noise. The same rule the observatory uses applies here:
+  // withhold the figure and say how many days are still needed.
   const complete = rows.filter(r => !r.partial);
   const last7 = complete.slice(-7);
-  const rate = last7.length ? last7.reduce((a, r) => a + r.burned, 0) / last7.length : null;
+  const rate = last7.length >= MIN_RATE_DAYS
+    ? last7.reduce((a, r) => a + r.burned, 0) / last7.length : null;
   const yearsTo = (rate && cur && rate > 0) ? (cur * 0.5) / rate / 365 : null;
 
   if (!MINT) {
@@ -162,7 +172,9 @@ This page is the arithmetic, not the pitch: the mint's own supply field, read of
   <div class="c"><u>DESTROYED</u><b class="gold">${n0(destroyed)}</b><i>${pctS(destroyedPct)} of the supply at our first reading${initial ? ` (${n0(initial)})` : ''}</i></div>
   <div class="c"><u>BURNED BY PLAYERS</u><b class="grn">${n0(playerBurned)}</b><i>verified by signature and credited in-game — the part the game itself caused</i></div>
   <div class="c"><u>BURN RATE · 7d</u><b>${rate == null ? '—' : n0(rate) + '/day'}</b>
-    <i>${yearsTo == null ? 'not enough complete days yet' : `at this rate, half of what is left is gone in ${yearsTo < 1 ? Math.round(yearsTo * 12) + ' months' : yearsTo.toFixed(1) + ' years'}`}</i></div>
+    <i>${rate == null
+        ? `withheld until ${MIN_RATE_DAYS} complete days have been measured — ${complete.length} so far. A rate drawn from one day is not a rate.`
+        : `at this rate, half of what is left is gone in ${yearsTo < 1 ? Math.round(yearsTo * 12) + ' months' : yearsTo < 500 ? yearsTo.toFixed(1) + ' years' : 'longer than anyone should extrapolate'}`}</i></div>
 </div>
 
 ${rows.length >= 2 ? `<div class="card">
@@ -231,7 +243,9 @@ ${rows.length >= 2 ? `<div class="card">
       genesis supply. Anything burned before we started looking is not in the number.</li>
     <li>Daily readings are taken by a serverless function that only runs when someone visits. A quiet day
       can be missing, and a missing day is drawn as a gap, never as a flat line.</li>
-    <li>The 7-day burn rate excludes today, because today is incomplete and would drag the average down.</li>
+    <li>The 7-day burn rate excludes today, because today is incomplete and would drag the average down,
+      and is withheld entirely below ${MIN_RATE_DAYS} complete days. Early on, the honest answer to "how fast
+      is it burning" is that we do not know yet.</li>
     <li>Player burns come from our own verified counter; total destruction comes from the chain. They are
       published side by side on purpose — if we ever miscount, the two will disagree in public.</li>
   </ul>
