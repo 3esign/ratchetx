@@ -112,5 +112,53 @@ const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails
     'the old claim about "typical realised volatility" — which measured nothing — is gone');
 }
 
+// ---- 7. THE RECORD BELONGS TO A MODEL, NOT TO A NAME ----
+// 6-for-30 was earned by a predictor that quoted constants. Carrying it onto
+// the rebuilt one would slander it; deleting it would launder the old one.
+{
+  for (const k of Object.keys(require.cache)) delete require.cache[k];
+  globalThis.__ratchet_mem = new Map();
+  const kv = require('../lib/kv.js');
+  await kv.setJSON('g:warden:rec', { n: 30, hits: 6, brier: 5.2 });   // the old model's record
+
+  const pricesPath = require.resolve('../lib/prices.js');
+  const burnPath = require.resolve('../lib/burn.js');
+  require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true,
+    exports: { getPrices: async () => ({ src:'stub', SOL:100, BTC:60000, ETH:2000,
+      BONK:0.000002, WIF:0.1, JUP:0.2, PUMP:0.005 }) } };
+  require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
+    exports: { INCINERATOR:'1nc1nerator11111111111111111111111111111111',
+      rpcCall: async (m) => (m === 'getTokenAccountsByOwner' ? { value: [] } : null),
+      getTx: async()=>null, decideBurn: ()=>({ok:false,reason:'stub'}) } };
+
+  const game = require('../api/game.js');
+  const r = await new Promise(res => {
+    const out = { _s:200, status(c){this._s=c;return this;}, json(o){ res(o); } };
+    game({ method:'GET', query:{ action:'state' }, headers:{'x-forwarded-for':'4.4.4.4'}, socket:{} }, out)
+      .catch(e => res({ ok:false, reason:String(e) }));
+  });
+
+  ok(r.wardenRec && r.wardenRec.n === 0, `the new model starts at zero (n=${r.wardenRec && r.wardenRec.n})`);
+  ok(r.wardenPrev && r.wardenPrev.n === 30 && r.wardenPrev.hits === 6,
+     'the retired model’s record is KEPT, not deleted');
+  ok(/constant/.test((r.wardenPrev && r.wardenPrev.why) || ''), 'with the reason it was retired');
+  ok(r.wardenModel === 'v1-measured-volatility', 'and the live model is named');
+
+  const chunk = await kv.getJSON('g:log:c:0');
+  const ev = (chunk || []).map(e => e.ev).find(e => e && e.k === 'wardenmodel');
+  ok(!!ev, 'the reset is appended to the hash-chained log, not done silently');
+  ok(ev && ev.retired && ev.retired.n === 30, 'and the log records what was retired');
+
+  // and it must be idempotent — a second request must not reset again
+  await kv.setJSON('g:warden:rec', { n: 3, hits: 2, brier: 0.4 });
+  await new Promise(res => {
+    const out = { _s:200, status(c){this._s=c;return this;}, json(o){ res(o); } };
+    game({ method:'GET', query:{ action:'state' }, headers:{'x-forwarded-for':'4.4.4.5'}, socket:{} }, out)
+      .catch(() => res(null));
+  });
+  const after = await kv.getJSON('g:warden:rec');
+  ok(after && after.n >= 3, `the reset happens once, not on every request (n=${after && after.n})`);
+}
+
 console.log(fails ? `\n${fails} FAILED` : '\nWARDEN OK');
 process.exit(fails ? 1 : 0);

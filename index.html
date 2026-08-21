@@ -375,10 +375,15 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
 .pods.empty .pw{color:var(--dim);font-weight:600}
 .pods.empty .pp{color:var(--dim)}
 .podnote{font:400 11.5px/1.6 var(--sans);color:var(--dim);margin-top:11px;padding-top:11px;border-top:1px solid var(--line)}
-.podstrip{display:flex;flex-wrap:wrap;gap:7px;align-items:center}
-.podstrip .pcap{font:700 8.5px var(--mono);letter-spacing:.14em;color:var(--dim);width:100%;margin-bottom:2px}
-.pchip{display:inline-flex;align-items:center;gap:6px;background:var(--card2);border:1px solid var(--line);
-  border-radius:999px;padding:6px 11px;font:600 10.5px var(--mono);color:var(--ink2);white-space:nowrap}
+/* Centred, because everything it sits between on the landing page is centred —
+   the floor, the stat grid, the credits notice and the burn line. Left-flush
+   chips under a centred caption read as a rendering accident. */
+.podstrip{display:flex;flex-wrap:wrap;gap:8px;align-items:center;justify-content:center;
+  padding:13px 12px;background:var(--card2);border:1px solid var(--line);border-radius:13px}
+.podstrip .pcap{font:700 8.5px var(--mono);letter-spacing:.14em;color:var(--dim);width:100%;
+  text-align:center;margin-bottom:3px}
+.pchip{display:inline-flex;align-items:center;gap:7px;background:var(--card);border:1px solid var(--line);
+  border-radius:999px;padding:8px 14px;font:600 11.5px var(--mono);color:var(--ink2);white-space:nowrap}
 .pchip b{color:var(--gold);font-weight:700}
 .pchip.mine{border-color:var(--goldD);color:var(--gold)}
 .pchip.empty{color:var(--dim);border-style:dashed}
@@ -1046,11 +1051,18 @@ function paint(){
   // better-than-chance calibration (0.25 is the coin-flip baseline) from a
   // single coin flip. Below WMIN the raw count is the whole truth.
   const WMIN=10;
+  // The retired model's record is shown, not hidden. A scoreboard that resets
+  // quietly is not a scoreboard — and the reset itself is in the on-chain-
+  // anchorable log, so this line can be checked against it.
+  const pv=s.wardenPrev;
+  const prevTxt = pv&&pv.n>0
+    ? ` · PREVIOUS MODEL: ${pv.hits}/${pv.n} — RETIRED, ITS PROBABILITY WAS A CONSTANT`
+    : "";
   if(s.wardenRec&&s.wardenRec.n>0){const r=s.wardenRec;
-    $("wrecN").textContent=r.n>=WMIN
+    $("wrecN").textContent=(r.n>=WMIN
       ? `RECORD · ${r.n} SETTLED CALLS · ${r.hits} RIGHT (${Math.round(r.hits/r.n*100)}%) · BRIER ${(r.brier/r.n).toFixed(3)} — WINS AND LOSSES ALIKE`
-      : `RECORD · ${r.hits} RIGHT OF ${r.n} SETTLED — TOO FEW TO SCORE. RATE AND BRIER APPEAR AT ${WMIN} CALLS, BECAUSE ${r.n} IS NOT A TRACK RECORD`;}
-  else $("wrecN").textContent="RECORD · ACCRUES FROM ITS FIRST SETTLED CALL — WINS AND LOSSES ALIKE";
+      : `RECORD · ${r.hits} RIGHT OF ${r.n} SETTLED — TOO FEW TO SCORE. RATE AND BRIER APPEAR AT ${WMIN} CALLS, BECAUSE ${r.n} IS NOT A TRACK RECORD`)+prevTxt;}
+  else $("wrecN").textContent="RECORD · THIS MODEL HAS NOT SETTLED A CALL YET — IT ACCRUES FROM THE FIRST, WINS AND LOSSES ALIKE"+prevTxt;
   // player
   const p=s.player;
   if(p){
@@ -1181,8 +1193,10 @@ function paint(){
     if(g){ const u=buyUrl();
       // Only when it is the actual next step — a prompt to buy shown to
       // someone who already holds plenty is just noise.
-      const low=!p||(p.cr||0)<5000;
-      g.innerHTML=(u&&low)?`<span style="font:600 9.5px var(--mono);letter-spacing:.06em;color:var(--dim)">NO $RCX YET?</span> ${buyBtn("GET SOME")}`:""; } }
+      // Only to someone who genuinely holds none, and never while the
+      // balance is unreadable.
+      const none = holdsRcx(p) === false;
+      g.innerHTML=(u&&none)?`<span style="font:600 9.5px var(--mono);letter-spacing:.06em;color:var(--dim)">NO $RCX YET?</span> ${buyBtn("GET SOME")}`:""; } }
   if(s.mint&&AUTH){const o=$("burnSplitOut"); if(o)o.textContent=burnSplitText(burnAmt);}
   // feed + ladder
   const fx=el=>setHTML(el,s.feed.map(f=>{
@@ -1566,6 +1580,25 @@ function buyUrl(){
   const m=STATE&&STATE.mint;
   return m?`https://pump.fun/coin/${m}`:null;
 }
+// TRUE / FALSE / NULL — and null is not false.
+// Every "get some $RCX" prompt used to key off the CREDITS balance, so a
+// wallet holding 148,702 RCX with zero credits was told it had no RCX at all.
+// Holding the token and having credits are different things: credits come
+// from burning what you hold. And if the chain could not be read we say
+// nothing rather than tell a holder to go buy more.
+function holdsRcx(p){
+  const r = p && p.rcx;
+  if (!r) return null;
+  if (r.bal == null) return null;
+  return r.bal > 0;
+}
+function reloadBtn(label){
+  return `<button onclick="document.querySelector('[data-go=play]').click();`
+    + `document.getElementById('reloadP').scrollIntoView({behavior:'smooth',block:'center'});`
+    + `document.getElementById('reloadP').animate([{outline:'2px solid var(--gold)'},{outline:'2px solid transparent'}],{duration:1400})" `
+    + `style="background:rgba(245,184,61,.12);border:1px solid var(--goldD);border-radius:7px;padding:4px 10px;`
+    + `color:var(--gold);font:700 9.5px var(--mono);letter-spacing:.08em;cursor:pointer">${label}</button>`;
+}
 function buyBtn(label){
   const u=buyUrl(); if(!u)return "";
   return `<a href="${u}" target="_blank" rel="noopener" class="getrcx">${label} ↗</a>`;
@@ -1586,14 +1619,19 @@ function standing(){
   }else if(p.cr < (s.stakeRule&&s.stakeRule.min||100)){
     // You cannot fire at all. Nothing else on this bar matters until that is
     // fixed, so it says so and points at the fix.
+    // Out of CREDITS is not the same as out of $RCX. A holder needs to reload
+    // what they already have; only someone actually empty needs to go buy.
+    const has = holdsRcx(p);
     html=`<b style="color:var(--red)">OUT OF CREDITS</b> — YOU NEED ${(s.stakeRule&&s.stakeRule.min||100)} TO FIRE. `+
-      `BURN $RCX FOR CREDITS, 1 FOR 1 — 70% BURNS, 30% PAYS THE PODIUM ${buyBtn("GET $RCX")}`;
+      (has === true
+        ? `YOU HOLD <b style="color:var(--gold)">${p.rcx.bal.toLocaleString()} $RCX</b> — RELOAD SOME FOR CREDITS, 1 FOR 1 — 70% BURNS, 30% PAYS THE PODIUM ${reloadBtn("RELOAD")}`
+        : `BURN $RCX FOR CREDITS, 1 FOR 1 — 70% BURNS, 30% PAYS THE PODIUM ${has === false ? buyBtn("GET $RCX") : ""}`);
   }else if(p.qualified===false){
     // A wallet costs nothing to generate, so a free grant that also carried
     // RANK meant a script could farm the pot that pays real RCX. Playing is
     // still free. Ranking is what now costs what an honest player spent.
     html=`<b style="color:var(--gold)">UNVERIFIED WALLET</b> — YOU CAN PLAY AND SCORE, BUT NOT YET RANK. `+
-      `HOLDING ANY AMOUNT OF $RCX PUTS YOU IN ${buyBtn("GET $RCX")} `+
+      `HOLDING ANY AMOUNT OF $RCX PUTS YOU IN ${holdsRcx(p) === false ? buyBtn("GET $RCX") : ""} `+
       `· POT <b>${pot.toLocaleString()}</b> · PAYS OUT IN ${clock}`;
   }else if(p.dayRank&&p.dayRank<=prizes.length){
     const win=Math.floor(pot*(prizes[p.dayRank-1]||0));

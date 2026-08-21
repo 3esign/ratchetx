@@ -20,7 +20,7 @@ const { rows, toCsv, COLUMNS, SCHEMA, SALT, MAX_LIMIT } = require('../lib/record
 const { logCount } = require('../lib/log.js');
 const { getJSON } = require('../lib/kv.js');
 
-const VERSION = 'h43-2026-08-21';
+const VERSION = 'h46-2026-08-21';
 const SITE = 'https://ratchetx.vercel.app';
 const REPO = 'https://github.com/3esign/ratchetx';
 const esc = s => String(s == null ? '' : s)

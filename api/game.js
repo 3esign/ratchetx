@@ -52,7 +52,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h43-2026-08-21';
+const VERSION = 'h46-2026-08-21';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -718,7 +718,39 @@ async function wardenLine(prices) {
 // then settled on the same oracle at its window's end. The record is
 // aggregate hits + Brier over every settled call, misses included.
 // An oracle that only shows you its wins is a horoscope with a UI.
+// The record belongs to a MODEL, not to a name.
+//
+// The Warden's public record was 6 right out of 30 — earned entirely by the
+// previous version, which quoted one of three hardcoded constants and could
+// not change its mind. That predictor no longer exists. Carrying its record
+// forward would slander the new one; deleting it would launder the old one.
+//
+// So the record resets at a model boundary and the retired one is KEPT and
+// shown beside it, labelled with what it was. The reset is also appended to
+// the hash-chained log, which is the part that matters: a scoreboard an
+// operator can quietly zero is not a scoreboard, so the zeroing itself has to
+// be a public event that breaks every hash after it if anyone edits it later.
+const WARDEN_MODEL = 'v1-measured-volatility';
+
+async function wardenRollover(now = Date.now()) {
+  const meta = await getJSON('g:warden:model');
+  if (meta && meta.model === WARDEN_MODEL) return false;
+  const old = await getJSON('g:warden:rec');
+  const from = (meta && meta.model) || 'v0-constant-probability';
+  if (old && old.n > 0) {
+    await setJSON('g:warden:rec:prev', { ...old, model: from, retiredAt: now,
+      why: 'its stated probability was a hardcoded constant — 36% on SOL, 35% on BTC and ETH, every hour, '
+         + 'so it always leaned the same way and never read the market' });
+  }
+  await setJSON('g:warden:rec', { n: 0, hits: 0, brier: 0 });
+  await setJSON('g:warden:model', { model: WARDEN_MODEL, since: now });
+  await append({ k: 'wardenmodel', from, to: WARDEN_MODEL,
+    retired: old ? { n: old.n, hits: old.hits } : null });
+  return true;
+}
+
 async function wardenTick(prices) {
+  await wardenRollover();
   const wl = await wardenLine(prices);
   // No line, no seal. A Warden that cannot measure volatility has nothing to
   // say this hour, and saying nothing must not become a record of saying zero.
@@ -1253,7 +1285,9 @@ module.exports = async (req, res) => {
       return res.json({ ok:true, v: VERSION, durable,
         prices:{src:prices.src,degraded:prices.degraded||null,ages:prices.ages||null,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
         stats: st, feed: (await getJSON('g:feed')) || [], ladder, ladderDay,
-        warden: await wardenLine(prices), wardenRec, agents: fleet,
+        warden: await wardenLine(prices), wardenRec,
+        wardenModel: WARDEN_MODEL,
+        wardenPrev: await getJSON('g:warden:rec:prev'), agents: fleet,
         wardenHist: (await getJSON('g:warden:hist')) || [],
         targets: Object.fromEntries(Object.entries(targetBoard(boardHour()))
           .filter(([,t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))),
