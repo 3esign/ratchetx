@@ -19,7 +19,7 @@ const { pathFor } = require('../lib/pxlog.js');
 const { isWalletShaped, isDemo } = require('../lib/verify.js');
 const crypto = require('node:crypto');
 
-const VERSION = 'h37-2026-08-20';
+const VERSION = 'h38-2026-08-20';
 const SITE = 'https://ratchetx.vercel.app';
 const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
 const esc = s => String(s == null ? '' : s)

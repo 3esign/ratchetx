@@ -24,7 +24,7 @@
 const { report } = require('../lib/feedhealth.js');
 const { ACCOUNTS, MAX_AGE_S } = require('../lib/onchain_px.js');
 
-const VERSION = 'h37-2026-08-20';
+const VERSION = 'h38-2026-08-20';
 const SITE = 'https://ratchetx.vercel.app';
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')

@@ -51,7 +51,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h37-2026-08-20';
+const VERSION = 'h38-2026-08-20';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -989,10 +989,31 @@ module.exports = async (req, res) => {
     }
 
     const prices = await getPrices();
-    // Record what the oracle says, before anything settles on it. Throttled
-    // to one write per instance per minute; a failed sample never fails the
-    // request. This record is what makes settlement deterministic.
-    samplePx(prices).catch(() => {});
+
+    // AWAITED, DELIBERATELY, AND THIS WAS A BUG FOR A LONG TIME.
+    //
+    // This used to be fire-and-forget: `samplePx(prices).catch(() => {})`,
+    // on the reasoning that a statistic must never fail a request. But a
+    // serverless function can be frozen the instant it sends its response,
+    // and any promise still in flight dies with it. So the write raced the
+    // reply and lost often enough to be measurable — a heartbeat calling
+    // once a minute was landing roughly three samples in five.
+    //
+    // A lost sample is not a lost statistic. It is a minute with no oracle
+    // record, which means a shot expiring in that minute settles on a print
+    // further from its expiry than it should have. This is settlement
+    // evidence, not telemetry, and it has to actually reach the store.
+    //
+    // Awaiting costs nothing in the ordinary case: sample() returns on the
+    // throttle without touching the network unless a minute has passed, so
+    // only the one request per instance per minute that genuinely samples
+    // pays for the round trip. The try/catch keeps the original promise
+    // intact — a failed write still never fails the request.
+    try { await samplePx(prices); } catch {}
+
+    // Left unawaited on purpose, and it is a different case: a missed sweep
+    // costs nothing permanent because the next request sweeps again, while
+    // awaiting it would put a Redis read in front of every single response.
     sweepChallenges().catch(() => {});
 
     if (action === 'blockhash') {
