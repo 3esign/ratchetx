@@ -46,12 +46,13 @@ const { verifyAuth, isDemo, isWalletShaped } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
 const { priceAt, pathFor, sample: samplePx } = require('../lib/pxlog.js');
 const { report: feedReport, noteSettle, ensureRollups } = require('../lib/feedhealth.js');
+const { realisedVol, sigmaOver, probAbove } = require('../lib/vol.js');
 const { ACCOUNTS: PX_ACCOUNTS } = require('../lib/onchain_px.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h40-2026-08-21';
+const VERSION = 'h41-2026-08-21';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -597,25 +598,103 @@ async function rolloverPots() {
 // ---- the Warden v0: a deterministic heuristic over live prices.
 // Marked v0 on the page. The LLM brain replaces reasoning generation
 // in Wave 3; the sealing/settlement machinery here does not change.
-function wardenLine(prices) {
+// ============================================================
+//  THE WARDEN — the house's own line, and now an actual forecast.
+//
+//  WHAT THIS REPLACED, AND WHY.
+//  The previous version computed its confidence from a hardcoded volatility
+//  table. Every input was a constant, so the output was one too: 36% on SOL,
+//  35% on BTC, 35% on ETH — the same three numbers every hour since launch.
+//  It could not change its mind, it never looked at the market, and because
+//  all three sit under 50 it always leaned the same way. Over thirty settled
+//  calls it was right six times, which is roughly a 1-in-1,400 result for a
+//  coin flip. It was not unlucky. It was a lookup table wearing a percentage.
+//
+//  Worse, the reason it showed players said the number came from "this pair's
+//  typical realised volatility". Nothing realised was being measured.
+//
+//  It also asked a question it did not settle. The line read "trades above $X
+//  WITHIN 6 hours" — a touch — while settlement compared the price at expiry
+//  only. Touching is strictly easier than finishing above, so the Warden was
+//  being graded on a harder event than the one it was asked. Since our own
+//  sampling is not dense enough to detect every touch honestly, the fix is to
+//  ask the terminal question we can actually settle, not to fake a touch test.
+//
+//  NOW: volatility is measured from the same per-minute price record that
+//  settles every shot in the game, the line sits a fixed distance from spot,
+//  and the probability follows from the two. A calm market and a violent one
+//  produce different numbers for the same question, which is the entire point.
+//  The distances rotate through both signs, so the Warden leans both ways.
+//
+//  And it can decline. If there is not enough price history to estimate
+//  volatility, there is no line this hour — the same rule the rest of this
+//  codebase follows about publishing statistics it cannot support.
+// ============================================================
+const WPOOL = [
+  { feed: 'SOL', pct:  0.006, mins: 360 },
+  { feed: 'BTC', pct: -0.004, mins: 360 },
+  { feed: 'ETH', pct:  0.008, mins: 720 },
+  { feed: 'SOL', pct: -0.005, mins: 720 },
+  { feed: 'BTC', pct:  0.005, mins: 360 },
+  { feed: 'ETH', pct: -0.006, mins: 360 },
+];
+const VOL_LOOKBACK_H = 24;
+// One measurement per hour per instance: the line only changes on the hour,
+// and estimating volatility means reading the price log.
+const wcache = globalThis.__ratchet_wcache || (globalThis.__ratchet_wcache = { hour: -1, v: null });
+
+async function wardenLine(prices) {
   const hour = Math.floor(Date.now() / 3600e3);
-  const pool = [
-    { feed:'SOL', pct: 0.006, mins: 360 },
-    { feed:'BTC', pct: 0.004, mins: 360 },
-    { feed:'ETH', pct: 0.008, mins: 720 },
-  ];
-  const c = pool[hour % pool.length];
+  if (wcache.hour === hour && wcache.v && prices[wcache.v.feed]) return wcache.v;
+
+  const c = WPOOL[hour % WPOOL.length];
   const spot = prices[c.feed];
-  const thresh = +(spot * (1 + c.pct)).toFixed(c.feed === 'BTC' ? 0 : 2);
-  // crude prob: distance in "typical hourly moves" -> logistic squash
-  const typicalHourly = { SOL: 0.0075, BTC: 0.0045, ETH: 0.0065 }[c.feed];
-  const zed = c.pct / (typicalHourly * Math.sqrt(c.mins / 60));
-  const p = Math.round(100 / (1 + Math.exp(1.7 * zed)));
-  return {
-    id: `w${hour}`, feed: c.feed, thresh, mins: c.mins, p,
-    q: `${c.feed} trades above $${thresh.toLocaleString()} within ${c.mins / 60} hours`,
-    r: `Spot ${c.feed} is $${spot.toLocaleString(undefined,{maximumFractionDigits:2})}. The line sits ${(c.pct*100).toFixed(1)}% away; at this pair's typical realised volatility that is ${zed.toFixed(1)} standard hourly moves over the window. Warden v0 is a stated heuristic - its record accrues like anything else here.`,
-  };
+  const windowMs = c.mins * 60e3;
+  const base = { id: `w${hour}`, feed: c.feed, mins: c.mins };
+
+  if (!Number.isFinite(spot) || spot <= 0) {
+    return { ...base, p: null, thresh: null, q: `${c.feed} has no usable price this hour`,
+      r: 'The oracle did not give us a price for this feed, so the Warden has nothing to call.' };
+  }
+
+  let v = null;
+  try { v = await realisedVol(c.feed, VOL_LOOKBACK_H, Date.now()); } catch { v = null; }
+
+  if (!v || !v.ok) {
+    // DELIBERATELY NOT CACHED. Caching a refusal would silence the Warden for
+    // the rest of the hour even after the price log became sufficient — so on
+    // the very hour it first has enough history it would still say nothing.
+    // A failed estimate costs one read of the log; retrying is cheap and the
+    // alternative is a Warden that stays quiet for an hour after it is ready.
+    return { ...base, p: null, thresh: null,
+      q: `${c.feed} — no line this hour`,
+      r: `The Warden prices its own line off measured volatility, and there is not enough price `
+       + `history yet to measure it (${(v && v.reason) || 'no estimate'}). It would rather post `
+       + `nothing than quote a number it made up — which is exactly what the previous version did.` };
+  }
+
+  const sigma = sigmaOver(v, windowMs);
+  const thresh = +(spot * (1 + c.pct)).toFixed(c.feed === 'BTC' ? 0 : c.feed === 'ETH' ? 2 : 3);
+  const prob = probAbove(spot, thresh, sigma);
+  const p = prob == null ? null : Math.max(1, Math.min(99, Math.round(prob * 100)));
+
+  const line = { ...base, thresh, p,
+    sigmaPct: +(sigma * 100).toFixed(2),
+    volHourlyPct: +v.hourlyPct.toFixed(3),
+    volPairs: v.pairs,
+    q: `${c.feed} is above $${thresh.toLocaleString(undefined, { maximumFractionDigits: 3 })} `
+     + `at the ${c.mins / 60}-hour mark`,
+    r: `Spot ${c.feed} is $${spot.toLocaleString(undefined, { maximumFractionDigits: 3 })} and the line `
+     + `sits ${(c.pct * 100).toFixed(1)}% away. Realised volatility measured from ${v.pairs} of our own `
+     + `price samples over the last ${VOL_LOOKBACK_H}h is ${v.hourlyPct.toFixed(2)}% per hour, which is `
+     + `${(sigma * 100).toFixed(2)}% across a ${c.mins / 60}-hour window — so the line is `
+     + `${Math.abs(Math.log(thresh / spot) / sigma).toFixed(2)} standard deviations `
+     + `${c.pct >= 0 ? 'above' : 'below'} spot. Assuming no drift, that puts it at ${p}%. `
+     + `This is backward-looking volatility: it says what the market has been doing, and it will be `
+     + `wrong precisely when conditions change. Settled on the price at expiry, from the same samples `
+     + `you can download.` };
+  wcache.hour = hour; wcache.v = line;
+  return line;
 }
 
 // ---- the Warden's public record. Each hourly line is sealed exactly
@@ -624,7 +703,10 @@ function wardenLine(prices) {
 // aggregate hits + Brier over every settled call, misses included.
 // An oracle that only shows you its wins is a horoscope with a UI.
 async function wardenTick(prices) {
-  const wl = wardenLine(prices);
+  const wl = await wardenLine(prices);
+  // No line, no seal. A Warden that cannot measure volatility has nothing to
+  // say this hour, and saying nothing must not become a record of saying zero.
+  if (wl.p == null || !Number.isFinite(wl.thresh)) return (await getJSON('g:warden:rec')) || { n:0, hits:0, brier:0 };
   const open = (await getJSON('g:warden:open')) || [];
   if (!open.some(o => o.id === wl.id)) {
     const sealed = { id: wl.id, feed: wl.feed, thresh: wl.thresh, p: wl.p,
@@ -730,8 +812,8 @@ function agentSide(agentId, t, prices, drift, seedN, wardenUp) {
 
 // ---- the fleet's lazy tick: settle what expired, then seal this hour once.
 async function agentsTick(prices) {
-  const wLine = wardenLine(prices);
-  const wardenUp = wLine && wLine.p >= 50;
+  const wLine = await wardenLine(prices);
+  const wardenUp = !!(wLine && wLine.p != null && wLine.p >= 50);
   const hour = boardHour();
   const board = Object.entries(targetBoard(hour))
     .filter(([, t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])));
@@ -1138,7 +1220,7 @@ module.exports = async (req, res) => {
       return res.json({ ok:true, v: VERSION, durable,
         prices:{src:prices.src,degraded:prices.degraded||null,ages:prices.ages||null,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
         stats: st, feed: (await getJSON('g:feed')) || [], ladder, ladderDay,
-        warden: wardenLine(prices), wardenRec, agents: fleet,
+        warden: await wardenLine(prices), wardenRec, agents: fleet,
         wardenHist: (await getJSON('g:warden:hist')) || [],
         targets: Object.fromEntries(Object.entries(targetBoard(boardHour()))
           .filter(([,t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))),
@@ -1211,7 +1293,10 @@ module.exports = async (req, res) => {
         if (kind === 'range') shot.pct = t.pct;
         if (kind === 'race') { shot.feed2 = t.feed2; shot.entry2 = prices[t.feed2]; }
       } else {
-        const wl = wardenLine(prices);
+        const wl = await wardenLine(prices);
+        // You cannot duel a Warden that has not spoken.
+        if (wl.p == null || !Number.isFinite(wl.thresh))
+          return res.status(400).json({ ok:false, reason:'the Warden has no line this hour — not enough price history to measure volatility' });
         const withW = b.side === 'with';
         shot = { id: Math.random().toString(36).slice(2,10), kind:'thr', feed:wl.feed, thresh:wl.thresh,
           side: withW ? (wl.p >= 50 ? 'YES':'NO') : (wl.p >= 50 ? 'NO':'YES'),

@@ -397,7 +397,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <span id="burnChip" style="display:none;color:var(--red);background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">🔥 —</span>
     <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none;
       background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">GITHUB — READ THE CODE ↗</a>
-      <a href="https://github.com/3esign/ratchetx/blob/main/ARENA.md" target="_blank" rel="noopener"
+      <a href="https://github.com/3esign/ratchetx/blob/main/docs/ARENA.md" target="_blank" rel="noopener"
         style="font:700 10px var(--mono);letter-spacing:.1em;color:var(--gold);text-decoration:none;
         background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">AGENTS — ENTER THE ARENA ↗</a>
   </div>
@@ -765,7 +765,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
   </div>
 </div></section>
 
-<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="/api/snapshot" target="_blank" rel="noopener" style="color:var(--dim)">black box</a> · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a> · <a href="https://github.com/3esign/ratchetx/blob/main/AUDIT_2026-08-20.md" target="_blank" rel="noopener" style="color:var(--gold)">our own audit</a> · <a href="https://github.com/3esign/ratchetx/blob/main/ARENA.md" target="_blank" rel="noopener" style="color:var(--ice)">agent api</a> · <a href="/api/feeds" style="color:var(--ice)">observatory</a> · <a href="/api/supply" style="color:var(--gold)">supply clock</a> · <a href="/api/record" style="color:var(--grn)">the record</a></div>
+<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="/api/snapshot" target="_blank" rel="noopener" style="color:var(--dim)">black box</a> · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a> · <a href="https://github.com/3esign/ratchetx/blob/main/docs/AUDIT_2026-08-20.md" target="_blank" rel="noopener" style="color:var(--gold)">our own audit</a> · <a href="https://github.com/3esign/ratchetx/blob/main/docs/ARENA.md" target="_blank" rel="noopener" style="color:var(--ice)">agent api</a> · <a href="/api/feeds" style="color:var(--ice)">observatory</a> · <a href="/api/supply" style="color:var(--gold)">supply clock</a> · <a href="/api/record" style="color:var(--grn)">the record</a></div>
 <div id="toast"></div>
 
 <script>
@@ -932,8 +932,12 @@ function paint(){
   $("fire").textContent=ok?(guest?`SEAL THE SHOT — ${sel.stake.toLocaleString()} (GUEST, UNRANKED) 🔒`
     :`SEAL THE SHOT — BURN ${sel.stake.toLocaleString()} 🔥`):"PICK A TARGET AND A SIDE";
   // warden
-  $("wq").textContent=s.warden.q+"?";
-  $("wp").innerHTML=s.warden.p+"<small>%</small>";
+  // The Warden is allowed to have nothing to say. Its probability comes from
+  // volatility measured off the price log, and when there is not enough log to
+  // measure, a blank is the honest output — the version that always had a
+  // number was the version whose number meant nothing.
+  $("wq").textContent=s.warden.q+(s.warden.p==null?"":"?");
+  $("wp").innerHTML=s.warden.p==null?'<small style="color:var(--dim)">NO LINE</small>':s.warden.p+"<small>%</small>";
   $("wr").textContent=s.warden.r;
   // THE WARDEN'S RECORD IS THE MOST PROMINENT CREDIBILITY CLAIM ON THE PAGE,
   // so it gets the strictest treatment. It used to print a hit rate AND a

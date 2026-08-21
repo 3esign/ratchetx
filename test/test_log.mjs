@@ -9,9 +9,9 @@ const require = createRequire(import.meta.url);
 const fresh = () => {
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
-  return require('./lib/log.js');
+  return require('../lib/log.js');
 };
-const kvOf = () => require('./lib/kv.js');
+const kvOf = () => require('../lib/kv.js');
 
 // ---- 1. sequential appends chain and verify ----
 {

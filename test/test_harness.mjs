@@ -14,9 +14,9 @@ const require = createRequire(import.meta.url);
 process.env.RATCHET_MINT = process.env.RATCHET_MINT || 'FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump';
 
 // ---- stub the oracle and the chain BEFORE game.js loads them
-const pricesPath = require.resolve('./lib/prices.js');
-const burnPath = require.resolve('./lib/burn.js');
-const realBurn = require('./lib/burn.js');   // capture the REAL module before stubbing
+const pricesPath = require.resolve('../lib/prices.js');
+const burnPath = require.resolve('../lib/burn.js');
+const realBurn = require('../lib/burn.js');   // capture the REAL module before stubbing
 let PX = { src: 'stub', SOL: 100, BTC: 60000, ETH: 2000, BONK: 0.000002, WIF: 0.1, JUP: 0.2, PUMP: 0.005 };
 require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true,
   exports: { getPrices: async () => ({ ...PX }) } };
@@ -25,7 +25,7 @@ require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
     rpcCall: async () => null, getTx: async () => null,
     decideBurn: () => ({ ok: false, reason: 'stub' }) } };
 
-const game = require('./api/game.js');
+const game = require('../api/game.js');
 const mem = globalThis.__ratchet_mem;
 
 function call(method, { query = {}, body = null, ip = '1.2.3.4' } = {}) {
@@ -69,7 +69,14 @@ ok(r.body.targets.SOL2.mins * 60 > 60,
 ok(r.body.targets.PUMP30 && r.body.targets.PUMP30.feed === 'PUMP', 'the house token is on the board');
 ok(!('RCX15' in r.body.targets) && !('RCX_THR' in r.body.targets), 'no RCX-priced targets');
 ok(r.body.stats.potD === 0, 'daily pot initialised');
-ok(getMem('g:warden:open')?.length === 1, 'warden line sealed once');
+// THE WARDEN MUST NOT SPEAK BEFORE IT CAN MEASURE.
+// Its stated probability comes from volatility measured off the price log.
+// With no log there is no estimate, and the correct output is silence — the
+// version this replaced always had a number, and its number meant nothing.
+ok(!(getMem('g:warden:open') || []).length,
+   'no warden line before there is enough price history to price one');
+ok(r.body.warden && r.body.warden.p === null,
+   'and the line it serves says so, rather than quoting a made-up probability');
 
 // Settlement now reads the recorded price log, not "the price right now".
 // A shot can only settle once a sample exists AT OR AFTER its expiry, so a
@@ -200,7 +207,30 @@ ok(pr.cr === crB5 + 400, 'weekly pot paid #1 (40%)');
 ok(stats().pot === 600, 'weekly remainder rolled');
 
 // 8 ---- warden settles into a public record
+//
+// The Warden prices its line off volatility MEASURED from the price log, and
+// declines to post one at all when it cannot measure it — so the log has to
+// exist before it will speak. That refusal is deliberate (the version that
+// always had a number was the version whose number meant nothing), and this
+// seeds enough history for it to have something to say.
+{
+  const { bucketKey: wbk } = require('../lib/pxlog.js');
+  const wnow = Date.now(), wby = {};
+  let wpx = 100;
+  for (let i = 200; i >= 0; i--) {
+    const wt = wnow - i * 60_000;
+    wpx *= (1 + (i % 2 ? 0.0009 : -0.0008));
+    (wby[wbk(wt)] ||= []).push({ t: wt, src: 'pyth-onchain', SOL: wpx, BTC: 60000 * (wpx / 100), ETH: 3000 * (wpx / 100) });
+  }
+  for (const [k, v] of Object.entries(wby)) setMem(k, v.sort((a, b) => a.t - b.t));
+  // Mutate rather than replace: game.js captured this object at load time and
+  // holds its own reference, so reassigning the global would not reach it.
+  if (globalThis.__ratchet_wcache) { globalThis.__ratchet_wcache.hour = -1; globalThis.__ratchet_wcache.v = null; }
+}
+tickPx();
+await call('GET', { query: { action: 'state' } });          // seals this hour's line
 const wopen = getMem('g:warden:open');
+ok(Array.isArray(wopen) && wopen.length > 0, 'the Warden posts a line once volatility is measurable');
 wopen[0].exp = Date.now() - 1000; wopen[0].thresh = 1;   // SOL(100) > 1 => outcome YES
 tickPx();
 setMem('g:warden:open', wopen);
@@ -225,13 +255,13 @@ for (let i = 0; i < 30; i++) {
 ok(limited, 'POST rate limiter trips');
 
 // 11 ---- atomic sig gate (setnx wins once)
-const { setnxJSON } = require('./lib/kv.js');
+const { setnxJSON } = require('../lib/kv.js');
 const wins = await Promise.all([setnxJSON('sig:racetest', { a: 1 }), setnxJSON('sig:racetest', { a: 2 })]);
 ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
 
 // 11c ---- the Black Box: full-log retention + snapshot + tamper detection
 {
-  const { verifyChain } = require('./lib/log.js');
+  const { verifyChain } = require('../lib/log.js');
   const head = getMem('g:log:head');
   const c0 = getMem('g:log:c:0') || [];
   ok(head && c0.length === head.i, 'black box: full log retained (chunk covers every entry)');
@@ -243,7 +273,7 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   const vt = verifyChain(tampered, head);
   ok(!vt.ok && vt.brokenAt === 2, 'black box: tampered entry #2 detected exactly');
   // snapshot endpoint serves the soul
-  const snapshot = require('./api/snapshot.js');
+  const snapshot = require('../api/snapshot.js');
   r = await new Promise(resolve => {
     const res = { _s: 200, headers: {}, setHeader(k, v2) { this.headers[k] = v2; },
       status(c) { this._s = c; return this; },
@@ -343,7 +373,7 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
 // 11a4 ---- snapshot strips sealed sides
 {
   const q = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-snapseal' }, target: 'SOL5', side: 'NO', stake: 100 }, ip: '4.4.4.4' });
-  const snapshot = require('./api/snapshot.js');
+  const snapshot = require('../api/snapshot.js');
   if (globalThis.__ratchet_snap) { globalThis.__ratchet_snap.t = 0; globalThis.__ratchet_snap.body = null; }  // bust the memo cache (mutate — the module holds the reference)
   const r2 = await new Promise(resolve => {
     const res = { headers: {}, setHeader() {}, status(c) { this._s = c; return this; },
@@ -373,7 +403,7 @@ r = await call('GET', { query: { action: 'state' } });
 ok(r.body.champ && r.body.champ.pct === 0.30 && Array.isArray(r.body.champ.podium), 'state exposes champ cut + podium');
 
 // 13 ---- proof endpoint runs (no mint armed in test env)
-const proof = require('./api/proof.js');
+const proof = require('../api/proof.js');
 r = await new Promise(resolve => {
   proof({ method: 'GET', headers: {}, query: {} },
     { _status: 200, status(c) { this._status = c; return this; }, json(o) { resolve({ status: this._status, body: o }); } });
@@ -434,7 +464,7 @@ ok(!r.body.ok, 'fractional stake refused');
 //  fire the settle only once the market had come good. Patience won almost
 //  every shot. These tests fail if that ever comes back.
 // ============================================================
-const { bucketKey: bk, SETTLE_GRACE_MS: GRACE } = require('./lib/pxlog.js');
+const { bucketKey: bk, SETTLE_GRACE_MS: GRACE } = require('../lib/pxlog.js');
 const pxGate = globalThis.__ratchet_pxgate;
 
 const EXPW = 'demo-optn1';
@@ -532,7 +562,7 @@ const EXPW = 'demo-optn1';
 // ============================================================
 //  REGRESSION: ladders are atomic, credits survive a lost race.
 // ============================================================
-const kvmod = require('./lib/kv.js');
+const kvmod = require('../lib/kv.js');
 
 // Concurrent settles used to lose XP to each other, and one flaky read
 // replaced the whole board with a single row. Neither can happen now.
@@ -590,7 +620,7 @@ const kvmod = require('./lib/kv.js');
 //  REGRESSION: global totals are atomic, and the floor is monotone for real.
 // ============================================================
 {
-  const kv2 = require('./lib/kv.js');
+  const kv2 = require('../lib/kv.js');
   // 60 stakes landing together must all count. As a read-modify-write blob,
   // overlapping writers collapsed into one and the pot silently under-counted.
   await Promise.all(Array.from({ length: 60 }, () => kv2.hincr('h:conc', 'potD', 25)));
@@ -770,7 +800,7 @@ const kvmod = require('./lib/kv.js');
 {
   resetRL();
   const now = Date.now(), from = now - 10*60e3;
-  const { bucketKey: bk2 } = require('./lib/pxlog.js');
+  const { bucketKey: bk2 } = require('../lib/pxlog.js');
   const g = globalThis.__ratchet_pxgate; if (g) g.t = now;
   setMem(bk2(from), [
     { t: from + 60e3,  SOL: 100, BTC:60000, ETH:2000, src:'pyth-onchain' },

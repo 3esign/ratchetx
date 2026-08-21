@@ -2,7 +2,7 @@
 // the real board generator, not by inspection.
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
-const src = require('fs').readFileSync('./api/game.js','utf8');
+const src = require('fs').readFileSync('../api/game.js','utf8');
 const pick = n => { const m = src.match(new RegExp(`(?:function ${n}\\\\b|const ${n} =)`)); return m ? m.index : -1; };
 // evaluate the pure pieces in isolation
 const slice = s0 => src.slice(src.indexOf(s0));

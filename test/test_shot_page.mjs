@@ -3,12 +3,12 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const crypto = await import('node:crypto');
 
-const pricesPath = require.resolve('./lib/prices.js');
+const pricesPath = require.resolve('../lib/prices.js');
 require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true,
   exports: { getPrices: async () => ({ src:'stub', SOL:100 }) } };
-const kv = require('./lib/kv.js');
-const shot = require('./api/shot.js');
-const { bucketKey } = require('./lib/pxlog.js');
+const kv = require('../lib/kv.js');
+const shot = require('../api/shot.js');
+const { bucketKey } = require('../lib/pxlog.js');
 
 let fails = 0;
 const ok = (c, n) => { console.log((c?'PASS  ':'FAIL  ')+n); if(!c) fails++; };

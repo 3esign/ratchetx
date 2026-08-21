@@ -2,6 +2,11 @@
   "name": "ratchet",
   "version": "0.1.0",
   "private": true,
-  "description": "RATCHET - feed the machine. Zero-dependency game on Vercel serverless.",
-  "engines": { "node": ">=18" }
+  "description": "RATCHET — a keyless prediction arcade on Solana. Sealed commit-reveal shots settled on Pyth prices read straight off the chain. Zero dependencies.",
+  "license": "MIT",
+  "repository": { "type": "git", "url": "https://github.com/3esign/ratchetx" },
+  "engines": { "node": ">=18" },
+  "scripts": {
+    "test": "node scripts/run-tests.mjs"
+  }
 }

@@ -9,7 +9,7 @@ const fresh = () => {
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
   globalThis.__ratchet_supgate = { t: 0 };
-  return { sl: require('./lib/supplylog.js'), kv: require('./lib/kv.js') };
+  return { sl: require('../lib/supplylog.js'), kv: require('../lib/kv.js') };
 };
 const DAY = 86400e3;
 const T0 = Date.UTC(2026, 6, 1, 9, 0, 0);
@@ -79,7 +79,7 @@ const T0 = Date.UTC(2026, 6, 1, 9, 0, 0);
 // could throw out of it, a statistic we keep for our own interest would take
 // down the page whose entire job is to be checkable.
 {
-  const kvPath = require.resolve('./lib/kv.js');
+  const kvPath = require.resolve('../lib/kv.js');
   const realKv = require.cache[kvPath];
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_supgate = { t: 0 };
@@ -87,7 +87,7 @@ const T0 = Date.UTC(2026, 6, 1, 9, 0, 0);
     getJSON: async () => { throw new Error('kv down'); },
     setJSON: async () => { throw new Error('kv down'); },
   } };
-  const sl = require('./lib/supplylog.js');
+  const sl = require('../lib/supplylog.js');
   assert.equal(await sl.snap({ supply: 1000 }, T0), false, 'returns false rather than throwing');
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   require.cache[kvPath] = realKv;
@@ -98,8 +98,8 @@ const T0 = Date.UTC(2026, 6, 1, 9, 0, 0);
 {
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
-  const kv = require('./lib/kv.js');
-  const sl = require('./lib/supplylog.js');
+  const kv = require('../lib/kv.js');
+  const sl = require('../lib/supplylog.js');
   process.env.RATCHET_MINT = 'FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump';
 
   // launch supply 1,000,000,000 · now 940,000,000 -> 60,000,000 destroyed
@@ -112,7 +112,7 @@ const T0 = Date.UTC(2026, 6, 1, 9, 0, 0);
     await sl.snap({ supply: 1_000_000_000 - i * 20_000_000, playerBurned: i * 500_000 }, T0 + i * DAY);
   }
   globalThis.fetch = async () => ({ ok: true, json: async () => ({ jsonrpc: '2.0', id: 1, result: null }) });
-  const burn = require('./lib/burn.js');
+  const burn = require('../lib/burn.js');
   burn.rpcCall = async (m) => {
     if (m === 'getAccountInfo') return { value: { data: { parsed: { info: {
       supply: '940000000000000', decimals: 6, mintAuthority: null, freezeAuthority: null } } } } };
@@ -120,7 +120,7 @@ const T0 = Date.UTC(2026, 6, 1, 9, 0, 0);
     if (m === 'getSignaturesForAddress') return [];
     return null;
   };
-  const supply = require('./api/supply.js');
+  const supply = require('../api/supply.js');
   const r = await new Promise(done => {
     const res = { _s: 200, setHeader() {}, status(c) { this._s = c; return this; },
       end(b) { done({ status: this._s, body: String(b) }); } };
@@ -139,7 +139,7 @@ const T0 = Date.UTC(2026, 6, 1, 9, 0, 0);
   // ---- 8. and with no mint configured it must say so, not render zeros ----
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   delete process.env.RATCHET_MINT;
-  const s2 = require('./api/supply.js');
+  const s2 = require('../api/supply.js');
   const r2 = await new Promise(done => {
     const res = { _s: 200, setHeader() {}, status(c) { this._s = c; return this; },
       end(b) { done({ status: this._s, body: String(b) }); } };
@@ -157,15 +157,15 @@ const T0 = Date.UTC(2026, 6, 1, 9, 0, 0);
 {
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
-  const kv = require('./lib/kv.js');
-  const sl = require('./lib/supplylog.js');
+  const kv = require('../lib/kv.js');
+  const sl = require('../lib/supplylog.js');
   process.env.RATCHET_MINT = 'FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump';
   await kv.setJSON('g:supply0', { supply: 1_000_000_000, t: T0 });
   await kv.hseed('h:stats', { realBurned: 1000 });
 
   const render = async () => {
     for (const k of Object.keys(require.cache)) delete require.cache[k];
-    const burn = require('./lib/burn.js');
+    const burn = require('../lib/burn.js');
     burn.rpcCall = async (m) => {
       if (m === 'getAccountInfo') return { value: { data: { parsed: { info: {
         supply: '939000000000000', decimals: 6, mintAuthority: null, freezeAuthority: null } } } } };
@@ -173,7 +173,7 @@ const T0 = Date.UTC(2026, 6, 1, 9, 0, 0);
       if (m === 'getSignaturesForAddress') return [];
       return null;
     };
-    const supply = require('./api/supply.js');
+    const supply = require('../api/supply.js');
     return new Promise(done => {
       const res = { _s: 200, setHeader() {}, status(c) { this._s = c; return this; },
         end(b) { done(String(b)); } };

@@ -34,7 +34,7 @@ async function run(label, durableMode) {
   const require = createRequire(import.meta.url);
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
-  const kv = require('./lib/kv.js');
+  const kv = require('../lib/kv.js');
   assert.equal(kv.durable, !!durableMode, label + ': durable flag');
 
   // --- concurrent increments must ALL land ---

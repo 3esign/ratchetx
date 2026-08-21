@@ -17,7 +17,7 @@ const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails
   const order = [];
   // A deliberately slow store: if the handler does not await the write, the
   // response lands first and the ordering below records it.
-  const pxPath = require.resolve('./lib/pxlog.js');
+  const pxPath = require.resolve('../lib/pxlog.js');
   require.cache[pxPath] = { id: pxPath, filename: pxPath, loaded: true, exports: {
     sample: async () => { await new Promise(r => setTimeout(r, 120)); order.push('sample'); return true; },
     priceAt: async () => ({ wait: true }),
@@ -26,13 +26,13 @@ const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails
     SETTLE_GRACE_MS: 900000, SAMPLE_MS: 60000,
     FEEDS: ['SOL', 'BTC', 'ETH', 'BONK', 'WIF', 'JUP', 'PUMP'],
   } };
-  const prPath = require.resolve('./lib/prices.js');
+  const prPath = require.resolve('../lib/prices.js');
   require.cache[prPath] = { id: prPath, filename: prPath, loaded: true, exports: {
     getPrices: async () => ({ src: 'stub', SOL: 100, BTC: 60000, ETH: 3000 }),
     coinbase: async () => ({ src: 'coinbase' }),
   } };
 
-  const game = require('./api/game.js');
+  const game = require('../api/game.js');
   await new Promise(done => {
     const res = { setHeader() {}, status() { return this; },
       json() { order.push('response'); done(); }, end() { order.push('response'); done(); } };
@@ -50,7 +50,7 @@ const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
 
-  const pxPath = require.resolve('./lib/pxlog.js');
+  const pxPath = require.resolve('../lib/pxlog.js');
   require.cache[pxPath] = { id: pxPath, filename: pxPath, loaded: true, exports: {
     sample: async () => { throw new Error('store exploded'); },
     priceAt: async () => ({ wait: true }),
@@ -59,13 +59,13 @@ const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails
     SETTLE_GRACE_MS: 900000, SAMPLE_MS: 60000,
     FEEDS: ['SOL', 'BTC', 'ETH', 'BONK', 'WIF', 'JUP', 'PUMP'],
   } };
-  const prPath = require.resolve('./lib/prices.js');
+  const prPath = require.resolve('../lib/prices.js');
   require.cache[prPath] = { id: prPath, filename: prPath, loaded: true, exports: {
     getPrices: async () => ({ src: 'stub', SOL: 100, BTC: 60000, ETH: 3000 }),
     coinbase: async () => ({ src: 'coinbase' }),
   } };
 
-  const game = require('./api/game.js');
+  const game = require('../api/game.js');
   const r = await new Promise(done => {
     const res = { _s: 200, setHeader() {}, status(c) { this._s = c; return this; },
       json(o) { done({ status: this._s, body: o }); },
@@ -83,8 +83,8 @@ const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
   globalThis.__ratchet_pxgate = { t: 0, x: 0 };
-  const px = require('./lib/pxlog.js');
-  const kv = require('./lib/kv.js');
+  const px = require('../lib/pxlog.js');
+  const kv = require('../lib/kv.js');
   let reads = 0;
   const realGet = kv.getJSON;
   const t0 = Date.now();
@@ -97,4 +97,4 @@ const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nSAMPLE DURABILITY OK');
-process.exit(fails ? 1 : 0);
+process.exitCode = fails ? 1 : 0;

@@ -11,7 +11,7 @@ const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const fresh = () => {
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
-  return { log: require('./lib/log.js'), rec: require('./lib/record.js'), kv: require('./lib/kv.js') };
+  return { log: require('../lib/log.js'), rec: require('../lib/record.js'), kv: require('../lib/kv.js') };
 };
 
 const W1 = 'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM';

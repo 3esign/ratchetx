@@ -14,11 +14,11 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 Don't take our word for it — the site tells you. Both live endpoints return a build marker:
 
 ```
-https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h15-2026-08-20"
-https://ratchetx.vercel.app/api/proof               ->  "v": "h15-2026-08-20"
+https://ratchetx.vercel.app/api/game?action=state   ->  "v": "h41-2026-08-21"
+https://ratchetx.vercel.app/api/proof               ->  "v": "h41-2026-08-21"
 ```
 
-`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h15-2026-08-20'`.
+`api/game.js` and `api/proof.js` in this repo declare `const VERSION = 'h41-2026-08-21'`.
 If the live marker and the repo marker match, you are reading the code that is running.
 If they ever don't, the repo is stale and you should say so loudly.
 
@@ -37,7 +37,7 @@ your verified on-chain balance — staking with no deposit, so there is nothing 
 The token is unkillable (authorities revoked, liquidity protocol-held). The code is unkillable
 (this repo). Since h4, the **state** is too: the full hash-chained event log is retained, and
 `GET /api/snapshot` exports the machine's entire soul — every player, ladder, burn signature and
-log entry — verifiable against the heads players anchor on Solana. `RESURRECTION.md` tells any
+log entry — verifiable against the heads players anchor on Solana. `docs/RESURRECTION.md` tells any
 stranger how to verify a snapshot (`node restore.mjs snap.json --check`) and bring the whole
 machine back on their own hosting, provably intact. Keep snapshots.
 
@@ -60,7 +60,7 @@ account it validates itself (owner, discriminator, Full verification — no trus
 `settle` is a **permissionless crank**: anyone may settle after expiry, and only with a price
 published inside `[expiry, expiry+60]`, so a stale quote cannot be smuggled in. `reveal`
 recomputes the hash, checks it against the stored commitment, scores hit/miss on-chain and
-bumps a `PlayerRecord` PDA. Full transcript with transaction links: [`ONCHAIN.md`](ONCHAIN.md).
+bumps a `PlayerRecord` PDA. Full transcript with transaction links: [`docs/ONCHAIN.md`](docs/ONCHAIN.md).
 
 Devnet is R&D, not the money path — the live game above still settles on the server, which is
 why the proof page exists. Source: `onchain/ratchet_seal_lib.rs` (288 lines, zero crates).
@@ -80,11 +80,54 @@ Zero npm dependencies. No framework. No build step. No key that can touch funds.
 | `lib/log.js` | the hash-chained event log and its permissionless on-chain memo anchor |
 | `lib/kv.js` | Upstash Redis if configured, honest in-memory fallback if not |
 | `api/snapshot.js` | the Black Box: the whole state, downloadable and verifiable by anyone |
-| `restore.mjs` | verify a snapshot's hash chain and resurrect the machine into fresh storage |
-| `RESURRECTION.md` | the stranger's guide to bringing the machine back |
-| `test_harness.mjs` | offline tests over the pure decision functions — `node test_harness.mjs` |
-| `CHANGES_2026-08-19.md` | the hardening pass: what was wrong, what changed, why |
-| `ONCHAIN.md` | the devnet settlement program: what it proves, with transaction links |
+| `lib/pxlog.js` | the observed price record: what the oracle said, minute by minute — settlement reads from this, not from "the price now" |
+| `lib/vol.js` | realised volatility, measured from that record. The Warden's stated probability comes from here |
+| `lib/feedhealth.js` | third-party measurement of the Pyth feeds, and the daily rollups that outlive the raw samples |
+| `lib/record.js` | the open dataset of sealed, settled predictions |
+| `api/feeds.js` | **the observatory** — what the sponsored feeds actually did |
+| `api/supply.js` | **the supply clock** — $RCX destroyed, read off the mint account daily |
+| `api/record.js` | **the record** — the dataset, CORS-open, no key |
+| `api/shot.js` | one settled shot as a public, checkable page |
+| `scripts/restore.mjs` | verify a snapshot's hash chain and resurrect the machine into fresh storage |
+| `scripts/run-tests.mjs` | every suite, isolated per process — `npm test` |
+| `docs/` | the written record: audit, changelog, dataset schema, on-chain transcript |
+| `test/` | 22 suites. Not decoration — most exist because something was actually wrong |
+
+## Layout
+
+```
+api/        serverless endpoints — the game, the proof page, and three public data pages
+lib/        the parts worth reading: oracle decode, price record, settlement, hash chain
+agent/      a zero-dependency reference agent for the arena
+onchain/    the Solana settlement program
+scripts/    the test runner and the snapshot restorer
+test/       22 suites
+docs/       audit, changelog, dataset schema, on-chain transcript
+```
+
+## Running the tests
+
+```
+npm test
+```
+
+No dependencies to install — the whole project is zero-dependency, and the tests are plain Node.
+Each suite runs in its own process, because these tests stub modules through `require.cache` and
+state leaking between files has produced false passes here before. Two suites drive a real browser
+against a locally served copy of the site and skip themselves if no server is running.
+
+## Three things this repo publishes that are not about the game
+
+- [**The observatory**](https://ratchetx.vercel.app/api/feeds) — continuous third-party measurement
+  of Pyth's sponsored push feeds on Solana, taken by a consumer that settles real stakes on them.
+  Observed publish gaps, confidence bands, divergence against an unrelated venue, and how many
+  settlements the feeds' timing actually cost.
+- [**The supply clock**](https://ratchetx.vercel.app/api/supply) — $RCX supply destroyed, read
+  daily off the Token-2022 mint account, split honestly between what players burned and what the
+  launchpad burned at graduation.
+- [**The record**](https://ratchetx.vercel.app/api/record) — an open, public-domain dataset of
+  predictions sealed before the outcome, backed by a stake, and settled by a deterministic oracle
+  rule. Schema in [`docs/DATASET.md`](docs/DATASET.md). No key, CORS-open, paginated.
 
 ## What the proof page verifies (live, every ~25s)
 

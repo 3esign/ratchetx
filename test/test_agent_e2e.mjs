@@ -7,8 +7,8 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 // stub only the oracle and the chain — everything else is production code
-const pricesPath = require.resolve('./lib/prices.js');
-const burnPath = require.resolve('./lib/burn.js');
+const pricesPath = require.resolve('../lib/prices.js');
+const burnPath = require.resolve('../lib/burn.js');
 let T = 100;
 require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true,
   exports: { getPrices: async () => ({ src:'stub', ages:{SOL:3,BTC:3,ETH:3,BONK:3,WIF:3,JUP:3,PUMP:3},
@@ -17,7 +17,7 @@ require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
   exports: { INCINERATOR:'1nc1nerator11111111111111111111111111111111',
     rpcCall: async()=>null, getTx: async()=>null, decideBurn: ()=>({ok:false,reason:'stub'}) } };
 
-const game = require('./api/game.js');
+const game = require('../api/game.js');
 const srv = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   let body = null;
@@ -34,7 +34,7 @@ const srv = http.createServer(async (req, res) => {
 await new Promise(r => srv.listen(8301, r));
 
 const run = (args) => new Promise(resolve => {
-  const p = spawn('node', ['./agent/ratchet-agent.mjs', ...args],
+  const p = spawn('node', ['../agent/ratchet-agent.mjs', ...args],
     { env: { ...process.env, RATCHET_API: 'http://127.0.0.1:8301' } });
   let out = '';
   p.stdout.on('data', d => out += d); p.stderr.on('data', d => out += d);
@@ -59,16 +59,12 @@ globalThis.__ratchet_mem.set = (k, v) => {
   const g = globalThis.__ratchet_pxgate; if (g) g.t = 0;   // let the sampler fire each time
   return origSet(k, v);
 };
-import os from 'node:os';
-import path from 'node:path';
-import fs from 'node:fs';
-
 // a genuine 64-byte Solana keypair file
 const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
 const seed = privateKey.export({format:'der',type:'pkcs8'}).subarray(16);
 const pub  = publicKey.export({format:'der',type:'spki'}).subarray(12);
-const kpPath = path.join(os.tmpdir(), 'agent-kp.json');
-fs.writeFileSync(kpPath, JSON.stringify([...seed, ...pub]));
+const kpPath = require('path').join(require('os').tmpdir(), 'agent-kp.json');
+require('fs').writeFileSync(kpPath, JSON.stringify([...seed, ...pub]));
 
 // give it credits + qualification so registration is reachable
 const B58='123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';

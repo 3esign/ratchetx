@@ -4,7 +4,7 @@ const require = createRequire(import.meta.url);
 
 // in-memory KV (no env) so pxlog uses the Map backend
 delete process.env.KV_REST_API_URL; delete process.env.UPSTASH_REDIS_REST_URL;
-const px = require('./lib/pxlog.js');
+const px = require('../lib/pxlog.js');
 const { priceAt, sample, bucketKey, SETTLE_GRACE_MS } = px;
 
 const gate = globalThis.__ratchet_pxgate;

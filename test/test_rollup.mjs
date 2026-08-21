@@ -10,7 +10,7 @@ const fresh = () => {
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
   globalThis.__ratchet_fhgate = { t: 0 };
-  return { fh: require('./lib/feedhealth.js'), px: require('./lib/pxlog.js'), kv: require('./lib/kv.js') };
+  return { fh: require('../lib/feedhealth.js'), px: require('../lib/pxlog.js'), kv: require('../lib/kv.js') };
 };
 
 const DAY = 86400e3;
@@ -146,14 +146,14 @@ async function seedDay(kv, px, day, { telemetry = true, minutes = 1440, gapAt = 
 
 // ---- 9. a store failure must be loud, not a silently empty history ----
 {
-  const kvPath = require.resolve('./lib/kv.js');
+  const kvPath = require.resolve('../lib/kv.js');
   const realKv = require.cache[kvPath];
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   require.cache[kvPath] = { id: kvPath, filename: kvPath, loaded: true, exports: {
     getJSONStrict: async () => { throw new Error('kv down'); },
     getJSON: async () => null, setJSON: async () => {}, setJSONEx: async () => {},
     setnxJSON: async () => true, hall: async () => ({}), hincr: async () => {} } };
-  const fh = require('./lib/feedhealth.js');
+  const fh = require('../lib/feedhealth.js');
   let threw = false;
   try { await fh.history(30); } catch { threw = true; }
   assert.ok(threw, 'a failed read throws rather than reporting "no days measured"');

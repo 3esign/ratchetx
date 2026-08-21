@@ -10,7 +10,7 @@ const fresh = () => {
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
   globalThis.__ratchet_pxgate = { t: 0, x: 0 };
-  return { fh: require('./lib/feedhealth.js'), px: require('./lib/pxlog.js'), kv: require('./lib/kv.js') };
+  return { fh: require('../lib/feedhealth.js'), px: require('../lib/pxlog.js'), kv: require('../lib/kv.js') };
 };
 
 const T0 = Date.UTC(2026, 7, 20, 6, 0, 0);   // fixed: no Date.now() in fixtures
@@ -229,7 +229,7 @@ async function seed(kv, px, rows) {
 // ---- 7. noteSettle must never be able to break a settlement ----
 {
   const { fh } = fresh();
-  const kv = require('./lib/kv.js');
+  const kv = require('../lib/kv.js');
   const real = kv.hincr;
   kv.hincr = async () => { throw new Error('redis down'); };
   await fh.noteSettle('SOL', 'set');            // must not throw

@@ -10,10 +10,10 @@ for (const [who, expect] of [['guest',null],['unqual','UNVERIFIED'],['broke','OU
   const errs=[]; p.on('pageerror',e=>errs.push(e.message));
   // The page restores a connected wallet from localStorage, which is the only
   // way to reach the branches past the guest check without a real wallet.
-  await p.goto('http://127.0.0.1:8252/', { waitUntil:'domcontentloaded' });
+  await p.goto('http://127.0.0.1:8255/', { waitUntil:'domcontentloaded' });
   await p.evaluate(()=>localStorage.setItem('ratchet_auth', JSON.stringify(
     { wallet:'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM', ts:Date.now(), sig:'x' })));
-  await p.goto(`http://127.0.0.1:8252/?who=${who}`, { waitUntil:'networkidle' });
+  await p.goto(`http://127.0.0.1:8255/?who=${who}`, { waitUntil:'networkidle' });
   // the page fetches /api/game?action=state...; make it carry the mode through
   await p.evaluate(w=>{ const f=window.fetch; window.fetch=(u,o)=>
     f(typeof u==='string'&&u.includes('action=state')?u+'&who='+w:u,o); }, who);

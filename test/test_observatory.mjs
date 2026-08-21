@@ -5,9 +5,9 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
 globalThis.__ratchet_mem = new Map();
-const kv = require('./lib/kv.js');
-const { bucketKey } = require('./lib/pxlog.js');
-const feeds = require('./api/feeds.js');
+const kv = require('../lib/kv.js');
+const { bucketKey } = require('../lib/pxlog.js');
+const feeds = require('../api/feeds.js');
 
 let fails = 0;
 const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails++; };
@@ -75,7 +75,7 @@ ok(!/9999/.test(r.body), 'the unclamped number never appears anywhere on the pag
 // failure, so a naive observatory would render "0 samples, 0 stale windows"
 // — a flattering and false claim about Pyth — precisely when it was blind.
 {
-  const kvPath = require.resolve('./lib/kv.js');
+  const kvPath = require.resolve('../lib/kv.js');
   const realKv = require.cache[kvPath];
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   require.cache[kvPath] = { id: kvPath, filename: kvPath, loaded: true, exports: {
@@ -84,7 +84,7 @@ ok(!/9999/.test(r.body), 'the unclamped number never appears anywhere on the pag
     hall: async () => { throw new Error('kv exploded'); },
     hincr: async () => {}, setJSONEx: async () => {}, setJSON: async () => {},
   } };
-  const blind = require('./api/feeds.js');
+  const blind = require('../api/feeds.js');
   const r2 = await new Promise(res2 => {
     const rr = { _s: 200, setHeader() {}, status(c) { this._s = c; return this; },
       end(b) { res2({ status: this._s, body: String(b) }); },

@@ -7,8 +7,8 @@ const require = createRequire(import.meta.url);
 
 globalThis.__ratchet_mem = new Map();
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
-const log = require('./lib/log.js');
-const api = require('./api/record.js');
+const log = require('../lib/log.js');
+const api = require('../api/record.js');
 const W = 'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM';
 
 let fails = 0;
@@ -78,13 +78,13 @@ ok(r.json.rows.every(x => x.commitVerified === true), 'every exported commitment
 
 // a store failure must not answer with an empty dataset
 {
-  const kvPath = require.resolve('./lib/kv.js');
+  const kvPath = require.resolve('../lib/kv.js');
   const realKv = require.cache[kvPath];
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   require.cache[kvPath] = { id: kvPath, filename: kvPath, loaded: true, exports: {
     getJSON: async () => { throw new Error('kv down'); }, setJSON: async () => {},
     setJSONEx: async () => {}, incrFloat: async () => { throw new Error('kv down'); } } };
-  const blind = require('./api/record.js');
+  const blind = require('../api/record.js');
   const r2 = await new Promise(done => {
     const res = { _s: 200, setHeader() {}, status(c) { this._s = c; return this; },
       end(b) { done({ status: this._s, body: String(b) }); },

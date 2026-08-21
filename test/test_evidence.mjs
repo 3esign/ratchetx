@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 
 let fails = 0;
 const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails++; };
-const html = fs.readFileSync('./index.html', 'utf8');
+const html = fs.readFileSync('../index.html', 'utf8');
 
 // ---- 1. THE ARENA BRIER WAS A CONSTANT ----
 // mean((0.5 - outcome)^2) is 0.25 for hit AND for miss, so it was 0.25 for
@@ -19,7 +19,7 @@ const html = fs.readFileSync('./index.html', 'utf8');
   const hit = Math.pow(0.5 - 1, 2), miss = Math.pow(0.5 - 0, 2);
   ok(hit === 0.25 && miss === 0.25,
     'the old formula really is a constant: hit and miss both score exactly 0.25');
-  const game = fs.readFileSync('./api/game.js', 'utf8');
+  const game = fs.readFileSync('../api/game.js', 'utf8');
   ok(!/Math\.pow\(0\.5 - \(h\.res === 'hit' \? 1 : 0\), 2\)/.test(game),
     'and it is gone from the arena payload');
   ok(/brierWhy/.test(game), 'replaced by null plus a stated reason');
@@ -28,7 +28,7 @@ const html = fs.readFileSync('./index.html', 'utf8');
 
 // ---- 2. THE HOUSE IS HELD TO THE STANDARD IT SETS FOR GUESTS ----
 {
-  const game = fs.readFileSync('./api/game.js', 'utf8');
+  const game = fs.readFileSync('../api/game.js', 'utf8');
   const fleet = game.slice(game.indexOf('fleet: AGENTS.map'), game.indexOf('open: open.map'));
   ok(/listed: r\.n >= ARENA_MIN_CALLS/.test(fleet),
     'the house fleet carries the same minimum-calls flag as the arena');
@@ -58,7 +58,7 @@ const html = fs.readFileSync('./index.html', 'utf8');
 {
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
-  const fh = require('./lib/feedhealth.js');
+  const fh = require('../lib/feedhealth.js');
   const mk = (d, conf) => ({ d, samples: 1440, ourDutyPct: 100,
     feeds: Object.fromEntries(['SOL','BTC','ETH','BONK','WIF','JUP','PUMP']
       .map(f => [f, { samples: 1440, misses: 0, telemetry: 1440, confMedBps: conf,
@@ -77,7 +77,7 @@ const html = fs.readFileSync('./index.html', 'utf8');
 
 // ---- 6. the page must name the statistic it is actually showing ----
 {
-  const feeds = fs.readFileSync('./api/feeds.js', 'utf8');
+  const feeds = fs.readFileSync('../api/feeds.js', 'utf8');
   ok(/CONF · DAILY MED/.test(feeds),
     'the column is labelled as a median of daily medians, not as "typical"');
   ok(/not the median of every individual reading/.test(feeds),
