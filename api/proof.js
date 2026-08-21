@@ -25,7 +25,7 @@ const { verifyChain, logCount } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h42-2026-08-21';
+const VERSION = 'h43-2026-08-21';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;

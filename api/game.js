@@ -52,7 +52,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h42-2026-08-21';
+const VERSION = 'h43-2026-08-21';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -1186,15 +1186,19 @@ module.exports = async (req, res) => {
           await setJSON(`champbal:${w}`, fresh);
           return fresh;
         };
-        if (!p.qualified && MINT && !isDemo(w) && !seat && !p.stakeOn) {
-          let qb = await getJSON(`champbal:${w}`);
-          if (!qb || Date.now() - qb.t > 60_000) qb = await readBal(qb);
-          if (qb.bal > 0) { p.qualified = true; changed2 = true; }
-        }
-        if ((seat || p.stakeOn) && MINT && !isDemo(w)) {
+        // ONE BALANCE READ, FOR EVERY CONNECTED WALLET.
+        // It used to happen only for champions, stakers, or the unqualified —
+        // so a connected holder with 148,702 RCX saw no balance anywhere on the
+        // page, and the header showed CREDITS 0 next to nothing at all. Holding
+        // the token is the whole on-ramp; not showing it was the gap.
+        // Still one RPC read per wallet per minute, cached, and still never
+        // allowed to write a zero it could not verify.
+        if (MINT && !isDemo(w)) {
           let cb = await getJSON(`champbal:${w}`);
           if (!cb || Date.now() - cb.t > 60_000) cb = await readBal(cb);
           if (cb.bal > 0 && !p.qualified) { p.qualified = true; changed2 = true; }
+          player.rcx = { bal: Number.isFinite(cb.bal) ? Math.floor(cb.bal) : null,
+                         stale: !Number.isFinite(cb.bal) || !!cb.stale };
           if (seat) {
             const earned7 = champWindowSum(p.champ7, Date.now(), CHAMP.holdDays);
             const known = Number.isFinite(cb.bal);
