@@ -22,7 +22,19 @@ require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true
   exports: { getPrices: async () => ({ ...PX }) } };
 require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
   exports: { INCINERATOR: '1nc1nerator11111111111111111111111111111111',
-    rpcCall: async () => null, getTx: async () => null,
+    // getTokenAccountsByOwner answers with an EMPTY LIST for a wallet that has
+    // no account — it does not fail. The stub used to return null for every
+    // method, which the code now reads as "the chain was unreachable", because
+    // a failed read and an empty wallet are no longer the same thing.
+    //
+    // RPC_DEAD flips the stub to a total outage. It has to be a flag rather
+    // than a reassignment: game.js destructures rpcCall at load, so swapping
+    // the module property later would never reach it.
+    rpcCall: async (m) => {
+      if (globalThis.__rpcDead) return undefined;                 // every endpoint failed
+      return m === 'getTokenAccountsByOwner' ? { value: [] } : null;
+    },
+    getTx: async () => null,
     decideBurn: () => ({ ok: false, reason: 'stub' }) } };
 
 const game = require('../api/game.js');
@@ -856,6 +868,25 @@ const kvmod = require('../lib/kv.js');
   const seat = ((pod&&pod.list)||[]).find(x=>x.w===A);
   ok(seat && seat.ata === null, 'the seat records no account yet, for the page to create one');
   ok(seat && seat.pct === 0.5, 'and takes the top share');
+
+  // AND THE OTHER HALF OF THAT RULE: a seat is forfeited for DUMPING, not for
+  // our RPC being down. If the chain cannot be read we cannot prove anybody
+  // dumped, and a champion must not lose a seat to someone else's outage.
+  globalThis.__rpcDead = true;                                  // every endpoint fails
+  // The rollover is guarded so it pays once per period: release the lock, put
+  // the pointer back, and re-fund the pot so it genuinely runs again.
+  mem.delete('g:podium');
+  mem.delete(`day:paid:${day}`);
+  mem.delete('g:dayResults');
+  for (const k of [...mem.keys()]) if (k.startsWith('champbal:')) mem.delete(k);
+  z(null, A, 500); z(null, B, 900);
+  setMem('g:day', day); setStat('potD', 1000);
+  r = await call('GET', { query: { action: 'state' } });
+  const pod2 = getMem('g:podium');
+  const seated2 = ((pod2&&pod2.list)||[]).map(x=>x.w);
+  globalThis.__rpcDead = false;
+  ok(seated2.includes(B),
+     `with the chain unreadable the same wallet keeps its seat (${JSON.stringify(seated2)})`);
 }
 
 

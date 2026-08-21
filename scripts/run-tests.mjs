@@ -13,9 +13,14 @@ import { dirname, join } from 'node:path';
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = join(root, 'test');
 
-// These drive a real browser against a locally served copy of the site.
-// They are skipped unless a server is up, so `npm test` works on a clean clone.
-const NEEDS_SERVER = new Set(['test_align.mjs', 'test_widths.mjs', 'test_chal_ui.mjs', 'test_funnel.mjs', 'test_notify.mjs']);
+// These drive a real browser (Playwright) against a locally served copy of the
+// site. They are skipped unless a server is up, so `npm test` passes cleanly on
+// a fresh clone with nothing installed — which matters, because the first thing
+// a stranger does with this repo is run the tests, and a wall of red from
+// missing infrastructure reads as a broken project rather than a skipped suite.
+const NEEDS_SERVER = new Set([
+  'test_align.mjs', 'test_widths.mjs', 'test_chal_ui.mjs', 'test_funnel.mjs', 'test_notify.mjs',
+]);
 const SERVER = process.env.RATCHET_TEST_SERVER || 'http://127.0.0.1:8247/';
 
 const serverUp = await fetch(SERVER, { signal: AbortSignal.timeout(1500) })

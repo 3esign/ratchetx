@@ -52,7 +52,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h41-2026-08-21';
+const VERSION = 'h42-2026-08-21';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -443,10 +443,21 @@ async function getMcap() {
 
 // ---- first existing RCX token account for a wallet — champions must
 // hold an RCX account to be paid; a missing account forfeits to the burn.
+// THREE OUTCOMES, NOT TWO.
+//   { ata, bal }  the wallet's token account, read successfully
+//   null          the chain answered: this wallet has no account for the mint
+//   undefined     we could not read the chain at all
+//
+// It used to collapse the last two into null, and every caller turned that
+// into `bal: 0`. So a dead RPC and an empty wallet produced the identical
+// number — cached for a minute, shown to the holder as "0 RCX", and, worse,
+// fed to the staking payout and the podium holder rule as if it were a fact.
+// A balance we could not read is not a balance of zero.
 async function findAta(owner) {
   const r = await rpcCall('getTokenAccountsByOwner', [owner, { mint: MINT }, { encoding: 'jsonParsed' }]);
-  const a = r && r.value && r.value[0];
-  if (!a) return null;
+  if (r == null) return undefined;                    // every endpoint failed
+  const a = r.value && r.value[0];
+  if (!a) return null;                                 // the chain says: no account
   const bal = +(a.account && a.account.data && a.account.data.parsed && a.account.data.parsed.info
     && a.account.data.parsed.info.tokenAmount && a.account.data.parsed.info.tokenAmount.uiAmount) || 0;
   return { ata: a.pubkey, bal };
@@ -549,14 +560,19 @@ async function rolloverPots() {
           // A missing account is a zero balance, nothing more — the holder
           // rule below still catches an actual dumper, because a dumper has
           // earned7 > 0 while a newcomer has earned7 == 0.
-          const acc = (await findAta(pw)) || { ata: null, bal: 0 };
+          // A seat is forfeited for DUMPING, not for our RPC being down. If we
+          // cannot read the balance we cannot prove the rule was broken, and
+          // the champion keeps the seat until we can.
+          const read = await findAta(pw);
+          const unreadable = read === undefined;
+          const acc = read || { ata: null, bal: 0 };
           const cp = await getJSONStrict(`u:${pw}`);
           // Count what is banked but not yet drained too — a champion who has
           // not opened the site since being paid must not look like they
           // earned less, which would make the seat EASIER to keep.
           const banked = Number(await getJSON(`c7:${pw}`)) || 0;
           const earned7 = champWindowSum(cp && cp.champ7, Date.now(), CHAMP.holdDays) + banked;
-          if (acc.bal + 1e-9 < earned7 * CHAMP.holdPct) continue; // dumped -> seat forfeited
+          if (!unreadable && acc.bal + 1e-9 < earned7 * CHAMP.holdPct) continue; // dumped -> seat forfeited
           list.push({ w: pw, ata: acc.ata, pct: CHAMP.curve[list.length] });
         }
         const prevPod = await getJSON('g:podium');
@@ -1158,30 +1174,41 @@ module.exports = async (req, res) => {
         // you, so a player who bought on pump.fun enters the ladders without
         // having to burn anything. Cached 60s, and once you qualify we never
         // look again.
+        // A read we could not make is never written to the cache and never
+        // overwrites a number we already knew. bal === null means unknown.
+        const readBal = async (prev) => {
+          const acc = await findAta(w);
+          if (acc === undefined) {
+            return prev ? { ...prev, stale: true }      // keep the last true figure
+                        : { bal: null, t: Date.now(), stale: true };
+          }
+          const fresh = { bal: acc ? acc.bal : 0, t: Date.now() };
+          await setJSON(`champbal:${w}`, fresh);
+          return fresh;
+        };
         if (!p.qualified && MINT && !isDemo(w) && !seat && !p.stakeOn) {
           let qb = await getJSON(`champbal:${w}`);
-          if (!qb || Date.now() - qb.t > 60_000) {
-            const acc = await findAta(w);
-            qb = { bal: acc ? acc.bal : 0, t: Date.now() };
-            await setJSON(`champbal:${w}`, qb);
-          }
+          if (!qb || Date.now() - qb.t > 60_000) qb = await readBal(qb);
           if (qb.bal > 0) { p.qualified = true; changed2 = true; }
         }
         if ((seat || p.stakeOn) && MINT && !isDemo(w)) {
           let cb = await getJSON(`champbal:${w}`);
-          if (!cb || Date.now() - cb.t > 60_000) {
-            const acc = await findAta(w);
-            cb = { bal: acc ? acc.bal : 0, t: Date.now() };
-            await setJSON(`champbal:${w}`, cb);
-          }
+          if (!cb || Date.now() - cb.t > 60_000) cb = await readBal(cb);
           if (cb.bal > 0 && !p.qualified) { p.qualified = true; changed2 = true; }
           if (seat) {
             const earned7 = champWindowSum(p.champ7, Date.now(), CHAMP.holdDays);
-            player.champion = { pct: seat.pct, earned7: Math.floor(earned7), bal: Math.floor(cb.bal),
-              safeSell: Math.max(0, Math.floor(cb.bal - earned7 * CHAMP.holdPct)) };
+            const known = Number.isFinite(cb.bal);
+            player.champion = { pct: seat.pct, earned7: Math.floor(earned7),
+              bal: known ? Math.floor(cb.bal) : null,
+              balStale: !known || !!cb.stale,
+              safeSell: known ? Math.max(0, Math.floor(cb.bal - earned7 * CHAMP.holdPct)) : null };
           }
           // lazy hold-yield: once per UTC day, on touch, on the live balance
-          if (p.stakeOn && p.stakeDay !== today()) {
+          // A DAY IS ONLY SPENT IF WE ACTUALLY READ THE BALANCE.
+          // stakeDay used to advance unconditionally, so one failed RPC read
+          // marked the day as paid, paid zero, and cost the staker that day's
+          // yield permanently. An unknown balance now simply waits.
+          if (p.stakeOn && p.stakeDay !== today() && Number.isFinite(cb.bal)) {
             const y = stakeYield(cb.bal);
             p.stakeDay = today();
             if (y > 0) {
@@ -1191,8 +1218,10 @@ module.exports = async (req, res) => {
             }
             await savePlayer(p);
           }
-          if (p.stakeOn) player.stakeInfo = { on: true, bal: Math.floor(cb.bal),
-            perDay: stakeYield(cb.bal), earned: p.stakeEarned || 0,
+          if (p.stakeOn) player.stakeInfo = { on: true,
+            bal: Number.isFinite(cb.bal) ? Math.floor(cb.bal) : null,
+            balStale: !Number.isFinite(cb.bal) || !!cb.stale,
+            perDay: Number.isFinite(cb.bal) ? stakeYield(cb.bal) : null, earned: p.stakeEarned || 0,
             rate: STAKE.rate, minBal: STAKE.minBal, capBal: STAKE.capBal };
         }
         if (changed2) { player.qualified = true; await savePlayer(p); }
