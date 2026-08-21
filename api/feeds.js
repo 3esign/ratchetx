@@ -24,7 +24,7 @@
 const { report, ensureRollups, history, foldHistory } = require('../lib/feedhealth.js');
 const { ACCOUNTS, MAX_AGE_S } = require('../lib/onchain_px.js');
 
-const VERSION = 'h39-2026-08-21';
+const VERSION = 'h40-2026-08-21';
 const SITE = 'https://ratchetx.vercel.app';
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -254,7 +254,7 @@ ${all ? `<div class="card">
   </div>
   <div class="scroll"><table style="min-width:760px">
     <thead><tr><th>FEED</th><th>SAMPLES</th><th>USABLE</th><th>TELEMETRY</th>
-      <th>TYPICAL CONF</th><th>STALE</th><th>BLIND (OURS)</th><th>REWINDS</th>
+      <th title="median of each day's median confidence band">CONF · DAILY MED</th><th>DAYS</th><th>STALE</th><th>BLIND (OURS)</th><th>REWINDS</th>
       <th>WORST GAP EVER</th><th>WORST DIVERGENCE</th></tr></thead>
     <tbody>${FEEDS.map(f => { const a = all.feeds[f]; return `<tr>
       <td><b>${esc(f)}</b></td>
@@ -262,6 +262,7 @@ ${all ? `<div class="card">
       <td class="${a.coverage != null && a.coverage < 99 ? 'warn' : ''}">${a.coverage == null ? '—' : n2(a.coverage) + '%'}</td>
       <td>${n0(a.telemetry)}</td>
       <td>${n2(a.confTypicalBps)}</td>
+      <td class="${a.confDays < (all.minFoldDays || 3) ? 'warn' : 'dim'}">${n0(a.confDays)}</td>
       <td class="${a.staleWindows ? 'warn' : 'good'}">${n0(a.staleWindows)}</td>
       <td class="dim">${n0(a.blindWindows)}</td>
       <td class="${a.rewinds ? 'bad' : 'dim'}">${n0(a.rewinds)}</td>
@@ -269,7 +270,12 @@ ${all ? `<div class="card">
       <td>${n2(a.worstDivBps)}${a.worstDivDay ? ` <span class="dim">${esc(a.worstDivDay)}</span>` : ''}</td>
     </tr>`; }).join('')}</tbody>
   </table></div>
-  <p class="note"><b style="color:var(--ink)">REWINDS</b> counts publish_time moving backwards, which should
+  <p class="note"><b style="color:var(--ink)">CONF · DAILY MED</b> is the median of each day's median
+  confidence band — a robust summary, but not the median of every individual reading, and the page says which
+  it is rather than calling it "typical" and leaving you to guess. <b style="color:var(--ink)">DAYS</b> is how
+  many days it rests on; below ${all.minFoldDays || 3} the figure is withheld, because one day's median wearing
+  the word typical, in a row whose sample count is summed across every day, is the same trick this page exists
+  to avoid. <b style="color:var(--ink)">REWINDS</b> counts publish_time moving backwards, which should
   never happen. It is here because a number that is always zero is worth publishing precisely so that the
   day it is not, somebody notices.</p>
 </div>` : `<div class="card"><h2>SINCE WE STARTED</h2>

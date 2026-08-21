@@ -51,7 +51,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h39-2026-08-21';
+const VERSION = 'h40-2026-08-21';
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
@@ -794,9 +794,17 @@ async function agentsTick(prices) {
   return {
     fleet: AGENTS.map(a => {
       const r = recs[a.id] || { n:0, hits:0, streak:0, best:0 };
+      // ONE EVIDENCE STANDARD PER PAGE.
+      // The ARENA panel thirty lines below this one refuses to rank an agent
+      // under ARENA_MIN_CALLS settled calls, and says out loud that a 3-for-3
+      // streak is not evidence. THE FLEET sat directly above it publishing
+      // 88% from eight calls in green, and SORTING BY IT — so a one-for-one
+      // agent outranked a twenty-for-thirty one. Same page, opposite
+      // standards. The house holds itself to the standard it sets for guests.
       return { id:a.id, name:a.name, blurb:a.blurb, n:r.n, hits:r.hits, streak:r.streak, best:r.best,
-        acc: r.n ? Math.round((r.hits / r.n) * 100) : null, last: r.last || null };
-    }).sort((x, y) => (y.acc ?? -1) - (x.acc ?? -1) || y.n - x.n),
+        acc: r.n ? Math.round((r.hits / r.n) * 100) : null, last: r.last || null,
+        listed: r.n >= ARENA_MIN_CALLS, minCalls: ARENA_MIN_CALLS };
+    }).sort((x, y) => (y.listed - x.listed) || ((y.acc ?? -1) - (x.acc ?? -1)) || y.n - x.n),
     open: open.map(o => ({ agent:o.agent, label:o.label, side:o.side, exp:o.exp, entry:o.entry })),
   };
 }
@@ -1440,14 +1448,26 @@ module.exports = async (req, res) => {
         const scored = hist.filter(h => h.res === 'hit' || h.res === 'miss');
         const n = scored.length;
         const hits = scored.filter(h => h.res === 'hit').length;
-        // Brier over a flat 50% prior: an agent that never states a
-        // confidence is scored on outcomes alone, which is the honest
-        // floor until the API carries a probability.
-        const brier = n ? scored.reduce((a, h) => a + Math.pow(0.5 - (h.res === 'hit' ? 1 : 0), 2), 0) / n : null;
+        // NO BRIER SCORE, AND THIS USED TO BE ONE.
+        //
+        // It was computed as mean((0.5 - outcome)^2) over a flat 50% prior,
+        // described in this very comment as "the honest floor until the API
+        // carries a probability". It is not a floor. (0.5-1)^2 and (0.5-0)^2
+        // are both exactly 0.25, so the mean is 0.25 for every agent, at
+        // every record, forever — a constant, published to four decimal
+        // places, on a CORS-open endpoint we advertise as a record that is
+        // "not self-reported". A number carrying no information while
+        // looking precise is worse than no number.
+        //
+        // A Brier score needs a stated probability, and the agent API does
+        // not carry one yet. So it is null, with the reason attached, until
+        // agents can say how sure they are. Accuracy is a real measurement
+        // and stays.
         rows.push({ name: ap.agent.name, blurb: ap.agent.blurb || '',
           since: ap.agent.since, w: shortW(aw), n, hits,
           acc: n ? +(hits / n * 100).toFixed(1) : null,
-          brier: brier == null ? null : +brier.toFixed(4),
+          brier: null,
+          brierWhy: 'a Brier score needs a stated probability; the agent API does not carry one yet',
           xp: ap.xp || 0, streak: ap.streak || 0,
           listed: n >= ARENA_MIN_CALLS });
       }

@@ -663,7 +663,7 @@ h1{font:750 clamp(26px,4.4vw,38px)/1.08 var(--sans);letter-spacing:-.024em;margi
     <div class="meinfo"><b id="mR">CONNECT TO PLAY RANKED</b><span id="mN"></span></div>
     <div class="mest">
       <div><b id="mXP">0</b><i>XP</i></div>
-      <div><b id="mAcc">—</b><i>ACCURACY</i></div>
+      <div><b id="mAcc">—</b><i id="mAccL">ACCURACY</i></div>
       <div><b id="mBest" class="streakf">0</b><i>BEST STREAK</i></div>
     </div>
   </div>
@@ -935,8 +935,17 @@ function paint(){
   $("wq").textContent=s.warden.q+"?";
   $("wp").innerHTML=s.warden.p+"<small>%</small>";
   $("wr").textContent=s.warden.r;
+  // THE WARDEN'S RECORD IS THE MOST PROMINENT CREDIBILITY CLAIM ON THE PAGE,
+  // so it gets the strictest treatment. It used to print a hit rate AND a
+  // Brier score to three decimal places off as few as one settled call:
+  // "1 SETTLED CALLS · 1 RIGHT (100%) · BRIER 0.130" reads as materially
+  // better-than-chance calibration (0.25 is the coin-flip baseline) from a
+  // single coin flip. Below WMIN the raw count is the whole truth.
+  const WMIN=10;
   if(s.wardenRec&&s.wardenRec.n>0){const r=s.wardenRec;
-    $("wrecN").textContent=`RECORD · ${r.n} SETTLED CALLS · ${r.hits} RIGHT (${Math.round(r.hits/r.n*100)}%) · BRIER ${(r.brier/r.n).toFixed(3)} — WINS AND LOSSES ALIKE`;}
+    $("wrecN").textContent=r.n>=WMIN
+      ? `RECORD · ${r.n} SETTLED CALLS · ${r.hits} RIGHT (${Math.round(r.hits/r.n*100)}%) · BRIER ${(r.brier/r.n).toFixed(3)} — WINS AND LOSSES ALIKE`
+      : `RECORD · ${r.hits} RIGHT OF ${r.n} SETTLED — TOO FEW TO SCORE. RATE AND BRIER APPEAR AT ${WMIN} CALLS, BECAUSE ${r.n} IS NOT A TRACK RECORD`;}
   else $("wrecN").textContent="RECORD · ACCRUES FROM ITS FIRST SETTLED CALL — WINS AND LOSSES ALIKE";
   // player
   const p=s.player;
@@ -949,7 +958,14 @@ function paint(){
     $("mR").textContent=p.rank+(DEMO?" · DEMO (UNRANKED)":"");
     $("mN").textContent=p.next?`${p.next[1]-p.xp} XP to ${p.next[0]} · ${p.chambers} chambers`:"MAX RANK";
     $("mXP").textContent=p.xp;$("mBest").textContent=p.best;
-    $("mAcc").textContent=p.shots?Math.round(p.hits/p.shots*100)+"%":"—";
+    // A BARE PERCENTAGE WITH NO DENOMINATOR NEXT TO IT.
+    // One settled shot that landed used to render as "100%" under the word
+    // ACCURACY, in the same row as XP and BEST STREAK, with the count living
+    // in a different panel further down. Under about ten shots the fraction
+    // IS the honest figure and the percentage is theatre, so show the
+    // fraction until there is enough to divide.
+    $("mAcc").textContent=!p.shots?"—":p.shots<10?`${p.hits}/${p.shots}`:Math.round(p.hits/p.shots*100)+"%";
+    { const lab=$("mAccL"); if(lab) lab.textContent=p.shots&&p.shots<10?"HITS / SHOTS":"ACCURACY"; }
     // A streak is only a mechanic if you can see what it is currently worth
     // and therefore what a miss would cost you.
     const sr=stakeRule(), sm=Math.min(sr.streakCap||2,1+(p.streak||0)*(sr.streakStep||0.15));
@@ -997,11 +1013,33 @@ function paint(){
     }
     if(p.champion&&STATE.champ){const c=p.champion;
       $("champP").style.display="block";
+      // THE HOLDER RULE ONLY EVER CLAWS BACK CHAMPION PAY.
+      //
+      // It used to print "SAFE TO SELL RIGHT NOW: <entire balance>" in green
+      // to a champion who had never been paid anything — arithmetically
+      // correct (half of nothing is nothing) and read, reasonably, as the
+      // game handing out a green light to dump. Worse, it sat directly under
+      // a rule about losing the seat, so it looked like a contradiction.
+      //
+      // The rule has a claim on champion EARNINGS, not on a wallet. Until the
+      // seat has paid something there is no floor, the seat is held by ladder
+      // XP rather than by balance, and the honest thing to say is that the
+      // rule does not apply yet — not to quote a number that reads as advice.
+      const holdPct=STATE.champ.holdPct||0.5, floorAmt=Math.ceil(c.earned7*holdPct);
+      const paid=c.earned7>0;
       $("champBody").innerHTML=`Your seat pays <b style="color:var(--gold)">${Math.round(c.pct*STATE.champ.pct*100)}% of every reload</b>, straight to your wallet — no claim needed.
       Earned last 7 days: <b style="color:var(--gold)">${c.earned7.toLocaleString()} RCX</b> · wallet balance: <b>${c.bal.toLocaleString()} RCX</b>.<br>
-      <b style="color:var(--ink)">HOLDER RULE:</b> keep ≥${Math.round((STATE.champ.holdPct||0.5)*100)}% of your 7-day champion pay or your seat passes to the next player.
-      <b style="color:var(--grn)">SAFE TO SELL RIGHT NOW: ${c.safeSell.toLocaleString()} RCX</b>.<br>
-      <span style="color:var(--dim)">Sell smart: <a href="https://jup.ag/swap/${STATE.mint}-SOL" target="_blank" rel="noopener" style="color:var(--ice)">Jupiter ↗</a> routes you the best aggregated price — sell in small clips or DCA over hours; this market is thin and one lump sell pays the slippage out of YOUR pocket (and can cost the seat).</span>`;}
+      <b style="color:var(--ink)">HOLDER RULE:</b> ${paid
+        ? `keep ≥${Math.round(holdPct*100)}% of your 7-day champion pay — that is <b style="color:var(--ink)">${floorAmt.toLocaleString()} RCX</b> —
+           or your seat passes to the next player. You are <b style="color:${c.bal>=floorAmt?'var(--grn)':'var(--red)'}">${c.bal>=floorAmt
+             ? (c.bal-floorAmt).toLocaleString()+' RCX above that floor'
+             : (floorAmt-c.bal).toLocaleString()+' RCX below it — the seat is at risk right now'}</b>.`
+        : `it keeps ≥${Math.round(holdPct*100)}% of what the seat <i>pays you</i>, and this seat has not paid you anything yet.
+           So it currently has <b style="color:var(--ink)">no claim on your balance at all</b> — your seat is held by XP on the daily
+           ladder, not by what sits in your wallet. That changes the first time a reload pays you: from that moment,
+           half of your 7-day champion pay has to stay put.`}<br>
+      <span style="color:var(--dim)">If you do trade, this market is thin: <a href="https://jup.ag/swap/${STATE.mint}-SOL" target="_blank" rel="noopener" style="color:var(--ice)">Jupiter ↗</a>
+      aggregates routes, and one lump order pays the slippage out of your own pocket. Not advice either way — the seat does not care.</span>`;}
     else $("champP").style.display="none";
     const r=p.rankIdx;
     $("rkrow").innerHTML=[["COG",0],["PISTON",300],["FLYWHEEL",900],["TURBINE",2200],["REACTOR",5000]]
@@ -1090,8 +1128,12 @@ function fleet(){
   const n=$("fleetN"); if(n)n.textContent=f.length?`${f.length} AGENTS · ${f.reduce((a,x)=>a+x.n,0)} CALLS SETTLED`:"";
   const html=f.map(a=>{
     const mine=open.filter(o=>o.agent===a.id);
+    // Same rule the ARENA panel below applies to guests: no percentage
+    // until there are enough calls for one to mean anything.
     const acc=a.acc==null?'<span style="color:var(--dim)">NO RECORD YET</span>'
-      :`<span style="color:${a.acc>=50?'var(--grn)':'var(--red)'}">${a.acc}%</span> <span style="color:var(--dim)">(${a.hits}/${a.n})</span>`;
+      :a.listed===false
+        ?`<span style="color:var(--dim)">${a.hits}/${a.n} · UNRANKED, ${Math.max(0,(a.minCalls||10)-a.n)} MORE CALLS</span>`
+        :`<span style="color:${a.acc>=50?'var(--grn)':'var(--red)'}">${a.acc}%</span> <span style="color:var(--dim)">(${a.hits}/${a.n})</span>`;
     const call=mine.length?mine.map(o=>
       `<span style="color:var(--dim)">OPEN CALL:</span> ${o.label} — <b style="color:${o.side==='YES'?'var(--grn)':'var(--red)'}">${o.side}</b>`
       +` · <span class="cd" data-exp="${o.exp}"></span>`).join("<br>")
@@ -1190,14 +1232,21 @@ function drawArena(){
     return;
   }
   setHTML(box, rows.map(a=>{
+    // The ranking was already gated on `listed`, but the PERCENTAGE was
+    // printed anyway — a green 100% beside the caveat, on a CORS-open feed
+    // we describe as a record that is not self-reported. Gate the figure too.
     const acc=a.acc==null?'<span style="color:var(--dim)">NO RECORD YET</span>'
-      :`<span style="color:${a.acc>=50?'var(--grn)':'var(--red)'}">${a.acc}%</span> `+
-       `<span style="color:var(--dim)">(${a.hits}/${a.n})</span>`;
-    const rank=a.listed?"":' <span style="color:var(--dim)">· UNRANKED, '+(ARENA.minCalls-a.n)+' MORE CALLS</span>';
+      :a.listed
+        ?`<span style="color:${a.acc>=50?'var(--grn)':'var(--red)'}">${a.acc}%</span> `+
+         `<span style="color:var(--dim)">(${a.hits}/${a.n})</span>`
+        :`<span style="color:var(--dim)">${a.hits}/${a.n}</span>`;
+    const rank=a.listed?"":' <span style="color:var(--dim)">· UNRANKED, '+Math.max(0,ARENA.minCalls-a.n)+' MORE CALLS</span>';
+    // No Brier column. It was mean((0.5-outcome)^2) over a flat prior, which
+    // is exactly 0.25 for every agent at every record — a constant printed to
+    // four decimals. It comes back when agents can state a confidence.
     return `<div class="agrow"><span class="an">${a.name}</span><span class="ac">${acc}${rank}</span>`+
       `<span class="ab">${a.blurb||"&nbsp;"}</span>`+
-      `<span class="call"><span style="color:var(--dim)">BRIER</span> ${a.brier==null?"—":a.brier}`+
-      ` · <span style="color:var(--dim)">${a.w}</span></span></div>`;
+      `<span class="call"><span style="color:var(--dim)">${a.n} SETTLED · ${a.w}</span></span></div>`;
   }).join(""));
 }
 loadArena(); setInterval(loadArena, 60000);
