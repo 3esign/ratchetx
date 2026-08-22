@@ -132,6 +132,7 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
   let requestId = 1;
   let flushTimer = null;
   let flushing = Promise.resolve();
+  let retryMs = 500, nextPostAt = 0;
 
   const flush = () => {
     if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
@@ -139,20 +140,25 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
     const batch = [...pending.values()];
     pending.clear();
     flushing = flushing.then(async () => {
+      const waitMs = Math.max(0, nextPostAt - Date.now());
+      if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs));
       try {
         const result = await postUpdates(env, batch);
         stats.accepted += Number(result.accepted) || 0;
         stats.duplicates += Number(result.duplicates) || 0;
+        retryMs = 500;
+        nextPostAt = 0;
       } catch (error) {
         stats.postErrors++;
         stats.lastPostError = String(error && error.message || error).slice(0, 180);
         console.error('oracle ingest failed: ' + stats.lastPostError);
-        // Preserve the newest event for each account and retry shortly. A
-        // reconnect also sends the current account value, so the latest valid
-        // transition remains recoverable without inventing a price.
+        // Preserve only the newest event per account. Exponential backoff
+        // prevents an upstream/store outage from becoming a Worker retry storm.
         for (const item of batch) if (!pending.has(item.account)) pending.set(item.account, item);
-        if (Date.now() + 500 < deadline && !flushTimer)
-          flushTimer = setTimeout(flush, 500);
+        nextPostAt = Date.now() + retryMs;
+        retryMs = Math.min(retryMs * 2, 10_000);
+        if (nextPostAt < deadline && !flushTimer)
+          flushTimer = setTimeout(flush, Math.max(1, nextPostAt - Date.now()));
       }
     });
     return flushing;
@@ -234,7 +240,9 @@ export async function runStream(env, options = {}) {
   const deadline = Date.now() + (Number(options.sessionMs) || SESSION_MS);
   const pending = new Map();
   const WebSocketImpl = options.WebSocket || null;
-  const endpoints = env.SOLANA_WS ? [env.SOLANA_WS] : DEFAULT_SOLANA_WS;
+  const endpoints = env.SOLANA_WS
+    ? [env.SOLANA_WS, ...DEFAULT_SOLANA_WS.filter(endpoint => endpoint !== env.SOLANA_WS)]
+    : DEFAULT_SOLANA_WS;
   let endpointIndex = 0;
   let backoff = Number(options.backoffMs) || 250;
   while (Date.now() < deadline - 1000) {

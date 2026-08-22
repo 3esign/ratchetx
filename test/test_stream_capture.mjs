@@ -209,4 +209,25 @@ assert.equal(upgradeRun.connections, 1, 'accepted socket subscribes without wait
 assert.equal(upgradeRun.subscriptions, 7);
 assert.equal(upgradePosts, 7);
 
-console.log('stream capture: exact crossing, idempotency, service auth, byte validation, reconnect, accepted-upgrade lifecycle and Worker parsing all pass');
+// A backend outage backs off instead of exhausting Cloudflare subrequests.
+let outageAttempts = 0;
+globalThis.fetch = async (_url, options) => {
+  if (options && options.headers && options.headers.Upgrade === 'websocket')
+    return { status:101, webSocket:new AcceptedSocket() };
+  outageAttempts++;
+  if (outageAttempts <= 2)
+    return new Response('temporary store outage', { status:503 });
+  const batch = JSON.parse(options.body).updates;
+  return new Response(JSON.stringify({ ok:true, accepted:batch.length, duplicates:0 }),
+    { status:200, headers:{'content-type':'application/json'} });
+};
+const outageRun = await worker.runStream(
+  { CAPTURE_SECRET:'test-capture-secret', TARGET:'https://unit.test/api/game',
+    SOLANA_WS:'wss://unit.test/' },
+  { sessionMs:3000, backoffMs:1, maxBackoffMs:2 });
+globalThis.fetch = realFetch;
+assert.equal(outageRun.postErrors, 2);
+assert.ok(outageRun.accepted >= 7, 'pending account updates recover after outage');
+assert.ok(outageAttempts <= 4, 'exponential backoff bounds subrequests');
+
+console.log('stream capture: exact crossing, idempotency, service auth, byte validation, reconnect, accepted-upgrade lifecycle, bounded outage retry and Worker parsing all pass');
