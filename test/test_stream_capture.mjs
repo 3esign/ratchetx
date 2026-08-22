@@ -24,6 +24,10 @@ const transition = {
 };
 assert.equal(await px.ingestUpdate('SOL', transition), true);
 assert.equal(await px.ingestUpdate('SOL', transition), false, 'overlap must deduplicate');
+assert.equal(await px.ingestUpdate('BONK', {
+  ...transition, price:0.00001234,
+  prevPublishTime:transition.publishTime,
+}), true, 'same-second consecutive Pyth publishes are valid evidence');
 const crossing = await px.priceCrossing('SOL', expiry, expiry + 60_000, 'pyth-onchain');
 assert.equal(crossing.price, 93.25);
 assert.equal(crossing.row.src, 'pyth-onchain-stream');

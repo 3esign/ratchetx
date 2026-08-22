@@ -1683,6 +1683,8 @@ async function oracleIngest(req, res) {
       if (!Number.isSafeInteger(slot) || slot < 0) throw new Error('invalid slot');
       const decoded = decodePx(update.data, spec.feedId);
       const age = now - decoded.publishTime;
+      if (decoded.prevPublishTime > decoded.publishTime)
+        throw new Error('invalid Pyth publish interval');
       if (age < -5 || age > PX_MAX_AGE_S) throw new Error('stale or future Pyth update');
       const confBps = decoded.px > 0 ? decoded.conf / decoded.px * 10000 : Infinity;
       if (!Number.isFinite(confBps) || confBps > PX_MAX_CONF_BPS)
