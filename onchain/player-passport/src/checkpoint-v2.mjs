@@ -1,19 +1,38 @@
 import { createHash } from 'node:crypto';
+import { address, getAddressEncoder } from '@solana/kit';
 import { canonicalSnapshot, fixedUnsigned, normalizeHash } from './model.mjs';
 
 export const CHECKPOINT_SCHEMA = 'ratchet-passport-checkpoint-v2';
 export const ZERO_HASH = '0'.repeat(64);
 
 const MONOTONIC = Object.freeze([
-  'lifetimeXp', 'bestStreak', 'shots', 'podiumWins', 'epochDay', 'checkpointUnix',
+  'lifetimeXp', 'bestStreak', 'shots', 'podiumWins', 'burned', 'epochDay', 'checkpointUnix',
 ]);
+const ADDRESS_ENCODER = getAddressEncoder();
 
 function requiredText(value, field) {
   const text = String(value || '');
   if (!text || text.length > 96) throw new TypeError(`${field} is required`);
   return text;
 }
-const digest = value => createHash('sha256').update(value).digest('hex');
+function u64le(value, field) {
+  const parsed = BigInt(fixedUnsigned(value, 20, field));
+  const bytes = Buffer.alloc(8); bytes.writeBigUInt64LE(parsed); return bytes;
+}
+function i64le(value, field) {
+  let parsed;
+  try { parsed = BigInt(value); } catch { throw new TypeError(`${field} must be an integer`); }
+  if (parsed < 0n || parsed > 9_223_372_036_854_775_807n) throw new RangeError(`${field} is outside i64 range`);
+  const bytes = Buffer.alloc(8); bytes.writeBigInt64LE(parsed); return bytes;
+}
+function pubkeyBytes(value, field) {
+  try { return Buffer.from(ADDRESS_ENCODER.encode(address(requiredText(value, field)))); }
+  catch { throw new TypeError(`${field} must be a valid Solana address`); }
+}
+function hashBytes(value, field) {
+  try { return Buffer.from(normalizeHash(value), 'hex'); }
+  catch { throw new TypeError(`${field} must be a 32-byte hexadecimal hash`); }
+}
 
 export function canonicalCheckpointBody(input = {}) {
   return Object.freeze({
@@ -30,8 +49,17 @@ export function canonicalCheckpointBody(input = {}) {
 }
 
 export function hashCheckpointBody(input) {
-  const body = canonicalCheckpointBody(input);
-  return digest(`RATCHET_PLAYER_PASSPORT_V2\0${JSON.stringify(body)}`);
+  const body = canonicalCheckpointBody(input), snapshot = body.snapshot;
+  return createHash('sha256').update(Buffer.concat([
+    Buffer.from('RATCHET_PLAYER_PASSPORT_V2\0'),
+    pubkeyBytes(body.player, 'player'), pubkeyBytes(body.passportMint, 'passportMint'),
+    u64le(body.sequence, 'sequence'), hashBytes(body.previousCheckpointHash, 'previousCheckpointHash'),
+    u64le(body.logIndex, 'logIndex'), hashBytes(body.logHead, 'logHead'), hashBytes(body.stateRoot, 'stateRoot'),
+    u64le(snapshot.lifetimeXp, 'lifetimeXp'), u64le(snapshot.bestStreak, 'bestStreak'),
+    u64le(snapshot.shots, 'shots'), u64le(snapshot.podiumWins, 'podiumWins'),
+    u64le(snapshot.burned, 'burned'), u64le(snapshot.epochDay, 'epochDay'),
+    i64le(snapshot.checkpointUnix, 'checkpointUnix'),
+  ])).digest('hex');
 }
 
 export function sealCheckpoint(input) {
@@ -75,8 +103,7 @@ export function validateCheckpointTransition(previous, candidate, { nowUnix, max
     if (nextLog <= BigInt(prior.logIndex)) errors.push('log index must increase');
     if (next.logHead === prior.logHead) errors.push('log head must advance');
     for (const field of MONOTONIC) {
-      if (BigInt(next.snapshot[field]) < BigInt(prior.snapshot[field]))
-        errors.push(`${field} cannot decrease`);
+      if (BigInt(next.snapshot[field]) < BigInt(prior.snapshot[field])) errors.push(`${field} cannot decrease`);
     }
   }
   const timestamp = BigInt(next.snapshot.checkpointUnix);
@@ -100,6 +127,7 @@ export function checkpointMetadataV2(input) {
     ['ratchet.best_streak', checkpoint.snapshot.bestStreak],
     ['ratchet.shots', checkpoint.snapshot.shots],
     ['ratchet.podium_wins', checkpoint.snapshot.podiumWins],
+    ['ratchet.burned', checkpoint.snapshot.burned],
     ['ratchet.epoch_day', checkpoint.snapshot.epochDay],
     ['ratchet.checkpoint_unix', checkpoint.snapshot.checkpointUnix],
     ['ratchet.checkpoint_hash', checkpoint.checkpointHash],

@@ -4,7 +4,7 @@ import { ZERO_HASH, checkpointMetadataV2, sealCheckpoint, validateCheckpointTran
 
 const H1 = '1'.repeat(64), H2 = '2'.repeat(64), R1 = 'a'.repeat(64), R2 = 'b'.repeat(64);
 const base = {
-  player: 'player1111111111111111111111111111111111', passportMint: 'mint11111111111111111111111111111111111',
+  player: '8MmiTs9CoMT55gdFyCjM9issn9tsG1qVJCfgukYmeeVH', passportMint: '4J9Tqmiq4FhNVRpwqcw4xizkWtXT3HYRkugGQr4o2SpY',
   sequence: 1, previousCheckpointHash: ZERO_HASH, logIndex: 100, logHead: H1, stateRoot: R1,
   snapshot: { lifetimeXp: 100, bestStreak: 2, shots: 5, podiumWins: 0, epochDay: 20, checkpointUnix: 1_000 },
 };

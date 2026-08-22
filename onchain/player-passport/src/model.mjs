@@ -10,6 +10,7 @@ const WIDTHS = Object.freeze({
   bestStreak: 10,
   shots: 20,
   podiumWins: 10,
+  burned: 20,
   epochDay: 10,
   checkpointUnix: 10,
 });
@@ -45,6 +46,7 @@ export function canonicalSnapshot(input = {}) {
     bestStreak: fixedUnsigned(input.bestStreak ?? 0, WIDTHS.bestStreak, 'bestStreak'),
     shots: fixedUnsigned(input.shots ?? 0, WIDTHS.shots, 'shots'),
     podiumWins: fixedUnsigned(input.podiumWins ?? 0, WIDTHS.podiumWins, 'podiumWins'),
+    burned: fixedUnsigned(input.burned ?? 0, WIDTHS.burned, 'burned'),
     epochDay: fixedUnsigned(input.epochDay ?? 0, WIDTHS.epochDay, 'epochDay'),
     checkpointUnix: fixedUnsigned(input.checkpointUnix ?? 0, WIDTHS.checkpointUnix, 'checkpointUnix'),
   });
