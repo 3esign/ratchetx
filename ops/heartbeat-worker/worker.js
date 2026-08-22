@@ -1,5 +1,9 @@
 const DEFAULT_TARGET = 'https://ratchetx.xyz/api/game';
-const DEFAULT_SOLANA_WS = 'wss://api.mainnet-beta.solana.com/';
+const DEFAULT_SOLANA_WS = [
+  'wss://api.mainnet-beta.solana.com/',
+  'wss://solana-rpc.publicnode.com/',
+  'wss://solana.drpc.org/',
+];
 const SESSION_MS = 85_000;
 const ACCOUNTS = [
   '7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE',
@@ -107,8 +111,22 @@ async function postUpdates(env, updates) {
   return parsed;
 }
 
-async function connectOnce(env, deadline, pending, stats, WebSocketImpl) {
-  const ws = new WebSocketImpl(env.SOLANA_WS || DEFAULT_SOLANA_WS);
+async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImpl) {
+  let ws;
+  if (WebSocketImpl) {
+    ws = new WebSocketImpl(endpoint);
+  } else {
+    // Cloudflare supports both client constructors and fetch-based upgrades.
+    // Some Solana public RPC edges reject the constructor handshake from a
+    // Worker but accept the explicit Upgrade request, which also exposes an
+    // HTTP status when the handshake fails.
+    const response = await fetch(endpoint.replace(/^wss:/, 'https:'), {
+      headers:{ Upgrade:'websocket' },
+    });
+    ws = response.webSocket;
+    if (!ws) throw new Error('websocket upgrade rejected with HTTP ' + response.status);
+    ws.accept();
+  }
   const requests = new Map();
   const subscriptions = new Map();
   let requestId = 1;
@@ -208,17 +226,20 @@ export async function runStream(env, options = {}) {
 
   const deadline = Date.now() + (Number(options.sessionMs) || SESSION_MS);
   const pending = new Map();
-  const WebSocketImpl = options.WebSocket || WebSocket;
+  const WebSocketImpl = options.WebSocket || null;
+  const endpoints = env.SOLANA_WS ? [env.SOLANA_WS] : DEFAULT_SOLANA_WS;
+  let endpointIndex = 0;
   let backoff = Number(options.backoffMs) || 250;
   while (Date.now() < deadline - 1000) {
     try {
-      await connectOnce(env, deadline, pending, stats, WebSocketImpl);
+      await connectOnce(env, endpoints[endpointIndex], deadline, pending, stats, WebSocketImpl);
     } catch (error) {
       stats.socketErrors++;
       stats.lastSocketError = String(error && error.message || error).slice(0, 180);
       console.error('stream connection failed: ' + stats.lastSocketError);
     }
     if (Date.now() >= deadline - 1000) break;
+    endpointIndex = (endpointIndex + 1) % endpoints.length;
     await new Promise(resolve => setTimeout(resolve, backoff));
     backoff = Math.min(backoff * 2, Number(options.maxBackoffMs) || 4000);
   }
