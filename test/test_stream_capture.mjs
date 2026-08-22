@@ -159,4 +159,50 @@ assert.ok(streamRun.connections >= 2, 'socket close must reconnect in the same c
 assert.equal(streamRun.subscriptions, 7);
 assert.ok(posted >= 14, 'initial account states from overlapping sessions are forwarded');
 
-console.log('stream capture: exact crossing, idempotency, service auth, byte validation, reconnect and Worker parsing all pass');
+// Cloudflare fetch(Upgrade) returns an already accepted socket and emits no
+// future open event. The Worker must subscribe immediately on that path.
+let acceptedSocket = null, upgradePosts = 0;
+class AcceptedSocket {
+  constructor() { this.listeners = new Map(); this.id = 50; }
+  accept() { this.accepted = true; }
+  addEventListener(name, fn) { this.listeners.set(name, fn); }
+  emit(name, value) { const fn = this.listeners.get(name); if (fn) fn(value); }
+  send(raw) {
+    const req = JSON.parse(raw);
+    const subscription = 5000 + req.id;
+    setTimeout(() => {
+      this.emit('message', { data:JSON.stringify({ id:req.id, result:subscription }) });
+      this.emit('message', { data:JSON.stringify({
+        method:'accountNotification',
+        params:{ subscription, result:{ context:{slot:2000},
+          value:accountValues.get(req.params[0]) } },
+      }) });
+    }, 0);
+  }
+  close() {
+    if (this.closed) return;
+    this.closed = true;
+    setTimeout(() => this.emit('close', {}), 0);
+  }
+}
+globalThis.fetch = async (_url, options) => {
+  if (options && options.headers && options.headers.Upgrade === 'websocket') {
+    acceptedSocket = new AcceptedSocket();
+    return { status:101, webSocket:acceptedSocket };
+  }
+  const batch = JSON.parse(options.body).updates;
+  upgradePosts += batch.length;
+  return new Response(JSON.stringify({ ok:true, accepted:batch.length, duplicates:0 }),
+    { status:200, headers:{'content-type':'application/json'} });
+};
+const upgradeRun = await worker.runStream(
+  { CAPTURE_SECRET:'test-capture-secret', TARGET:'https://unit.test/api/game',
+    SOLANA_WS:'wss://unit.test/' },
+  { sessionMs:1250, backoffMs:1, maxBackoffMs:2 });
+globalThis.fetch = realFetch;
+assert.equal(acceptedSocket.accepted, true);
+assert.equal(upgradeRun.connections, 1, 'accepted socket subscribes without waiting for open');
+assert.equal(upgradeRun.subscriptions, 7);
+assert.equal(upgradePosts, 7);
+
+console.log('stream capture: exact crossing, idempotency, service auth, byte validation, reconnect, accepted-upgrade lifecycle and Worker parsing all pass');

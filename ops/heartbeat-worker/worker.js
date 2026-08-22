@@ -177,7 +177,10 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
       finish('rotation');
     }, Math.max(1, deadline - Date.now()));
 
-    ws.addEventListener('open', () => {
+    let subscribed = false;
+    const subscribe = () => {
+      if (subscribed) return;
+      subscribed = true;
       stats.connections++;
       console.log('solana websocket open');
       for (const account of ACCOUNTS) {
@@ -186,7 +189,8 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
         ws.send(JSON.stringify({ jsonrpc:'2.0', id, method:'accountSubscribe',
           params:[account, { encoding:'base64', commitment:'confirmed' }] }));
       }
-    });
+    };
+    ws.addEventListener('open', subscribe);
 
     ws.addEventListener('message', event => {
       let message;
@@ -215,6 +219,9 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
       clearTimeout(timer);
       finish('closed');
     });
+    // fetch(Upgrade) sockets are already open after accept() and do not emit
+    // the browser constructor's future open event.
+    if (!WebSocketImpl) subscribe();
   });
 }
 
