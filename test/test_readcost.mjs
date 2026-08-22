@@ -85,9 +85,9 @@ ok(!Object.keys(hits).some(k => k.startsWith('px:')),
 // ---- the guards that made the open lists safe to cache ----
 {
   const src = require('fs').readFileSync(new URL('../api/game.js', import.meta.url), 'utf8');
-  ok(/setnxJSON\(`wsettled:\$\{s\.id\}`/.test(src),
+  ok(/appendOnce\(`wsettle:\$\{s\.id\}`/.test(src) && /rec\.applied\.includes\(s\.id\)/.test(src),
      'a Warden line can only ever be settled once, however many requests race');
-  ok(/setnxJSON\(`asettled:\$\{o\.id\}`/.test(src),
+  ok(/appendOnce\(`asettle:\$\{o\.id\}`/.test(src) && /r\.applied\.includes\(o\.id\)/.test(src),
      'and so can a house agent call — both records are published as accuracy figures');
 }
 

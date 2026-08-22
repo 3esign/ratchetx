@@ -35,12 +35,14 @@ const { log = [], logHead } = state;
 let h = sha(GENESIS), broken = null;
 for (let n = 0; n < log.length; n++) {
   const e = log[n];
-  if (e.i !== n + 1) { broken = { at: n + 1, why: 'gap or misorder' }; break; }
+  if (!e || e.i !== n + 1) { broken = { at: n + 1, why: 'gap or misorder' }; break; }
   const r = sha(h + JSON.stringify({ i: e.i, t: e.t, ev: e.ev }));
-  if (e.h && e.h !== r) { broken = { at: e.i, why: 'hash mismatch' }; break; }
+  if (!e.h || e.h !== r) { broken = { at: e.i, why: 'missing hash or hash mismatch' }; break; }
   h = r;
 }
-if (!broken && logHead && (logHead.i !== log.length || logHead.h !== h))
+if (!broken && (!logHead || !Number.isInteger(logHead.i) || typeof logHead.h !== 'string'))
+  broken = { at: log.length, why: 'missing or malformed head' };
+if (!broken && (logHead.i !== log.length || logHead.h !== h))
   broken = { at: logHead.i, why: 'head mismatch' };
 
 if (broken) {
@@ -52,7 +54,14 @@ console.log(`verify on-chain: find a Solana memo "RATCHET|<i>|<hash>" whose <i> 
 if (state.anchors?.length) for (const a of state.anchors) console.log(`  known anchor: entry #${a.i} tx ${a.sig}`);
 if (snap.sha256) {
   const rehash = sha(JSON.stringify(state));
-  console.log(`snapshot sha256 ${rehash === snap.sha256 ? 'MATCHES' : 'DIFFERS (re-serialized locally — fine if chain OK)'}`);
+  if (rehash !== snap.sha256) {
+    console.error('SNAPSHOT HASH DIFFERS — state outside the event log was changed or corrupted. Refusing.');
+    process.exit(1);
+  }
+  console.log('snapshot sha256 MATCHES');
+} else if (!CHECK) {
+  console.error('snapshot envelope has no sha256 — use a complete /api/snapshot export. Refusing to write.');
+  process.exit(1);
 }
 if (CHECK) { console.log('check-only mode: nothing written.'); process.exit(0); }
 
@@ -70,9 +79,11 @@ const existing = await redis(['GET', 'g:log:head']);
 if (existing && !FORCE) { console.error('target KV already has a live machine (g:log:head exists). Use --force only if you mean to overwrite it.'); process.exit(1); }
 
 let n = 0;
+const restoredStats = { ...(state.stats || {}) };
 const singles = {
-  'g:stats': state.stats, 'g:season': state.season, 'g:day': state.day,
+  'g:season': state.season, 'g:day': state.day,
   'g:podium': state.podium, 'g:podium:prev': state.podiumPrev,
+  'g:podium:fallback': state.podiumFallback, 'g:podium:history': state.podiumHistory,
   'g:feed': state.feed, 'g:anchors': state.anchors,
   'g:warden:rec': state.warden?.rec, 'g:warden:hist': state.warden?.hist, 'g:warden:open': state.warden?.open,
   'g:dayResults': state.results?.day, 'g:seasonResults': state.results?.season,
@@ -90,14 +101,32 @@ for (const [w, p] of Object.entries(state.players || {})) {
   const q = { ...p };
   for (const s of q.open || []) {
     if (s.src === 'cr') q.cr = (q.cr || 0) + s.stake; else q.bal = (q.bal || 0) + s.stake;
+    // A void/refund feeds no burn or pot. Mirror the server's integer 70/30
+    // allocation so restored public totals reconcile with restored balances.
+    if (!w.startsWith('demo-') && s.allocationRule !== 'on-settle-v2' && Number.isInteger(s.stake)) {
+      const burn = Math.floor(s.stake * 70 / 100), potTotal = s.stake - burn;
+      const potD = Math.floor(potTotal / 2), pot = potTotal - potD;
+      restoredStats.burned = (restoredStats.burned || 0) - burn;
+      restoredStats.potD = (restoredStats.potD || 0) - potD;
+      restoredStats.pot = (restoredStats.pot || 0) - pot;
+    }
     voided++;
   }
   q.open = [];
   await put(`u:${w}`, q); n++;
 }
+await put('g:stats', restoredStats); n++;
 if (voided) console.log(`void-refunded ${voided} open shot(s) — sealed sides are never exported, so they cannot settle post-resurrection.`);
+for (const [w, v] of Object.entries(state.pending || {})) { await put(`pend:${w}`, v); n++; }
+for (const [w, v] of Object.entries(state.championPending || {})) { await put(`c7:${w}`, v); n++; }
+for (const [w, v] of Object.entries(state.championSelfPending || {})) { await put(`cs7:${w}`, v); n++; }
 for (const [s2, v] of Object.entries(state.sigs || {})) { await put(`sig:${s2}`, v); n++; }
 for (const [k, v] of Object.entries(state.boards || {})) { await put(k, v); n++; }
+for (const [k, rows] of Object.entries(state.sortedBoards || {})) {
+  const flat = (rows || []).flatMap(([member, score]) => [String(score), String(member)]);
+  if (flat.length) { await redis(['ZADD', k, ...flat]); n++; }
+}
 for (const [w, v] of Object.entries(state.hists || {})) { await put(`hist:${w}`, v); n++; }
+for (const [w, v] of Object.entries(state.championHists || {})) { await put(`chist:${w}`, v); n++; }
 
 console.log(`restored ${n} keys. Deploy this repo to Vercel with the same KV env vars (+ RATCHET_MINT, SOLANA_RPC_URL) and the machine lives again.`);

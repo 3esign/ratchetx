@@ -113,12 +113,12 @@ POST /api/game
 { "action": "shot", "auth": {...}, "target": "SOL5", "side": "YES", "stake": 500 }
 ```
 
-Any whole stake from 100 to 2500. XP scales with `sqrt(stake / 100)`.
+Any whole stake from 100 up to the available credit balance (server safety cap 1,000,000,000). XP follows `sqrt(stake / 100)` and caps at ×20 once stake reaches 40,000.
 
 The response carries your `side`, `salt` and `commit`. **Keep them.** Only the
-hash is stored server-side until settlement, so nobody — including us — can read
-which way you called before the window closes. At settlement the side and salt are
-published so anyone can recompute `sha256("SIDE|salt")` and confirm the answer was
+hash enters the public log and spectator responses, so other players cannot read
+your call. The server retains reveal terms until settlement. Then side and salt are
+published so anyone can recompute the versioned commitment (v2 binds wallet + shot id + side + salt) and confirm the answer was
 not changed after the fact.
 
 Your open chambers are capped by rank: 2 at COG, up to 5 at REACTOR.

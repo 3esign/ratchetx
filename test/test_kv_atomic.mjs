@@ -5,7 +5,7 @@
 import assert from 'node:assert';
 import { createRequire } from 'node:module';
 
-const Z = new Map(), S = new Map();
+const Z = new Map(), S = new Map(), H = new Map();
 globalThis.fetch = async (_u, opts) => {
   const cmd = JSON.parse(opts.body);
   const [op, key, ...rest] = cmd;
@@ -13,6 +13,12 @@ globalThis.fetch = async (_u, opts) => {
   if (op === 'ZINCRBY') {
     const z = Z.get(key) || new Map(); Z.set(key, z);
     const v = (z.get(rest[1]) || 0) + Number(rest[0]); z.set(rest[1], v); result = String(v);
+  } else if (op === 'EVAL' && String(key).includes("redis.call('ZSCORE'")) {
+    const zkey = rest[1], member = rest[2], score = Number(rest[3]);
+    const z = Z.get(zkey) || new Map(); Z.set(zkey, z);
+    const cur = z.get(member);
+    if (cur == null || score > cur) { z.set(member, score); result = 1; }
+    else result = 0;
   } else if (op === 'ZREVRANGE') {
     const z = [...(Z.get(key) || new Map()).entries()].sort((a,b)=>b[1]-a[1]);
     const stop = Number(rest[1]);
@@ -20,6 +26,37 @@ globalThis.fetch = async (_u, opts) => {
     result = rows.flatMap(([m,sc]) => [m, String(sc)]);
   } else if (op === 'INCRBYFLOAT') {
     const v = (Number(S.get(key)) || 0) + Number(rest[0]); S.set(key, String(v)); result = String(v);
+  } else if (op === 'EVAL' && String(key).includes("redis.call('ZINCRBY'")) {
+    const nkeys = Number(rest[0]);
+    const keys = rest.slice(1, 1 + nkeys), args = rest.slice(1 + nkeys);
+    if (S.has(keys[0])) result = 0;
+    else {
+      S.set(keys[0], args[0]);
+      const n = Number(args[2]); let p = 3;
+      for (let i=0; i<n; i++) {
+        const member = args[p++], by = Number(args[p++]);
+        const z = Z.get(keys[1+i]) || new Map(); Z.set(keys[1+i], z);
+        z.set(member, (z.get(member) || 0) + by);
+      }
+      result = 1;
+    }
+  } else if (op === 'EVAL' && String(key).includes("redis.call('EXISTS',KEYS[1])")) {
+    const nkeys = Number(rest[0]);
+    const keys = rest.slice(1, 1 + nkeys), args = rest.slice(1 + nkeys);
+    if (S.has(keys[0])) result = 0;
+    else {
+      S.set(keys[0], args[0]);
+      const n = Number(args[2]); let p = 3;
+      for (let i=0;i<n;i++,p++) S.set(keys[1+i], String((Number(S.get(keys[1+i]))||0) + Number(args[p])));
+      const m = Number(args[p++]);
+      if (m) {
+        const hk = keys[1+n], h = H.get(hk) || new Map(); H.set(hk,h);
+        for (let i=0;i<m;i++) { const f=args[p++], by=Number(args[p++]); h.set(f,(h.get(f)||0)+by); }
+      }
+      result = 1;
+    }
+  } else if (op === 'HGETALL') {
+    result = [...(H.get(key) || new Map()).entries()].flatMap(([f,v])=>[f,String(v)]);
   } else if (op === 'GETSET') {
     result = S.has(key) ? S.get(key) : null; S.set(key, rest[0]);
   } else if (op === 'SET') { S.set(key, rest[0]); result = 'OK'; }
@@ -53,6 +90,13 @@ async function run(label, durableMode) {
   assert.equal(all.length, 4, label + ': full range');
   assert.equal(typeof all[0][1], 'number', label + ': scores are numbers');
 
+  // --- absolute backfill can only raise a live score, never overwrite it ---
+  assert.equal(await kv.zmax('lbtest', 400, 'alice'), false, label + ': lower backfill ignored');
+  assert.equal(await kv.zmax('lbtest', 800, 'alice'), true, label + ': higher observed total lands');
+  assert.equal(await kv.zmax('lbtest', 700, 'alice'), false, label + ': later stale total cannot step it back');
+  assert.equal((await kv.ztop('lbtest')).find(x=>x[0]==='alice')[1], 800,
+    label + ': monotonic backfill ends on the maximum');
+
   // --- the credit queue: deposits cannot be lost, and a take is exclusive ---
   await Promise.all(Array.from({length:20}, () => kv.incrFloat('pend:w', 100)));
   const takes = await Promise.all([kv.takeNum('pend:w'), kv.takeNum('pend:w'), kv.takeNum('pend:w')]);
@@ -60,7 +104,34 @@ async function run(label, durableMode) {
   assert.equal(takes.filter(v=>v>0).length, 1, label + ': exactly one taker gets it');
   assert.equal(await kv.takeNum('pend:w'), 0, label + ': drained key reads 0');
   assert.equal(await kv.takeNum('pend:never-seen'), 0, label + ': missing key reads 0, not NaN');
-  console.log(`${label.padEnd(9)} zincr/ztop/incrFloat/takeNum OK`);
+
+  // --- a replay gate and every economic leg are one operation ---
+  const once = await kv.applyOnce('sig:abc', {w:'alice'}, {
+    counters:[['pend:alice',700],['c7:bob',300]], hashKey:'h:stats',
+    deltas:{realBurned:700,champPaid:300},
+  });
+  const replay = await kv.applyOnce('sig:abc', {w:'alice'}, {
+    counters:[['pend:alice',700],['c7:bob',300]], hashKey:'h:stats',
+    deltas:{realBurned:700,champPaid:300},
+  });
+  assert.equal(once,true,label + ': first signature applies');
+  assert.equal(replay,false,label + ': replay is refused');
+  assert.equal(await kv.takeNum('pend:alice'),700,label + ': player credit landed exactly once');
+  assert.equal(await kv.takeNum('c7:bob'),300,label + ': champion leg landed exactly once');
+  assert.deepEqual(await kv.hall('h:stats'),{realBurned:700,champPaid:300},label + ': totals landed in the same operation');
+
+  // --- one settlement moves both ladders once, even under retry pressure ---
+  const ladderWins = await Promise.all(Array.from({length:20}, () =>
+    kv.zincrManyOnce('ladder:alice:shot-1', {shot:'shot-1'}, [
+      ['season-once','alice',7], ['day-once','alice',7],
+    ])));
+  assert.equal(ladderWins.filter(Boolean).length, 1, label + ': one ladder replay gate wins');
+  assert.deepEqual(await kv.ztop('season-once'), [['alice',7]], label + ': season XP applied once');
+  assert.deepEqual(await kv.ztop('day-once'), [['alice',7]], label + ': daily XP applied once');
+  assert.equal(await kv.zincrManyOnce('ladder:alice:shot-1', {shot:'shot-1'}, [
+    ['season-once','alice',7], ['day-once','alice',7],
+  ]), false, label + ': later ladder replay refused');
+  console.log(`${label.padEnd(9)} atomic counters, hashes and ladders OK`);
 }
 
 await run('memory', false);

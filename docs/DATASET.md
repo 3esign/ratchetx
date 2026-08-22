@@ -5,7 +5,7 @@ backed by a stake, and settled by a deterministic oracle rule**.
 
 - **Endpoint:** `https://ratchetx.xyz/api/record`
 - **Licence:** public domain. No key, no signup, no attribution requirement, no rate deal.
-- **Schema version:** 1 — additive only. New columns may appear; existing columns never change meaning.
+- **Schema version:** 2 — additive only. New columns may appear; existing columns never change meaning.
 
 ```
 curl -s 'https://ratchetx.xyz/api/record?format=ndjson&limit=1000&after=0'
@@ -16,8 +16,9 @@ curl -s 'https://ratchetx.xyz/api/record?format=ndjson&limit=1000&after=0'
 Three properties have to hold together for a prediction record to be worth anything, and they almost
 never do:
 
-1. **Sealed before the outcome.** Each row's `commit` is `sha256("SIDE|salt")`, published at the moment
-   the shot was taken. `side` and `salt` are revealed only at settlement. You can recompute the hash.
+1. **Sealed before the outcome.** New rows use `sha256("RATCHET|v2|wallet|shotId|SIDE|salt")`;
+   legacy rows retain `commitVersion: 1` and `sha256("SIDE|salt")`. Side and salt are revealed only
+   at settlement. The export recomputes the versioned formula.
 2. **Backed by a stake.** `stake` is what the caller stood to lose. This is not a costless opinion.
 3. **Settled by rule, not by judgement.** `exit` is the first Pyth oracle publish at or after `expiry`
    — the same first-crossing rule (`prev_publish_time < expiry <= publish_time`) the on-chain program
@@ -57,18 +58,23 @@ for the next page. An empty page means you are at the end — poll the same curs
 | `exit` | float\|null | The settling price: the first oracle publish at or after `expiry`. |
 | `exitAt` | ms\|null | Timestamp of that exact oracle sample, so the row is reproducible. |
 | `settledAt` | ms | When settlement was recorded. |
-| `commit` | hex | The published commitment: `sha256("SIDE|salt")`. |
+| `commit` | hex | Published versioned commitment. |
+| `commitVersion` | int | `2` binds wallet + shot id + side + salt; `1` is legacy side + salt. |
 | `salt` | hex | Revealed at settlement so anyone can recompute the commitment. |
 | `sealed` | bool | Whether this row carries a commitment at all. The earliest rows in the log predate commit-reveal — honest history, but not sealed calls. Filter on this if the seal is what you came for. |
-| `commitVerified` | bool\|null | We recompute `sha256(side + "|" + salt)` at export and report whether it matches `commit`. `null` when there is nothing to verify. Do not take our word for it — the inputs are in the row. |
+| `commitVerified` | bool\|null | Exporter recomputes the versioned formula. For v2 independent verification, obtain the raw wallet from the matching snapshot-log event; the pseudonymous row intentionally omits it. |
 | `reason` | string\|null | Why a void was a void. |
 
 ## Verifying a row yourself
 
 ```js
 import crypto from 'node:crypto';
-const ok = crypto.createHash('sha256')
-  .update(`${row.side}|${row.salt}`).digest('hex') === row.commit;
+// rawSettle is the matching settle event from /api/snapshot state.log.
+const owner = rawSettle.ev.w;
+const payload = row.commitVersion >= 2
+  ? `RATCHET|v2|${owner}|${row.id}|${row.side}|${row.salt}`
+  : `${row.side}|${row.salt}`;
+const ok = crypto.createHash('sha256').update(payload).digest('hex') === row.commit;
 ```
 
 And the price it settled on, from the same samples settlement used:

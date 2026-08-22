@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url);
 // in-memory KV (no env) so pxlog uses the Map backend
 delete process.env.KV_REST_API_URL; delete process.env.UPSTASH_REDIS_REST_URL;
 const px = require('../lib/pxlog.js');
-const { priceAt, sample, bucketKey, SETTLE_GRACE_MS } = px;
+const { priceAt, priceCrossing, sample, bucketKey, SETTLE_GRACE_MS } = px;
 
 const gate = globalThis.__ratchet_pxgate;
 const force = async (t, prices) => { gate.t = 0; const real = Date.now; Date.now = () => t; try { return await sample(prices); } finally { Date.now = real; } };
@@ -60,6 +60,52 @@ const mixed = await priceAt(sourceExpiry, sourceExpiry + SETTLE_GRACE_MS + 1000,
 assert.equal(mixed.expired, true, 'a Coinbase row cannot settle a Pyth-sealed shot');
 assert.equal(mixed.row, undefined);
 console.log('Pyth entry + Coinbase-only exit window -> void/refund');
+
+// ---- 5c. ORACLE TIME, NOT SERVER OBSERVATION TIME ----
+// A row read after expiry may still contain a price Pyth published before it.
+// Local row.t must never turn that pre-expiry print into a valid exit.
+{
+  const exp = T0 + 1100 * 60e3 + 500;
+  const k = bucketKey(exp);
+  const before = Math.floor(exp / 1000) - 2;
+  globalThis.__ratchet_mem.set(k, JSON.stringify([{
+    t: exp + 10_000, src:'pyth-onchain', SOL:111,
+    pt:{SOL:before}, pp:{SOL:before-60}, cf:{SOL:10},
+  }]));
+  const r = await priceCrossing('SOL', exp, exp + 20_000);
+  assert.equal(r.wait, true, 'a pre-expiry publish read later is still not a crossing');
+  console.log('server read after expiry + Pyth publish before expiry -> WAIT, not settlement');
+}
+
+// ---- 5d. A LATER UPDATE CANNOT SUBSTITUTE FOR A MISSED CROSSING ----
+{
+  const exp = T0 + 1200 * 60e3;
+  const pub = Math.floor(exp / 1000) + 90;
+  const prev = Math.floor(exp / 1000) + 30; // crossing already happened in an update we did not retain
+  globalThis.__ratchet_mem.set(bucketKey(exp), JSON.stringify([{
+    t: pub*1000, src:'pyth-onchain', SOL:222,
+    pt:{SOL:pub}, pp:{SOL:prev}, cf:{SOL:10},
+  }]));
+  const r = await priceCrossing('SOL', exp, exp + 100_000);
+  assert.equal(r.expired, true);
+  assert.equal(r.reason, 'crossing-update-missed');
+  console.log('later Pyth update with prev>=expiry -> VOID, never chosen as a substitute');
+}
+
+// ---- 5e. THE EXACT CROSSING IS ACCEPTED WITH ITS ORACLE TIMESTAMP ----
+{
+  const exp = T0 + 1300 * 60e3;
+  const expS = Math.floor(exp / 1000), pub = expS + 15, prev = expS - 45;
+  globalThis.__ratchet_mem.set(bucketKey(exp), JSON.stringify([{
+    t: pub*1000+999, src:'pyth-onchain', SOL:333,
+    pt:{SOL:pub}, pp:{SOL:prev}, cf:{SOL:25},
+  }]));
+  const r = await priceCrossing('SOL', exp, exp + 30_000);
+  assert.equal(r.price, 333);
+  assert.equal(r.publishTime, pub*1000);
+  assert.equal(r.prevPublishTime, prev*1000);
+  console.log('prev_publish < expiry <= publish -> exact crossing accepted');
+}
 
 // ---- 6. patience cannot win: waiting only ever refunds ----
 const outcomes = new Set();

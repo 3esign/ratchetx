@@ -18,9 +18,9 @@
 //  the canonical JSON of `state` so mirrors can be compared.
 // ============================================================
 const crypto = require('node:crypto');
-const { getJSON, getManyJSON, scanKeys, durable, hall} = require('../lib/kv.js');
+const { getJSON, getManyJSON, scanKeys, scanZKeys, ztop, durable, hall} = require('../lib/kv.js');
 
-const VERSION = 'h51-2026-08-21';
+const VERSION = 'h52-2026-08-22';
 const MINT = process.env.RATCHET_MINT || '';
 
 const memo = globalThis.__ratchet_snap || (globalThis.__ratchet_snap = { t: 0, body: null });
@@ -78,10 +78,45 @@ module.exports = async (req, res) => {
       const v = await getJSON(k);
       if (v) hists[k.slice(5)] = v;
     }
+    const championHists = {};
+    for (const k of await scanKeys('chist:*')) {
+      const v = await getJSON(k);
+      if (v) championHists[k.slice(6)] = v;
+    }
+    // Credits and champion receipts may be banked while a wallet is idle.
+    // Omitting these queues made "whole machine" snapshots silently lose
+    // already-earned value on restore.
+    const pending = {};
+    for (const k of await scanKeys('pend:*')) {
+      const v = Number(await getJSON(k)) || 0;
+      if (v) pending[k.slice(5)] = v;
+    }
+    const championPending = {};
+    for (const k of await scanKeys('c7:*')) {
+      const v = Number(await getJSON(k)) || 0;
+      if (v) championPending[k.slice(3)] = v;
+    }
+    const championSelfPending = {};
+    for (const k of await scanKeys('cs7:*')) {
+      const v = Number(await getJSON(k)) || 0;
+      if (v) championSelfPending[k.slice(4)] = v;
+    }
     const boards = {};
     for (const k of [...await scanKeys('lb:*'), ...await scanKeys('lbd:*')]) {
       const v = await getJSON(k);
       if (v) boards[k] = v;
+    }
+    // Atomic ladders live in Redis sorted sets, not the legacy JSON keys above.
+    // Export every row explicitly or a resurrection silently loses live XP.
+    const sortedBoards = {};
+    const zkeys = [...new Set([
+      ...await scanZKeys('z:lb:*'),
+      ...await scanZKeys('z:lbd:*'),
+      ...await scanZKeys('z:lba:*'),
+    ])];
+    for (const k of zkeys) {
+      const rows = await ztop(k);
+      if (rows.length) sortedBoards[k] = rows;
     }
 
     const state = {
@@ -91,6 +126,8 @@ module.exports = async (req, res) => {
       day: (await getJSON('g:day')) || null,
       podium: (await getJSON('g:podium')) || null,
       podiumPrev: (await getJSON('g:podium:prev')) || null,
+      podiumFallback: (await getJSON('g:podium:fallback')) || null,
+      podiumHistory: (await getJSON('g:podium:history')) || [],
       feed: (await getJSON('g:feed')) || [],
       anchors: (await getJSON('g:anchors')) || [],
       warden: {
@@ -103,7 +140,7 @@ module.exports = async (req, res) => {
         season: (await getJSON('g:seasonResults')) || null,
       },
       supply0: (await getJSON('g:supply0')) || null,
-      boards, players, sigs, hists,
+      boards, sortedBoards, players, sigs, hists, championHists, pending, championPending, championSelfPending,
       logHead: head,
       log,
       logIssued: issued,

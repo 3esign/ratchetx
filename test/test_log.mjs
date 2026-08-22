@@ -52,7 +52,10 @@ const kvOf = () => require('../lib/kv.js');
   const immutable = await kv.getManyJSON(Array.from({ length: 26 }, (_, i) => `g:log:e:${i + 1}`));
   assert.equal(immutable.filter(Boolean).length, 26, 'every index has a single-writer immutable record');
   assert.equal(new Set(immutable.map(e => e.i)).size, 26, 'immutable records retain every concurrent event');
-  console.log('25 concurrent appends -> 25 unique gapless indices, none overwritten');
+  const full = await log.readEntries(26);
+  const verified = log.verifyChain(full, await kv.getJSON('g:log:head'), 26);
+  assert.ok(verified.ok, 'the concurrent burst is one continuous hash chain: ' + JSON.stringify(verified));
+  console.log('25 concurrent appends -> 25 unique indices AND one continuous verified chain');
 }
 
 // ---- 4. a DROPPED entry must be reported, not certified ----
@@ -98,4 +101,18 @@ const kvOf = () => require('../lib/kv.js');
   console.log('legacy head at 198 -> next entry is 199, history preserved');
 }
 
+// ---- 7. caller retries produce one canonical event, not zero or two ----
+{
+  const log = fresh();
+  const first = await log.appendOnce('settle:shot-1', { k:'settle', id:'shot-1', res:'hit' });
+  const retries = await Promise.all(Array.from({ length:20 }, () =>
+    log.appendOnce('settle:shot-1', { k:'settle', id:'shot-1', res:'hit' })));
+  assert.equal(await log.logCount(), 1, 'one idempotency key creates exactly one log entry');
+  assert.ok(retries.every(r => r.i === first.i && r.h === first.h && r.duplicate),
+    'every retry resolves to the same canonical head');
+  const rows = await log.readEntries();
+  assert.equal(rows.length, 1);
+  assert.equal(rows[0].ev.id, 'shot-1');
+  console.log('20 caller retries -> one canonical idempotent event');
+}
 console.log('\nALL PASS');

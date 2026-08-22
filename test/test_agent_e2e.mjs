@@ -10,9 +10,12 @@ const require = createRequire(import.meta.url);
 const pricesPath = require.resolve('../lib/prices.js');
 const burnPath = require.resolve('../lib/burn.js');
 let T = 100;
+const FEEDS = ['SOL','BTC','ETH','BONK','WIF','JUP','PUMP'];
 require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true,
-  exports: { getPrices: async () => ({ src:'stub', ages:{SOL:3,BTC:3,ETH:3,BONK:3,WIF:3,JUP:3,PUMP:3},
-    SOL:(T+=0.4), BTC:60000, ETH:2000, BONK:0.000002, WIF:0.1, JUP:0.2, PUMP:0.005 }) } };
+  exports: { getPrices: async () => { const t=Math.floor(Date.now()/1000); return { src:'pyth-onchain',
+    ages:Object.fromEntries(FEEDS.map(f=>[f,3])), confs:Object.fromEntries(FEEDS.map(f=>[f,10])),
+    pubs:Object.fromEntries(FEEDS.map(f=>[f,t])), prevPubs:Object.fromEntries(FEEDS.map(f=>[f,t-60])),
+    SOL:(T+=0.4), BTC:60000, ETH:2000, BONK:0.000002, WIF:0.1, JUP:0.2, PUMP:0.005 }; } } };
 require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
   exports: { INCINERATOR:'1nc1nerator11111111111111111111111111111111',
     rpcCall: async()=>null, getTx: async()=>null, decideBurn: ()=>({ok:false,reason:'stub'}) } };

@@ -14,59 +14,52 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 Don't take our word for it — the site tells you. Both live endpoints return a build marker:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h51-2026-08-21"
-https://ratchetx.xyz/api/proof               ->  "v": "h51-2026-08-21"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h52-2026-08-22"
+https://ratchetx.xyz/api/proof               ->  "v": "h52-2026-08-22"
 ```
 
-All public APIs in this repo declare `const VERSION = 'h51-2026-08-21'`.
+All public APIs in this repo declare `const VERSION = 'h52-2026-08-22'`.
 If the live marker and the repo marker match, you are reading the code that is running.
 If they ever don't, the repo is stale and you should say so loudly.
 
 ## Real rewards, still keyless
 
-**The Champion's Cut**: every reload splits by the same frozen 70/30/0 — 70% burns, 30% is paid
-straight to the daily podium's wallets (50/30/20) *inside the reloader's own signed transaction*.
-No pool, no custody, no claim button: the server only verifies the legs and refuses anything that
-pays a wallet outside the published podium. **The Holder Rule**: champions must keep ≥50% of their
-last 7 days' champion pay (balances read from chain) or the seat passes down — anti-dump without
-locking anyone's tokens. **The Gearbox**: register with a signature and earn daily play-credits on
-your verified on-chain balance — staking with no deposit, so there is nothing to rug.
+**The Champion's Cut**: every reload uses the frozen 70/30/0 split — 70% burns and 30% is paid
+straight to the published podium snapshot (50/30/20) *inside the reloader's own signed transaction*.
+Today's settled-XP top three update those seats live. At 00:00 UTC the previous podium fills only
+empty positions; today's #1, #2 and #3 replace yesterday's #3, #2 and #1. There is no continuing
+hold/sell condition, pool, custody or claim button. **The Gearbox** remains separate: register with
+a signature and earn daily play-credits on a verified balance without depositing tokens.
 
 ## The machine cannot be killed — only paused
 
-The token is unkillable (authorities revoked, liquidity protocol-held). The code is unkillable
-(this repo). Since h4, the **state** is too: the full hash-chained event log is retained, and
-`GET /api/snapshot` exports the machine's entire soul — every player, ladder, burn signature and
-log entry — verifiable against the heads players anchor on Solana. `docs/RESURRECTION.md` tells any
-stranger how to verify a snapshot (`node restore.mjs snap.json --check`) and bring the whole
-machine back on their own hosting, provably intact. Keep snapshots.
+The token authorities are revoked and the code is public. The state is exportable, not magically
+trustless: `GET /api/snapshot` includes players, queues, receipts, sorted leaderboards and the full
+hash-chained log. `docs/RESURRECTION.md` verifies the envelope hash and event chain before restoring
+a saved export. Solana memo anchors timestamp log checkpoints and daily balance roots; they do not
+prove every live Upstash mutation between checkpoints. Keep frequent snapshots.
 
 ## Sealed means sealed — now cryptographically
 
-Since h6 the log records every seal as `sha256("SIDE|salt")` and reveals side + salt at
-settlement — so no one (including us, including the Black Box) can read an open shot's side,
-and everyone can verify every seal after the fact. Spectator APIs and snapshots never carry
-open sides.
+New seals use `sha256("RATCHET|v2|wallet|shotId|SIDE|salt")`; legacy rows keep
+`commitVersion: 1` and remain verifiable. Spectator APIs, the public log and snapshots never
+carry open sides. The server necessarily retains reveal terms until settlement, so this protects
+against spectators and copied public calls; it is not zero-knowledge from the operator.
 
-## The settlement layer now runs on-chain (devnet)
+## Mainnet settlement program status
 
-`ratchet_seal` — an Anchor program with **no custody, no admin, no funds** — is deployed and
-proven end to end on Solana devnet:
+A non-custodial settlement program exists on Solana mainnet:
 
 **Program `4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2`**
 
-`seal` writes only `sha256("SIDE|salt")` plus an entry price read from a Pyth **PriceUpdateV2**
-account it validates itself (owner, discriminator, Full verification — no trusted deserialiser).
-The deployed v0 `settle` is a **permissionless crank**, but it permits a choice among updates in
-`[expiry, expiry+60]`, has no confidence gate, and has no void/close path. It is legacy devnet
-evidence, not a mainnet candidate. The reviewed v1 draft uses a first-crossing rule, confidence
-gate, disjoint settlement/void deadlines, and permissionless cleanup. `reveal`
-recomputes the hash, checks it against the stored commitment, scores hit/miss on-chain and
-bumps a `PlayerRecord` PDA. Full transcript with transaction links: [`docs/ONCHAIN.md`](docs/ONCHAIN.md).
-
-Devnet is R&D, not the money path — the live game above still settles on the server, which is
-why the proof page exists. Legacy deployed source: `onchain/ratchet_seal_lib.rs`; reviewed draft:
-`onchain/ratchet_seal_lib_v1.rs`.
+That deployment is public engineering evidence, not the live referee and not a redeemable vault.
+Its legacy rules permit an overlapping settlement/void period and lack the reviewed confidence
+gate/final-deadline guarantees, so browser mirroring is disabled. The live game settles server-side
+from recorded on-chain Pyth first-crossing samples. The hardened local v2 direction is strict
+`prev_publish_time < expiry <= publish_time`, confidence-bounded, with disjoint settle/void
+deadlines and permissionless cleanup. Do not describe the modeled floor as redeemable until a
+separate funded vault PDA, liabilities proof and no-withdraw path are deployed and independently
+reviewed.
 
 ## The whole backend, small enough to read in one sitting
 

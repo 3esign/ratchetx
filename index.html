@@ -2,7 +2,7 @@
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RATCHET — a keyless prediction arcade on Solana | $RCX on pump.fun</title>
-<meta name="description" content="Call market moves on Solana with sealed, commit-reveal shots settled on Pyth oracle prices — and enter your own trading agent for a public, oracle-settled accuracy record. No treasury, no admin key, no custody: 70% of every stake burns, 30% pays players peer-to-peer. $RCX launched on pump.fun, Token-2022 with mint and freeze authority revoked. The settlement program is on-chain and the proof page re-checks every claim.">
+<meta name="description" content="Call market moves with public commit-reveal records settled on on-chain Pyth samples. No game treasury or custody: 70% of every settled stake feeds the machine and 30% funds player pots. $RCX reloads burn 70% and route 30% peer-to-peer. The legacy settlement program is disclosed on mainnet; live scoring remains server-side.">
 <meta name="keywords" content="Solana, pump.fun, PumpSwap, Pyth, prediction market, on-chain game, Token-2022, Anchor, RCX, commit-reveal, Solana gaming">
 <link rel="canonical" href="https://ratchetx.xyz">
 <meta name="theme-color" content="#07080a">
@@ -30,60 +30,42 @@ body{background:var(--bg);color:var(--ink);font:15px/1.5 var(--sans);-webkit-fon
 body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:0;
   background:radial-gradient(1000px 540px at 50% -10%,rgba(245,184,61,.08),transparent 66%)}
 .wrap{max-width:1140px;margin:0 auto;padding:0 20px;position:relative;z-index:1}
-.hud{position:sticky;top:0;z-index:70;background:rgba(7,8,10,.88);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
-/* The header is a single flex row of logo + rank + three stats + five nav
-   items + the connect button. At any viewport narrow enough, that is wider
-   than the screen — it was overflowing at 1100px and only looked fine because
-   overflow-x:hidden was clipping it (which in turn broke sticky).
-   It now wraps instead of overflowing, and the nav scrolls sideways within
-   whatever room it has. There is no width at which this can push the page. */
-.hudrow{display:flex;align-items:center;gap:14px;min-height:64px;flex-wrap:wrap;
-  row-gap:6px;padding-top:6px;padding-bottom:6px}
-.hudstat{flex:0 1 auto;min-width:0;white-space:nowrap}
-.logo{font:800 13px/1 var(--sans);letter-spacing:.24em;display:flex;gap:9px;align-items:center;white-space:nowrap}
-.cog{width:18px;height:18px;animation:spin 14s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
+.hud{position:sticky;top:0;z-index:70;background:rgba(7,8,10,.94);backdrop-filter:blur(18px);border-bottom:1px solid var(--line)}
+.hud>.wrap{max-width:1400px}
+.hudrow{padding:0}
+.hudtop{position:relative;display:flex;align-items:center;gap:14px;min-height:66px}
+.hudbottom{display:flex;align-items:center;gap:20px;min-height:45px;border-top:1px solid rgba(214,181,111,.10);
+  overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.hudbottom::-webkit-scrollbar,.tokbar::-webkit-scrollbar,nav::-webkit-scrollbar{display:none}
+.hudstat{flex:0 1 auto;min-width:0;white-space:nowrap;font:700 11px/1.2 var(--mono);color:var(--ink2)}
+.hudstat b{color:var(--gold);font-size:13px}
+.logo{font:700 14px/1 Georgia,"Times New Roman",serif;letter-spacing:.28em;display:flex;gap:10px;
+  align-items:center;white-space:nowrap;cursor:pointer}
+.cog{width:22px;height:22px;filter:drop-shadow(0 0 8px rgba(216,172,82,.16))}
 .rankchip{display:flex;align-items:center;gap:10px;background:var(--card);border:1px solid var(--line);
   border-radius:99px;padding:6px 13px 6px 7px}
 .rbadge{width:26px;height:26px;border-radius:99px;display:flex;align-items:center;justify-content:center;
   font:800 10px var(--mono);background:linear-gradient(135deg,var(--gold),#c98f1e);color:#1a1206}
 .rname{font:700 10px/1 var(--mono);letter-spacing:.14em}
-.xpwrap{width:104px}
-.xpbar{height:5px;background:var(--card2);border-radius:99px;overflow:hidden;margin-top:4px}
+.xpwrap{width:104px}.xpbar{height:5px;background:var(--card2);border-radius:99px;overflow:hidden;margin-top:4px}
 .xpbar i{display:block;height:100%;background:var(--gold);border-radius:99px;transition:width .5s}
-.hudstat{font:700 11px/1.2 var(--mono);color:var(--ink2);white-space:nowrap}
-.hudstat b{color:var(--gold);font-size:13px}
 .streakf{color:#ff9838}
-.connect{background:var(--gold);color:#1a1206;border:0;border-radius:99px;padding:9px 16px;
+.connect{flex:0 0 auto;margin-left:auto;background:var(--gold);color:#1a1206;border:0;border-radius:99px;padding:9px 16px;
   font:800 11px/1 var(--sans);letter-spacing:.06em;cursor:pointer;white-space:nowrap}
 .connect.done{background:var(--card);color:var(--grn);border:1px solid rgba(61,220,132,.35);font-family:var(--mono)}
-nav{display:flex;gap:1px;margin-left:auto;min-width:0;overflow-x:auto;scrollbar-width:none}
-nav::-webkit-scrollbar{display:none}
-nav button{flex:0 0 auto;white-space:nowrap}
-.connect{flex:0 0 auto}
-nav button{background:none;border:0;color:var(--dim);font:700 10.5px/1 var(--sans);letter-spacing:.13em;
-  padding:10px 12px;border-radius:8px;cursor:pointer;transition:.15s}
-nav button:hover{color:var(--ink2);background:var(--card)}
-nav button.on{color:#1a1206;background:var(--gold)}
-@media(max-width:980px){.hudstat.hide,.xpwrap{display:none}}
-/* MOBILE HEADER.
-   .hudrow is a fixed-height flex row holding a logo, a rank chip, three stats,
-   a five-item nav and the connect button. On a phone that is ~600px of content
-   in a 430px viewport, so the row pushed the whole PAGE wide and every section
-   inherited a horizontal scrollbar. Most of the traffic a launch post sends is
-   on a phone, so this matters more than it looks.
-   Fix: the row may wrap, the nav scrolls sideways on its own, and nothing is
-   allowed to force the body wider than the screen. */
+nav{display:flex;gap:2px;flex:0 0 auto;min-width:0}
+nav button{flex:0 0 auto;white-space:nowrap;background:none;border:0;color:var(--dim);
+  font:700 10.5px/1 var(--sans);letter-spacing:.13em;padding:10px 12px;border-radius:8px;cursor:pointer;transition:.15s}
+nav button:hover{color:var(--ink2);background:var(--card)}nav button.on{color:#1a1206;background:var(--gold)}
+.tokbar{display:flex;align-items:center;gap:8px;margin-left:auto;flex:0 0 auto;white-space:nowrap;
+  font:600 10px var(--mono);letter-spacing:.04em}
+.tokbar a,.tokbar span{flex:0 0 auto}
+@media(max-width:980px){.hudstat.hide,.xpwrap{display:none}.hudtop{gap:10px}.hudbottom{gap:10px}}
 @media(max-width:640px){
-  .rname,.rankchip{display:none}
-  .hudrow{height:auto;min-height:58px;flex-wrap:wrap;gap:8px;padding-top:8px;padding-bottom:8px}
-  nav{margin-left:0;order:3;flex:1 1 100%;overflow-x:auto;scrollbar-width:none;
-      -webkit-overflow-scrolling:touch;border-top:1px solid var(--line);padding-top:4px}
-  nav::-webkit-scrollbar{display:none}
-  nav button{padding:9px 9px;letter-spacing:.04em;white-space:nowrap;flex:0 0 auto}
-  .connect{margin-left:auto;padding:8px 12px;font-size:10px;max-width:46vw;
-           overflow:hidden;text-overflow:ellipsis}
-  .hudstat{font-size:9.5px}
+  .rankchip{display:none}.hudtop{min-height:58px;gap:8px}.logo{font-size:13px}.cog{width:20px;height:20px}
+  .connect{padding:8px 12px;font-size:10px;max-width:52vw;overflow:hidden;text-overflow:ellipsis}
+  .hudbottom{min-height:43px;-webkit-overflow-scrolling:touch}.tokbar{padding-right:8px}
+  nav button{padding:9px 9px;letter-spacing:.04em}.hudstat{font-size:9.5px}
 }
 /* NOT overflow-x:hidden here.
    That was added to contain a mobile header that no longer overflows, and it
@@ -106,7 +88,7 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
    --railW  the rail's column width
    --railTop where the rail's contents pin, i.e. below the sticky header
    --railGap breathing room at the bottom of the pinned rail */
-:root{--railW:330px;--railTop:76px;--railGap:16px}
+:root{--railW:330px;--railTop:122px;--railGap:16px}
 .playgrid{display:grid;grid-template-columns:1fr var(--railW);gap:16px;align-items:stretch}
 @media(max-width:920px){.playgrid{grid-template-columns:1fr}}
 .machine{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px;text-align:center;position:relative;overflow:hidden}
@@ -409,7 +391,7 @@ body{background:radial-gradient(900px 500px at 50% -120px,rgba(216,172,82,.10),t
 body::before{background:linear-gradient(90deg,transparent,rgba(255,255,255,.012),transparent)}
 .wrap{max-width:1200px;padding-left:28px;padding-right:28px}
 .hud{background:rgba(8,9,11,.94);border-bottom-color:rgba(216,172,82,.15)}
-.hudrow{min-height:70px;gap:16px}
+.hudtop{min-height:66px;gap:16px}
 .logo{font-family:Georgia,"Times New Roman",serif;font-size:14px;font-weight:700;letter-spacing:.28em}
 nav button{font-size:10px;letter-spacing:.16em;padding:11px 14px}
 nav button.on,.connect{background:linear-gradient(135deg,#e0b85e,#c99638);box-shadow:0 6px 22px rgba(0,0,0,.22)}
@@ -429,62 +411,56 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
 </head><body>
 
 <div class="hud"><div class="wrap hudrow">
-  <div class="logo" id="logoHome" role="button" tabindex="0" title="back to the board"><svg class="cog" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.6" stroke="#f5b83d" stroke-width="1.8"/><path d="M12 2.6v4M12 17.4v4M2.6 12h4M17.4 12h4M5.4 5.4l2.8 2.8M15.8 15.8l2.8 2.8M18.6 5.4l-2.8 2.8M8.2 15.8l-2.8 2.8" stroke="#f5b83d" stroke-width="1.6" stroke-linecap="round"/></svg>RATCHET</div>
-  <div class="rankchip"><div class="rbadge" id="hB">·</div>
-    <div><div class="rname" id="hR">—</div><div class="xpwrap"><div class="xpbar"><i id="hX" style="width:0"></i></div></div></div></div>
-  <div class="hudstat hide" id="hCrWrap">CREDITS <b id="hCr">—</b></div>
-  <a class="hudstat hide" id="hRcxWrap" target="_blank" rel="noopener" style="text-decoration:none">$RCX <b id="hRcx">—</b></a>
-  <div class="hudstat hide">STREAK <b class="streakf" id="hS">0</b></div>
+  <div class="hudtop">
+    <div class="logo" id="logoHome" role="button" tabindex="0" title="back to the board"><svg class="cog" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12.5" stroke="#d8ac52" stroke-width="1.4"/><circle cx="16" cy="16" r="7.5" stroke="#d8ac52" stroke-opacity=".45"/><path d="M16 1.5v4M16 26.5v4M1.5 16h4M26.5 16h4M5.7 5.7l2.8 2.8M23.5 23.5l2.8 2.8M26.3 5.7l-2.8 2.8M8.5 23.5l-2.8 2.8" stroke="#d8ac52" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="16" r="2.2" fill="#d8ac52"/><path d="M18.2 10.3l3.7 2.2-3.7 2.2" stroke="#d8ac52" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>RATCHET</span></div>
+    <div class="rankchip"><div class="rbadge" id="hB">·</div>
+      <div><div class="rname" id="hR">—</div><div class="xpwrap"><div class="xpbar"><i id="hX" style="width:0"></i></div></div></div></div>
+    <div class="hudstat hide" id="hCrWrap">CREDITS <b id="hCr">—</b></div>
+    <a class="hudstat hide" id="hRcxWrap" target="_blank" rel="noopener" style="text-decoration:none">$RCX <b id="hRcx">—</b></a>
+    <div class="hudstat hide">STREAK <b class="streakf" id="hS">0</b></div>
     <div class="hudstat hide">SHOTS <b id="hShots">0</b></div>
     <div class="hudstat hide">WIN <b id="hWinPct">0%</b></div>
-  <div class="hudstat hide">FLOOR <b id="hF" style="color:var(--ink)">—</b></div>
-  <nav>
-    <button class="on" data-go="play">PLAY</button>
-    <button data-go="warden">WARDEN</button>
-    <button data-go="stake">STAKE</button>
-    <button data-go="ranks">RANKS</button>
-    <button data-go="proof">PROOF</button>
-  </nav>
-  <button class="connect" id="cx">CONNECT</button>
-  <div id="wmenu" style="display:none;position:absolute;right:0;top:calc(100% + 8px);z-index:60;
-    background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px;
-    width:290px;max-width:calc(100vw - 32px);box-shadow:0 12px 40px rgba(0,0,0,.55)">
-    <div style="font:700 8.5px var(--mono);letter-spacing:.14em;color:var(--dim);margin-bottom:6px">CONNECTED WALLET</div>
-    <div id="wmAddr" style="font:600 10.5px var(--mono);color:var(--ice);word-break:break-all;margin-bottom:10px;cursor:pointer"></div>
-    <div id="wmBal" style="font:600 11px var(--mono);color:var(--ink2);margin-bottom:11px"></div>
-    <a id="wmScan" target="_blank" rel="noopener" style="display:block;font:700 9.5px var(--mono);letter-spacing:.1em;
-      color:var(--gold);text-decoration:none;margin-bottom:10px">VIEW ON SOLSCAN ↗</a>
-    <button id="wmOut" style="width:100%;background:transparent;border:1px solid var(--line);border-radius:8px;
-      padding:9px;color:var(--red);font:700 9.5px var(--mono);letter-spacing:.1em;cursor:pointer">DISCONNECT</button>
-    <div style="font:400 10.5px/1.5 var(--sans);color:var(--dim);margin-top:9px">Forgets your signature on this device.
-      Nothing on chain changes — to remove the site from the wallet itself, revoke it in your wallet's connected-apps list.</div>
+    <div class="hudstat hide">MODEL <b id="hF" style="color:var(--ink)">—</b></div>
+    <button class="connect" id="cx">CONNECT</button>
+    <div id="wmenu" style="display:none;position:absolute;right:0;top:calc(100% + 8px);z-index:60;
+      background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 14px;
+      width:290px;max-width:calc(100vw - 32px);box-shadow:0 12px 40px rgba(0,0,0,.55)">
+      <div style="font:700 8.5px var(--mono);letter-spacing:.14em;color:var(--dim);margin-bottom:6px">CONNECTED WALLET</div>
+      <div id="wmAddr" style="font:600 10.5px var(--mono);color:var(--ice);word-break:break-all;margin-bottom:10px;cursor:pointer"></div>
+      <div id="wmBal" style="font:600 11px var(--mono);color:var(--ink2);margin-bottom:11px"></div>
+      <a id="wmScan" target="_blank" rel="noopener" style="display:block;font:700 9.5px var(--mono);letter-spacing:.1em;
+        color:var(--gold);text-decoration:none;margin-bottom:10px">VIEW ON SOLSCAN ↗</a>
+      <button id="wmOut" style="width:100%;background:transparent;border:1px solid var(--line);border-radius:8px;
+        padding:9px;color:var(--red);font:700 9.5px var(--mono);letter-spacing:.1em;cursor:pointer">DISCONNECT</button>
+      <div style="font:400 10.5px/1.5 var(--sans);color:var(--dim);margin-top:9px">Forgets your signature on this device.
+        Nothing on chain changes — revoke the app separately in your wallet if desired.</div>
+    </div>
+  </div>
+  <div class="hudbottom">
+    <nav>
+      <button class="on" data-go="play">PLAY</button><button data-go="warden">WARDEN</button>
+      <button data-go="stake">STAKE</button><button data-go="ranks">RANKS</button><button data-go="proof">PROOF</button>
+    </nav>
+    <div id="tokbar" class="tokbar" style="display:none">
+      <span style="color:var(--dim)">$RCX</span>
+      <span id="caChip" title="click to copy CA" style="color:var(--gold);background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px;cursor:pointer" onclick="copyCA()">CA —</span>
+      <a id="pfLink" href="#" target="_blank" rel="noopener" style="color:var(--grn);text-decoration:none;background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">PUMP.FUN ↗</a>
+      <span id="burnChip" style="display:none;color:var(--red);background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">🔥 —</span>
+      <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none;background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">GITHUB ↗</a>
+      <a href="https://github.com/3esign/ratchetx/blob/main/docs/ARENA.md" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:none;background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">AGENT API ↗</a>
+    </div>
   </div>
 </div></div>
 <div class="mode" id="mode" style="display:none"></div>
-<div id="tokbar" style="display:none;background:var(--card);border-bottom:1px solid var(--line);padding:8px 0">
-  <div class="wrap" style="display:flex;gap:9px;align-items:center;flex-wrap:wrap;font:600 10.5px var(--mono);letter-spacing:.05em">
-    <span style="color:var(--dim)">$RCX</span>
-    <span id="caChip" title="click to copy CA" style="color:var(--gold);background:var(--card2);border:1px solid var(--line);
-      border-radius:99px;padding:5px 11px;cursor:pointer" onclick="copyCA()">CA —</span>
-    <a id="pfLink" href="#" target="_blank" rel="noopener" style="color:var(--grn);text-decoration:none;background:var(--card2);
-      border:1px solid var(--line);border-radius:99px;padding:5px 11px">PUMP.FUN ↗</a>
-    <span id="burnChip" style="display:none;color:var(--red);background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">🔥 —</span>
-    <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none;
-      background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">GITHUB — READ THE CODE ↗</a>
-      <a href="https://github.com/3esign/ratchetx/blob/main/docs/ARENA.md" target="_blank" rel="noopener"
-        style="font:700 10px var(--mono);letter-spacing:.1em;color:var(--gold);text-decoration:none;
-        background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">AGENTS — ENTER THE ARENA ↗</a>
-  </div>
-</div>
 
 <section id="play" class="on"><div class="wrap"><div class="playgrid">
   <div><div class="machine">
-    <div class="mcap">THE MACHINE · FLOOR PER TOKEN</div>
+    <div class="mcap">THE MACHINE · MODELED FLOOR · NOT REDEEMABLE</div>
     <div class="bigcog"><div class="pulse"></div>
       <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="8.2" stroke="#f5b83d" stroke-width="1.4"/><circle cx="12" cy="12" r="2.6" fill="#f5b83d"/><path d="M12 1.8v3.4M12 18.8v3.4M1.8 12h3.4M18.8 12h3.4M4.8 4.8l2.4 2.4M16.8 16.8l2.4 2.4M19.2 4.8l-2.4 2.4M7.2 16.8l-2.4 2.4" stroke="#f5b83d" stroke-width="1.3" stroke-linecap="round"/></svg></div>
     <div class="floornum" id="floorNum">—<small>SOL</small></div>
     <div class="msub" id="beat" style="margin-bottom:2px"></div>
-    <div class="msub">FED BY EVERY SHOT · <b id="fedN">—</b> SHOTS FIRED · CAN ONLY GO UP <span style="color:var(--goldD)">(SIMULATED UNTIL VAULT DEPLOY)</span></div>
+    <div class="msub">FED BY SETTLED PLAY · <b id="fedN">—</b> SHOTS FIRED <span style="color:var(--goldD)">(PROJECTION ONLY · VAULT NOT DEPLOYED)</span></div>
     <div class="prices" id="prices"></div>
     <div class="mgrid" id="machStats"></div>
     <div class="standing" id="standing" style="display:none"></div>
@@ -498,10 +474,10 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         padding:18px 20px;margin-top:10px;text-align:left;font:400 13px/1.7 var(--sans);color:var(--ink2)">
 
         <div class="hh">THE POINT</div>
-        Every token says <i>trust us</i>. RATCHET is built so there is nothing to trust: no treasury, no admin
-        key, no wallet that could take your tokens. You call market moves, the machine scores you on real oracle
-        prices, and the rewards move between players' own wallets. Every claim on this page is re-checked against
-        the chain every 30 seconds on the PROOF tab — and each line can turn red.
+        RATCHET minimizes what must be trusted: there is no game treasury, custody key or reward wallet that can
+        move player tokens. Market calls settle against recorded oracle samples and RCX rewards move inside players'
+        own transactions. The PROOF tab re-checks on-chain claims; server-held credits and live shot state remain an
+        explicit Upstash trust boundary until the reviewed on-chain v2 path replaces them.
 
         <div class="hh">HOW TO PLAY</div>
         <b style="color:var(--ink)">0 · Just play.</b> You do not need a wallet to fire a shot — every visitor gets
@@ -509,21 +485,21 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         oracle and teach you the game, but they never enter a ladder or a pot. Connect when you want it to count.
         <b style="color:var(--ink)">Your own agent can play as well</b> — same board, same oracle, same sealing —
         and what it earns is a public accuracy record nobody can edit afterwards. See THE ARENA below.<br>
-        <b style="color:var(--ink)">1 · Call it.</b> Pick a question, pick YES or NO, and stake any whole
-        amount from 100 to 2,500. XP scales as <b style="color:var(--ink)">√(stake/100)</b> — so 25× the stake
-        earns 5× the XP and never 25×, the ladder cannot be bought, and XP is only ever paid on a
-        <b style="color:var(--grn)">HIT</b>. Staking more buys leverage on being right; it buys nothing at all
-        on being right. Each card quotes the level it is asking about — <s style="text-decoration:none;color:var(--ice)">NOW</s>
-        is the live price, <s style="text-decoration:none;color:var(--ice)">CLEARS / BREAKS / BAND</s> is what has
-        to happen. Your shot is <b style="color:var(--ice)">sealed</b>: only a hash of your side is stored, so
-        nobody — including us — can read it before it settles.<br>
+        <b style="color:var(--ink)">1 · Call it.</b> Pick a question, pick YES or NO, and risk any whole amount
+        from 100 up to your available credits (server safety cap 1,000,000,000). XP follows
+        <b style="color:var(--ink)">√(stake/100)</b> and caps at ×20 once stake reaches 40,000, so risking more
+        cannot buy more ladder XP. XP is paid only on a <b style="color:var(--grn)">HIT</b>. Each card quotes the
+        level it asks about — <s style="text-decoration:none;color:var(--ice)">NOW</s> is the live price and
+        <s style="text-decoration:none;color:var(--ice)">CLEARS / BREAKS / BAND</s> is the rule. The public log
+        stores only a commitment; other players and spectators cannot read your side before settlement. The server
+        necessarily retains the reveal terms until settlement — this is commit-reveal, not zero knowledge.<br>
         <b style="color:var(--ink)">2 · It settles itself.</b> When the window closes, the shot settles on
         <b style="color:var(--ink)">Pyth oracle prices</b>, the same source used at seal. There is no cron and no
         operator: the next request that touches your account does the work. Those prices are
-        <b style="color:var(--ink)">read straight off Solana</b> — from the same sponsored Pyth accounts our
-        settlement program validates on-chain — so anyone can load the same account at the same slot and get the
-        same number we settled you on. Every price on this page carries its publish age; nothing here pretends
-        to be fresher than the chain says it is.<br>
+        <b style="color:var(--ink)">read straight off Solana</b> from sponsored Pyth accounts and stored with
+        their publish time. Settlement uses the recorded first sample crossing expiry; anyone can recompute it from
+        the public record. The legacy mainnet program is not used by the live game. Every displayed price carries
+        its publish age; a fallback quote is display-only and can never seal or settle a real shot.<br>
         <b style="color:var(--ink)">3 · Being right pays.</b> A HIT returns <b style="color:var(--grn)">1.7× your
         stake in credits</b> and earns XP; a MISS feeds the Machine. Break-even sits near 59% accuracy — beat the
         market consistently and you play forever, guess and you run down. You can only ever win credits by risking
@@ -539,10 +515,10 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         automatically, no claim button; unclaimed shares roll over.<br>
         <b style="color:var(--ink)">The Champion's Cut — real $RCX.</b> 30% of <i>every reload</i> goes straight
         to the daily podium's wallets (50/30/20) <b style="color:var(--ink)">inside the reloader's own
-        transaction</b>. No pool, no custody, no claim button — the tokens never sit anywhere. To hold a seat you
-        must actually hold RCX, and keep at least half of your last 7 days of champion pay:
-        <b style="color:var(--ink)">champions who dump lose the seat</b> to the next player up. Your console shows
-        a live "safe to sell" number.<br>
+        transaction</b>. No pool, no custody, no claim button — the tokens never sit anywhere. Today's settled-XP
+        top three control the live shares. At 00:00 UTC yesterday's podium temporarily fills empty seats; today's
+        first, second and third ranked wallets replace yesterday's #3, #2 and #1 in that order.
+        <b style="color:var(--ink)">No holding lock, sell condition or forfeiture.</b><br>
         <b style="color:var(--ink)">The Gearbox — staking with no deposit.</b> Register with one signature. Your
         tokens <i>never move</i>. The machine reads your on-chain balance and pays daily credits on it. Nothing is
         deposited, so there is nothing to rug and nothing to withdraw.
@@ -552,10 +528,10 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         <b style="color:var(--ink)">0% to the team</b> — at both doors, frozen, printed on the buttons. Stakes feed
         the pots; reloads burn and pay the champions. The creator is paid one way only: the standard pump.fun
         creator fee on trading volume, to a published wallet.<br>
-        One currency: <b style="color:var(--ink)">CREDITS</b>. A new wallet is granted 5,000 once. After that,
-        credits come only from reloads (1 burned RCX = 1 credit, verified on-chain), pot wins and the Gearbox.
-        Rewards are credits and real RCX moved between players — <b style="color:var(--ink)">never minted tokens.
-        There is no faucet and there never will be.</b>
+        One play currency: <b style="color:var(--ink)">CREDITS</b>. Its sources are disclosed: a one-time 5,000
+        welcome grant, 1.7× hit returns, verified RCX reloads, pot wins and the Gearbox. Those are credit faucets
+        by definition and are measured as such; none mints RCX. Real RCX rewards move between existing player
+        balances inside signed reload transactions.
 
         <div class="hh">THE TECHNOLOGY</div>
         <b style="color:var(--ink)">Solana</b> · settlement in seconds at fees where "anyone can settle this" is
@@ -563,18 +539,19 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         by anyone. <b style="color:var(--ink)">pump.fun / PumpSwap</b> · fair launch, no presale, no team
         allocation; liquidity protocol-held since graduation. <b style="color:var(--ink)">Pyth</b> · first-party
         oracle prices, identical at seal and settle.<br>
-        <b style="color:var(--ink)">Commit–reveal sealing.</b> Every seal writes sha256("SIDE|salt") into a
-        hash-chained event log. Settlement reveals side and salt, so anyone can verify any shot afterwards and
-        nobody can read one before. You cannot be front-run or copy-traded.<br>
-        <b style="color:var(--ink)">The Black Box.</b> The complete machine — every player, credit, burn signature
-        and log entry — downloads at /api/snapshot, and any player can anchor the log's head into a Solana memo
-        from their own wallet (+25 XP). A stranger can verify a snapshot against those anchors and resurrect the
-        whole game on their own hosting. Kill our server and you have paused RATCHET; you cannot end it.<br>
-        <b style="color:var(--ink)">The settlement layer is going on-chain.</b> A Solana program that holds no
-        funds and answers to no admin — seal, permissionless Pyth settle, reveal and score — is deployed and
-        proven on devnet: <span style="color:var(--ice);word-break:break-all">4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2</span>.
-        Its first verdict was a loss for the wallet that deployed it. 288 lines of Rust, zero dependencies. The
-        live game still settles on our server — which is exactly why the PROOF page exists.
+        <b style="color:var(--ink)">Commit–reveal sealing.</b> New seals commit to
+        sha256("RATCHET|v2|wallet|shotId|SIDE|salt") in the hash-chained event log. Settlement publishes side and
+        salt so anyone can verify the commitment. Spectators cannot read an open side; the server retains reveal
+        terms until settlement and that trust boundary is stated plainly.<br>
+        <b style="color:var(--ink)">The Black Box.</b> /api/snapshot exports players, queues, sorted leaderboards,
+        receipts and the complete event chain. Anyone can verify the chain and compare anchored checkpoints; a
+        saved verified export can restore the machine. Anchors timestamp the event chain and daily balance roots,
+        but do not make live Upstash state between checkpoints trustless.<br>
+        <b style="color:var(--ink)">Mainnet program status.</b> Program
+        <span style="color:var(--ice);word-break:break-all">4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2</span>
+        exists on mainnet as non-custodial settlement evidence. Its deployed legacy rules do not meet the reviewed
+        v2 first-crossing/confidence/disjoint-void standard, so live mirroring is disabled. It is not the floor
+        vault; the live game still settles server-side.
 
         <div class="hh">WHY IT CANNOT RUG YOU</div>
         There is no team wallet in any reward path, no pool holding player funds, no key in this system that can
@@ -582,10 +559,10 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         properties you can read off the chain, and the PROOF tab reads them for you every 30 seconds.
 
         <div class="hh">WHAT WE DO NOT CLAIM</div>
-        <span style="color:var(--dim)">The floor number at the top of this page is <b>simulated and labelled so</b>
-        until the audited vault ships. The on-chain program is on <b>devnet</b> — research, not yet the live money
-        path. The Warden is a v0 heuristic and says so on its own page. Log entries written before cryptographic
-        sealing contain what they contain; a hash chain cannot be rewritten and we would not want one that could.
+        <span style="color:var(--dim)">The floor number is a <b>non-redeemable model</b> until a separately audited,
+        funded vault with published liabilities and no withdraw path is deployed. The current program is on mainnet
+        but remains legacy research, not the live referee or a vault. The Warden is a labeled heuristic. Early
+        log entries predate v2 commitments; the record exposes their commitment version instead of rewriting history.
         None of this is financial advice — it is a game about being right, and most people aren't.</span>
       </div>
     </div>
@@ -766,7 +743,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
     </div>
   </div>
   <div class="panel" id="champP" style="display:none;margin-bottom:13px;border-color:var(--goldD)">
-    <h3 style="color:var(--gold)">CHAMPION CONSOLE — YOU HOLD A PODIUM SEAT</h3>
+    <h3 style="color:var(--gold)" id="champTitle">PODIUM RECEIPTS</h3>
     <div id="champBody" style="font:400 12.5px/1.75 var(--sans);color:var(--ink2)"></div></div>
   <div class="panel ladder" id="histP" style="display:none;margin-bottom:13px"><h3>SHOT HISTORY <span id="histN" style="color:var(--ice)"></span></h3>
     <div id="histRows" class="kill" style="max-height:340px;overflow:auto"></div></div>
@@ -775,12 +752,16 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
   <div class="panel" id="podPanel" style="margin-bottom:13px;border-color:var(--goldD)">
     <h3 style="color:var(--gold)">THE PODIUM <span style="color:var(--dim)">PAID BY EVERY RELOAD</span></h3>
     <div id="podiumR"></div></div>
-  <div class="panel ladder" style="margin-bottom:13px"><h3>TODAY'S LADDER · <span id="dayK"></span><span style="color:var(--gold)" id="potDN"></span></h3><div id="ladderDay"></div>
+  <div class="panel ladder" style="margin-bottom:13px"><h3>TODAY'S LIVE LADDER · <span id="dayK"></span><span style="color:var(--gold)" id="potDN"></span></h3><div id="ladderDay"></div>
     <div style="font:600 9.5px/1.6 var(--mono);letter-spacing:.06em;color:var(--dim);margin-top:10px">
-      PAYS AUTOMATICALLY AT 00:00 UTC, EVERY DAY: TOP 3 TAKE 50 / 30 / 20% OF THE DAILY POT AS CREDITS —
-      AND BECOME THE PODIUM: 30% OF EVERY RELOAD PAYS THEIR WALLETS REAL RCX, PEER-TO-PEER, ALL DAY.
-      UNCLAIMED SHARES ROLL INTO TOMORROW. NO HANDS, NO BUTTON, NO DELAY.</div></div>
+      EACH SETTLED HIT CAN CHANGE THE RCX PODIUM NOW. YESTERDAY FILLS ONLY EMPTY SEATS; TODAY'S #1, #2 AND #3
+      REPLACE YESTERDAY'S #3, #2 AND #1. AT 00:00 UTC THE FINAL TOP 3 ALSO TAKE 50 / 30 / 20% OF THE DAILY
+      CREDIT POT. UNCLAIMED POT SHARES ROLL FORWARD.</div></div>
   <div class="panel ladder" id="lastDayP" style="display:none;margin-bottom:13px"><h3>YESTERDAY — PAID OUT</h3><div id="lastDay"></div></div>
+  <div class="panel ladder" style="margin-bottom:13px"><h3>ALL-TIME XP <span style="color:var(--dim)">RECORD ONLY · NO PRIZE</span></h3>
+    <div id="ladderAll"></div>
+    <div style="font:600 9.5px/1.6 var(--mono);letter-spacing:.06em;color:var(--dim);margin-top:10px">
+      NEVER RESETS. TOTAL SETTLED XP, PUBLIC RANK AND HISTORY ONLY — THIS LIST DOES NOT CONTROL RCX OR CREDIT PAYOUTS.</div></div>
   <div class="panel ladder"><h3>SEASON LADDER · <span id="seas"></span><span style="color:var(--gold)" id="potN"></span></h3><div id="ladder"></div>
     <div style="font:600 9.5px/1.6 var(--mono);letter-spacing:.06em;color:var(--dim);margin-top:10px">
       PAYS AUTOMATICALLY AT SEASON END (SUNDAY 00:00 UTC): TOP 5 TAKE 40 / 25 / 15 / 12 / 8% OF THE SEASON POT AS
@@ -862,7 +843,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
       and &mdash; the part normally left out of a credits list &mdash; what happens to your shots if it stops.
       A dependency you cannot name is a dependency you cannot check, and the last one is the one we
       would rather you watched.</div>
-    <div class="dep"><div class="nm"><a href="https://pyth.network" target="_blank" rel="noopener">Pyth Network</a><em>THE REFEREE</em></div><div class="bd"><u>WHAT IT DOES HERE</u>Every entry and every exit price. We read the sponsored push feeds straight off Solana as raw accounts &mdash; the same accounts our settlement program validates &mdash; and decode <code style="color:var(--ice);font:600 11px var(--mono)">PriceUpdateV2</code> ourselves. We also publish what those feeds actually do, minute by minute, in <a href="/api/feeds" style="color:var(--gold)">the observatory</a>.<u>IF IT STOPS</u>Shots defer rather than settle. If nothing lands inside the 15-minute grace window they <b style="color:var(--ink)">void and refund</b> &mdash; we never invent a number. Last resort is Coinbase spot, and the page says <code style="color:var(--gold);font:600 11px var(--mono)">degraded</code> out loud when it happens.</div></div><div class="dep"><div class="nm"><a href="https://solana.com" target="_blank" rel="noopener">Solana</a><em>THE LEDGER</em></div><div class="bd"><u>WHAT IT DOES HERE</u>The chain everything real happens on. The Token-2022 mint, every burn, the Champion&rsquo;s Cut transfers, the memo anchors, and the signature that proves a wallet is yours.<u>IF IT STOPS</u>No burns, no payouts, no anchors. The board keeps scoring and nothing touches money until it is back.</div></div><div class="dep"><div class="nm"><a href="https://helius.dev" target="_blank" rel="noopener">Helius</a><em>MAINNET RPC</em></div><div class="bd"><u>WHAT IT DOES HERE</u>The endpoint that actually answers when we read the oracle accounts, your token balance, and the mint.<u>IF IT STOPS</u>We rotate to public endpoints automatically. Slower and rate-limited, and the price cache carries more of the load, but the game runs.</div></div><div class="dep"><div class="nm"><a href="https://quicknode.com" target="_blank" rel="noopener">QuickNode</a><em>DEVNET RPC</em></div><div class="bd"><u>WHAT IT DOES HERE</u>Where the on-chain settlement program is deployed and exercised before anything reaches mainnet. Its 5-key cap on <code style="color:var(--ice);font:600 11px var(--mono)">getMultipleAccounts</code> is why we batch reads in fives.<u>IF IT STOPS</u>Nothing on mainnet changes. It slows down what we can test, not what you can play.</div></div><div class="dep"><div class="nm"><a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener">pump.fun</a><em>THE LAUNCH</em></div><div class="bd"><u>WHAT IT DOES HERE</u>$RCX launched there and its liquidity lives in the PumpSwap pool. It is also the only place the creator earns anything &mdash; trading fees, nothing else, ever. And it is why the burn matters: a launchpad token normally has nothing that removes it from circulation, while this one shrinks every time somebody takes a shot. That is measured daily off the mint account in <a href="/api/supply" style="color:var(--gold)">the supply clock</a>.<u>IF IT STOPS</u>The token is an ordinary Solana mint and does not depend on the site that launched it. The pool is what would be affected, not the supply &mdash; and the burn keeps working regardless, because it happens in the player's own transaction.</div></div><div class="dep"><div class="nm"><a href="https://vercel.com" target="_blank" rel="noopener">Vercel</a><em>HOSTING</em></div><div class="bd"><u>WHAT IT DOES HERE</u>The site and every serverless endpoint behind it.<u>IF IT STOPS</u>The page is down. Nothing is lost: the event log is hash-chained and anyone can already have anchored its head to Solana.</div></div><div class="dep weak"><div class="nm"><a href="https://upstash.com" target="_blank" rel="noopener">Upstash</a><em>THE STATE &mdash; AND OUR WEAKEST LINK</em></div><div class="bd"><u>WHAT IT DOES HERE</u>A Redis instance holding players, credits, XP, open shots and the price log. It is fast, it is cheap, and it is the one part of this that is <b style="color:var(--ink)">not on a chain</b>.<u>IF IT STOPS</u>The honest answer: this is the piece you have to take on trust, so here is exactly how much. Every seal, settle, reload and payout is hash-chained &mdash; alter one past event and every hash after it breaks &mdash; and anyone can anchor the current head into a Solana memo from their own wallet, which timestamps our history with a party that is not us. What that does <b style="color:var(--ink)">not</b> cover is a rewrite between anchors. Putting shot records on Solana directly (compressed, ~0.000015 SOL each) is what actually closes it, and it is the next thing on the list. Anchor often; that is why the button is there and why it pays.</div></div>
+    <div class="dep"><div class="nm"><a href="https://pyth.network" target="_blank" rel="noopener">Pyth Network</a><em>THE REFEREE</em></div><div class="bd"><u>WHAT IT DOES HERE</u>Every entry and every exit price. We read the sponsored push feeds straight off Solana as raw accounts &mdash; accounts independently decoded by the server &mdash; and decode <code style="color:var(--ice);font:600 11px var(--mono)">PriceUpdateV2</code> ourselves. We also publish what those feeds actually do, minute by minute, in <a href="/api/feeds" style="color:var(--gold)">the observatory</a>.<u>IF IT STOPS</u>Shots defer rather than settle. If nothing lands inside the 15-minute grace window they <b style="color:var(--ink)">void and refund</b> &mdash; we never invent a number. Coinbase can appear only as a clearly degraded display reference; it never seals or settles a real shot.</div></div><div class="dep"><div class="nm"><a href="https://solana.com" target="_blank" rel="noopener">Solana</a><em>THE LEDGER</em></div><div class="bd"><u>WHAT IT DOES HERE</u>The ledger for token facts: the Token-2022 mint, every burn, Champion&rsquo;s Cut transfer, memo anchor and wallet signature. Credits, XP and live shot state are still server-side.<u>IF IT STOPS</u>No burns, RCX payouts or anchors. Real shots stop sealing; unresolved shots wait for valid Pyth data and then void/refund by rule.</div></div><div class="dep"><div class="nm"><a href="https://helius.dev" target="_blank" rel="noopener">Helius</a><em>MAINNET RPC</em></div><div class="bd"><u>WHAT IT DOES HERE</u>The endpoint that actually answers when we read the oracle accounts, your token balance, and the mint.<u>IF IT STOPS</u>We rotate to public endpoints automatically. Slower and rate-limited, and the price cache carries more of the load, but the game runs.</div></div><div class="dep"><div class="nm"><a href="https://quicknode.com" target="_blank" rel="noopener">QuickNode</a><em>DEVNET RPC</em></div><div class="bd"><u>WHAT IT DOES HERE</u>A secondary RPC used for isolated compatibility and program tests before mainnet changes. Its 5-key cap on <code style="color:var(--ice);font:600 11px var(--mono)">getMultipleAccounts</code> is why we batch reads in fives.<u>IF IT STOPS</u>Nothing on mainnet changes. It slows down what we can test, not what you can play.</div></div><div class="dep"><div class="nm"><a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener">pump.fun</a><em>THE LAUNCH</em></div><div class="bd"><u>WHAT IT DOES HERE</u>$RCX launched there and its liquidity lives in the PumpSwap pool. It is also the only place the creator earns anything &mdash; trading fees, nothing else, ever. And it is why the burn matters: a launchpad token normally has nothing that removes it from circulation, while this one shrinks every time somebody takes a shot. That is measured daily off the mint account in <a href="/api/supply" style="color:var(--gold)">the supply clock</a>.<u>IF IT STOPS</u>The token is an ordinary Solana mint and does not depend on the site that launched it. The pool is what would be affected, not the supply &mdash; and the burn keeps working regardless, because it happens in the player's own transaction.</div></div><div class="dep"><div class="nm"><a href="https://vercel.com" target="_blank" rel="noopener">Vercel</a><em>HOSTING</em></div><div class="bd"><u>WHAT IT DOES HERE</u>The site and every serverless endpoint behind it.<u>IF IT STOPS</u>The page is down. Nothing is lost: the event log is hash-chained and anyone can already have anchored its head to Solana.</div></div><div class="dep weak"><div class="nm"><a href="https://upstash.com" target="_blank" rel="noopener">Upstash</a><em>THE STATE &mdash; AND OUR WEAKEST LINK</em></div><div class="bd"><u>WHAT IT DOES HERE</u>A Redis instance holding players, credits, XP, open shots and the price log. It is fast, it is cheap, and it is the one part of this that is <b style="color:var(--ink)">not on a chain</b>.<u>IF IT STOPS</u>The honest answer: this is the piece you have to take on trust, so here is exactly how much. Every seal, settle, reload and payout is hash-chained &mdash; alter one past event and every hash after it breaks &mdash; and anyone can anchor the current head into a Solana memo from their own wallet, which timestamps our history with a party that is not us. What that does <b style="color:var(--ink)">not</b> cover is a rewrite between anchors. Putting shot records on Solana directly (compressed, ~0.000015 SOL each) is what actually closes it, and it is the next thing on the list. Anchor often; that is why the button is there and why it pays.</div></div>
   </div>
 </div></section>
 
@@ -1009,7 +990,7 @@ function paint(){
   $("hF").textContent=s.stats.floor.toFixed(6);
   $("fedN").textContent=s.stats.shots.toLocaleString();
   if(s.mint){
-    $("tokbar").style.display="block";
+    $("tokbar").style.display="flex";
     $("caChip").textContent="CA "+s.mint.slice(0,6)+"…"+s.mint.slice(-6);
     $("caChip").dataset.ca=s.mint;
     $("pfLink").href="https://pump.fun/coin/"+s.mint;
@@ -1189,35 +1170,18 @@ function paint(){
     }
     if(p.champion&&STATE.champ){const c=p.champion;
       $("champP").style.display="block";
-      // THE HOLDER RULE ONLY EVER CLAWS BACK CHAMPION PAY.
-      //
-      // It used to print "SAFE TO SELL RIGHT NOW: <entire balance>" in green
-      // to a champion who had never been paid anything — arithmetically
-      // correct (half of nothing is nothing) and read, reasonably, as the
-      // game handing out a green light to dump. Worse, it sat directly under
-      // a rule about losing the seat, so it looked like a contradiction.
-      //
-      // The rule has a claim on champion EARNINGS, not on a wallet. Until the
-      // seat has paid something there is no floor, the seat is held by ladder
-      // XP rather than by balance, and the honest thing to say is that the
-      // rule does not apply yet — not to quote a number that reads as advice.
-      const holdPct=STATE.champ.holdPct||0.5, floorAmt=Math.ceil(c.earned7*holdPct);
-      const paid=c.earned7>0;
-      $("champBody").innerHTML=`Your seat pays <b style="color:var(--gold)">${Math.round(c.pct*STATE.champ.pct*100)}% of every reload</b>, straight to your wallet — no claim needed.
-      Earned last 7 days: <b style="color:var(--gold)">${c.earned7.toLocaleString()} RCX</b> · wallet balance: ${c.bal==null
-        ? '<b style="color:var(--dim)">unreadable right now</b> <span style="color:var(--dim)">(the chain did not answer — this is not a balance of zero)</span>'
-        : `<b>${c.bal.toLocaleString()} RCX</b>${c.balStale?' <span style="color:var(--dim)">· last known</span>':''}`}.<br>
-      <b style="color:var(--ink)">HOLDER RULE:</b> ${paid
-        ? `keep ≥${Math.round(holdPct*100)}% of your 7-day champion pay — that is <b style="color:var(--ink)">${floorAmt.toLocaleString()} RCX</b> —
-           or your seat passes to the next player. You are <b style="color:${c.bal>=floorAmt?'var(--grn)':'var(--red)'}">${c.bal>=floorAmt
-             ? (c.bal-floorAmt).toLocaleString()+' RCX above that floor'
-             : (floorAmt-c.bal).toLocaleString()+' RCX below it — the seat is at risk right now'}</b>.`
-        : `it keeps ≥${Math.round(holdPct*100)}% of what the seat <i>pays you</i>, and this seat has not paid you anything yet.
-           So it currently has <b style="color:var(--ink)">no claim on your balance at all</b> — your seat is held by XP on the daily
-           ladder, not by what sits in your wallet. That changes the first time a reload pays you: from that moment,
-           half of your 7-day champion pay has to stay put.`}<br>
-      <span style="color:var(--dim)">If you do trade, this market is thin: <a href="https://jup.ag/swap/${STATE.mint}-SOL" target="_blank" rel="noopener" style="color:var(--ice)">Jupiter ↗</a>
-      aggregates routes, and one lump order pays the slippage out of your own pocket. Not advice either way — the seat does not care.</span>`;}
+      const hist=(c.history||[]).slice(0,12).map(x=>{
+        const when=x.t?new Date(x.t).toLocaleString():"—";
+        const tx=x.id?` · <a href="https://solscan.io/tx/${encodeURIComponent(x.id)}" target="_blank" rel="noopener" style="color:var(--ice)">tx ↗</a>`:"";
+        if(x.kind==="received") return `<div style="padding:6px 0;border-top:1px solid var(--line)"><b style="color:var(--grn)">+${Number(x.rcx||0).toLocaleString()} RCX RECEIVED</b> · from ${esc(x.from||"another reloader")}${tx}<span style="float:right;color:var(--dim)">${esc(when)}</span></div>`;
+        return `<div style="padding:6px 0;border-top:1px solid var(--line)"><b style="color:var(--gold)">YOUR RELOAD</b> · ${Number(x.burned||0).toLocaleString()} burned · ${Number(x.credits||0).toLocaleString()} credits${x.retained?` · <b style="color:var(--grn)">${Number(x.retained).toLocaleString()} RCX stayed with you</b>`:""}${x.podiumPaid?` · ${Number(x.podiumPaid).toLocaleString()} paid to other champions`:""}${tx}<span style="float:right;color:var(--dim)">${esc(when)}</span></div>`;
+      }).join("");
+      $("champTitle").textContent=c.active?(c.source==="previous"?"CHAMPION CONSOLE — DEFENDING SEAT":"CHAMPION CONSOLE — LIVE SEAT TODAY"):"PODIUM RECEIPTS — LAST 7 DAYS";
+      $("champBody").innerHTML=`${c.active?`Your ${c.source==="previous"?"inherited":"live"} seat currently receives <b style="color:var(--gold)">${Math.round(c.pct*STATE.champ.pct*100)}% of each reload</b>. ${c.source==="previous"?"It remains only while today's ladder has an empty seat.":"A settled XP change can move its rank immediately."}`:`You are not in the current payout set, but your recent receipts remain visible.`}<br>
+      From other players' reloads: <b style="color:var(--grn)">${Number(c.received7||0).toLocaleString()} RCX</b> ·
+      kept in your wallet on your own reloads: <b style="color:var(--gold)">${Number(c.retained7||0).toLocaleString()} RCX</b> ·
+      total podium value: <b style="color:var(--ink)">${Number(c.total7||0).toLocaleString()} RCX</b>.<br>
+      <span style="color:var(--dim)">Seats follow today's settled XP; yesterday only fills empty seats. No hold requirement, sell condition or forfeiture.</span>      ${hist?`<div style="margin-top:9px;font:600 10px/1.45 var(--mono)">${hist}</div>`:`<div style="margin-top:8px;color:var(--dim)">No reload receipts in this account yet.</div>`}`;}
     else $("champP").style.display="none";
     const r=p.rankIdx;
     $("rkrow").innerHTML=[["COG",0],["PISTON",300],["FLYWHEEL",900],["TURBINE",2200],["REACTOR",5000]]
@@ -1227,16 +1191,9 @@ function paint(){
   if(s.mint&&AUTH){$("reloadP").style.display="block";$("incin").textContent=s.incinerator;
     const cl=(s.champ&&s.champ.podium)||[];
     $("podiumBox").style.display="block";
-    // An empty podium AFTER the first rollover means something specific: the day's top
-    // three hold no RCX, so there is nobody the Champion's Cut is allowed to pay. Say
-    // that, instead of implying the machine has not run yet.
     $("podiumBox").innerHTML=cl.length
-      ?"YOUR RELOAD PAYS TODAY'S PODIUM: "+cl.map((c,i)=>`${i+1}. <span style="color:var(--gold)">${c.w}</span> ${Math.round((s.champ.pct*c.pct)*100)}%`).join(" · ")+" — THE REST BURNS"
-      :(s.lastDay
-        ?"<span style=\"color:var(--gold)\">THE PODIUM IS OPEN.</span> THE LAST LADDER'S TOP 3 HOLD NO $RCX, SO THERE IS NOBODY THE CHAMPION'S CUT CAN PAY — 100% OF EVERY RELOAD BURNS. HOLD $RCX AND FINISH TOP 3 TODAY, AND 30% OF EVERY RELOAD LANDS IN YOUR WALLET ALL DAY."
-        :"NO PODIUM YET — UNTIL THE FIRST DAILY ROLLOVER, 100% OF EVERY RELOAD BURNS");
-    if(cl.length)$("podiumBox").innerHTML+=" · HOLDER RULE: CHAMPIONS WHO DUMP LOSE THE SEAT";}
-  else $("reloadP").style.display="none";
+      ?"THIS RELOAD PAYS THE CURRENT SNAPSHOT: "+cl.map((c,i)=>`${i+1}. <span style="color:var(--gold)">${c.w}</span> ${Math.round((s.champ.pct*c.pct)*100)}% <span style="color:var(--dim)">${c.source==="today"?"TODAY":"PREVIOUS-DAY FALLBACK"}</span>`).join(" · ")+" — THE REST BURNS"
+      :"NO CURRENT OR PREVIOUS-DAY PODIUM — ALL OF THIS RELOAD BURNS";}  else $("reloadP").style.display="none";
   { const g=$("getRcxRow");
     if(g){ const u=buyUrl();
       // Only when it is the actual next step — a prompt to buy shown to
@@ -1296,6 +1253,9 @@ function paint(){
     Credits paid to stakers: <b style="color:var(--gold)">${(s.stats.stakePaid||0).toLocaleString()}</b><br>
     <span style="color:var(--dim)">Rate: 0.1%/day of held balance · min 1,000 · counted up to 1,000,000.</span>`;
   drawPodium(s);
+  setHTML($("ladderAll"),(s.ladderAll&&s.ladderAll.length)?s.ladderAll.map((l,i)=>`
+    <div class="lr ${l.me?'me':''}"><span class="pos">${i+1}</span><span class="wl2">${l.me?'YOU':l.w}</span><span class="sc">${l.xp} XP</span></div>`).join("")
+    :'<div class="empty" style="margin:6px 0">NO ALL-TIME RANKED XP YET</div>');
   setHTML($("ladder"),s.ladder.length?s.ladder.map((l,i)=>`
     <div class="lr ${l.me?'me':''}"><span class="pos">${i+1}</span><span class="wl2">${l.me?'YOU':l.w}</span><span class="sc">${l.xp} XP</span></div>`).join("")
     :'<div class="empty" style="margin:6px 0">NOBODY ON THE LADDER YET — SEASON '+s.season.toUpperCase()+'</div>');
@@ -1781,17 +1741,18 @@ function burnSplitText(amt){
   const s=STATE;   // top-level `let` is not a window property
   const podium=(s&&s.champ&&s.champ.podium)||[];
   const cutPct=(s&&s.champ&&s.champ.pct)||0;
-  const rows=podium.map(c=>({amt:Math.floor(amt*cutPct*c.pct),make:!c.ata})).filter(x=>x.amt>=1);
-  const toPod=rows.reduce((a,b)=>a+b.amt,0);
-  const burns=amt-toPod;
-  // Opening a token account for a champion who has none costs the reloader
-  // about 0.002 SOL of rent. Small, one-off, and spent on someone else — so
-  // it is said out loud here rather than discovered in a wallet prompt.
-  const mk=rows.filter(x=>x.make).length;
+  const rows=podium.map(c=>({amt:Math.floor(amt*cutPct*c.pct),make:!c.ata,
+    mine:!!(AUTH&&c.owner===AUTH.wallet)})).filter(x=>x.amt>=1);
+  const retained=rows.filter(x=>x.mine).reduce((a,b)=>a+b.amt,0);
+  const toOthers=rows.filter(x=>!x.mine).reduce((a,b)=>a+b.amt,0);
+  const routed=retained+toOthers, burns=amt-routed, credits=amt-retained;
+  // Opening a token account for another champion costs the reloader about
+  // 0.002 SOL once. A self-route always uses the payer's existing source ATA.
+  const mk=rows.filter(x=>x.make&&!x.mine).length;
   const note=mk?` · +${(mk*0.002).toFixed(3)} SOL TO OPEN ${mk===1?"A CHAMPION'S":"CHAMPIONS'"} ACCOUNT`:"";
   if(!amt)return "—";
-  return toPod>0
-    ? `${burns.toLocaleString()} 🔥 · ${toPod.toLocaleString()} → PODIUM${note}`
+  return routed>0
+    ? `${burns.toLocaleString()} 🔥 · ${toOthers.toLocaleString()} → OTHER CHAMPIONS${retained?` · ${retained.toLocaleString()} STAYS WITH YOU`:""} · ${credits.toLocaleString()} CREDITS${note}`
     : `${burns.toLocaleString()} 🔥 · NO PODIUM YET — ALL OF IT BURNS`;
 }
 function setBurn(v,fromInput){
@@ -1838,7 +1799,7 @@ async function tryPB(){
     toast("burn unverified after 10 min — signature filled in below, press CREDIT");return}
   try{
     const j=await post({action:"reload",auth:AUTH,sig:PB.sig});
-    if(j.ok){toast(`✓ RELOAD VERIFIED ON-CHAIN 🔥 +${j.credited.toLocaleString()} credits`);
+    if(j.ok){toast(`✓ RELOAD VERIFIED ON-CHAIN 🔥 +${j.credited.toLocaleString()} credits${j.retained?` · ${j.retained.toLocaleString()} RCX stayed with you`:""}`);
       setPB(null);paintBurnBtn();refresh();}
     else if(/already credited/i.test(j.reason||"")){setPB(null);paintBurnBtn();refresh();}
     else if(/failed on-chain|did not reach|that wallet paid/i.test(j.reason||"")){
@@ -1881,7 +1842,9 @@ $("oneBurn").onclick=async()=>{
       }
       return {ata:to,owner:c.owner,amt,make};
     }).filter(l=>l.amt>=1&&l.ata);
-    const legTotal=legs.reduce((a,l)=>a+l.amt,0);
+    const selfTotal=legs.filter(l=>l.owner===AUTH.wallet).reduce((a,l)=>a+l.amt,0);
+    const otherTotal=legs.filter(l=>l.owner!==AUTH.wallet).reduce((a,l)=>a+l.amt,0);
+    const legTotal=selfTotal+otherTotal;
     const burnPart=burnAmt-legTotal;
     const raw=BigInt(burnPart)*1000000n; // pump.fun mints use 6 decimals
     const data=new Uint8Array(9);data[0]=8; // SPL Token "Burn"
@@ -1919,7 +1882,7 @@ $("oneBurn").onclick=async()=>{
     const {signature}=await prov.signAndSendTransaction(tx);
     setPB({sig:signature,amt:burnAmt,t:Date.now()});
     paintBurnBtn();
-    toast("🔥 sent — "+burnPart.toLocaleString()+" burning"+(legTotal?", "+legTotal.toLocaleString()+" straight to the podium":"")+" · verifying on-chain…");
+    toast("🔥 sent — "+burnPart.toLocaleString()+" burning"+(otherTotal?", "+otherTotal.toLocaleString()+" to other champions":"")+(selfTotal?", "+selfTotal.toLocaleString()+" stays with you":"")+" · verifying on-chain…");
     setTimeout(tryPB,4000);
   }catch(e){toast("burn failed: "+((e&&e.message)||"cancelled")+" — the manual fallback below always works");}
   $("oneBurn").disabled=false;
@@ -1931,7 +1894,7 @@ $("burngo").onclick=async()=>{
   $("burngo").disabled=false;
   if(!j.ok){toast("⚠ "+j.reason);return}
   $("burnsig").value="";
-  toast(`RELOADED 🔥 +${j.credited.toLocaleString()} credits — verified on-chain`);
+  toast(`RELOADED 🔥 +${j.credited.toLocaleString()} credits${j.retained?` · ${j.retained.toLocaleString()} RCX stayed with you`:""} — verified on-chain`);
   refresh();
 };
 
@@ -1947,44 +1910,39 @@ $("burngo").onclick=async()=>{
 // better reason to climb than a full one.
 const MEDAL = ['🥇','🥈','🥉'];
 function drawPodium(s){
-  const ch = s && s.champ; if(!ch) return;
-  const cl = ch.podium || [], curve = ch.curve || [0.5,0.3,0.2], cut = ch.pct || 0;
-  const me = (AUTH && AUTH.wallet) || null;
-  const seats = curve.map((pct, i) => {
-    const held = cl[i] || null;
-    const share = Math.round(pct * cut * 100);
-    if (!held) return `<div class="pods empty"><span class="pm">${MEDAL[i]}</span>
-      <span class="pw">SEAT ${i+1} — UNCLAIMED</span>
-      <span class="pp">${share}% of every reload</span>
-      <span class="pn">top ${i+1} on today's ladder takes it</span></div>`;
-    const mine = me && held.owner === me;
-    const link = held.owner ? `<a href="${SCAN}${held.owner}" target="_blank" rel="noopener" title="${held.owner}">${mine?'YOU':held.w}</a>` : (mine?'YOU':held.w);
+  const ch=s&&s.champ;if(!ch)return;
+  const cl=ch.podium||[],curve=ch.curve||[0.5,0.3,0.2],cut=ch.pct||0;
+  const me=(AUTH&&AUTH.wallet)||null;
+  const seats=curve.map((pct,i)=>{
+    const held=cl[i]||null,share=Math.round(pct*cut*100);
+    if(!held)return `<div class="pods empty"><span class="pm">${MEDAL[i]}</span>
+      <span class="pw">SEAT ${i+1} — UNCLAIMED</span><span class="pp">${share}% of every reload</span>
+      <span class="pn">the next distinct wallet ranked today fills it</span></div>`;
+    const mine=me&&held.owner===me;
+    const link=held.owner?`<a href="${SCAN}${held.owner}" target="_blank" rel="noopener" title="${held.owner}">${mine?'YOU':held.w}</a>`:(mine?'YOU':held.w);
+    const source=held.source==="today"?"LIVE TODAY":"YESTERDAY FALLBACK";
     return `<div class="pods${mine?' mine':''}"><span class="pm">${MEDAL[i]}</span>
-      <span class="pw">${link}</span>
-      <span class="pp">${share}% of every reload</span>
-      <span class="pn">${mine?'straight to your wallet — no claim needed':'paid inside the reloader\'s own transaction'}</span></div>`;
+      <span class="pw">${link}</span><span class="pp">${share}% of every reload</span>
+      <span class="pn">${source} · ${mine?'no claim needed':'paid inside the reloader\'s transaction'}</span></div>`;
   }).join("");
-  const note = `<div class="podnote">Seats are decided by yesterday's ladder and rebuilt at 00:00 UTC.
-    Every reload pays <b style="color:var(--gold)">${Math.round(cut*100)}%</b> of itself straight to these wallets —
-    no pool, no custody, no claim button. An unclaimed seat's share burns instead.</div>`;
-  const el1 = $("podiumR"); if (el1) setHTML(el1, seats + note);
-  const el2 = $("podiumP");
-  if (el2) setHTML(el2, `<div class="podstrip"><span class="pcap">THE PODIUM · PAID BY EVERY RELOAD</span>${
-    curve.map((pct,i)=>{ const held=cl[i]||null; const mine=me&&held&&held.owner===me;
-      const nm = held ? (held.owner
-        ? `<a href="${SCAN}${held.owner}" target="_blank" rel="noopener" title="${held.owner}">${mine?'YOU':held.w}</a>`
-        : (mine?'YOU':held.w)) : 'OPEN';
+  const note=`<div class="podnote">Today's settled-XP ranks update these seats live. At the daily reset, yesterday fills empty
+    positions; today's #1, #2 and #3 displace yesterday's #3, #2 and #1. Every reload pays
+    <b style="color:var(--gold)">${Math.round(cut*100)}%</b> to its published snapshot — no pool, custody, claim or hold rule.</div>`;
+  const el1=$("podiumR");if(el1)setHTML(el1,seats+note);
+  const el2=$("podiumP");
+  if(el2)setHTML(el2,`<div class="podstrip"><span class="pcap">LIVE PODIUM · PAID BY EVERY RELOAD</span>${
+    curve.map((pct,i)=>{const held=cl[i]||null,mine=me&&held&&held.owner===me;
+      const nm=held?(held.owner?`<a href="${SCAN}${held.owner}" target="_blank" rel="noopener" title="${held.owner}">${mine?'YOU':held.w}</a>`:(mine?'YOU':held.w)):'OPEN';
       return `<span class="pchip${held?(mine?' mine':''):' empty'}">${MEDAL[i]} ${nm} <b>${Math.round(pct*cut*100)}%</b></span>`;
     }).join("")}</div>`);
 }
-
 // ---------- LIVE proof ----------
 let PROOF=null,proofAt=0;
 const STATIC_LINES=[
 ["g","One frozen rule at both doors: 70 / 30 / 0","stakes: 70% machine · 30% pots · 0% us. reloads: 70% burn · 30% straight to the champions · 0% us"],
-["g","Your side is sealed until settlement","Other players and the Warden cannot see it before the window closes"],
+["g","Your side is hidden from spectators until settlement","Public APIs and the Warden see only the commitment; the server retains reveal terms until settlement"],
 ["g","Targets settle on markets no player can move","majors via Pyth only — RCX-priced shots were removed on purpose: a thin market you can trade is a bet you can settle yourself"],
-["p","The Machine's floor is redeemable SOL","The vault program (Wave 4): no withdraw instruction, upgrade authority revoked"]];
+["p","The modeled floor is not redeemable","Vault not deployed: no funded PDA, liability proof or no-withdraw program is claimed"]];
 function drawProof(){
   if(!PROOF)return;
   const st={green:"g",red:"r",grey:"p"};

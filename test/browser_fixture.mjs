@@ -11,10 +11,12 @@ process.env.RATCHET_MINT ||= MINT;
 
 const pricesPath = require.resolve('../lib/prices.js');
 const burnPath = require.resolve('../lib/burn.js');
+const FEEDS = ['SOL','BTC','ETH','BONK','WIF','JUP','PUMP'];
 require.cache[pricesPath] = { id:pricesPath, filename:pricesPath, loaded:true, exports:{
-  getPrices: async () => ({ src:'pyth-onchain', SOL:100, BTC:60000, ETH:2000,
+  getPrices: async () => { const t=Math.floor(Date.now()/1000); return { src:'pyth-onchain', SOL:100, BTC:60000, ETH:2000,
     BONK:0.000002, WIF:0.1, JUP:0.2, PUMP:0.005,
-    ages:{SOL:2,BTC:2,ETH:2,BONK:2,WIF:2,JUP:2,PUMP:2} }) } };
+    ages:Object.fromEntries(FEEDS.map(f=>[f,2])), confs:Object.fromEntries(FEEDS.map(f=>[f,10])),
+    pubs:Object.fromEntries(FEEDS.map(f=>[f,t])), prevPubs:Object.fromEntries(FEEDS.map(f=>[f,t-60])) }; } } };
 require.cache[burnPath] = { id:burnPath, filename:burnPath, loaded:true, exports:{
   INCINERATOR:'1nc1nerator11111111111111111111111111111111',
   rpcCall:async m => m === 'getTokenAccountsByOwner' ? { value:[] } : null,
@@ -77,4 +79,3 @@ export async function installFixtureRoutes(page, fixedMode=null) {
     await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
   });
 }
-

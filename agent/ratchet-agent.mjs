@@ -129,8 +129,10 @@ async function tick() {
         const mine = open.get(h.id); open.delete(h.id);
         // The reveal is published so ANYONE can recompute it. Checking your own
         // is how you know the answer you gave is the answer that was scored.
-        const recomputed = crypto.createHash('sha256')
-          .update(`${mine.side}|${mine.salt}`).digest('hex');
+        const material = mine.commitV >= 2
+          ? `RATCHET|v2|${WALLET}|${h.id}|${mine.side}|${mine.salt}`
+          : `${mine.side}|${mine.salt}`;
+        const recomputed = crypto.createHash('sha256').update(material).digest('hex');
         const honest = recomputed === mine.commit;
         console.log(`  ${h.res.toUpperCase().padEnd(5)} ${h.label} — said ${h.side}`
           + ` · ${h.res === 'hit' ? `+${h.xp} XP, +${h.back} credits` : 'nothing'}`
@@ -151,7 +153,8 @@ async function tick() {
 
   const r = await post({ action: 'shot', auth: auth(), target: call.target, side: call.side, stake: STAKE });
   if (!r.ok) return console.log('  refused:', r.reason);
-  open.set(r.shot.id, { side: r.shot.side, salt: r.shot.salt, commit: r.shot.commit });
+  open.set(r.shot.id, { side: r.shot.side, salt: r.shot.salt,
+    commit: r.shot.commit, commitV: r.shot.commitV || 1 });
   console.log(`  SEALED ${r.shot.label} — ${r.shot.side} for ${STAKE} · ${call.why}`);
 }
 

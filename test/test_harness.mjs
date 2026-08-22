@@ -17,9 +17,14 @@ process.env.RATCHET_MINT = process.env.RATCHET_MINT || 'FQb2EyaLZ9TWBemYmQ9zWtXc
 const pricesPath = require.resolve('../lib/prices.js');
 const burnPath = require.resolve('../lib/burn.js');
 const realBurn = require('../lib/burn.js');   // capture the REAL module before stubbing
-let PX = { src: 'stub', SOL: 100, BTC: 60000, ETH: 2000, BONK: 0.000002, WIF: 0.1, JUP: 0.2, PUMP: 0.005 };
+const TEST_FEEDS = ['SOL','BTC','ETH','BONK','WIF','JUP','PUMP'];
+let PX = { src: 'pyth-onchain', SOL: 100, BTC: 60000, ETH: 2000, BONK: 0.000002, WIF: 0.1, JUP: 0.2, PUMP: 0.005 };
 require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true,
-  exports: { getPrices: async () => ({ ...PX }) } };
+  exports: { getPrices: async () => { const t=Math.floor(Date.now()/1000); return { ...PX,
+    ages:PX.ages || Object.fromEntries(TEST_FEEDS.map(f=>[f,1])),
+    confs:PX.confs || Object.fromEntries(TEST_FEEDS.map(f=>[f,10])),
+    pubs:PX.pubs || Object.fromEntries(TEST_FEEDS.map(f=>[f,t])),
+    prevPubs:PX.prevPubs || Object.fromEntries(TEST_FEEDS.map(f=>[f,t-60])) }; } } };
 require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
   exports: { INCINERATOR: '1nc1nerator11111111111111111111111111111111',
     // getTokenAccountsByOwner answers with an EMPTY LIST for a wallet that has
@@ -111,6 +116,13 @@ ok(!(getMem('g:warden:open') || []).length,
    'no warden line before there is enough price history to price one');
 ok(r.body.warden && r.body.warden.p === null,
    'and the line it serves says so, rather than quoting a made-up probability');
+{
+  const before = { ...stats() };
+  const noLine = await call('POST', { body:{ action:'duel', auth:{wallet:'demo-noline1'}, side:'with', stake:500 } });
+  ok(!noLine.body.ok && /no line/.test(noLine.body.reason || ''),
+    `a Warden duel refuses before a measured line exists (${noLine.body.reason || 'no reason'})`);
+  ok(JSON.stringify(stats()) === JSON.stringify(before), 'and that refusal moves no burn, pot or shot counter');
+}
 
 // Settlement now reads the recorded price log, not "the price right now".
 // A shot can only settle once a sample exists AT OR AFTER its expiry, so a
@@ -120,8 +132,11 @@ const tickPx = () => { const g = globalThis.__ratchet_pxgate; if (g) g.t = 0; };
 const seedStubPx = ts => {
   const key = require('../lib/pxlog.js').bucketKey(ts);
   const rows = getMem(key) || [];
-  rows.push({ t:ts + 10, src:'stub', SOL:PX.SOL, BTC:PX.BTC, ETH:PX.ETH,
-    BONK:PX.BONK, WIF:PX.WIF, JUP:PX.JUP, PUMP:PX.PUMP });
+  const pub = Math.ceil((ts + 10) / 1000);
+  rows.push({ t:pub*1000, src:'pyth-onchain', SOL:PX.SOL, BTC:PX.BTC, ETH:PX.ETH,
+    BONK:PX.BONK, WIF:PX.WIF, JUP:PX.JUP, PUMP:PX.PUMP,
+    pt:Object.fromEntries(TEST_FEEDS.map(f=>[f,pub])), pp:Object.fromEntries(TEST_FEEDS.map(f=>[f,pub-60])),
+    cf:Object.fromEntries(TEST_FEEDS.map(f=>[f,10])) });
   rows.sort((a,b)=>a.t-b.t); setMem(key, rows);
 };
 
@@ -179,9 +194,44 @@ ok((getMem('g:feed') || []).length === 0, 'demo hit absent from public feed');
 // Without this the guest test above could pass simply by the pot being broken.
 r = await call('POST', { body: { action: 'shot', auth: authFor(), target: 'SOL5', side: 'YES', stake: 500 } });
 ok(r.body.ok, 'signed real wallet accepted');
-const stR = stats();
-ok(stR && Math.abs(stR.burned - 350) < 1e-9 && Math.abs(stR.potD - 75) < 1e-9 && Math.abs(stR.pot - 75) < 1e-9,
-   'real stake splits 70/15/15 into burn + pots');
+let stR = stats();
+ok(stR.shots === 1, 'a durable real seal increments the public shot count exactly once');
+ok(stR && !stR.burned && !stR.potD && !stR.pot,
+   'an unresolved real stake is held but does not fund a pot it may later void against');
+{
+  const sp = getMem(`u:${SIGNER}`); sp.open[0].exp=Date.now()-1000; sp.open[0].entry=90;
+  const interruptedPlayerSave = JSON.parse(JSON.stringify(sp));
+  seedStubPx(sp.open[0].exp); setMem(`u:${SIGNER}`,sp); tickPx();
+  const firstSettle = await call('GET',{query:{action:'state',wallet:SIGNER},ip:'1.2.3.55'});
+  const afterFirstSettle = getMem(`u:${SIGNER}`);
+  stR=stats();
+  ok(stR.burned===350 && stR.potD===75 && stR.pot===75,
+    'a resolved real stake atomically splits 70/15/15 into burn + pots');
+  const externalAfterFirst = {
+    stats:{...stR}, log:getMem('g:log:n'), feed:(getMem('g:feed')||[]).length,
+    hist:(getMem(`hist:${SIGNER}`)||[]).length,
+    season:zScore('lb:',firstSettle.body.season,SIGNER),
+    day:zScore('lbd:',firstSettle.body.day,SIGNER),
+  };
+  // Simulate a process dying after external settlement effects but before the
+  // updated player blob became durable. The same open shot must repair the
+  // player and every cross-key side effect must remain exactly once.
+  setMem(`u:${SIGNER}`, interruptedPlayerSave); tickPx();
+  const retrySettle = await call('GET',{query:{action:'state',wallet:SIGNER},ip:'1.2.3.56'});
+  const afterRetrySettle = getMem(`u:${SIGNER}`);
+  const externalAfterRetry = {
+    stats:{...stats()}, log:getMem('g:log:n'), feed:(getMem('g:feed')||[]).length,
+    hist:(getMem(`hist:${SIGNER}`)||[]).length,
+    season:zScore('lb:',retrySettle.body.season,SIGNER),
+    day:zScore('lbd:',retrySettle.body.day,SIGNER),
+  };
+  const playerEconomy = q => ({xp:q.xp,hits:q.hits,shots:q.shots,streak:q.streak,
+    best:q.best,cr:q.cr,open:q.open.length,closed:q.closed.length});
+  ok(JSON.stringify(playerEconomy(afterRetrySettle))===JSON.stringify(playerEconomy(afterFirstSettle)),
+    'lost player save is repaired to the same economic result');
+  ok(JSON.stringify(externalAfterRetry)===JSON.stringify(externalAfterFirst),
+    'settlement retry does not duplicate pots, payout, XP, feed, history or hash-log');
+}
 ok(!(await call('POST', { body: { action: 'shot', auth: { ...authFor(), sig: 'AAAA' }, target: 'SOL5', side: 'YES', stake: 500 } })).body.ok,
    'forged signature rejected');
 
@@ -258,6 +308,16 @@ ok(getMem('g:dayResults')?.winners?.length === 1, 'day results recorded');
   ok(rootEv && rootEv.ev.day === '2020-01-01' && /^[0-9a-f]{64}$/.test(rootEv.ev.root) && rootEv.ev.players >= 2, 'balance root appended at daily rollover');
   ok(getMem('g:lastRoot')?.root === rootEv?.ev.root, 'lastRoot mirror matches the log');
 }
+{
+  const potBeforeRetry = stats().potD;
+  const pendingBeforeRetry = Number(mem.get(`pend:${RW}`)) || 0;
+  setMem('g:day', '2020-01-01'); // simulate a crash after payout but before pointer advance
+  await call('GET', { query:{ action:'state' } });
+  ok((Number(mem.get(`pend:${RW}`)) || 0) === pendingBeforeRetry,
+    'daily rollover retry does not pay the winner twice');
+  ok(stats().potD === potBeforeRetry,
+    'daily rollover retry does not debit the pot twice');
+}
 
 setMem('g:season', 's1999w1');                       // force a season boundary
 setMem('lb:s1999w1', { [RW]: 50 });
@@ -295,6 +355,8 @@ await call('GET', { query: { action: 'state' } });          // seals this hour's
 const wopen = getMem('g:warden:open');
 ok(Array.isArray(wopen) && wopen.length > 0, 'the Warden posts a line once volatility is measurable');
 wopen[0].exp = Date.now() - 1000; wopen[0].thresh = 1;   // SOL(100) > 1 => outcome YES
+seedStubPx(wopen[0].exp);
+if (globalThis.__ratchet_wardentick) globalThis.__ratchet_wardentick.t = 0;
 tickPx();
 setMem('g:warden:open', wopen);
 r = await call('GET', { query: { action: 'state' } });
@@ -336,6 +398,8 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   const vt = verifyChain(tampered, head);
   ok(!vt.ok && vt.brokenAt === 2, 'black box: tampered entry #2 detected exactly');
   // snapshot endpoint serves the soul
+  mem.set('pend:queue-test', '321'); mem.set('c7:queue-test', '99'); mem.set('cs7:queue-test', '44');
+  setMem('chist:queue-test', [{id:'receipt-1',kind:'received',rcx:99}]);
   const snapshot = require('../api/snapshot.js');
   r = await new Promise(resolve => {
     const res = { _s: 200, headers: {}, setHeader(k, v2) { this.headers[k] = v2; },
@@ -346,7 +410,18 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   });
   ok(r.body.ok && r.body.logComplete && r.body.sha256?.length === 64, 'black box: snapshot exports with hash, log complete');
   ok(Object.keys(r.body.state.players).length >= 2, 'black box: snapshot contains the players');
+  ok(r.body.state.pending['queue-test'] === 321 && r.body.state.championPending['queue-test'] === 99
+     && r.body.state.championSelfPending['queue-test'] === 44,
+    'black box: snapshot includes credit, incoming and self-retained queues');
+  ok(r.body.state.championHists['queue-test'][0].id === 'receipt-1',
+    'black box: snapshot includes readable podium/reload receipts');
+  ok(Object.keys(r.body.state.sortedBoards || {}).some(k => k === 'z:lba:all')
+     && (r.body.state.sortedBoards['z:lba:all'] || []).length > 0,
+    'black box: snapshot includes atomic all-time XP sorted sets');
+  ok('podiumFallback' in r.body.state && Array.isArray(r.body.state.podiumHistory),
+    'black box: snapshot includes dynamic podium fallback and signing-grace history');
   ok(verifyChain(r.body.state.log, r.body.state.logHead).ok, 'black box: snapshot log verifies end-to-end');
+  mem.delete('pend:queue-test'); mem.delete('c7:queue-test'); mem.delete('cs7:queue-test'); mem.delete('chist:queue-test');
 }
 
 // 12 ---- decideBurn: THE CHAMPION'S CUT (pure, real implementation)
@@ -374,6 +449,14 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   ok(!d.ok, 'champ: legs above the 30% cut refused');
   d = D(mkTx({ P: [10000, 1500], B: [0, 900], C: [0, 600] }), base);
   ok(d.ok && d.amount === 8500 && d.burned === 7000 && d.champPaid === 1500, 'champ: self-on-podium nets fairly');
+  const selfTx = mkTx({ P: [10000, 1500], B: [0, 1500] });
+  selfTx.transaction = { message:{ instructions:[{ parsed:{ type:'transferChecked', info:{
+    authority:'P', source:'P-ATA', destination:'P-ATA', mint:'M',
+    tokenAmount:{amount:'1500',decimals:0,uiAmount:1500},
+  } } }] } };
+  d = D(selfTx, { ...base, podium:['P','B'] });
+  ok(d.ok && d.amount === 8500 && d.selfRouted === 1500,
+    'champ: verified self-route is reported as retained RCX, never extra credits');
   d = D(mkTx({ P: [10000, 0] }), { ...base, podium: [] });
   ok(d.ok && d.amount === 10000, 'champ: empty podium = pure burn, unchanged');
   const unreadable = mkTx({ P: [10000, 0] });
@@ -381,6 +464,33 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   d = D(unreadable, base);
   ok(!d.ok && /unreadable token balance/.test(d.reason),
     'burn verifier refuses an unreadable balance instead of treating it as zero');
+
+  const now = Date.now();
+  const liveSet = { v:'live-1', t:now-1000, list:[
+    {w:'A',pct:0.5},{w:'B',pct:0.3},{w:'C',pct:0.2},
+  ]};
+  d = D(mkTx({ P:[10000,0], A:[0,1500], B:[0,900], C:[0,600] }),
+    { wallet:'P', mint:'M', podiumSets:[liveSet], podiumPct:0.30, nowMs:now });
+  ok(d.ok && d.podiumVersion === 'live-1',
+    'dynamic podium: one exact published snapshot is accepted');
+  d = D(mkTx({ P:[10000,0], A:[0,3000] }),
+    { wallet:'P', mint:'M', podiumSets:[liveSet], podiumPct:0.30, nowMs:now });
+  ok(!d.ok && /does not match a podium snapshot/.test(d.reason),
+    'dynamic podium: paying an allowed wallet the wrong seat share is refused');
+  d = D(mkTx({ P:[10000,0], A:[0,1500], B:[0,900], C:[0,600] }),
+    { wallet:'P', mint:'M', podiumSets:[{...liveSet,until:now-2000}], podiumPct:0.30, nowMs:now });
+  ok(!d.ok, 'dynamic podium: an expired signing-grace snapshot is refused');
+
+  const exactSelf = mkTx({ P:[10000,1500], B:[0,900], C:[0,600] });
+  exactSelf.transaction = { message:{ instructions:[{ parsed:{ type:'transferChecked', info:{
+    authority:'P', source:'P-ATA', destination:'P-ATA', mint:'M',
+    tokenAmount:{amount:'1500',decimals:0,uiAmount:1500},
+  } } }] } };
+  d = D(exactSelf, { wallet:'P', mint:'M', podiumSets:[{v:'self-1',t:now-1000,list:[
+    {w:'P',pct:0.5},{w:'B',pct:0.3},{w:'C',pct:0.2},
+  ]}], podiumPct:0.30, nowMs:now });
+  ok(d.ok && d.amount===8500 && d.selfRouted===1500 && d.podiumVersion==='self-1',
+    'dynamic podium: exact self-retained seat is valid and never earns duplicate credits');
 }
 
 // 11a ---- THE BOARD: deterministic hourly mix, new kinds, grace window
@@ -424,7 +534,8 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   const chunk = getMem('g:log:c:0') || [];
   const sealEv = [...chunk].reverse().find(e => e.ev.k === 'seal' && e.ev.id === q.body.shot.id);
   ok(sealEv && !('side' in sealEv.ev) && sealEv.ev.commit === q.body.shot.commit, 'seal: log entry has commit, NO side');
-  ok(sha(`YES|${q.body.shot.salt}`) === q.body.shot.commit, 'seal: commit = sha256(side|salt)');
+  ok(sha(`RATCHET|v2|demo-sealed|${q.body.shot.id}|YES|${q.body.shot.salt}`) === q.body.shot.commit,
+    'seal: v2 commit binds wallet + shot id + side + salt');
   // spectator view must not see the side
   let rv = await call('GET', { query: { action: 'state', wallet: 'demo-sealed' }, ip: '4.4.4.2' });
   const openShot = rv.body.player.open.find(o => o.id === q.body.shot.id);
@@ -437,13 +548,18 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   // timing or the per-instance 45-second dedupe gate.
   const sealBucket = require('../lib/pxlog.js').bucketKey(pd.open[0].exp);
   const sealRows = getMem(sealBucket) || [];
-  sealRows.push({ t:Date.now(), src:'stub', SOL:PX.SOL, BTC:PX.BTC, ETH:PX.ETH,
-    BONK:PX.BONK, WIF:PX.WIF, JUP:PX.JUP, PUMP:PX.PUMP });
+  const pub = Math.ceil(Date.now()/1000);
+  sealRows.push({ t:pub*1000, src:'pyth-onchain', SOL:PX.SOL, BTC:PX.BTC, ETH:PX.ETH,
+    BONK:PX.BONK, WIF:PX.WIF, JUP:PX.JUP, PUMP:PX.PUMP,
+    pt:Object.fromEntries(TEST_FEEDS.map(f=>[f,pub])), pp:Object.fromEntries(TEST_FEEDS.map(f=>[f,pub-60])),
+    cf:Object.fromEntries(TEST_FEEDS.map(f=>[f,10])) });
   sealRows.sort((a,b)=>a.t-b.t); setMem(sealBucket, sealRows); tickPx();
   await call('GET', { query: { action: 'state', wallet: 'demo-sealed' }, ip: '4.4.4.3' });
   const chunk2 = getMem('g:log:c:0') || [];
   const settleEv = [...chunk2].reverse().find(e => e.ev.k === 'settle' && e.ev.id === q.body.shot.id);
-  ok(settleEv && settleEv.ev.side === 'YES' && sha(`${settleEv.ev.side}|${settleEv.ev.salt}`) === settleEv.ev.commit, 'reveal: settle entry verifies against the seal commit');
+  ok(settleEv && settleEv.ev.side === 'YES'
+    && sha(`RATCHET|v2|demo-sealed|${settleEv.ev.id}|${settleEv.ev.side}|${settleEv.ev.salt}`) === settleEv.ev.commit,
+    'reveal: bound settle entry verifies against the seal commit');
 }
 
 // 11a4 ---- snapshot strips sealed sides
@@ -462,10 +578,11 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
 }
 
 // 11b ---- soft-staking: demo refused; yield math sane via state shape
+resetRL();
 r = await call('POST', { body: { action: 'stake', auth: { wallet: 'demo-abc123' }, on: true } });
 ok(!r.body.ok && r.status === 400, 'stake: demo wallet refused (mint unset in test env also refuses)');
 
-// 12a ---- holder-rule window math (pure)
+// 12a ---- rolling receipt-window math (pure; never an eligibility rule)
 {
   const cw = game.champWindowSum;
   const today0 = new Date().toISOString().slice(0, 10);
@@ -476,7 +593,8 @@ ok(!r.body.ok && r.status === 400, 'stake: demo wallet refused (mint unset in te
 
 // 12b ---- state exposes the champion cut
 r = await call('GET', { query: { action: 'state' } });
-ok(r.body.champ && r.body.champ.pct === 0.30 && Array.isArray(r.body.champ.podium), 'state exposes champ cut + podium');
+ok(r.body.champ && r.body.champ.pct === 0.30 && r.body.champ.seatRule === 'live-daily-xp' && Array.isArray(r.body.champ.podium), 'state exposes the live daily champ cut + payout snapshot');
+ok(Array.isArray(r.body.ladderAll), 'state exposes a public all-time XP list with no payout claim');
 
 // 13 ---- proof endpoint runs (no mint armed in test env)
 const proof = require('../api/proof.js');
@@ -486,7 +604,8 @@ r = await new Promise(resolve => {
 });
 ok(r.body.ok && r.body.checks.some(c => c.id === 'pots'), 'proof answers with pots line');
 ok(r.body.checks.some(c => c.id === 'champs' && /peer-to-peer/.test(c.label)), 'proof carries the champions line');
-ok(r.body.checks.some(c => c.id === 'credits' && /never minted/.test(c.detail)), 'credits line carries no-faucet wording');
+ok(r.body.checks.some(c => c.id === 'credits' && /play-credits also enter/.test(c.detail)),
+   'credits line discloses every faucet instead of claiming none exist');
 
 
 // 2c ---- CUSTOM STAKES: any whole amount in range, scored on the same sqrt curve
@@ -684,11 +803,14 @@ const kvmod = require('../lib/kv.js');
   setMem(`u:${C}`, { w: C, xp:0, streak:0, best:0, hits:0, shots:0, cr:0, granted:true,
     burned:0, day:new Date().toISOString().slice(0,10), open:[], closed:[], champ7:{} });
   await kvmod.incrFloat(`c7:${C}`, 777);
+  await kvmod.incrFloat(`cs7:${C}`, 333);
   resetRL();
-  await call('GET', { query: { action: 'state', wallet: C } });
+  await call('GET', { query: { action:'state', wallet:C } });
   const cp = getMem(`u:${C}`);
-  const total = Object.values(cp.champ7 || {}).reduce((a, b) => a + b, 0);
-  ok(total === 777, `champion pay landed in the holder window (${total})`);
+  const received = Object.values(cp.champ7 || {}).reduce((a,b)=>a+b,0);
+  const retained = Object.values(cp.champSelf7 || {}).reduce((a,b)=>a+b,0);
+  ok(received === 777 && retained === 333,
+    `incoming (${received}) and self-retained (${retained}) podium value stay distinct`);
 }
 
 
@@ -897,60 +1019,51 @@ const kvmod = require('../lib/kv.js');
 
 
 // ============================================================
-//  THE PODIUM MUST FILL.
-//  Since launch it never did: seating required an existing RCX token
-//  account, and the reload flow asks players to BURN their RCX. The
-//  mechanism selected against the behaviour it rewards, and champPaid
-//  sat at 0 while the credit pot paid out normally.
+//  LIVE DAILY PODIUM — yesterday fills only today's empty seats.
 // ============================================================
 {
-  resetRL();
-  const A='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1';
-  const B='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB2';
-  const day='2019-01-02';
-  const mkP=(w,champ7)=>setMem(`u:${w}`,{ w, xp:0, streak:0, best:0, hits:0, shots:0, cr:100,
-    granted:true, qualified:true, burned:0, day:new Date().toISOString().slice(0,10),
-    open:[], closed:[], ...(champ7?{champ7}:{}) });
-  // The holder rule looks back seven days, so a dumper has to have been paid
-  // INSIDE that window — dating this to the ladder period (2019) would read as
-  // "never paid" and the wallet would sail through.
-  const recent = new Date().toISOString().slice(0,10);
-  mkP(A); mkP(B, { [recent]: 10000 });     // paid 10,000 this week, holds nothing = dumper
-  const z=(k,w,v)=>{ const key='Z'+`z:lbd:${day}`; if(!mem.has(key)) mem.set(key,new Map());
-    mem.get(key).set(w,v); };
-  z(null,A,500); z(null,B,900);
-  setMem('g:day', day);
-  setMem('mig:'+`z:lbd:${day}`, { t: Date.now() });   // skip the legacy lift
-  setStat('potD', 1000);
-  r = await call('GET', { query: { action: 'state' } });
-  const pod = getMem('g:podium');
-  const seated = ((pod&&pod.list)||[]).map(x=>x.w);
-  ok(seated.includes(A),
-     `a champion with NO token account is seated (${JSON.stringify(seated)})`);
-  ok(!seated.includes(B),
-     'but a wallet paid 10,000 that now holds nothing is still forfeited as a dumper');
-  const seat = ((pod&&pod.list)||[]).find(x=>x.w===A);
-  ok(seat && seat.ata === null, 'the seat records no account yet, for the page to create one');
-  ok(seat && seat.pct === 0.5, 'and takes the top share');
+  const P1='PPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPPP1';
+  const P2='QQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQQ2';
+  const P3='RRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRRR3';
+  const A ='AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA1';
+  const B ='BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB2';
+  const C ='CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC3';
+  const day=new Date().toISOString().slice(0,10);
+  setMem('g:podium',{v:2,id:'yesterday',period:'1999-01-01',t:Date.now()-86400e3,list:[
+    {w:P1,pct:.5,ata:null},{w:P2,pct:.3,ata:null},{w:P3,pct:.2,ata:null},
+  ]});
+  mem.delete('g:podium:fallback'); mem.delete('g:podium:history');
+  const zk='Z'+`z:lbd:${day}`;mem.set(zk,new Map());
+  setMem('mig:'+`z:lbd:${day}`,{t:Date.now()});
 
-  // AND THE OTHER HALF OF THAT RULE: a seat is forfeited for DUMPING, not for
-  // our RPC being down. If the chain cannot be read we cannot prove anybody
-  // dumped, and a champion must not lose a seat to someone else's outage.
-  globalThis.__rpcDead = true;                                  // every endpoint fails
-  // The rollover is guarded so it pays once per period: release the lock, put
-  // the pointer back, and re-fund the pot so it genuinely runs again.
-  mem.delete('g:podium');
-  mem.delete(`day:paid:${day}`);
-  mem.delete('g:dayResults');
-  for (const k of [...mem.keys()]) if (k.startsWith('champbal:')) mem.delete(k);
-  z(null, A, 500); z(null, B, 900);
-  setMem('g:day', day); setStat('potD', 1000);
-  r = await call('GET', { query: { action: 'state' } });
-  const pod2 = getMem('g:podium');
-  const seated2 = ((pod2&&pod2.list)||[]).map(x=>x.w);
-  globalThis.__rpcDead = false;
-  ok(seated2.includes(B),
-     `with the chain unreadable the same wallet keeps its seat (${JSON.stringify(seated2)})`);
+  await game.refreshLivePodium(true);
+  let seated=(getMem('g:podium').list||[]).map(x=>x.w);
+  ok(JSON.stringify(seated)===JSON.stringify([P1,P2,P3]),
+    'new day starts on yesterday podium instead of sending the cut nowhere');
+
+  mem.get(zk).set(A,100); await game.refreshLivePodium(true);
+  seated=getMem('g:podium').list.map(x=>x.w);
+  ok(JSON.stringify(seated)===JSON.stringify([A,P1,P2]),
+    'today #1 takes seat 1 and replaces yesterday #3 first');
+
+  mem.get(zk).set(B,80); await game.refreshLivePodium(true);
+  seated=getMem('g:podium').list.map(x=>x.w);
+  ok(JSON.stringify(seated)===JSON.stringify([A,B,P1]),
+    'today #2 takes seat 2 and replaces yesterday #2');
+
+  mem.get(zk).set(C,60); await game.refreshLivePodium(true);
+  seated=getMem('g:podium').list.map(x=>x.w);
+  ok(JSON.stringify(seated)===JSON.stringify([A,B,C]),
+    'three ranked wallets today fully own the live podium');
+
+  mem.get(zk).set(B,120); await game.refreshLivePodium(true);
+  seated=getMem('g:podium').list.map(x=>x.w);
+  ok(JSON.stringify(seated)===JSON.stringify([B,A,C]),
+    'a settled XP lead change immediately reorders live payout shares');
+
+  const history=getMem('g:podium:history')||[];
+  ok(history.length>0 && history.every(x=>Number(x.until)>Date.now()),
+    'replaced payout snapshots retain only bounded signing grace');
 }
 
 
@@ -976,10 +1089,12 @@ const kvmod = require('../lib/kv.js');
 
   resetRL();
   const crA0 = getMem(`u:${WA}`).cr;
+  const shotsBeforeOffer = Number(stats().shots) || 0;
   r = await call('POST', { body:{ action:'challenge', auth:au(WA,skA), kind:'thr', feed:'SOL', pct:0.01, mins:30, side:'YES', stake:500 } });
   ok(r.body.ok && r.body.challenge.id, 'a real wallet writes one');
   const cid = r.body.ok && r.body.challenge.id;
   ok(getMem(`u:${WA}`).cr === crA0 - 500, 'the author pays on writing — otherwise it is not an offer');
+  ok((Number(stats().shots)||0) === shotsBeforeOffer, 'an untaken offer is not counted as a shot');
   ok(!r.body.challenge.thresh, 'and no level is struck yet');
 
   r = await call('GET', { query:{ action:'challenges' } });
@@ -1006,6 +1121,7 @@ const kvmod = require('../lib/kv.js');
   r = await call('POST', { body:{ action:'accept', auth:au(WC,skC), id:cid } });
   ok(!r.body.ok && !getMem(`chaltaken:${cid}`),
      'an underfunded taker releases the acceptance gate');
+  ok((Number(stats().shots)||0) === shotsBeforeOffer, 'a failed acceptance creates no shot accounting');
 
   // the taker gets the opposite side, struck now
   resetRL();
@@ -1022,6 +1138,11 @@ const kvmod = require('../lib/kv.js');
   ok(opA[0].entry === opB[0].entry && opA[0].exp === opB[0].exp, 'identical terms — exactly one can win');
   ok(opA[0].chal === cid && opB[0].chal === cid, 'both reference the challenge');
   ok(!!opA[0].commit && !!opB[0].commit, 'and both are recorded with a commitment like any shot');
+  ok((Number(stats().shots)||0) === shotsBeforeOffer + 2, 'one accepted challenge counts exactly two durable shots');
+  resetRL();
+  await call('GET', { query:{ action:'state', wallet:WA }, ip:'30.0.0.1' });
+  await call('GET', { query:{ action:'state', wallet:WB }, ip:'30.0.0.2' });
+  ok((Number(stats().shots)||0) === shotsBeforeOffer + 2, 'state repair cannot recount accepted challenge shots');
 
   resetRL();
   r = await call('GET', { query:{ action:'challenges' } });
@@ -1037,7 +1158,8 @@ const kvmod = require('../lib/kv.js');
   r = await call('POST', { body:{ action:'challenge', auth:au(WA,skA), kind:'dir', feed:'ETH', mins:15, side:'YES', stake:1000 } });
   const gone = r.body.challenge.id;
   const cl = getMem('g:chal'); cl.find(c=>c.id===gone).expiresAt = Date.now()-1000; setMem('g:chal', cl);
-  await call('GET', { query:{ action:'state' } });          // any request sweeps
+  await new Promise(resolve => setTimeout(resolve, 5)); // let the prior response's finally release its player lease
+  await call('GET', { query:{ action:'state', wallet:WA } }); // sweep then wallet drains its atomic refund
   ok(getMem(`u:${WA}`).cr === crA1, 'an offer nobody took refunds the author in full');
   ok(!(getMem('g:chal')||[]).some(c=>c.id===gone), 'and leaves the board');
 

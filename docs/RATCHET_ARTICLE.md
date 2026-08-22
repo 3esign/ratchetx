@@ -49,11 +49,11 @@ mapping our on-chain roadmap we audited our own core promise and found it soft: 
 side was technically readable through the public log before settlement. Nobody had noticed. We
 found it, fixed it, and disclosed it in the changelog the same hour.
 
-Now every seal writes `sha256(side|salt)` into the hash-chained log — a commitment, not a
-secret in plaintext. Settlement reveals the side and salt, so **anyone can verify every seal
-after the fact, and nobody — including us, including our own database exports — can read one
-before.** You cannot be front-run, copy-traded, or spied on, and you don't have to take our
-word for it: the math is the guarantee.
+New seals write `sha256("RATCHET|v2|wallet|shotId|side|salt")` into the hash-chained log.
+Settlement reveals side and salt, so anyone can verify the commitment. Public APIs and snapshots
+cannot expose an open side; the server necessarily retains reveal terms until settlement. This
+prevents spectator copying and post-hoc answer changes, but it is not zero-knowledge from the
+operator, and the article should not pretend otherwise.
 
 ## Real rewards, and still no key anywhere
 
@@ -69,12 +69,11 @@ transaction. There is no prize pool, no custody, no claim button, because the mo
 anywhere: it moves player-to-champion in the same block, and the server's only job is to refuse
 any reload whose transfers go anywhere but the incinerator or the published podium.
 
-Two rules keep it honest. **The Holder Rule:** a champion must keep at least half of their last
-seven days' winnings in their wallet, or the seat silently passes to the next player — nobody's
-tokens are locked, but dumping has a published price: the income stops. And **the Gearbox:**
-staking with no deposit — register with one signature, your tokens never move, and the Machine
-pays daily play-credits on your verified on-chain balance. Every staking rug in history needed
-your tokens in their contract; ours can't rug you because it never takes anything.
+The podium is dynamic: today's settled-XP top three control the 50/30/20 shares immediately.
+At the UTC reset, previous-day winners fill empty positions until today's #1, #2 and #3 replace
+yesterday's #3, #2 and #1. There is no continuing hold or sell condition. The **Gearbox** is a
+separate no-deposit credit feature: register with one signature, keep custody, and the Machine
+reads the verified balance without moving tokens.
 
 The team is paid exactly one way: the standard pump.fun creator fee on trading volume, to a
 published wallet. 0% of stakes. 0% of reloads. Printed on the buttons, frozen.
@@ -128,14 +127,12 @@ immutable bug is forever and we will not rush the one component where a mistake 
 
 ## What we are not claiming
 
-The devnet program is exactly that — **devnet**. It is research, not the live money path;
-the game you play today still settles on our server, which is the entire reason the proof page
-exists. The Machine's floor is **simulated and labeled so** until that audited vault exists. The Warden
-is a v0 heuristic and says so on its own page. Log entries from before the cryptographic-sealing
-upgrade contain what they contain — a hash chain cannot be rewritten, and we wouldn't want one
-that could. Rewards are play-credits and real RCX to champions, never minted tokens: there is
-no faucet, there will never be a faucet, and nothing here is financial advice — it's a game
-about being right, and most people aren't.
+The settlement program exists on **mainnet**, but its deployed legacy rules are research evidence,
+not the live referee or a vault; mirroring stays disabled until reviewed v2 rules are deployed.
+The Machine floor is a non-redeemable model until a separately audited and funded vault exists.
+The Warden is a labeled heuristic. Early log rows keep their historical commitment version.
+Play-credits have disclosed faucets — welcome grant, hit returns, reloads, pots and Gearbox — and
+none of them mints RCX. Nothing here is financial advice; it is a game about being right.
 
 ## Why we think this matters
 

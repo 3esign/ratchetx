@@ -20,7 +20,7 @@ const { rows, toCsv, COLUMNS, SCHEMA, SALT, MAX_LIMIT } = require('../lib/record
 const { logCount } = require('../lib/log.js');
 const { getJSON } = require('../lib/kv.js');
 
-const VERSION = 'h51-2026-08-21';
+const VERSION = 'h52-2026-08-22';
 const SITE = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
 const REPO = 'https://github.com/3esign/ratchetx';
 const esc = s => String(s == null ? '' : s)
@@ -153,10 +153,11 @@ This one is open, it grows every time somebody plays, and it cannot be back-fill
     ['exit', 'float|null', 'The settling price: the first oracle publish at or after expiry.'],
     ['exitAt', 'ms|null', 'Timestamp of that exact oracle sample. The row is reproducible from it.'],
     ['settledAt', 'ms', 'When settlement was recorded.'],
-    ['commit', 'hex', 'The published commitment: sha256("SIDE|salt").'],
+    ['commit', 'hex', 'Published commitment. v2 binds wallet, shot id, side and salt; legacy v1 binds side and salt.'],
+    ['commitVersion', 'int', 'Formula: 2 = sha256("RATCHET|v2|wallet|shotId|SIDE|salt"); 1 = legacy sha256("SIDE|salt").'],
     ['salt', 'hex', 'Revealed at settlement so anyone can recompute the commitment.'],
     ['sealed', 'bool', 'Whether this row carries a commitment at all. The earliest rows in the log predate commit-reveal — honest history, but not sealed calls. Filter on this if the seal is what you came for.'],
-    ['commitVerified', 'bool|null', 'We recompute sha256(side|salt) at export and report whether it matches. Do not take our word for it — the inputs are right there.'],
+    ['commitVerified', 'bool|null', 'The exporter recomputes the versioned formula. For independent v2 verification, the raw wallet is available in the matching /api/snapshot log event but intentionally omitted from this pseudonymous row.'],
     ['reason', 'string|null', 'Why a void was a void.'],
   ].map(([f, t, m]) => `<tr><td>${esc(f)}</td><td>${esc(t)}</td><td>${m}</td></tr>`).join('')}
   </tbody></table></div>

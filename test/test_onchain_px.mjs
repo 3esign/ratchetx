@@ -79,6 +79,7 @@ for (const s of Object.keys(TRUE_PX)) {
   assert.ok(Math.abs(r.confs[s] - wantBps) < 0.005,
     `${s} confidence band decoded ${r.confs[s]}bps, bytes say ${wantBps.toFixed(3)}bps`);
   assert.equal(r.pubs[s], now - 4, `${s} publish_time must be the oracle's own, verbatim`);
+  assert.equal(r.prevPubs[s], now - 64, `${s} prev_publish_time must survive decoding for first-crossing settlement`);
 }
 // The observatory joins prices to telemetry by symbol. If those key sets ever
 // diverge, a dropped feed acquires a confidence band or a kept one loses its

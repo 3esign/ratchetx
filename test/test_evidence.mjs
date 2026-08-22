@@ -30,7 +30,7 @@ const html = fs.readFileSync('../index.html', 'utf8');
 {
   const game = fs.readFileSync('../api/game.js', 'utf8');
   const fleet = game.slice(game.indexOf('fleet: AGENTS.map'), game.indexOf('open: open.map'));
-  ok(/listed: r\.n >= ARENA_MIN_CALLS/.test(fleet),
+  ok(/listed:\s*r\.n >= ARENA_MIN_CALLS/.test(fleet),
     'the house fleet carries the same minimum-calls flag as the arena');
   ok(/\(y\.listed - x\.listed\)/.test(fleet),
     'and sorts listed agents first, so 1-for-1 cannot outrank 20-for-30');
@@ -84,25 +84,21 @@ const html = fs.readFileSync('../index.html', 'utf8');
     'and the difference is stated on the page rather than left to the reader');
 }
 
-// ---- 7. THE CHAMPION CONSOLE MUST NOT READ AS A GREEN LIGHT ----
-// It printed "SAFE TO SELL RIGHT NOW: <entire balance>" in green to a
-// champion the seat had never paid — true arithmetic, and it read as the
-// game endorsing a dump, directly under a rule about losing the seat.
+// ---- 7. PODIUM IS LIVE, FALLBACK IS EXPLICIT, RECEIPTS ARE EXACT ----
 {
-  // Assert on what is RENDERED, not on the source text — the phrase still
-  // appears in the comment explaining why it was removed, and a test that
-  // cannot tell those apart would fail the day someone documents a fix.
-  ok(!/\$\{c\.safeSell/.test(html), 'the safeSell value is no longer interpolated into the page');
-  ok(!/var\(--grn\)">SAFE TO SELL/.test(html), 'and no green sell figure is rendered');
-  ok(/no claim on your balance at all/.test(html),
-    'an unpaid champion is told the rule does not apply yet, rather than given a number');
-  ok(/held by XP on the daily\s*\n?\s*ladder/.test(html) || /held by XP on the daily/.test(html),
-    'and told what actually holds the seat');
-  ok(/Not advice either way/.test(html), 'and the trading note is neutral');
-  ok(/above that floor/.test(html) && /below it — the seat is at risk/.test(html),
-    'while a champion who HAS been paid still gets the real floor, both ways');
+  const game = fs.readFileSync('../api/game.js', 'utf8');
+  ok(!/\$\{c\.safeSell/.test(html), 'no safe-to-sell value is rendered');
+  ok(!/HOLDER RULE: CHAMPIONS WHO DUMP/.test(html), 'the removed holding condition is gone from the live UI');
+  ok(/seatRule:'live-daily-xp'/.test(game), 'server publishes live daily XP as the seat rule');
+  ok(/replace yesterday's #3, #2 and #1/.test(html),
+    'the previous-day fallback handoff order is stated exactly');
+  ok(/c\.received7/.test(html) && /c\.retained7/.test(html) && /c\.total7/.test(html),
+    'incoming, self-retained and total podium RCX remain separate figures');
+  ok(/x\.kind==="received"/.test(html) && /YOUR RELOAD/.test(html) && /solscan\.io\/tx/.test(html),
+    'each kind of reward renders a transaction-linked receipt');
+  ok(/ALL-TIME XP/.test(html) && /RECORD ONLY · NO PRIZE/.test(html) && /id="ladderAll"/.test(html),
+    'all-time XP is visible and explicitly carries no payout');
 }
-
 // ---- 8. EVERY REPO LINK THE SITE PUBLISHES MUST RESOLVE ----
 // Moving files into docs/ broke four links across two releases: the footer's
 // "our own audit", README's RESURRECTION.md, and the schema link on the very

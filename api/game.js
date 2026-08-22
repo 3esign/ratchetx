@@ -41,18 +41,20 @@
 //      hits and misses alike. v0 heuristic, scored like everyone.
 // ============================================================
 const crypto = require('node:crypto');
-const { getJSON, getCached, getJSONStrict, setJSON, setManyJSONAtomic, setnxJSON, delKey, scanKeys, durable, zincr, ztop, incrFloat, takeNum, hincr, hall, hseed} = require('../lib/kv.js');
+const { getJSON, getCached, getJSONStrict, setJSON, setManyJSONAtomic, setnxJSON,
+  acquireLease, releaseLease, delKey, scanKeys, durable, zincr, zmax, ztop, incrFloat,
+  takeNum, hincr, hincrMany, zincrManyOnce, applyOnce, hall, hseed} = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped, b58decode } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
-const { priceAt, pathFor, sample: samplePx } = require('../lib/pxlog.js');
+const { priceAt, priceCrossing, pathFor, sample: samplePx } = require('../lib/pxlog.js');
 const { report: feedReport, noteSettle, ensureRollups } = require('../lib/feedhealth.js');
 const { realisedVol, sigmaOver, probAbove } = require('../lib/vol.js');
 const { ACCOUNTS: PX_ACCOUNTS } = require('../lib/onchain_px.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
-const { append, decideAnchor } = require('../lib/log.js');
+const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h51-2026-08-21';
+const VERSION = 'h52-2026-08-22';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -100,20 +102,13 @@ function parseMirrorSeal(data) {
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
 const POT_DAY_SHARE = 0.5;                               // of the pot share: half daily, half weekly
-// THE CHAMPION'S CUT (h3): the same 70/30/0 rule, enforced at the one
-// door where REAL tokens move. Every RELOAD: 70% burns, 30% goes
-// straight to the last completed day's top-3 wallets (50/30/20) inside
-// the payer's own signed transaction. No pool, no custody, no key, no
-// claim button. A podium wallet with no RCX account forfeits its leg to
-// the burn. Announced in CHANGES; never retroactive.
-const CHAMP = { pct: 0.30, curve: [0.5, 0.3, 0.2],
-  // THE HOLDER RULE — keyless anti-dump: to be eligible for the podium a
-  // wallet must still HOLD >= holdPct of the champion RCX it was paid in
-  // the last holdDays days (balances are public; the chain enforces
-  // nothing, the PODIUM SEAT does). Sell your winnings -> the next
-  // player up takes your seat and your income stream. Nobody's tokens
-  // are ever locked; dumping just has a published price.
-  holdPct: 0.5, holdDays: 7 };
+// THE CHAMPION'S CUT: 30% of each reload routes to the LIVE daily top three
+// (50/30/20). A settled HIT can move a seat immediately; the board resets at
+// 00:00 UTC. The all-time ladder never resets but does not control RCX payout.
+// Replaced snapshots remain valid only for a short signing grace, so a wallet
+// already approving a transaction is never raced by a leaderboard update.
+const CHAMP = { pct:0.30, curve:[0.5,0.3,0.2], receiptDays:7,
+  seatRule:'live-daily-xp', signingGraceMs:10*60e3 };
 // SOFT-STAKING (h3): "staking" with NO deposit, NO custody, NO contract.
 // A wallet registers (one signature), keeps its RCX exactly where it is,
 // and earns daily PLAY-CREDITS on its verified on-chain balance — read
@@ -132,6 +127,12 @@ const stakeYield = bal => (bal >= STAKE.minBal ? Math.floor(Math.min(bal, STAKE.
 // read one before. This is also Stage 2 of the on-chain path: the same
 // commitment can be anchored on-chain per shot.
 const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
+// v2 binds a reveal to the wallet and shot id as well as the side and salt.
+// Legacy v1 (`side|salt`) remains verifiable in the public record, but a v1
+// commitment can be copied between shots without the hash itself proving
+// which identity and round it belonged to.
+const shotCommit = (w, id, side, salt) =>
+  sha256hex(`RATCHET|v2|${w}|${id}|${side}|${salt}`);
 // FREE STAKING (h11). The old three tiers — 100 x1, 500 x2, 2500 x5 — were three
 // points on a square root: sqrt(stake/100). Making the curve continuous lets a
 // player stake ANY amount in range without touching the design law, because the
@@ -258,6 +259,14 @@ const PRIZE_D = [0.50, 0.30, 0.20];               // daily pot: top 3
 const EPS = 0.0004; // |move| under 4bp = void -> stake refunded, no XP
 const FLOOR_BASE = 0.004180;
 const STALE_VOID_MS = 24 * 3600e3;  // feed gone 24h past expiry -> auto-void
+// Integer allocation, with every unit accounted for.  Floating 0.70/0.15
+// increments left fractional credit dust for arbitrary whole-number stakes.
+const stakeAllocation = stake => {
+  const burn = Math.floor(stake * 70 / 100);
+  const potTotal = stake - burn;
+  const potD = Math.floor(potTotal / 2);
+  return { burn, potD, pot: potTotal - potD };
+};
 
 // ============================================================
 //  CHALLENGES — a question a player writes, that only counts if
@@ -306,6 +315,9 @@ const shortW = w => w.slice(0,4)+'…'+w.slice(-4);
 // fortress — serverless scales out — but it prices out naive loops, and
 // the KV quota is the thing being protected.
 const RL = globalThis.__ratchet_rl || (globalThis.__ratchet_rl = new Map());
+// Automatic Blink discovery is a convenience, not a reason to scan Solana on
+// every six-second UI poll. The explicit anchor endpoint remains immediate.
+const AUTO_ANCHOR_SCAN = globalThis.__ratchet_anchor_scan || (globalThis.__ratchet_anchor_scan = new Map());
 function rateLimited(ip, isPost) {
   const now = Date.now(), win = 60e3, cap = isPost ? 20 : 80;
   const e = RL.get(ip) || { t: now, n: 0 };
@@ -346,15 +358,23 @@ async function loadPlayer(w) {
   if (owed > 0) { p.cr = (p.cr || 0) + owed; p._drained = (p._drained || 0) + owed; }
   const owed7 = await takeNum(`c7:${w}`);
   if (owed7 > 0) {
-    // champion pay lands on the day it is drained, which is the champion's
-    // next request — effectively same-day, and never lost.
+    // Actual incoming RCX from somebody else's reload.
     p.champ7 = p.champ7 || {};
     p.champ7[today()] = (p.champ7[today()] || 0) + owed7;
     p._drained7 = (p._drained7 || 0) + owed7;
   }
-  // keep the holder window from growing without bound
-  if (p.champ7) for (const k of Object.keys(p.champ7))
-    if (Date.now() - new Date(k + 'T00:00:00Z').getTime() > (CHAMP.holdDays + 1) * 86400e3) delete p.champ7[k];
+  const self7 = await takeNum(`cs7:${w}`);
+  if (self7 > 0) {
+    // A champion reloading their own wallet keeps their seat's route. It is
+    // not an incoming transfer and never earns extra credits, but it is real
+    // podium value and must not be displayed as "earned 0".
+    p.champSelf7 = p.champSelf7 || {};
+    p.champSelf7[today()] = (p.champSelf7[today()] || 0) + self7;
+    p._drainedSelf7 = (p._drainedSelf7 || 0) + self7;
+  }
+  // Receipt totals are a display window, not an eligibility condition.
+  for (const bag of [p.champ7, p.champSelf7]) if (bag) for (const k of Object.keys(bag))
+    if (Date.now() - new Date(k + 'T00:00:00Z').getTime() > (CHAMP.receiptDays + 1) * 86400e3) delete bag[k];
   p._existed = existed;
   return p;
 }
@@ -365,20 +385,22 @@ async function savePlayer(p) {
   try {
     await setJSON(`u:${p.w}`, q);
   } catch (e) {
-    if (p._drained > 0)  { try { await incrFloat(`pend:${p.w}`, p._drained); } catch {} }
-    if (p._drained7 > 0) { try { await incrFloat(`c7:${p.w}`, p._drained7); } catch {} }
+    if (p._drained > 0)     { try { await incrFloat(`pend:${p.w}`, p._drained); } catch {} }
+    if (p._drained7 > 0)    { try { await incrFloat(`c7:${p.w}`, p._drained7); } catch {} }
+    if (p._drainedSelf7 > 0){ try { await incrFloat(`cs7:${p.w}`, p._drainedSelf7); } catch {} }
     throw e;
   }
 }
 function playerRecord(p) {
   const q = { ...p };
-  delete q._existed; delete q._src; delete q._drained; delete q._drained7;
+  delete q._existed; delete q._src; delete q._drained; delete q._drained7; delete q._drainedSelf7;
   return q;
 }
 async function restoreDrains(players) {
   for (const p of players) {
-    if (p._drained > 0)  { try { await incrFloat(`pend:${p.w}`, p._drained); } catch {} }
-    if (p._drained7 > 0) { try { await incrFloat(`c7:${p.w}`, p._drained7); } catch {} }
+    if (p._drained > 0)     { try { await incrFloat(`pend:${p.w}`, p._drained); } catch {} }
+    if (p._drained7 > 0)    { try { await incrFloat(`c7:${p.w}`, p._drained7); } catch {} }
+    if (p._drainedSelf7 > 0){ try { await incrFloat(`cs7:${p.w}`, p._drainedSelf7); } catch {} }
   }
 }
 // TOTALS ARE ATOMIC.
@@ -397,29 +419,66 @@ async function seedStats() {
     if (legacy) await hseed(STATS, {
       burned: +legacy.burned || 0, pot: +legacy.pot || 0, potD: +legacy.potD || 0,
       shots: +legacy.shots || 0, realBurned: +legacy.realBurned || 0,
-      champPaid: +legacy.champPaid || 0, stakePaid: +legacy.stakePaid || 0,
+      champPaid: +legacy.champPaid || 0, champRetained: +legacy.champRetained || 0, stakePaid: +legacy.stakePaid || 0,
       stakers: +legacy.stakers || 0 });
   } catch { statsSeeded = false; }        // let the next request try again
 }
 async function loadStats() {
   await seedStats();
   const st = await hall(STATS);
-  for (const f of ['burned','pot','potD','shots','realBurned','champPaid','stakePaid','stakers'])
+  for (const f of ['burned','pot','potD','shots','realBurned','champPaid','champRetained','stakePaid','stakers','hitPaid'])
     if (!Number.isFinite(st[f])) st[f] = 0;
   // derived, not stored: a stored high-water mark could be stepped BACKWARDS
   // by a stale write, which is exactly what "monotone by construction" must
   // never allow. Computing it from the burn total makes it monotone for real.
   st.floor = Math.max(FLOOR_BASE, FLOOR_BASE + (st.realBurned || 0) * 1e-9);
+  st.floorMode = 'simulation';
   return st;
 }
 /** Apply a set of deltas atomically, field by field. */
 async function bumpStats(deltas) {
-  for (const [f, v] of Object.entries(deltas)) if (v) await hincr(STATS, f, v);
+  await hincrMany(STATS, deltas);
 }
 async function bumpFeed(entry) {
-  const f = (await getJSON('g:feed')) || [];
-  f.unshift({ t: Date.now(), ...entry });
-  await setJSON('g:feed', f.slice(0, 100));
+  const lease = await acquireLease('lock:g:feed', 15);
+  if (!lease) return false; // cosmetic feed may skip a contested row; the hash log never does
+  try {
+    const f = (await getJSONStrict('g:feed')) || [];
+    if (entry.id && f.some(x => x && x.id === entry.id)) return false;
+    f.unshift({ t: Date.now(), ...entry });
+    await setJSON('g:feed', f.slice(0, 100));
+    return true;
+  } finally {
+    try { await releaseLease('lock:g:feed', lease); } catch {}
+  }
+}
+
+/** Persist a verified Solana memo anchor without a replay/list split-brain.
+ *
+ * The signature gate used to land before `g:anchors`.  A process death in
+ * between made the transaction permanently "already credited" while the
+ * proof page could never discover it.  Write the de-duplicated list first
+ * under a per-signature lease, then close the replay gate.  A retry repairs
+ * either partial state safely. */
+async function claimAnchor(w, sig, d) {
+  const lockKey = `lock:anchor:${sig}`;
+  const lease = await acquireLease(lockKey, 30);
+  if (!lease) return { ok:false, busy:true };
+  try {
+    if (await getJSONStrict(`sig:${sig}`)) return { ok:false, duplicate:true };
+    const now = Date.now();
+    const row = { i:d.i, h:d.h, sig, slot:d.slot, w:shortW(w), t:now };
+    const anchors = (await getJSONStrict('g:anchors')) || [];
+    await setJSON('g:anchors', [row, ...anchors.filter(a => a && a.sig !== sig)].slice(0, 30));
+    const won = await setnxJSON(`sig:${sig}`, { w, anchor:d.i, t:now });
+    if (!won) {
+      if (await getJSONStrict(`sig:${sig}`)) return { ok:false, duplicate:true };
+      throw new Error('anchor replay gate could not be persisted');
+    }
+    return { ok:true, row };
+  } finally {
+    try { await releaseLease(lockKey, lease); } catch {}
+  }
 }
 // Ranked boards only ever see real, signature-verified wallets.
 // LADDERS ARE ATOMIC.
@@ -455,13 +514,57 @@ async function ladderTop(pfx, period, n) {
   return (await ztop(zkey(pfx, period), n)).filter(([w]) => !isDemo(w));
 }
 
+const ALLTIME_BOARD = zkey('lba:', 'all');
+let allTimeReady = false;
+
+/** Backfill lifetime XP without pausing live settlements. zmax makes every
+ * row monotonic, so a concurrent ZINCRBY can never be overwritten or doubled. */
+async function ensureAllTimeBoard() {
+  if (allTimeReady) return true;
+  if (await getJSONStrict('g:alltime:seeded')) { allTimeReady = true; return true; }
+  const lease = await acquireLease('lock:g:alltime:seed', 120);
+  if (!lease) return false;
+  try {
+    if (!(await getJSONStrict('g:alltime:seeded'))) {
+      for (const key of await scanKeys('u:*')) {
+        const p = await getJSONStrict(key);
+        if (p && isWalletShaped(p.w) && Number.isFinite(+p.xp) && +p.xp > 0)
+          await zmax(ALLTIME_BOARD, +p.xp, p.w);
+      }
+      await setJSON('g:alltime:seeded', { t:Date.now(), rule:'max-player-xp' });
+    }
+    allTimeReady = true; return true;
+  } finally {
+    try { await releaseLease('lock:g:alltime:seed', lease); } catch {}
+  }
+}
+
 async function bumpLadder(w, xp, qualified) {
   if (isDemo(w)) return;
   if (qualified === false) return;      // unverified wallet: plays, does not rank
+  await ensureAllTimeBoard();
   await migrateLadder('lb:', seasonKey());
   await migrateLadder('lbd:', today());
   await zincr(zkey('lb:', seasonKey()), xp, w);
   await zincr(zkey('lbd:', today()), xp, w);
+  await zincr(ALLTIME_BOARD, xp, w);
+  try { await refreshLivePodium(true); } catch {}
+}
+/** Credit one settlement to daily, season and all-time ladders exactly once. */
+async function bumpLadderOnce(w, xp, qualified, shotId) {
+  if (isDemo(w) || qualified === false) return false;
+  const season = seasonKey(), day = today();
+  await ensureAllTimeBoard();
+  await migrateLadder('lb:', season);
+  await migrateLadder('lbd:', day);
+  const won = await zincrManyOnce(`ladder:${w}:${shotId}`,
+    { w, shotId, xp, season, day, t:Date.now() }, [
+      [zkey('lb:', season), w, xp],
+      [zkey('lbd:', day), w, xp],
+      [ALLTIME_BOARD, w, xp],
+    ]);
+  if (won) try { await refreshLivePodium(true); } catch {}
+  return won;
 }
 
 // ---- which token program owns the mint (classic vs Token-2022), cached 1h.
@@ -507,7 +610,7 @@ async function getMcap() {
 // It used to collapse the last two into null, and every caller turned that
 // into `bal: 0`. So a dead RPC and an empty wallet produced the identical
 // number — cached for a minute, shown to the holder as "0 RCX", and, worse,
-// fed to the staking payout and the podium holder rule as if it were a fact.
+// fed to the staking payout and earlier eligibility logic as if it were a fact.
 // A balance we could not read is not a balance of zero.
 async function findAta(owner) {
   const r = await rpcCall('getTokenAccountsByOwner', [owner, { mint: MINT }, { encoding: 'jsonParsed' }]);
@@ -519,7 +622,7 @@ async function findAta(owner) {
   return { ata: a.pubkey, bal };
 }
 
-// sum of champion RCX received inside the holder window — pure, tested.
+// Sum recent receipt buckets for display; never used to decide a seat.
 function champWindowSum(champ7, nowMs, days) {
   if (!champ7) return 0;
   let s = 0;
@@ -528,6 +631,73 @@ function champWindowSum(champ7, nowMs, days) {
     if (Number.isFinite(t) && nowMs - t <= days * 86400e3) s += +v || 0;
   }
   return s;
+}
+
+let podiumRefreshAt = 0;
+/** Publish the live DAILY top three. Empty live seats inherit yesterday's
+ * podium from the top down: the prior #3, then #2, then #1 are displaced as
+ * today's first, second and third distinct ranked wallets appear. */
+async function refreshLivePodium(force = false) {
+  if (!MINT) return { period:today(), list:[] };
+  const now = Date.now();
+  if (!force && now - podiumRefreshAt < 1500)
+    return (await getJSONStrict('g:podium')) || { period:today(), list:[] };
+  podiumRefreshAt = now;
+  const lease = await acquireLease('lock:g:podium:live', 30);
+  if (!lease) return (await getJSONStrict('g:podium')) || { period:today(), list:[] };
+  try {
+    const day = today();
+    await migrateLadder('lbd:', day);
+    const ranked = await ladderTop('lbd:', day, CHAMP.curve.length);
+    const current = await getJSONStrict('g:podium');
+    let fallback = await getJSONStrict('g:podium:fallback');
+    let fallbackChanged = false;
+    if (!fallback || fallback.day !== day) {
+      const prior = current && current.period !== day
+        ? current
+        : (await getJSONStrict('g:podium:prev'));
+      fallback = { day, from:prior && prior.period || null,
+        list:((prior && prior.list) || []).slice(0, CHAMP.curve.length) };
+      fallbackChanged = true;
+    }
+
+    const live = ranked.map(([w, xp]) => ({ w, xp, source:'today' }));
+    const liveOwners = new Set(live.map(x => x.w));
+    const inherited = (fallback.list || []).filter(x => x && x.w && !liveOwners.has(x.w))
+      .map(x => ({ ...x, source:'previous' }));
+    const merged = [...live, ...inherited].slice(0, CHAMP.curve.length);
+    const owners = merged.map(x => x.w);
+    const same = current && current.period === day
+      && (current.list || []).map(x => x.w).join('|') === owners.join('|');
+    if (same && !fallbackChanged) return current;
+
+    const list = [];
+    for (let i = 0; i < merged.length; i++) {
+      const row = merged[i], read = row.ata ? { ata:row.ata } : await findAta(row.w);
+      list.push({ w:row.w, xp:Number.isFinite(+row.xp) ? +row.xp : null,
+        source:row.source, ata:read && read.ata ? read.ata : null, pct:CHAMP.curve[i] });
+    }
+    const t = Date.now();
+    const next = { v:2, id:sha256hex(JSON.stringify({ day, owners, t })).slice(0,16),
+      rule:CHAMP.seatRule, period:day, t, list };
+    const oldHistory = (await getJSONStrict('g:podium:history')) || [];
+    const history = [
+      ...(current ? [{ ...current, until:t + CHAMP.signingGraceMs }] : []),
+      ...oldHistory,
+    ].filter((x, i, a) => x && Number(x.until) >= t
+      && a.findIndex(y => (y.id || y.t) === (x.id || x.t)) === i).slice(0,20);
+    await setManyJSONAtomic([
+      ['g:podium', next],
+      ['g:podium:prev', current || null],
+      ['g:podium:fallback', fallback],
+      ['g:podium:history', history],
+    ]);
+    await append({ k:'podium', rule:CHAMP.seatRule, period:day,
+      id:next.id, list:list.map(x => ({ w:x.w, xp:x.xp, pct:x.pct, source:x.source })) });
+    return next;
+  } finally {
+    try { await releaseLease('lock:g:podium:live', lease); } catch {}
+  }
 }
 
 // ---- pot rollovers: LAZY and automatic, daily and weekly. The first
@@ -541,22 +711,42 @@ function champWindowSum(champ7, nowMs, days) {
 // stake comes back — and the burn/pot contribution is unwound with it, or the
 // counters would record a shot that never happened. Lazy, like everything
 // else: the next request that passes by does the work.
+async function challengeLease() {
+  for (let a = 0; a < 30; a++) {
+    const token = await acquireLease('lock:g:chal', 20);
+    if (token) return token;
+    await new Promise(r => setTimeout(r, 20 + a * 5));
+  }
+  return null;
+}
+
 async function sweepChallenges() {
-  const list = (await getCached('g:chal', 5_000)) || [];
-  const now = Date.now();
-  const dead = list.filter(c => c && c.expiresAt <= now);
-  if (!dead.length) return;
-  await setJSON('g:chal', list.filter(c => c && c.expiresAt > now));
-  for (const c of dead) {
-    // one refund per challenge, ever, whoever happens to sweep it
-    if (!(await setnxJSON(`chalref:${c.id}`, { t: now }, 7 * 86400))) continue;
-    try {
-      const p = await loadPlayer(c.by);
-      p.cr = (p.cr || 0) + c.stake;
-      await reverseStake(c.stake, c.by);
-      await savePlayer(p);
-      await append({ k:'chalexpire', id: c.id, by: c.by, stake: c.stake, refunded: true });
-    } catch {}
+  const lease = await challengeLease();
+  if (!lease) return;
+  try {
+    const list = (await getJSONStrict('g:chal')) || [];
+    const now = Date.now();
+    const dead = list.filter(c => c && c.expiresAt <= now);
+    if (!dead.length) return;
+    await setJSON('g:chal', list.filter(c => c && c.expiresAt > now));
+    for (const c of dead) {
+      // one refund per challenge, ever, whoever happens to sweep it. Deposit
+      // into the atomic queue instead of racing a live player-record update.
+      const a = stakeAllocation(c.stake);
+      try {
+        const won = await applyOnce(`chalref:${c.id}`, { t: now }, {
+          exSeconds: 7 * 86400,
+          counters: [[`pend:${c.by}`, c.stake]],
+          hashKey: STATS,
+          deltas: c.allocationRule === 'on-settle-v2'
+            ? {} : { burned:-a.burn, potD:-a.potD, pot:-a.pot },
+        });
+        if (!won) continue;
+        await append({ k:'chalexpire', id: c.id, by: c.by, stake: c.stake, refunded: true });
+      } catch {}
+    }
+  } finally {
+    try { await releaseLease('lock:g:chal', lease); } catch {}
   }
 }
 
@@ -574,74 +764,48 @@ async function rolloverPots() {
     const ptr = await getJSON(d.ptr);
     if (!ptr) { await setJSON(d.ptr, d.cur); continue; }
     if (ptr === d.cur) continue;
-    if (!(await setnxJSON(`${d.lock}${ptr}`, { t: Date.now() }))) { await setJSON(d.ptr, d.cur); continue; }
+    const rollLock = `lock:roll:${d.k}:${ptr}`;
+    const lease = await acquireLease(rollLock, 60);
+    if (!lease) continue; // another request is finishing it; never advance the pointer early
     try {
-      const board = await ladderTop(d.pfx, ptr);
-      const ranked = board.slice(0, d.prizes.length);
-      const st = await loadStats();
-      const pot = Math.floor(st[d.potF] || 0);
-      let paid = 0; const winners = [];
-      for (let i = 0; i < ranked.length; i++) {
-        const share = Math.floor(pot * d.prizes[i]);
-        if (share <= 0) continue;
-        const [w, xp] = ranked[i];
-        // The winner may be mid-request elsewhere; depositing cannot be
-        // clobbered by their concurrent save the way a direct write could.
-        await incrFloat(`pend:${w}`, share);
-        paid += share;
-        winners.push({ w: shortW(w), xp, share });
-        await bumpFeed({ w: shortW(w), a: `${d.tag} #${i+1} · won ${share.toLocaleString()} credits`, c: 'hit' });
-      }
-      // Debit exactly what was paid. Writing the whole blob back here could
-      // resurrect a pot that a concurrent stake had already re-inflated from a
-      // pre-payout snapshot — the same pot then paid out twice.
-      await bumpStats({ [d.potF]: -paid });   // unclaimed shares stay in the pot
-      await setJSON(d.res, { period: ptr, pot, paid, rolled: pot - paid, winners, t: Date.now() });
-      await append({ k: d.k, period: ptr, pot, paid, winners });
-      if (d.k === 'daypot' && MINT) {
-        // refresh the CHAMPION PODIUM: the day's top 3 earn 50/30/20 of
-        // every reload's 30% cut until the next rollover. The outgoing
-        // podium is kept one period as a grace window, so a reload built
-        // moments before midnight still verifies against the list it was
-        // built from.
-        // Eligibility is the HOLDER RULE only — still holding >= 50% of the
-        // last seven days' champion pay. A dumper is skipped silently and
-        // the next player up is seated. Simply never having held any is not
-        // dumping, and no longer forfeits a seat.
-        const podRanked = board;
-        const list = [];
-        for (const [pw] of podRanked) {
-          if (list.length >= CHAMP.curve.length) break;
-          // NOT HAVING A TOKEN ACCOUNT IS NOT A REASON TO FORFEIT A SEAT.
-          // This used to `continue` whenever findAta came back empty, which
-          // sounds cautious and was in fact the single line keeping the
-          // podium permanently empty: the reload flow asks you to BURN your
-          // RCX, and a player who burns all of it has no token account left.
-          // The mechanism selected against exactly the behaviour it rewards.
-          // A missing account is a zero balance, nothing more — the holder
-          // rule below still catches an actual dumper, because a dumper has
-          // earned7 > 0 while a newcomer has earned7 == 0.
-          // A seat is forfeited for DUMPING, not for our RPC being down. If we
-          // cannot read the balance we cannot prove the rule was broken, and
-          // the champion keeps the seat until we can.
-          const read = await findAta(pw);
-          const unreadable = read === undefined;
-          const acc = read || { ata: null, bal: 0 };
-          const cp = await getJSONStrict(`u:${pw}`);
-          // Count what is banked but not yet drained too — a champion who has
-          // not opened the site since being paid must not look like they
-          // earned less, which would make the seat EASIER to keep.
-          const banked = Number(await getJSON(`c7:${pw}`)) || 0;
-          const earned7 = champWindowSum(cp && cp.champ7, Date.now(), CHAMP.holdDays) + banked;
-          if (!unreadable && acc.bal + 1e-9 < earned7 * CHAMP.holdPct) continue; // dumped -> seat forfeited
-          list.push({ w: pw, ata: acc.ata, pct: CHAMP.curve[list.length] });
+      const planKey = `rollplan:${d.k}:${ptr}`;
+      let plan = await getJSONStrict(planKey);
+      if (!plan) {
+        const board0 = await ladderTop(d.pfx, ptr);
+        const ranked = board0.slice(0, d.prizes.length);
+        const st = await loadStats();
+        const pot0 = Math.floor(st[d.potF] || 0);
+        const winners0 = [];
+        for (let i = 0; i < ranked.length; i++) {
+          const share = Math.floor(pot0 * d.prizes[i]);
+          if (share <= 0) continue;
+          const [owner, xp] = ranked[i];
+          winners0.push({ owner, w: shortW(owner), xp, share, rank:i+1 });
         }
-        const prevPod = await getJSON('g:podium');
-        if (prevPod) await setJSON('g:podium:prev', prevPod);
-        await setJSON('g:podium', { period: ptr, t: Date.now(), list });
-        await append({ k: 'podium', period: ptr, list: list.map(x => ({ w: x.w, pct: x.pct })) });
+        plan = { period:ptr, pot:pot0, board:board0, winners:winners0,
+          paid:winners0.reduce((n,x)=>n+x.share,0), t:Date.now() };
+        await setJSON(planKey, plan); // immutable payout terms before the first credit moves
       }
-      if (d.k === 'daypot') {
+      const { board, pot, paid, winners } = plan;
+      for (const x of winners) {
+        const won = await applyOnce(`rollpay:${d.k}:${ptr}:${x.rank}`, { owner:x.owner, share:x.share }, {
+          counters:[[ `pend:${x.owner}`, x.share ]],
+        });
+        if (won) await bumpFeed({ w:x.w, a:`${d.tag} #${x.rank} · won ${x.share.toLocaleString()} credits`, c:'hit' });
+      }
+      // Exactly one debit for the frozen plan. Concurrent new stakes remain
+      // in the live pot and belong to the new period.
+      await applyOnce(`rolldebit:${d.k}:${ptr}`, { paid }, {
+        hashKey:STATS, deltas:{ [d.potF]:-paid },
+      });
+      const publicWinners = winners.map(({ owner, ...x }) => x);
+      await setJSON(d.res, { period: ptr, pot, paid, rolled: pot - paid, winners:publicWinners, t: Date.now() });
+      if (!plan.logged) {
+        await append({ k: d.k, period: ptr, pot, paid, winners:publicWinners });
+        plan.logged = true; await setJSON(planKey, plan);
+      }
+
+      if (d.k === 'daypot' && !plan.rootDone) {
         // STAGE 1a of the on-chain path: fold a daily BALANCE ROOT into
         // the hash-chained log — sha256 over every player's (wallet,
         // credits, xp, burned), sorted, plus the machine stats. Any
@@ -653,7 +817,10 @@ async function rolloverPots() {
           const rows = [];
           for (const uk of await scanKeys('u:*')) {
             const pu = await getJSON(uk);
-            if (pu && pu.w) rows.push([pu.w, Math.floor(pu.cr || 0), Math.floor(pu.xp || 0), Math.floor(pu.burned || 0)]);
+            if (pu && pu.w) {
+              const queued = Number(await getJSON(`pend:${pu.w}`)) || 0;
+              rows.push([pu.w, Math.floor((pu.cr || 0) + queued), Math.floor(pu.xp || 0), Math.floor(pu.burned || 0)]);
+            }
           }
           rows.sort((a, b) => (a[0] < b[0] ? -1 : 1));
           const st2 = await loadStats();
@@ -662,12 +829,15 @@ async function rolloverPots() {
             pot: st2.pot, potD: st2.potD }));
           await append({ k: 'root', day: ptr, root, players: rows.length });
           await setJSON('g:lastRoot', { day: ptr, root, players: rows.length, t: Date.now() });
+          plan.rootDone = true; await setJSON(planKey, plan);
         } catch {}
       }
+      plan.done = true; await setJSON(planKey, plan);
       await setJSON(d.ptr, d.cur);
     } catch (e) {
-      await delKey(`${d.lock}${ptr}`);       // release: next request retries the payout
       throw e;
+    } finally {
+      try { await releaseLease(rollLock, lease); } catch {}
     }
   }
 }
@@ -821,50 +991,109 @@ async function wardenRollover(now = Date.now()) {
   return true;
 }
 
+const publicWarden = r => {
+  const q = { ...(r || { n:0, hits:0, brier:0 }) };
+  delete q.applied;
+  return q;
+};
+
+const wardenTickCache = globalThis.__ratchet_wardentick
+  || (globalThis.__ratchet_wardentick = { t:0, v:null });
+
 async function wardenTick(prices) {
-  await wardenRollover();
-  const wl = await wardenLine(prices);
-  // No line, no seal. A Warden that cannot measure volatility has nothing to
-  // say this hour, and saying nothing must not become a record of saying zero.
-  if (wl.p == null || !Number.isFinite(wl.thresh)) return (await getCached('g:warden:rec', 5_000)) || { n:0, hits:0, brier:0 };
-  const open = (await getCached('g:warden:open', 3_000)) || [];
-  if (!open.some(o => o.id === wl.id)) {
-    const sealed = { id: wl.id, feed: wl.feed, thresh: wl.thresh, p: wl.p,
-      q: wl.q, entry: prices[wl.feed], t: Date.now(), exp: Date.now() + wl.mins * 60e3 };
-    if (await setnxJSON(`wseal:${wl.id}`, sealed)) {
-      open.push(sealed);
-      await setJSON('g:warden:open', open);
-      await append({ k:'wseal', id: sealed.id, feed: sealed.feed, thresh: sealed.thresh, p: sealed.p, exp: sealed.exp });
+  if (wardenTickCache.v && Date.now() - wardenTickCache.t < 30_000)
+    return wardenTickCache.v;
+  const lease = await acquireLease('lock:g:warden', 45);
+  if (!lease) return publicWarden(await getCached('g:warden:rec', 5_000));
+  try {
+    await wardenRollover();
+    const wl = await wardenLine(prices);
+    if (wl.p == null || !Number.isFinite(wl.thresh))
+      return publicWarden(await getCached('g:warden:rec', 5_000));
+
+    const wAge = (prices.ages || {})[wl.feed];
+    const sealReady = prices.src === 'pyth-onchain'
+      && Number.isFinite(wAge) && wAge <= maxSealAge(wl.mins)
+      && Number.isFinite((prices.pubs || {})[wl.feed])
+      && Number.isFinite((prices.prevPubs || {})[wl.feed])
+      && Number.isFinite((prices.confs || {})[wl.feed])
+      && (prices.confs || {})[wl.feed] <= 200;
+    if (!sealReady) return publicWarden(await getCached('g:warden:rec', 5_000));
+
+    const open = (await getJSONStrict('g:warden:open')) || [];
+    let changed = false;
+    if (!open.some(o => o.id === wl.id)) {
+      const sealKey = `wseal:${wl.id}`;
+      let sealed = await getJSONStrict(sealKey);
+      if (!sealed) {
+        const sealedAt = Date.now();
+        const candidate = { id:wl.id, feed:wl.feed, thresh:wl.thresh, p:wl.p,
+          q:wl.q, entry:prices[wl.feed], t:sealedAt, exp:sealedAt + wl.mins * 60e3,
+          settleRule:'pyth-first-crossing-v2', oracleSrc:'pyth-onchain' };
+        if (await setnxJSON(sealKey, candidate)) sealed = candidate;
+        else sealed = await getJSONStrict(sealKey);
+      }
+      if (sealed) {
+        if (sealed.settleRule === 'pyth-first-crossing-v2')
+          await appendOnce(`wseal:${sealed.id}`, { k:'wseal', id:sealed.id, feed:sealed.feed,
+            thresh:sealed.thresh, p:sealed.p, exp:sealed.exp, settleRule:sealed.settleRule });
+        open.push(sealed);
+        changed = true;
+      }
     }
+
+    const now = Date.now(); const still = [];
+    const rec = (await getJSONStrict('g:warden:rec')) || { n:0, hits:0, brier:0 };
+    const hist = (await getJSONStrict('g:warden:hist')) || [];
+    rec.applied = Array.isArray(rec.applied) ? rec.applied : [];
+    for (const s of open) {
+      if (now < s.exp) { still.push(s); continue; }
+      if (s.settleRule !== 'pyth-first-crossing-v2') {
+        await appendOnce(`wvoid:${s.id}`, { k:'wvoid', id:s.id,
+          reason:'legacy-nondeterministic-settlement' });
+        changed = true; continue;
+      }
+      const at = await priceCrossing(s.feed, s.exp, now, s.oracleSrc || 'pyth-onchain');
+      if (at.wait) { still.push(s); continue; }
+      if (at.expired || !Number.isFinite(at.price)) {
+        await appendOnce(`wvoid:${s.id}`, { k:'wvoid', id:s.id,
+          reason:at.reason || 'no-oracle-crossing-in-window' });
+        changed = true; continue;
+      }
+      const move = Math.abs((at.price - s.thresh) / s.thresh);
+      if (move < EPS) {
+        await appendOnce(`wvoid:${s.id}`, { k:'wvoid', id:s.id,
+          reason:'threshold-tie', exitPx:at.price, exitAt:at.publishTime });
+        changed = true; continue;
+      }
+      const outcome = at.price > s.thresh;
+      const said = s.p >= 50;
+      const hit = said === outcome;
+      await appendOnce(`wsettle:${s.id}`, { k:'wsettle', id:s.id, outcome, hit,
+        exitPx:at.price, exitAt:at.publishTime, prevExitAt:at.prevPublishTime,
+        confBps:at.confBps });
+      if (!rec.applied.includes(s.id)) {
+        rec.n++; if (hit) rec.hits++;
+        rec.brier += Math.pow(s.p / 100 - (outcome ? 1 : 0), 2);
+        rec.applied.unshift(s.id);
+        rec.applied = rec.applied.slice(0, 500);
+        hist.unshift({ id:s.id, q:s.q, p:s.p, outcome, hit, exitPx:at.price,
+          exitAt:at.publishTime, t:now });
+      }
+      changed = true;
+    }
+    if (changed || still.length !== open.length)
+      await setManyJSONAtomic([
+        ['g:warden:rec', rec],
+        ['g:warden:hist', hist.slice(0, 20)],
+        ['g:warden:open', still],
+      ]);
+    const out = publicWarden(rec);
+    wardenTickCache.t = Date.now(); wardenTickCache.v = out;
+    return out;
+  } finally {
+    try { await releaseLease('lock:g:warden', lease); } catch {}
   }
-  const now = Date.now(); const still = []; let changed = false;
-  const rec = (await getCached('g:warden:rec', 5_000)) || { n:0, hits:0, brier:0 };
-  const hist = (await getCached('g:warden:hist', 5_000)) || [];
-  for (const s of open) {
-    const px = prices[s.feed];
-    if (now < s.exp || !Number.isFinite(px)) { still.push(s); continue; }
-    // ONE SETTLEMENT PER LINE, EVER.
-    // Two requests arriving together both read the same open list, both find
-    // the same expired line, and both increment the record — so one call could
-    // count as two, in the public record, on the page that claims a Warden's
-    // score is honest. Sealing was already guarded this way; settling was not.
-    // It is also what makes the open list safe to read from a short cache.
-    if (!(await setnxJSON(`wsettled:${s.id}`, { t: now }, 7 * 86400))) { changed = true; continue; }
-    const outcome = px > s.thresh;                       // did it cross?
-    const said = s.p >= 50;                              // what the Warden leaned
-    const hit = said === outcome;
-    rec.n++; if (hit) rec.hits++;
-    rec.brier += Math.pow(s.p / 100 - (outcome ? 1 : 0), 2);
-    hist.unshift({ id: s.id, q: s.q, p: s.p, outcome, hit, exitPx: px, t: now });
-    changed = true;
-    await append({ k:'wsettle', id: s.id, outcome, hit, exitPx: px });
-  }
-  if (changed) {
-    await setJSON('g:warden:rec', rec);
-    await setJSON('g:warden:hist', hist.slice(0, 20));
-  }
-  if (changed || still.length !== open.length) await setJSON('g:warden:open', still);
-  return rec;
 }
 
 
@@ -938,89 +1167,194 @@ function agentSide(agentId, t, prices, drift, seedN, wardenUp) {
 }
 
 // ---- the fleet's lazy tick: settle what expired, then seal this hour once.
-async function agentsTick(prices) {
-  const wLine = await wardenLine(prices);
-  const wardenUp = !!(wLine && wLine.p != null && wLine.p >= 50);
-  const hour = boardHour();
-  const board = Object.entries(targetBoard(hour))
-    .filter(([, t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])));
-  const recs = (await getCached('g:agents:rec', 5_000)) || {};
-  let open = (await getCached('g:agents:open', 3_000)) || [];
-  const now = Date.now();
-
-  // ---- settle
-  const still = []; let changed = false;
-  for (const o of open) {
-    const px = prices[o.feed];
-    if (now < o.exp || !Number.isFinite(px)) { still.push(o); continue; }
-    // Same guard as the Warden, for the same reason: two requests arriving
-    // together would both settle this call and count it twice in a record the
-    // page publishes as an accuracy figure. It also makes the open list safe
-    // to read from a short cache instead of on every single request.
-    if (!(await setnxJSON(`asettled:${o.id}`, { t: now }, 7 * 86400))) { changed = true; continue; }
-    let outcome;
-    // Same question, same rule as a human gets. THE BOX was scored strictly
-    // outside for agents and inclusively for players — two rules for one board.
-    if (o.kind === 'thr')          outcome = px > o.thresh;
-    else if (o.kind === 'thrDown') outcome = px < o.thresh;
-    else if (o.kind === 'range')   outcome = Math.abs((px - o.entry) / o.entry) >= o.pct;
-    else                           outcome = px > o.entry;
-    const said = o.side === 'YES';
-    const hit = said === outcome;
-    const r = recs[o.agent] || (recs[o.agent] = { n:0, hits:0, streak:0, best:0 });
-    r.n++; if (hit) { r.hits++; r.streak++; r.best = Math.max(r.best, r.streak); } else r.streak = 0;
-    r.last = { label: o.label, side: o.side, hit, t: now };
-    const nm = (AGENTS.find(a => a.id === o.agent) || {}).name || o.agent;
-    await bumpFeed({ w: nm, a: `${hit ? 'HIT' : 'MISS'} — ${o.label} · called ${o.side}`, c: hit ? 'hit' : 'miss', agent: 1 });
-    await append({ k:'agent', agent: o.agent, id: o.id, res: hit ? 'hit' : 'miss', side: o.side, exitPx: px });
-    changed = true;
-  }
-  open = still;
-
-  // ---- seal one call per agent per hour, exactly once, published openly
-  if (board.length) {
-    for (let i = 0; i < AGENTS.length; i++) {
-      const a = AGENTS[i];
-      const id = `${a.id}-${hour}`;
-      if (open.some(o => o.id === id)) continue;
-      const seedN = Math.abs(mulberry32(hour * 31 + i * 7)() * 1e9 | 0);
-      const [, t] = board[seedN % board.length];
-      const prev = (await getJSON('g:agents:px')) || {};
-      const p0 = prev[t.feed], p1 = prices[t.feed];
-      const drift = Number.isFinite(p0) && p0 > 0 ? (p1 - p0) / p0 : 0;
-      const side = agentSide(a.id, t, prices, drift, seedN, wardenUp);
-      const call = { id, agent: a.id, label: t.label, kind: t.kind, feed: t.feed, side,
-        entry: p1, t: now, exp: now + t.mins * 60e3 };
-      if (t.kind === 'thr')          call.thresh = p1 * (1 + t.pct);
-      else if (t.kind === 'thrDown') call.thresh = p1 * (1 - t.pct);
-      else if (t.kind === 'range')   { call.lo = p1 * (1 - t.pct); call.hi = p1 * (1 + t.pct); }
-      if (await setnxJSON(`aseal:${id}`, call)) {
-        open.push(call); changed = true;
-        await append({ k:'aseal', agent: a.id, id, label: t.label, side, entry: p1, exp: call.exp });
-      }
-    }
-    // remember this hour's prices so next hour has a drift to reason about
-    await setJSON('g:agents:px', { SOL:prices.SOL, BTC:prices.BTC, ETH:prices.ETH,
-      BONK:prices.BONK, WIF:prices.WIF, JUP:prices.JUP, PUMP:prices.PUMP });
-  }
-
-  if (changed) { await setJSON('g:agents:rec', recs); await setJSON('g:agents:open', open); }
+function fleetPayload(recs = {}, open = []) {
   return {
     fleet: AGENTS.map(a => {
       const r = recs[a.id] || { n:0, hits:0, streak:0, best:0 };
-      // ONE EVIDENCE STANDARD PER PAGE.
-      // The ARENA panel thirty lines below this one refuses to rank an agent
-      // under ARENA_MIN_CALLS settled calls, and says out loud that a 3-for-3
-      // streak is not evidence. THE FLEET sat directly above it publishing
-      // 88% from eight calls in green, and SORTING BY IT — so a one-for-one
-      // agent outranked a twenty-for-thirty one. Same page, opposite
-      // standards. The house holds itself to the standard it sets for guests.
-      return { id:a.id, name:a.name, blurb:a.blurb, n:r.n, hits:r.hits, streak:r.streak, best:r.best,
-        acc: r.n ? Math.round((r.hits / r.n) * 100) : null, last: r.last || null,
-        listed: r.n >= ARENA_MIN_CALLS, minCalls: ARENA_MIN_CALLS };
-    }).sort((x, y) => (y.listed - x.listed) || ((y.acc ?? -1) - (x.acc ?? -1)) || y.n - x.n),
-    open: open.map(o => ({ agent:o.agent, label:o.label, side:o.side, exp:o.exp, entry:o.entry })),
+      return { id:a.id, name:a.name, blurb:a.blurb, n:r.n, hits:r.hits,
+        streak:r.streak, best:r.best,
+        acc:r.n ? Math.round((r.hits / r.n) * 100) : null,
+        last:r.last || null, listed:r.n >= ARENA_MIN_CALLS,
+        minCalls:ARENA_MIN_CALLS };
+    }).sort((x, y) => (y.listed - x.listed)
+      || ((y.acc ?? -1) - (x.acc ?? -1)) || y.n - x.n),
+    open: open.map(o => ({ agent:o.agent, label:o.label, side:o.side,
+      exp:o.exp, entry:o.entry, feed:o.feed, feed2:o.feed2 || null,
+      entry2:o.entry2 == null ? null : o.entry2 })),
   };
+}
+
+const agentsTickCache = globalThis.__ratchet_agenttick
+  || (globalThis.__ratchet_agenttick = { t:0, v:null });
+
+// The Fleet is part of the published evidence, so it uses the same exact
+// first-crossing oracle rule and tie/void policy as a human shot.
+async function agentsTick(prices) {
+  if (agentsTickCache.v && Date.now() - agentsTickCache.t < 30_000)
+    return agentsTickCache.v;
+  const lease = await acquireLease('lock:g:agents', 45);
+  if (!lease) return fleetPayload(
+    (await getCached('g:agents:rec', 5_000)) || {},
+    (await getCached('g:agents:open', 3_000)) || []);
+  try {
+    const wLine = await wardenLine(prices);
+    const wardenUp = !!(wLine && wLine.p != null && wLine.p >= 50);
+    const hour = boardHour();
+    const telemetryReady = f => prices.src === 'pyth-onchain'
+      && Number.isFinite(prices[f])
+      && Number.isFinite((prices.ages || {})[f])
+      && (prices.ages || {})[f] <= maxSealAge(60)
+      && Number.isFinite((prices.pubs || {})[f])
+      && Number.isFinite((prices.prevPubs || {})[f])
+      && Number.isFinite((prices.confs || {})[f])
+      && (prices.confs || {})[f] <= 200;
+    const board = Object.entries(targetBoard(hour)).filter(([, t]) => {
+      const lim = maxSealAge(t.mins);
+      const ok = f => prices.src === 'pyth-onchain'
+        && Number.isFinite(prices[f])
+        && Number.isFinite((prices.ages || {})[f])
+        && (prices.ages || {})[f] <= lim
+        && Number.isFinite((prices.pubs || {})[f])
+        && Number.isFinite((prices.prevPubs || {})[f])
+        && Number.isFinite((prices.confs || {})[f])
+        && (prices.confs || {})[f] <= 200;
+      return ok(t.feed) && (!t.feed2 || ok(t.feed2));
+    });
+    const recs = (await getJSONStrict('g:agents:rec')) || {};
+    let open = (await getJSONStrict('g:agents:open')) || [];
+    const now = Date.now();
+    const still = []; let changed = false;
+    const feedRows = [];
+
+    for (const o of open) {
+      if (now < o.exp) { still.push(o); continue; }
+      if (o.settleRule !== 'pyth-first-crossing-v2') {
+        if (!(await getJSONStrict(`asettled:${o.id}`)))
+          await appendOnce(`avoid:${o.id}`, { k:'avoid', agent:o.agent, id:o.id,
+            reason:'legacy-nondeterministic-settlement' });
+        changed = true; continue;
+      }
+      const at = await priceCrossing(o.feed, o.exp, now, o.oracleSrc || 'pyth-onchain');
+      const at2 = o.kind === 'race'
+        ? await priceCrossing(o.feed2, o.exp, now, o.oracleSrc || 'pyth-onchain')
+        : null;
+      if (at.wait || (at2 && at2.wait)) { still.push(o); continue; }
+      if (at.expired || (at2 && at2.expired)
+          || !Number.isFinite(at.price) || (at2 && !Number.isFinite(at2.price))) {
+        await appendOnce(`avoid:${o.id}`, { k:'avoid', agent:o.agent, id:o.id,
+          reason:at.reason || (at2 && at2.reason) || 'no-oracle-crossing-in-window' });
+        changed = true; continue;
+      }
+
+      const px = at.price, px2 = at2 && at2.price;
+      let outcome = 'VOID';
+      if (o.kind === 'thr') {
+        if (Math.abs(px - o.thresh) / o.thresh >= EPS) outcome = px > o.thresh ? 'YES' : 'NO';
+      } else if (o.kind === 'thrDown') {
+        if (Math.abs(px - o.thresh) / o.thresh >= EPS) outcome = px < o.thresh ? 'YES' : 'NO';
+      } else if (o.kind === 'range') {
+        const d = Math.abs((px - o.entry) / o.entry);
+        if (Math.abs(d - o.pct) >= EPS) outcome = d >= o.pct ? 'YES' : 'NO';
+      } else if (o.kind === 'race') {
+        const a = (px - o.entry) / o.entry;
+        const b = (px2 - o.entry2) / o.entry2;
+        if (Math.abs(a - b) >= EPS) outcome = a > b ? 'YES' : 'NO';
+      } else {
+        const d = (px - o.entry) / o.entry;
+        if (Math.abs(d) >= EPS) outcome = d > 0 ? 'YES' : 'NO';
+      }
+      if (outcome === 'VOID') {
+        await appendOnce(`avoid:${o.id}`, { k:'avoid', agent:o.agent, id:o.id,
+          reason:'tie', exitPx:px, exitPx2:px2 || null, exitAt:at.publishTime });
+        changed = true; continue;
+      }
+
+      const hit = o.side === outcome;
+      await appendOnce(`asettle:${o.id}`, { k:'agent', agent:o.agent, id:o.id,
+        res:hit ? 'hit' : 'miss', side:o.side, outcome, exitPx:px,
+        exitPx2:px2 || null, exitAt:at.publishTime,
+        exitAt2:at2 ? at2.publishTime : null });
+      const r = recs[o.agent] || (recs[o.agent] = {
+        n:0, hits:0, streak:0, best:0, applied:[] });
+      r.applied = Array.isArray(r.applied) ? r.applied : [];
+      if (!r.applied.includes(o.id)) {
+        r.n++;
+        if (hit) { r.hits++; r.streak++; r.best = Math.max(r.best, r.streak); }
+        else r.streak = 0;
+        r.last = { label:o.label, side:o.side, hit, t:now };
+        r.applied.unshift(o.id);
+        r.applied = r.applied.slice(0, 500);
+        const nm = (AGENTS.find(a => a.id === o.agent) || {}).name || o.agent;
+        feedRows.push({ w:nm,
+          a:`${hit ? 'HIT' : 'MISS'} - ${o.label} - called ${o.side}`,
+          c:hit ? 'hit' : 'miss', agent:1 });
+      }
+      changed = true;
+    }
+    open = still;
+
+    let prev = {};
+    if (board.length) {
+      const pxKey = `g:agents:pxh:${hour}`;
+      let hourPx = await getJSONStrict(pxKey);
+      if (!hourPx) {
+        const snap = Object.fromEntries(PXFEEDS.filter(telemetryReady).map(f => [f, prices[f]]));
+        if (await setnxJSON(pxKey, snap, 12 * 86400)) hourPx = snap;
+        else hourPx = await getJSONStrict(pxKey);
+      }
+      if (!hourPx) throw new Error('could not persist the Fleet hour-price snapshot');
+      prev = (await getJSONStrict(`g:agents:pxh:${hour - 1}`))
+        || (await getJSONStrict('g:agents:px')) || {};
+
+      for (let i = 0; i < AGENTS.length; i++) {
+        const a = AGENTS[i];
+        const id = `${a.id}-${hour}`;
+        if (open.some(o => o.id === id)) continue;
+        const seedN = Math.abs(mulberry32(hour * 31 + i * 7)() * 1e9 | 0);
+        const [, t] = board[seedN % board.length];
+        const p0 = prev[t.feed], p1 = prices[t.feed];
+        const drift = Number.isFinite(p0) && p0 > 0 ? (p1 - p0) / p0 : 0;
+        const side = agentSide(a.id, t, prices, drift, seedN, wardenUp);
+        const candidate = { id, agent:a.id, label:t.label, kind:t.kind,
+          feed:t.feed, feed2:t.feed2 || null, side, entry:p1,
+          entry2:t.feed2 ? prices[t.feed2] : null, pct:t.pct == null ? null : t.pct,
+          t:now, exp:now + t.mins * 60e3,
+          settleRule:'pyth-first-crossing-v2', oracleSrc:'pyth-onchain' };
+        if (t.kind === 'thr') candidate.thresh = p1 * (1 + t.pct);
+        else if (t.kind === 'thrDown') candidate.thresh = p1 * (1 - t.pct);
+        else if (t.kind === 'range') {
+          candidate.lo = p1 * (1 - t.pct); candidate.hi = p1 * (1 + t.pct);
+        }
+        const sealKey = `aseal:${id}`;
+        let sealed = await getJSONStrict(sealKey);
+        if (!sealed) {
+          if (await setnxJSON(sealKey, candidate)) sealed = candidate
+          else sealed = await getJSONStrict(sealKey);
+        }
+        if (sealed) {
+          if (sealed.settleRule === 'pyth-first-crossing-v2')
+            await appendOnce(`aseal:${id}`, { k:'aseal', agent:a.id, id,
+              label:sealed.label, kind:sealed.kind, feed:sealed.feed,
+              feed2:sealed.feed2 || null, side:sealed.side, entry:sealed.entry,
+              entry2:sealed.entry2, pct:sealed.pct, exp:sealed.exp,
+              settleRule:sealed.settleRule });
+          open.push(sealed); changed = true;
+        }
+      }
+    }
+
+    if (changed)
+      await setManyJSONAtomic([
+        ['g:agents:rec', recs],
+        ['g:agents:open', open],
+      ]);
+    for (const row of feedRows) await bumpFeed(row);
+    const out = fleetPayload(recs, open);
+    agentsTickCache.t = Date.now(); agentsTickCache.v = out;
+    return out;
+  } finally {
+    try { await releaseLease('lock:g:agents', lease); } catch {}
+  }
 }
 
 function refund(p, s) { p.cr += s.stake; }
@@ -1030,9 +1364,59 @@ function refund(p, s) { p.cr += s.stake; }
 // log stays the ground truth; this is the readable per-wallet view.
 async function pushHist(w, rec) {
   const k = `hist:${w}`;
-  const h = (await getJSON(k)) || [];
+  const h = (await getJSONStrict(k)) || [];
+  if (h.some(x => x && x.id === rec.id)) return false;
   h.unshift(rec);
   await setJSON(k, h.slice(0, 200));
+  return true;
+}
+
+// Human-readable, per-wallet receipts for every reload/podium effect. Several
+// reloaders may pay the same champion concurrently, so this list has its own
+// ownership-safe writer lease and a signature+kind de-duplication key.
+async function pushChampionReceipt(w, rec) {
+  const lock = `lock:chist:${w}`;
+  let lease = null;
+  for (let i=0; i<60 && !lease; i++) {
+    lease = await acquireLease(lock, 20);
+    if (!lease) await new Promise(r => setTimeout(r, 20 + Math.min(i,20)*5));
+  }
+  if (!lease) throw new Error('champion receipt history busy - retry');
+  try {
+    const key = `chist:${w}`;
+    const h = (await getJSONStrict(key)) || [];
+    const rid = `${rec.id}:${rec.kind}`;
+    if (h.some(x => x && `${x.id}:${x.kind}` === rid)) return false;
+    h.unshift(rec);
+    await setJSON(key, h.slice(0, 100));
+    return true;
+  } finally {
+    try { await releaseLease(lock, lease); } catch {}
+  }
+}
+
+/** Repair the public/account-level receipt after the atomic economic gate.
+ * New signature gates contain the full verified breakdown, so a retry can
+ * recreate log, feed and readable histories without moving value again. */
+async function repairReloadReceipt(sig, g) {
+  if (!g || g.v !== 2 || !isWalletShaped(g.w)) return false;
+  const legs = Array.isArray(g.champLegs) ? g.champLegs : [];
+  await appendOnce(`reload:${sig}`, { k:'reload', w:g.w, sig,
+    amount:g.amount, credited:g.credit, burned:g.burned,
+    champs:g.champPaid || 0, retained:g.selfRouted || 0,
+    legs:legs.map(x => ({ w:x.w, amt:x.amt })) });
+  await pushChampionReceipt(g.w, { id:sig, t:g.t, kind:'reload',
+    credits:g.credit, burned:g.burned, podiumPaid:g.champPaid || 0,
+    retained:g.selfRouted || 0 });
+  for (const leg of legs) if (isWalletShaped(leg.w) && leg.amt > 0)
+    await pushChampionReceipt(leg.w, { id:sig, t:g.t, kind:'received',
+      rcx:leg.amt, from:shortW(g.w) });
+  await bumpFeed({ id:`reload:${sig}`, w:shortW(g.w),
+    a:`BURNED ${Number(g.burned||0).toLocaleString()} RCX`
+      + (g.champPaid ? ` - ${Number(g.champPaid).toLocaleString()} RCX paid to other champions` : '')
+      + (g.selfRouted ? ` - ${Number(g.selfRouted).toLocaleString()} RCX stayed with this champion` : '')
+      + ` - ${Number(g.credit||0).toLocaleString()} credits`, c:'seal', sig });
+  return true;
 }
 
 async function settle(p, prices) {
@@ -1040,92 +1424,125 @@ async function settle(p, prices) {
   const now = Date.now(); let changed = false;
   const still = [];
   for (const s of p.open) {
+    // A saved shot is authoritative. Repair any interruption between saving
+    // it and publishing/accounting for the seal before doing anything else.
+    if (s.sealAccountingV === 2) await recordSealedShot(s, p.w);
     if (now < s.exp) { still.push(s); continue; }
-    // THE EXIT PRICE IS NOT "THE PRICE NOW".
-    // It is the first oracle sample we recorded at or after this shot's
-    // expiry — the same first-crossing rule the on-chain program enforces.
-    // That is what stops an expired shot being a free option: it no longer
-    // matters who triggers the settle, or when.
-    // New shots pin the oracle lane used at seal. A Pyth outage may void a
-    // shot, but it may never quietly turn a Pyth entry into a Coinbase exit.
-    // Legacy shots predate `oracleSrc` and retain their old behaviour so an
-    // upgrade cannot strand already-open positions.
-    const at = await priceAt(s.exp, now, s.oracleSrc || null);
-    // Every deferral and every void is a measured consequence of the oracle
-    // being late. We count them per feed and publish the totals — a late
-    // publish is not a log line here, it is somebody's refunded stake.
-    if (at.wait) { await noteSettle(s.feed, 'wait'); still.push(s); continue; }
-    const px  = at.row ? at.row[s.feed] : undefined;
-    const px2 = s.kind === 'race' ? (at.row ? at.row[s.feed2] : undefined) : 1;
-    if (at.expired || !Number.isFinite(px) || !Number.isFinite(px2)) {
-      // The grace window closed with no usable sample, or the feed was gone
-      // when it closed. Refund rather than invent a number.
+
+    const strict = s.settleRule === 'pyth-first-crossing-v2';
+    const at = strict
+      ? await priceCrossing(s.feed, s.exp, now, s.oracleSrc || 'pyth-onchain')
+      : await priceAt(s.exp, now, s.oracleSrc || null);
+    const at2 = strict && s.kind === 'race'
+      ? await priceCrossing(s.feed2, s.exp, now, s.oracleSrc || 'pyth-onchain')
+      : null;
+    const eventId = `${p.w}:${s.id}`;
+
+    if (at.wait || (at2 && at2.wait)) {
+      await noteSettle(s.feed, 'wait', eventId);
+      if (at2) await noteSettle(s.feed2, 'wait', eventId);
+      still.push(s); continue;
+    }
+
+    const px = strict ? at.price : (at.row ? at.row[s.feed] : undefined);
+    const px2 = s.kind === 'race'
+      ? (strict ? at2 && at2.price : (at.row ? at.row[s.feed2] : undefined)) : 1;
+    if (at.expired || (at2 && at2.expired)
+        || !Number.isFinite(px) || !Number.isFinite(px2)) {
       changed = true;
-      if (at.expired) await noteSettle(s.feed, 'void');
+      if (at.expired) await noteSettle(s.feed, 'void', eventId);
+      if (at2 && at2.expired) await noteSettle(s.feed2, 'void', eventId);
       refund(p, s); s.res = 'void'; s.settledAt = now; s.exitPx = null;
-      await reverseStake(s.stake, p.w);
-      await append({ k:'settle', w: p.w, id: s.id, res: 'void',
-        reason: at.expired ? 'no-oracle-sample-in-window' : 'feed-gone' });
-      await pushHist(p.w, { id: s.id, t: now, label: s.label, side: s.side, res: 'void', xp: 0, stake: s.stake, entry: s.entry, exit: null });
+      if (s.allocationRule !== 'on-settle-v2')
+        await reverseStake(s.stake, p.w, s.id);
+      const voidReason = strict
+        ? (at.reason || (at2 && at2.reason) || 'no-oracle-crossing-in-window')
+        : (at.expired ? 'no-oracle-sample-in-window' : 'feed-gone');
+      await appendOnce(`settle:${eventId}`, { k:'settle', w:p.w, id:s.id,
+        res:'void', reason:voidReason, commitV:s.commitV || 1 });
+      await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
+        res:'void', xp:0, stake:s.stake, entry:s.entry, exit:null });
       p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
       continue;
     }
+
     changed = true;
     let outcome;
-    // A non-event must not pay a side. thr/thrDown/range used to resolve NO
-    // on an exact standstill, handing the discounted-XP side a full 1.7x for
-    // a market that did nothing. They now void on a tie like dir and race do.
-    if (s.kind === 'thr') outcome = Math.abs(px - s.thresh) / s.thresh < EPS ? 'VOID' : (px > s.thresh ? 'YES' : 'NO');
-    else if (s.kind === 'thrDown') outcome = Math.abs(px - s.thresh) / s.thresh < EPS ? 'VOID' : (px < s.thresh ? 'YES' : 'NO');
+    if (s.kind === 'thr')
+      outcome = Math.abs(px - s.thresh) / s.thresh < EPS ? 'VOID' : (px > s.thresh ? 'YES' : 'NO');
+    else if (s.kind === 'thrDown')
+      outcome = Math.abs(px - s.thresh) / s.thresh < EPS ? 'VOID' : (px < s.thresh ? 'YES' : 'NO');
     else if (s.kind === 'range') {
       const d = Math.abs((px - s.entry) / s.entry);
       outcome = Math.abs(d - s.pct) < EPS ? 'VOID' : (d >= s.pct ? 'YES' : 'NO');
+    } else if (s.kind === 'race') {
+      const a = (px - s.entry) / s.entry, b = (px2 - s.entry2) / s.entry2;
+      outcome = Math.abs(a - b) < EPS ? 'VOID' : (a > b ? 'YES' : 'NO');
+    } else {
+      const d = (px - s.entry) / s.entry;
+      outcome = Math.abs(d) < EPS ? 'VOID' : (d > 0 ? 'YES' : 'NO');
     }
-    else if (s.kind === 'race') {
-      const a = (px - s.entry) / s.entry, b2 = (px2 - s.entry2) / s.entry2;
-      if (Math.abs(a - b2) < EPS) outcome = 'VOID';
-      else outcome = a > b2 ? 'YES' : 'NO';
-    }
-    else {
-      const chg = (px - s.entry) / s.entry;
-      if (Math.abs(chg) < EPS) outcome = 'VOID';
-      else outcome = chg > 0 ? 'YES' : 'NO';
-    }
+
     if (outcome === 'VOID') {
       refund(p, s); s.res = 'void';
-      await reverseStake(s.stake, p.w);           // a refunded stake feeds nothing
-    }
-    else if (outcome === s.side) {
+      if (s.allocationRule !== 'on-settle-v2')
+        await reverseStake(s.stake, p.w, s.id);
+    } else if (outcome === s.side) {
+      await fundSettledStake(s, p.w);
       p.shots++; s.res = 'hit'; p.hits++;
-      const sm = streakMult(p.streak);          // the run you had BEFORE this shot
+      const sm = streakMult(p.streak);
       s.xpBase = s.xp;
       s.streakMult = +sm.toFixed(2);
       s.xp = Math.max(1, Math.round(s.xp * sm));
       p.streak++; p.best = Math.max(p.best, p.streak);
-      p.xp += s.xp; await bumpLadder(p.w, s.xp, p.qualified);
-      s.back = Math.floor(s.stake * HIT_PAYOUT);      // being right pays
+      p.xp += s.xp;
+      await bumpLadderOnce(p.w, s.xp, p.qualified, s.id);
+      s.back = Math.floor(s.stake * HIT_PAYOUT);
       p.cr += s.back;
-      if (!isDemo(p.w)) await bumpFeed({ w: shortW(p.w),
-        a: `HIT +${s.xp} XP · +${s.back.toLocaleString()} credits`, c: 'hit' });
+      if (!isDemo(p.w)) {
+        await seedStats();
+        await applyOnce(`hitpay:${eventId}`, { w:p.w, id:s.id, back:s.back, t:now }, {
+          hashKey:STATS, deltas:{ hitPaid:s.back },
+        });
+        await bumpFeed({ id:`settle:${eventId}`, w:shortW(p.w),
+          a:`HIT +${s.xp} XP - +${s.back.toLocaleString()} credits`, c:'hit' });
+      }
     } else {
+      await fundSettledStake(s, p.w);
       p.shots++; s.res = 'miss'; p.streak = 0;
-      if (!isDemo(p.w)) await bumpFeed({ w: shortW(p.w), a: 'MISS - streak reset', c: 'miss' });
+      if (!isDemo(p.w)) await bumpFeed({ id:`settle:${eventId}`,
+        w:shortW(p.w), a:'MISS - streak reset', c:'miss' });
     }
-    s.settledAt = now; s.exitPx = px; s.exitAt = at.row.t;
-    await noteSettle(s.feed, 'set');
-    await append({ k:'settle', w: p.w, id: s.id, res: s.res, exitPx: px, exitAt: at.row.t,
-      side: s.side, salt: s.salt, commit: s.commit });   // the reveal: sha256(side|salt) must equal the seal's commit
-    await pushHist(p.w, { id: s.id, t: now, label: s.label, side: s.side, res: s.res,
-      xp: s.res === 'hit' ? s.xp : 0, back: s.back || 0, stake: s.stake, entry: s.entry, exit: px });
+
+    s.settledAt = now; s.exitPx = px;
+    s.exitAt = strict ? at.publishTime : at.row.t;
+    if (strict) {
+      s.prevExitAt = at.prevPublishTime;
+      s.exitConfBps = at.confBps;
+      if (at2) {
+        s.exitPx2 = px2; s.exitAt2 = at2.publishTime;
+        s.prevExitAt2 = at2.prevPublishTime;
+      }
+    }
+    await noteSettle(s.feed, 'set', eventId);
+    if (at2) await noteSettle(s.feed2, 'set', eventId);
+    await appendOnce(`settle:${eventId}`, { k:'settle', w:p.w, id:s.id,
+      res:s.res, exitPx:px, exitAt:s.exitAt, exitPx2:s.exitPx2,
+      exitAt2:s.exitAt2, side:s.side, salt:s.salt, commit:s.commit,
+      commitV:s.commitV || 1, settleRule:s.settleRule || 'observed-sample-v1',
+      allocationRule:s.allocationRule || 'upfront-v1' });
+    await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
+      res:s.res, xp:s.res === 'hit' ? s.xp : 0, back:s.back || 0,
+      stake:s.stake, entry:s.entry, exit:px });
     p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
   }
   p.open = still;
   return changed;
 }
 
-// Take the stake AFTER all validation has passed. 70% burn, 30% pots
-// (split half daily / half weekly). The floor is monotone by
-// construction: it only ever ratchets to a new maximum.
+// Reserve credits only after every seal validation has passed. Global shot
+// accounting happens after the durable player record exists; 70/30 allocation
+// happens exactly once only when a shot reaches HIT or MISS.
 // ENTRY FRESHNESS.
 // The sponsored feeds print on a 60s heartbeat or a 0.5% move, so in a quiet
 // market the price we hold can lag the real market by most of a heartbeat.
@@ -1145,34 +1562,57 @@ const maxSealAge = mins => Math.min(60, Math.max(30, Math.round(0.15 * mins * 60
 
 async function takeStake(p, stake) {
   if (badStake(stake)) return `stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}`;
-  if (p.cr < stake) return `not enough credits — you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`;
+  if (p.cr < stake) return `not enough credits - you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`;
   p.cr -= stake; p._src = 'cr';
-  // A guest identity is free and unlimited, so guest stakes must not touch
-  // any published total. They already never reach a ladder, the feed or the
-  // podium; the pots and the burn counter were the hole. The guest still
-  // pays the credits and plays the identical game.
-  if (isDemo(p.w)) return null;
-  await seedStats();
-  await bumpStats({
-    burned: stake * SPLIT.burn,
-    potD:   stake * SPLIT.pot * POT_DAY_SHARE,
-    pot:    stake * SPLIT.pot * (1 - POT_DAY_SHARE),
-    shots:  1,
-  });
   return null;
 }
 
-// A VOIDed shot gives the stake back — so its contribution to the burn
-// and pot counters is reversed too (clamped at zero; the shots-fired
-// count and the floor's high-water mark stay, both deliberately).
-async function reverseStake(stake, w) {
-  if (w && isDemo(w)) return;          // never took it; never give it back
+/** Publish and account for a shot only after its player record exists.
+ *
+ * The old path incremented the global shot count before saving the player. A
+ * failed save left a public shot with no owner and no possible settlement.
+ * New seals carry this version marker; every later state read repairs an
+ * interrupted post-save log/accounting step with the same replay gate. */
+async function recordSealedShot(s, w) {
+  if (!s || s.sealAccountingV !== 2) return false;
+  if (!isDemo(w)) {
+    await seedStats();
+    await applyOnce(`shotseal:${w}:${s.id}`, { w, id:s.id, t:Date.now() }, {
+      hashKey:STATS, deltas:{ shots:1 },
+    });
+  }
+  await appendOnce(`seal:${w}:${s.id}`, { k:'seal', w, id:s.id,
+    feed:s.feed, feed2:s.feed2 || null, stake:s.stake, exp:s.exp,
+    entry:s.entry, entry2:s.entry2, commit:s.commit, commitV:s.commitV,
+    settleRule:s.settleRule, allocationRule:s.allocationRule,
+    challenge:s.chal || null });
+  return true;
+}
+
+/** Allocate a new-rule stake exactly once, when it becomes hit/miss. */
+async function fundSettledStake(s, w) {
+  if (isDemo(w) || s.allocationRule !== 'on-settle-v2') return;
   await seedStats();
-  await bumpStats({
-    burned: -stake * SPLIT.burn,
-    potD:   -stake * SPLIT.pot * POT_DAY_SHARE,
-    pot:    -stake * SPLIT.pot * (1 - POT_DAY_SHARE),
+  const a = stakeAllocation(s.stake);
+  await applyOnce(`stakefund:${w}:${s.id}`, { t:Date.now(), stake:s.stake }, {
+    hashKey:STATS, deltas:{ burned:a.burn, potD:a.potD, pot:a.pot },
   });
+  s.allocated = true;
+}
+
+/** Reverse a legacy upfront allocation once.  New-rule shots allocate only
+ * on hit/miss, so their VOID path has nothing to unwind. */
+async function reverseStake(stake, w, shotId = null) {
+  if (w && isDemo(w)) return;
+  await seedStats();
+  const a = stakeAllocation(stake);
+  const deltas = { burned:-a.burn, potD:-a.potD, pot:-a.pot };
+  if (shotId) {
+    await applyOnce(`stakereverse:${w}:${shotId}`,
+      { t:Date.now(), stake }, { hashKey:STATS, deltas });
+  } else {
+    await bumpStats(deltas);
+  }
 }
 
 module.exports = async (req, res) => {
@@ -1180,9 +1620,10 @@ module.exports = async (req, res) => {
   const acquirePlayerLock = async w => {
     if (!(isWalletShaped(w) || isDemo(w))) return false;
     const key = `lock:u:${w}`;
-    if (heldPlayerLocks.includes(key)) return true;
-    if (!(await setnxJSON(key, { t:Date.now() }, 30))) return false;
-    heldPlayerLocks.push(key); return true;
+    if (heldPlayerLocks.some(x => x.key === key)) return true;
+    const token = await acquireLease(key, 30);
+    if (!token) return false;
+    heldPlayerLocks.push({ key, token }); return true;
   };
   try {
     const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
@@ -1261,10 +1702,10 @@ module.exports = async (req, res) => {
     // intact — a failed write still never fails the request.
     try { await samplePx(prices); } catch {}
 
-    // Left unawaited on purpose, and it is a different case: a missed sweep
-    // costs nothing permanent because the next request sweeps again, while
-    // awaiting it would put a Redis read in front of every single response.
-    sweepChallenges().catch(() => {});
+    // Expiry moves credits, so it completes before the request continues.
+    // Fire-and-forget is unsafe on serverless (the function may freeze after
+    // the response) and made a refund appear only nondeterministically.
+    try { await sweepChallenges(); } catch {}
 
     if (action === 'blockhash') {
       const r = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
@@ -1280,26 +1721,33 @@ module.exports = async (req, res) => {
       // means the record survives even if nobody ever opens /api/feeds.
       try { await ensureRollups(); } catch {}
       await rolloverPots();
+      await ensureAllTimeBoard();
+      let podNow = null;
+      try { podNow = await refreshLivePodium(); } catch {}
       const wardenRec = await wardenTick(prices);
       const fleet = await agentsTick(prices);
-      const podNow = (await getCached('g:podium', 15_000)) || { list: [] };
+      if (!podNow) podNow = (await getJSONStrict('g:podium')) || { period:today(), list: [] };
       const wRaw = req.query.wallet;
       const w = (typeof wRaw === 'string' && (isWalletShaped(wRaw) || isDemo(wRaw))) ? wRaw : null;
       let player = null;
       if (w) {
         const p = await loadPlayer(w);
         const changed = await settle(p, prices);
+        if (changed) podNow = (await getJSONStrict('g:podium')) || podNow;
         // Only persist players that already exist or actually changed —
         // a bare state?wallet=<anything> must not mint KV records.
         if (p._existed || changed) await savePlayer(p);
-        // BLINK AUTO-CREDIT
-          if (!isDemo(w)) {
+        // BLINK AUTO-CREDIT. Bounded to one discovery scan per wallet/30s;
+        // explicit anchor submissions are never delayed by this convenience.
+          if (!isDemo(w) && Date.now() - (AUTO_ANCHOR_SCAN.get(w) || 0) >= 30_000) {
+            AUTO_ANCHOR_SCAN.set(w, Date.now());
+            if (AUTO_ANCHOR_SCAN.size > 5000) AUTO_ANCHOR_SCAN.clear();
             try {
               const { rpcCall, getTx } = require('../lib/burn.js');
               const { decideAnchor } = require('../lib/log.js');
-              const heads = (await getJSON('g:log:heads')) || {};
               const sigs = await rpcCall('getSignaturesForAddress', [w, { limit: 5 }]);
-              if (Array.isArray(sigs)) {
+              if (Array.isArray(sigs) && sigs.length) {
+                const heads = (await getJSON('g:log:heads')) || {};
                 for (const s of sigs) {
                   if (s.err) continue;
                   const sig = s.signature;
@@ -1307,7 +1755,9 @@ module.exports = async (req, res) => {
                   const tx = await getTx(sig);
                   if (!tx) continue;
                   const d = decideAnchor(tx, { wallet: w, heads });
-                  if (d.ok && await setnxJSON('sig:'+sig, { w, anchor:d.i, t:Date.now() })) {
+                  if (d.ok) {
+                    const claimed = await claimAnchor(w, sig, d);
+                    if (!claimed.ok) continue;
                     // Use the exact same cooldown as the explicit anchor path.
                     // Two independent cooldowns allowed one Blink reward plus
                     // one site reward per day. `best` is best STREAK, not XP.
@@ -1336,15 +1786,13 @@ module.exports = async (req, res) => {
         delete player._existed; delete player._src;
         player.history = ((await getCached(`hist:${w}`, 3_000)) || []).slice(0, 200);
         player.qualified = !!p.qualified;
-        // CHAMPION CONSOLE data: seat share, 7d earnings, live balance
-        // (cached 60s), and the exact amount sellable without losing the
-        // seat — so champions can exit smart instead of dumping blind.
+        // CHAMPION CONSOLE: live seat/share, separate RCX receipts and balance.
         let changed2 = false;
         const seat = (podNow.list || []).find(x => x.w === w);
-        // An unverified wallet is checked too: simply HOLDING RCX qualifies
-        // you, so a player who bought on pump.fun enters the ladders without
-        // having to burn anything. Cached 60s, and once you qualify we never
-        // look again.
+        // A wallet can qualify once by verifiable participation, including an
+        // RCX balance. Qualification prevents free-key Sybil farming; podium
+        // order itself is live daily XP and has no continuing hold/sell test.
+        // An unreadable balance RPC never demotes anyone.
         // A read we could not make is never written to the cache and never
         // overwrites a number we already knew. bal === null means unknown.
         const readBal = async (prev) => {
@@ -1370,13 +1818,16 @@ module.exports = async (req, res) => {
           if (cb.bal > 0 && !p.qualified) { p.qualified = true; changed2 = true; }
           player.rcx = { bal: Number.isFinite(cb.bal) ? Math.floor(cb.bal) : null,
                          stale: !Number.isFinite(cb.bal) || !!cb.stale };
-          if (seat) {
-            const earned7 = champWindowSum(p.champ7, Date.now(), CHAMP.holdDays);
+          const received7 = champWindowSum(p.champ7, Date.now(), CHAMP.receiptDays);
+          const retained7 = champWindowSum(p.champSelf7, Date.now(), CHAMP.receiptDays);
+          const champHistory = ((await getCached(`chist:${w}`, 3_000)) || []).slice(0, 100);
+          if (seat || received7 || retained7 || champHistory.length) {
             const known = Number.isFinite(cb.bal);
-            player.champion = { pct: seat.pct, earned7: Math.floor(earned7),
-              bal: known ? Math.floor(cb.bal) : null,
-              balStale: !known || !!cb.stale,
-              safeSell: known ? Math.max(0, Math.floor(cb.bal - earned7 * CHAMP.holdPct)) : null };
+            player.champion = { active:!!seat, pct:seat ? seat.pct : 0, source:seat ? seat.source : null,
+              received7:Math.floor(received7), retained7:Math.floor(retained7),
+              total7:Math.floor(received7 + retained7), history:champHistory,
+              bal:known ? Math.floor(cb.bal) : null,
+              balStale:!known || !!cb.stale };
           }
           // lazy hold-yield: once per UTC day, on touch, on the live balance
           // A DAY IS ONLY SPENT IF WE ACTUALLY READ THE BALANCE.
@@ -1406,6 +1857,8 @@ module.exports = async (req, res) => {
       const ladder = lbRows.slice(0,20).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
       const dayRanked = await ladderTop('lbd:', today());
       const ladderDay = dayRanked.slice(0,10).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
+      const allRanked = await ladderTop('lba:', 'all');
+      const ladderAll = allRanked.slice(0,20).map(([wl,xp])=>({ w:shortW(wl), xp, me:wl===w }));
       // YOUR LIVE POSITION: where you stand today, what today would pay you if it
       // ended right now, and what it would take to move up. The ladder is only
       // motivating when you can see yourself on it — including from outside the
@@ -1435,11 +1888,14 @@ module.exports = async (req, res) => {
         prizes: { day: PRIZE_D, week: PRIZE_W },
         dayEnds: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1),
         stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number), hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP },
-        champ: { pct: CHAMP.pct, curve: CHAMP.curve, holdPct: CHAMP.holdPct, holdDays: CHAMP.holdDays,
-          // `owner` is the full address so the page can derive a token account
-          // for a champion who does not have one yet; `w` stays short for display.
-          podium: (podNow.list || []).map(x => ({ w: shortW(x.w), owner: x.w, ata: x.ata, pct: x.pct })) },
-        season: seasonKey(), day: today(),
+        champ: { pct:CHAMP.pct, curve:CHAMP.curve, receiptDays:CHAMP.receiptDays,
+          seatRule:CHAMP.seatRule, snapshot:podNow.id || null,
+          signingGraceSec:Math.floor(CHAMP.signingGraceMs/1000),
+          // `owner` is full so the page can derive an ATA; source says whether
+          // the seat is live today or inherited while today's board fills.
+          podium: (podNow.list || []).map(x => ({ w:shortW(x.w), owner:x.w, ata:x.ata,
+            pct:x.pct, xp:x.xp, source:x.source || 'previous' })) },
+        season: seasonKey(), day: today(), ladderAll,
         mint: MINT || null, incinerator: MINT ? INCINERATOR : null, mcap: await getMcap(),
         tokenProgram: await getMintProgram(),
         mirror: { enabled: MIRROR_ENABLED, programId: MIRROR_ENABLED ? MIRROR_PROGRAM_ID : null,
@@ -1466,7 +1922,7 @@ module.exports = async (req, res) => {
       // ---- validate EVERYTHING before any money moves. The previous
       // hour's board stays valid as a grace window, so a click that
       // lands just after the hourly flip still seals.
-      let spec = null;
+      let spec = null, duelLine = null;
       if (action === 'shot') {
         const board = { ...targetBoard(boardHour() - 1), ...targetBoard(boardHour()) };
         const t = board[b.target];
@@ -1480,7 +1936,29 @@ module.exports = async (req, res) => {
         if (stale.length) { await savePlayer(p); return res.status(409).json({ ok:false,
           reason: `the oracle's last ${stale[0].f} print is ${stale[0].a}s old and this window needs one under ${lim}s — the feed updates on a 60s heartbeat or a 0.5% move, so try again in a moment` }); }
         spec = t;
-      } else if (b.side!=='with' && b.side!=='against') { await savePlayer(p); return res.status(400).json({ ok:false, reason:'bad side' }); }
+      } else {
+        if (b.side!=='with' && b.side!=='against') { await savePlayer(p); return res.status(400).json({ ok:false, reason:'bad side' }); }
+        // Validate the Warden before touching credits or global counters.
+        // Previously an empty line returned after takeStake(), inflating the
+        // 70/30 totals even though no shot was ever created.
+        duelLine = await wardenLine(prices);
+        if (duelLine.p == null || !Number.isFinite(duelLine.thresh)) {
+          await savePlayer(p);
+          return res.status(400).json({ ok:false, reason:'the Warden has no line this hour — not enough price history to measure volatility' });
+        }
+      }
+
+      const requiredFeeds = action === 'shot'
+        ? [spec.feed, spec.feed2].filter(Boolean) : [duelLine.feed];
+      const crossingReady = prices.src === 'pyth-onchain' && requiredFeeds.every(f =>
+        Number.isFinite((prices.pubs || {})[f])
+        && Number.isFinite((prices.prevPubs || {})[f])
+        && Number.isFinite((prices.confs || {})[f]));
+      if (!crossingReady) {
+        await savePlayer(p);
+        return res.status(503).json({ ok:false,
+          reason:'new shots pause until the on-chain Pyth feed exposes a verifiable publish-time crossing — fallback quotes remain display-only' });
+      }
 
       const err = await takeStake(p, stake);
       if (err) { await savePlayer(p); return res.status(400).json({ ok:false, reason: err }); }
@@ -1494,30 +1972,31 @@ module.exports = async (req, res) => {
         shot = { id: Math.random().toString(36).slice(2,10),
           kind, feed:t.feed, side:b.side,
           entry: prices[t.feed], entryAge: (prices.ages || {})[t.feed], oracleSrc: prices.src,
-          exp: Date.now()+t.mins*60e3, stake,
+          exp: Date.now()+t.mins*60e3, stake, settleRule:'pyth-first-crossing-v2',
+          allocationRule:'on-settle-v2', sealAccountingV:2,
           xp: Math.max(1, Math.round(t.baseXp * stakeMult(stake) * xpMult)), label: t.label };
         if (kind === 'thr') shot.thresh = prices[t.feed] * (1 + t.pct);
         if (kind === 'thrDown') shot.thresh = prices[t.feed] * (1 - t.pct);
         if (kind === 'range') shot.pct = t.pct;
         if (kind === 'race') { shot.feed2 = t.feed2; shot.entry2 = prices[t.feed2]; }
       } else {
-        const wl = await wardenLine(prices);
-        // You cannot duel a Warden that has not spoken.
-        if (wl.p == null || !Number.isFinite(wl.thresh))
-          return res.status(400).json({ ok:false, reason:'the Warden has no line this hour — not enough price history to measure volatility' });
+        const wl = duelLine;
         const withW = b.side === 'with';
         shot = { id: Math.random().toString(36).slice(2,10), kind:'thr', feed:wl.feed, thresh:wl.thresh,
           side: withW ? (wl.p >= 50 ? 'YES':'NO') : (wl.p >= 50 ? 'NO':'YES'),
           entry: prices[wl.feed], oracleSrc: prices.src, exp: Date.now()+wl.mins*60e3, stake,
+          settleRule:'pyth-first-crossing-v2', allocationRule:'on-settle-v2', sealAccountingV:2,
           xp: Math.max(1, Math.round(14 * stakeMult(stake) * (withW ? 0.8 : 3.4))), label: 'DUEL vs the Warden: '+wl.q, duel:true };
       }
-      shot.salt = crypto.randomBytes(8).toString('hex');
-      shot.commit = sha256hex(`${shot.side}|${shot.salt}`);
+      shot.salt = crypto.randomBytes(16).toString('hex');
+      shot.commitV = 2;
+      shot.commit = shotCommit(w, shot.id, shot.side, shot.salt);
       shot.src = p._src || 'bal'; delete p._src;
       p.open.unshift(shot);
       await savePlayer(p);
-      await append({ k:'seal', w, id: shot.id, feed: shot.feed, stake, exp: shot.exp, entry: shot.entry, commit: shot.commit });
-      if (!isDemo(w)) await bumpFeed({ w: shortW(w), a: `sealed a shot · ${stake} 🔥`, c:'seal' });
+      await recordSealedShot(shot, w);
+      if (!isDemo(w)) await bumpFeed({ id:`seal:${w}:${shot.id}`,
+        w: shortW(w), a: `sealed a shot - ${stake} credits`, c:'seal' });
       return res.json({ ok:true, shot, cr: p.cr });
     }
 
@@ -1595,27 +2074,44 @@ module.exports = async (req, res) => {
         return res.status(400).json({ ok:false, reason:`move must be above 0 and at most ${(CHAL_MAX_PCT*100)}%` });
       if (badStake(stake)) return res.status(400).json({ ok:false, reason:`stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}` });
 
-      const list = ((await getJSON('g:chal')) || []).filter(c => c && c.expiresAt > Date.now());
-      if (list.length >= CHAL_MAX_OPEN) return res.status(429).json({ ok:false, reason:'the challenge board is full — take one instead' });
-      if (list.some(c => c.by === w)) return res.status(409).json({ ok:false, reason:'you already have a challenge waiting — one at a time' });
+      const lease = await challengeLease();
+      if (!lease) return res.status(409).json({ ok:false, reason:'the challenge board is updating — retry' });
+      try {
+        const list = ((await getJSONStrict('g:chal')) || []).filter(c => c && c.expiresAt > Date.now());
+        if (list.length >= CHAL_MAX_OPEN) return res.status(429).json({ ok:false, reason:'the challenge board is full — take one instead' });
+        if (list.some(c => c.by === w)) return res.status(409).json({ ok:false, reason:'you already have a challenge waiting — one at a time' });
 
-      const p = await loadPlayer(w);
-      const bad = await takeStake(p, stake);          // the author pays now, or it is not an offer
-      if (bad) { await savePlayer(p); return res.status(400).json({ ok:false, reason: bad }); }
+        const p = await loadPlayer(w);
+        const cap = Math.min(4, rankOf(p.xp)+1) + 1;
+        if (p.open.length >= cap) { await savePlayer(p); return res.status(409).json({ ok:false, reason:`all ${cap} chambers full` }); }
+        const bad = await takeStake(p, stake);          // held now; not a shot until accepted
+        if (bad) { await savePlayer(p); return res.status(400).json({ ok:false, reason: bad }); }
 
-      const label = kind === 'dir' ? `${feed} higher in ${winTxt(mins)}`
-        : kind === 'thr' ? `${feed} up +${(pct*100).toFixed(2)}% within ${winTxt(mins)}`
-        : `${feed} down -${(pct*100).toFixed(2)}% within ${winTxt(mins)}`;
-      const c = { id: 'c' + Math.random().toString(36).slice(2,9), by: w, kind, feed, mins,
-        pct: kind === 'dir' ? null : pct, side, stake, label,
-        createdAt: Date.now(), expiresAt: Date.now() + CHAL_OPEN_MS };
-      list.unshift(c);
-      await setJSON('g:chal', list.slice(0, CHAL_MAX_OPEN));
-      await savePlayer(p);
-      await append({ k:'chal', id: c.id, by: w, label, side, stake, mins });
-      await bumpFeed({ w: shortW(w), a: `challenges the room: ${label} — ${side}`, c: 'seal' });
-      return res.json({ ok:true, challenge: { ...c, by: shortW(w) },
-        note: 'the level is struck when someone accepts, not now' });
+        const label = kind === 'dir' ? `${feed} higher in ${winTxt(mins)}`
+          : kind === 'thr' ? `${feed} up +${(pct*100).toFixed(2)}% within ${winTxt(mins)}`
+          : `${feed} down -${(pct*100).toFixed(2)}% within ${winTxt(mins)}`;
+        const c = { id: 'c' + Math.random().toString(36).slice(2,9), by: w, kind, feed, mins,
+          pct: kind === 'dir' ? null : pct, side, stake, label,
+          createdAt: Date.now(), expiresAt: Date.now() + CHAL_OPEN_MS,
+          allocationRule:'on-settle-v2' };
+        list.unshift(c);
+        try {
+          await setManyJSONAtomic([
+            [`u:${p.w}`, playerRecord(p)],
+            ['g:chal', list.slice(0, CHAL_MAX_OPEN)],
+          ]);
+        } catch (e) {
+          await restoreDrains([p]);
+          throw e;
+        }
+        await appendOnce(`chal:${c.id}`, { k:'chal', id: c.id, by: w, label, side, stake, mins });
+        await bumpFeed({ id:`chal:${c.id}`, w: shortW(w),
+          a: `challenges the room: ${label} - ${side}`, c: 'seal' });
+        return res.json({ ok:true, challenge: { ...c, by: shortW(w) },
+          note: 'the level is struck when someone accepts, not now' });
+      } finally {
+        try { await releaseLease('lock:g:chal', lease); } catch {}
+      }
     }
 
     // ---- take the other side ----
@@ -1627,24 +2123,53 @@ module.exports = async (req, res) => {
       if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
 
       const id = String(b.id || '');
-      const list = ((await getJSON('g:chal')) || []).filter(c => c && c.expiresAt > Date.now());
+      const peek = ((await getJSONStrict('g:chal')) || []).filter(c => c && c.expiresAt > Date.now());
+      const c0 = peek.find(x => x.id === id);
+      if (!c0) return res.status(404).json({ ok:false, reason:'that challenge is gone — taken or expired' });
+      if (c0.by === w) return res.status(400).json({ ok:false, reason:'you cannot take your own side of your own challenge' });
+      // All player locks are acquired before the shared-board lease. Every
+      // challenge mutation uses this order, so two wallets cannot deadlock.
+      if (!(await acquirePlayerLock(c0.by)))
+        return res.status(409).json({ ok:false, reason:'the other side is updating — retry' });
+      const lease = await challengeLease();
+      if (!lease) return res.status(409).json({ ok:false, reason:'the challenge board is updating — retry' });
+      try {
+      const list = ((await getJSONStrict('g:chal')) || []).filter(c => c && c.expiresAt > Date.now());
       const c = list.find(x => x.id === id);
       if (!c) return res.status(404).json({ ok:false, reason:'that challenge is gone — taken or expired' });
       if (c.by === w) return res.status(400).json({ ok:false, reason:'you cannot take your own side of your own challenge' });
-      if (!(await acquirePlayerLock(c.by)))
-        return res.status(409).json({ ok:false, reason:'the other side is updating — retry' });
       const px = prices[c.feed];
       if (!Number.isFinite(px)) return res.status(503).json({ ok:false, reason:`${c.feed} is not priced right now` });
       const age = (prices.ages || {})[c.feed];
       const lim = Math.min(60, Math.max(30, 0.15 * c.mins * 60));
       if (Number.isFinite(age) && age > lim)
         return res.status(503).json({ ok:false, reason:`${c.feed} last printed ${age}s ago — too stale to strike a level on` });
-
-      // ATOMIC: exactly one acceptance wins, however many arrive together.
-      if (!(await setnxJSON(`chaltaken:${id}`, { w, t: Date.now() }, 86400)))
-        return res.status(409).json({ ok:false, reason:'somebody just took it' });
+      if (prices.src !== 'pyth-onchain'
+          || !Number.isFinite((prices.pubs || {})[c.feed])
+          || !Number.isFinite((prices.prevPubs || {})[c.feed])
+          || !Number.isFinite((prices.confs || {})[c.feed]))
+        return res.status(503).json({ ok:false,
+          reason:'new challenges pause until the on-chain Pyth feed exposes a verifiable publish-time crossing' });
 
       const taker = await loadPlayer(w);
+      const author = await loadPlayer(c.by);
+      const takerCap = Math.min(4, rankOf(taker.xp)+1) + 1;
+      const authorCap = Math.min(4, rankOf(author.xp)+1) + 1;
+      if (taker.open.length >= takerCap) {
+        await restoreDrains([taker, author]);
+        return res.status(409).json({ ok:false, reason:`your ${takerCap} chambers are full` });
+      }
+      if (author.open.length >= authorCap) {
+        await restoreDrains([taker, author]);
+        return res.status(409).json({ ok:false, reason:`the author's ${authorCap} chambers are full — retry after one settles` });
+      }
+
+      // ATOMIC: exactly one acceptance wins, however many arrive together.
+      if (!(await setnxJSON(`chaltaken:${id}`, { w, t: Date.now() }, 86400))) {
+        await restoreDrains([taker, author]);
+        return res.status(409).json({ ok:false, reason:'somebody just took it' });
+      }
+
       const bad = await takeStake(taker, c.stake);
       if (bad) {
         // The acceptance gate was won before the balance check. Leaving it in
@@ -1652,28 +2177,30 @@ module.exports = async (req, res) => {
         // against the author's offer.
         await delKey(`chaltaken:${id}`);
         await savePlayer(taker);
+        await restoreDrains([author]);
         return res.status(400).json({ ok:false, reason: bad });
       }
 
       const exp = Date.now() + c.mins * 60e3;
       const xp = chalXp(c.kind, c.mins);
-      const mk = (side, srcTag) => {
+      const mk = (owner, side, srcTag) => {
         const sh = { id: Math.random().toString(36).slice(2,10), kind: c.kind, feed: c.feed,
           side, entry: px, oracleSrc: prices.src, exp, stake: c.stake,
           xp: Math.max(1, Math.round(xp * stakeMult(c.stake))), label: c.label,
-          chal: c.id, src: srcTag };
+          chal: c.id, src: srcTag, settleRule:'pyth-first-crossing-v2',
+          allocationRule:c.allocationRule || 'upfront-v1', sealAccountingV:2 };
         if (c.kind === 'thr') sh.thresh = px * (1 + c.pct);
         if (c.kind === 'thrDown') sh.thresh = px * (1 - c.pct);
-        sh.salt = crypto.randomBytes(8).toString('hex');
-        sh.commit = sha256hex(`${sh.side}|${sh.salt}`);
+        sh.salt = crypto.randomBytes(16).toString('hex');
+        sh.commitV = 2;
+        sh.commit = shotCommit(owner, sh.id, sh.side, sh.salt);
         return sh;
       };
-      const takerShot = mk(c.side === 'YES' ? 'NO' : 'YES', 'cr');
+      const takerShot = mk(w, c.side === 'YES' ? 'NO' : 'YES', 'cr');
       taker.open.unshift(takerShot);
 
       // the author's side, on the author's record
-      const author = await loadPlayer(c.by);
-      const authorShot = mk(c.side, 'cr');
+      const authorShot = mk(c.by, c.side, 'cr');
       author.open.unshift(authorShot);
       // One accepted challenge owns three records. Commit them together: a
       // failed request cannot debit the taker while omitting one side, or
@@ -1689,11 +2216,17 @@ module.exports = async (req, res) => {
         await delKey(`chaltaken:${id}`);
         throw e;
       }
-      await append({ k:'chaltake', id: c.id, by: c.by, taker: w, label: c.label,
+      await appendOnce(`chaltake:${c.id}`, { k:'chaltake', id: c.id, by: c.by, taker: w, label: c.label,
         entry: px, exp, stake: c.stake });
-      await bumpFeed({ w: shortW(w), a: `took ${shortW(c.by)}'s challenge: ${c.label}`, c: 'seal' });
+      await recordSealedShot(authorShot, c.by);
+      await recordSealedShot(takerShot, w);
+      await bumpFeed({ id:`chaltake:${c.id}`, w: shortW(w),
+        a: `took ${shortW(c.by)}'s challenge: ${c.label}`, c: 'seal' });
       return res.json({ ok:true, shot: takerShot, against: shortW(c.by),
         struckAt: px, note: 'both sides were struck on this price, at this moment' });
+      } finally {
+        try { await releaseLease('lock:g:chal', lease); } catch {}
+      }
     }
 
     if (action === 'agent-register') {
@@ -1709,21 +2242,35 @@ module.exports = async (req, res) => {
       const p = await loadPlayer(w);
       if (!p.qualified) return res.status(403).json({ ok:false,
         reason:'this wallet has not touched RCX yet. Hold or burn some first — an arena anyone can enter for free is a leaderboard of noise' });
-      // names are first-come, and a name cannot be stolen from a live agent
-      const taken = await getJSON(`agentname:${name}`);
-      if (taken && taken.w !== w) return res.status(409).json({ ok:false, reason:'that name is taken' });
-      if (!taken) await setJSON(`agentname:${name}`, { w, t: Date.now() });
-      const first = !p.agent;
-      p.agent = { name, blurb, since: (p.agent && p.agent.since) || Date.now() };
-      await savePlayer(p);
-      const reg = (await getJSON('g:arena')) || [];
-      if (!reg.includes(w)) { reg.push(w); await setJSON('g:arena', reg.slice(0, 500)); }
-      if (first) {
-        await append({ k:'agentjoin', w, name });
-        await bumpFeed({ w: name, a: 'entered THE ARENA', c: 'seal' });
+      // Names and the bounded registry are shared state.  Serialize them so
+      // two simultaneous registrations cannot both claim one name or erase
+      // one another from the arena list.
+      const arenaLease = await acquireLease('lock:g:arena', 30);
+      if (!arenaLease) return res.status(409).json({ ok:false, reason:'the arena registry is updating — retry' });
+      try {
+        let taken = await getJSONStrict(`agentname:${name}`);
+        if (taken && taken.w !== w) return res.status(409).json({ ok:false, reason:'that name is taken' });
+        if (!taken) {
+          const won = await setnxJSON(`agentname:${name}`, { w, t: Date.now() });
+          if (!won) {
+            taken = await getJSONStrict(`agentname:${name}`);
+            if (!taken || taken.w !== w) return res.status(409).json({ ok:false, reason:'that name is taken' });
+          }
+        }
+        const first = !p.agent;
+        p.agent = { name, blurb, since: (p.agent && p.agent.since) || Date.now() };
+        await savePlayer(p);
+        const reg = (await getJSONStrict('g:arena')) || [];
+        if (!reg.includes(w)) { reg.push(w); await setJSON('g:arena', reg.slice(0, 500)); }
+        if (first) {
+          await append({ k:'agentjoin', w, name });
+          await bumpFeed({ w: name, a: 'entered THE ARENA', c: 'seal' });
+        }
+        return res.json({ ok:true, agent: p.agent, qualified: true,
+          howToPlay: '/api/game?action=board  then  POST {action:"shot", auth, target, side, stake}' });
+      } finally {
+        try { await releaseLease('lock:g:arena', arenaLease); } catch {}
       }
-      return res.json({ ok:true, agent: p.agent, qualified: true,
-        howToPlay: '/api/game?action=board  then  POST {action:"shot", auth, target, side, stake}' });
     }
 
     // A machine-readable board: everything an agent needs to make a call,
@@ -1737,7 +2284,7 @@ module.exports = async (req, res) => {
           ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x))) },
         stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP },
         sealRule: 'entry price must be fresher than min(60, max(30, 0.15 * windowSeconds)) seconds',
-        settleRule: 'first recorded oracle sample at or after expiry; no sample within 15 minutes voids and refunds',
+        settleRule: 'the unique Pyth update with prev_publish_time < expiry <= publish_time; a missed/unusable crossing or no crossing inside 15 minutes voids and refunds',
         targets: Object.entries(board).map(([id, t]) => ({
           id, kind: t.kind || 'dir', feed: t.feed, feed2: t.feed2 || null,
           mins: t.mins, pct: t.pct || null, baseXp: t.baseXp,
@@ -1823,47 +2370,53 @@ module.exports = async (req, res) => {
       if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
       const sig = String(b.sig || '').trim();
       if (!/^[1-9A-HJ-NP-Za-km-z]{60,100}$/.test(sig)) return res.status(400).json({ ok:false, reason:'that does not look like a transaction signature' });
-      if (await getJSONStrict(`sig:${sig}`)) return res.status(409).json({ ok:false, reason:'that burn was already credited' });
-      const tx = await getTx(sig);
-      const pod = (await getJSON('g:podium')) || { list: [] };
-      const podPrev = (await getJSON('g:podium:prev')) || { list: [] };
-      const allowed = [...new Set([...(pod.list || []), ...(podPrev.list || [])].map(x => x.w))];
-      const d = decideBurn(tx, { wallet: w, mint: MINT, minAmount: 1, podium: allowed, podiumPct: CHAMP.pct });
-      if (!d.ok) return res.status(400).json({ ok:false, reason: d.reason });
-      // ATOMIC replay gate: exactly one concurrent submission of this
-      // signature can win the SET NX; every other sees "already credited".
-      if (!(await setnxJSON(`sig:${sig}`, { w, amount: d.amount, t: Date.now() })))
+      const prior = await getJSONStrict(`sig:${sig}`);
+      if (prior) {
+        await repairReloadReceipt(sig, prior);
         return res.status(409).json({ ok:false, reason:'that burn was already credited' });
-      const p = await loadPlayer(w);
-      const credit = Math.floor(d.amount * CREDIT_PER_TOKEN);
-      // deposit atomically first: from here the credit cannot be lost, even if
-      // this request dies before it saves
-      await incrFloat(`pend:${w}`, credit);
-      // claim whatever is banked — which may be more than we just put in, if a
-      // pot payout landed in the meantime. Add exactly what we took.
-      const got = await takeNum(`pend:${w}`);
-      p.cr += got; p._drained = (p._drained || 0) + got;
-      p.burned += (d.burned != null ? d.burned : d.amount);
-      p.realBurned = (p.realBurned || 0) + (d.burned != null ? d.burned : d.amount);
-      p.qualified = true;         // you burned RCX: you are in the ladders
-      await savePlayer(p);
-      await bumpStats({
-        realBurned: (d.burned != null ? d.burned : d.amount),
-        champPaid: d.champPaid || 0,
-      });
-      // record each champion's take in their 7-day holder window
-      if (d.champLegs && d.champLegs.length) {
-        for (const leg of d.champLegs) {
-          // Deposit into the champion's queue instead of loading, mutating and
-          // saving THEIR record from inside someone else's request. That
-          // read-modify-write could roll back a shot they were firing at the
-          // same moment, or drop the credit entirely.
-          await incrFloat(`c7:${leg.w}`, leg.amt);
-        }
       }
-      await append({ k:'reload', w, sig, amount: d.amount, burned: d.burned, champs: d.champPaid || 0 });
-      await bumpFeed({ w: shortW(w), a: `BURNED ${(d.burned != null ? d.burned : d.amount).toLocaleString()} RCX${d.champPaid ? ` · +${d.champPaid.toLocaleString()} RCX to the podium` : ''} · reloaded`, c: 'seal', sig });
-      return res.json({ ok:true, credited: credit, cr: p.cr });
+      const tx = await getTx(sig);
+      const pod = (await getJSONStrict('g:podium')) || { t:0, list:[] };
+      const podHistory = (await getJSONStrict('g:podium:history')) || [];
+      const d = decideBurn(tx, { wallet:w, mint:MINT, minAmount:1,
+        podiumSets:[pod, ...podHistory], podiumPct:CHAMP.pct });
+      if (!d.ok) return res.status(400).json({ ok:false, reason: d.reason });
+      const p = await loadPlayer(w);
+      // Persist any older queued payout before applying this reload. The new
+      // credit deliberately stays in `pend:` until the next player read, so a
+      // process death cannot take it out of the queue before saving it.
+      await savePlayer(p);
+      const credit = Math.floor(d.amount * CREDIT_PER_TOKEN);
+      await seedStats();
+      const burnAmt = d.burned != null ? d.burned : d.amount;
+      const counters = [[`pend:${w}`, credit],
+        ...((d.champLegs || []).map(leg => [`c7:${leg.w}`, leg.amt])),
+        ...((d.selfRouted || 0) > 0 ? [[`cs7:${w}`, d.selfRouted]] : [])];
+      const gate = { v:2, w, amount:d.amount, credit, burned:burnAmt,
+        champPaid:d.champPaid || 0, champLegs:d.champLegs || [],
+        selfRouted:d.selfRouted || 0, podiumVersion:d.podiumVersion || null, t:Date.now() };
+      // Gate + player credits + incoming/retained podium totals + public
+      // totals are one Lua operation. Readable receipts repair from `gate`.
+      if (!(await applyOnce(`sig:${sig}`, gate, {
+        counters, hashKey:STATS,
+        deltas:{ realBurned:burnAmt, champPaid:d.champPaid || 0,
+          champRetained:d.selfRouted || 0 },
+      }))) {
+        const winner = await getJSONStrict(`sig:${sig}`);
+        await repairReloadReceipt(sig, winner);
+        return res.status(409).json({ ok:false, reason:'that burn was already credited' });
+      }
+
+      p.burned += burnAmt;
+      p.realBurned = (p.realBurned || 0) + burnAmt;
+      p.qualified = true;         // you burned RCX: you are in the ladders
+      // Metadata is useful but not the money path; if this write fails the
+      // atomic queues and totals above remain correct and the reload is safe.
+      try { await savePlayer(p); } catch {}
+      await repairReloadReceipt(sig, gate);
+      return res.json({ ok:true, credited:credit, retained:d.selfRouted || 0,
+        podiumPaid:d.champPaid || 0, burned:burnAmt,
+        cr:p.cr + credit, pending:true });
     }
 
 
@@ -1884,6 +2437,8 @@ module.exports = async (req, res) => {
       if (shot.mirrored) return res.status(409).json({ ok:false, reason:'already mirrored' });
       if (!shot.commit || !/^[0-9a-f]{64}$/.test(shot.commit))
         return res.status(400).json({ ok:false, reason:'this legacy shot has no mirrorable commitment' });
+      if ((shot.commitV || 1) >= 2) return res.status(503).json({ ok:false,
+        reason:'bound v2 commitments require the reviewed settlement-program upgrade; mirroring stays disabled until that exact binary is deployed and verified' });
       const kindMap = { dir:0, thr:1, thrDown:2 };
       if (!(shot.kind in kindMap)) return res.status(400).json({ ok:false,
         reason:`${shot.kind} shots are not supported by the current on-chain program` });
@@ -2001,11 +2556,9 @@ module.exports = async (req, res) => {
       const tx = await getTx(sig);
       const d = decideAnchor(tx, { wallet: w, heads });
       if (!d.ok) return res.status(400).json({ ok:false, reason: d.reason });
-      if (!(await setnxJSON(`sig:${sig}`, { w, anchor: d.i, t: Date.now() })))
-        return res.status(409).json({ ok:false, reason:'that anchor was already credited' });
-      const anchors = (await getJSON('g:anchors')) || [];
-      anchors.unshift({ i: d.i, h: d.h, sig, slot: d.slot, w: shortW(w), t: Date.now() });
-      await setJSON('g:anchors', anchors.slice(0, 30));
+      const claimed = await claimAnchor(w, sig, d);
+      if (!claimed.ok) return res.status(claimed.busy ? 409 : 409).json({ ok:false,
+        reason: claimed.busy ? 'that anchor is being verified — retry' : 'that anchor was already credited' });
       // XP pays at most once per wallet per 24h — anchoring stays open
       // to everyone always; the cooldown just stops memo-spam from being
       // the cheapest XP in the game.
@@ -2024,10 +2577,13 @@ module.exports = async (req, res) => {
   } catch (e) {
     return res.status(500).json({ ok:false, reason: String(e.message || e) });
   } finally {
-    for (const key of heldPlayerLocks.reverse()) await delKey(key);
+    for (const x of heldPlayerLocks.reverse()) {
+      try { await releaseLease(x.key, x.token); } catch {}
+    }
   }
 };
 module.exports.champWindowSum = champWindowSum;   // pure, for the test harness
+module.exports.refreshLivePodium = refreshLivePodium;
 module.exports.parseMirrorSeal = parseMirrorSeal;
 
 

@@ -1,8 +1,7 @@
 // A BALANCE WE COULD NOT READ IS NOT A BALANCE OF ZERO.
 // rpcCall returns undefined when every endpoint fails. That used to become
-// null in findAta and then `bal: 0` at every call site — cached for a minute,
-// shown to a holder as "0 RCX", and fed to the staking payout and the podium
-// holder rule as though it were a fact about their wallet.
+// null in findAta and then `bal: 0` at every call site. Balance still drives
+// soft-staking display/yield, but never decides a fixed daily podium seat.
 import assert from 'node:assert';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
@@ -108,14 +107,13 @@ const seedPlayer = (mem, extra = {}) => {
   ok(after.bal === 191202, 'and the failed read never overwrote the cache');
 }
 
-// ---- 6. THE HOLDER RULE MUST NOT EVICT ON AN UNREADABLE CHAIN ----
-// A seat is forfeited for dumping, not for our infrastructure being down.
+// ---- 6. PODIUM ORDER IS INDEPENDENT OF BALANCE AND RPC HEALTH ----
 {
-  const game = require('fs').readFileSync(new URL('../api/game.js', import.meta.url), 'utf8');
-  ok(/const unreadable = read === undefined/.test(game),
-     'the podium rebuild distinguishes an unreadable balance');
-  ok(/if \(!unreadable && acc\.bal \+ 1e-9 < earned7 \* CHAMP\.holdPct\)/.test(game),
-     'and only forfeits a seat when the shortfall is actually observed');
+  const source = require('fs').readFileSync(new URL('../api/game.js', import.meta.url), 'utf8');
+  ok(/ladderTop\('lbd:', day, CHAMP\.curve\.length\)/.test(source),
+     'podium seats come directly from the live daily XP ranking');
+  ok(!/earned7 \* CHAMP\.holdPct/.test(source),
+     'no hidden balance or selling condition can evict a daily winner');
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nBALANCE OK');

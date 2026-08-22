@@ -20,12 +20,12 @@ const { getJSON, setJSON, hall} = require('../lib/kv.js');
 const { rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { snap: snapSupply } = require('../lib/supplylog.js');
 const { getPrices } = require('../lib/prices.js');
-const { verifyChain, logCount } = require('../lib/log.js');
+const { verifyChain, logCount, readEntries } = require('../lib/log.js');
 
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h51-2026-08-21';
+const VERSION = 'h52-2026-08-22';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
@@ -55,12 +55,15 @@ module.exports = async (req, res) => {
     const checks = [];
     const push = (id, status, label, detail, link) => checks.push({ id, status, label, detail, link: link || null });
 
-    // ---- heartbeat: the oracle answers, right now
+    // ---- heartbeat: only on-chain Pyth is valid for real play. A fallback
+    // price can keep a display informative, but must never look settlement-ready.
     let prices = null, t0 = Date.now();
     try { prices = await getPrices(); } catch {}
-    push('oracle', prices ? 'green' : 'red', 'Settlement oracle is answering',
-      prices ? `${prices.src.toUpperCase()} · SOL $${prices.SOL.toFixed(2)} · ${Date.now() - t0}ms round-trip`
-             : 'both price sources unreachable — shots cannot settle until this is green');
+    const pythLive = prices && prices.src === 'pyth-onchain';
+    push('oracle', pythLive ? 'green' : (prices ? 'grey' : 'red'),
+      pythLive ? 'On-chain Pyth settlement oracle is answering' : 'On-chain Pyth settlement oracle is unavailable',
+      prices ? `${prices.src.toUpperCase()} · SOL $${prices.SOL.toFixed(2)} · ${Date.now() - t0}ms round-trip · ${pythLive ? 'valid for real seals and settlement' : 'display reference only — never used to seal or settle a real shot'}`
+             : 'no price source is reachable — real shots cannot seal or settle');
 
     // totals live in an atomic hash now; fall back to the legacy blob until the
     // first write migrates it
@@ -158,10 +161,15 @@ module.exports = async (req, res) => {
     }
 
     // ---- game-side honesty lines
-    push('credits', 'green', 'Ranked credits trace to verified burns',
-      `${(st.realBurned || 0).toLocaleString()} RCX burn-verified and credited in-game · replay-gated by signature · pot payouts are game credits (play-rights), never minted tokens — no faucet exists`);
+    push('credits', 'green', 'Token reloads are verified; play-credit sources are disclosed',
+      `${(st.realBurned || 0).toLocaleString()} RCX verifiably removed from player wallets and attributed to game reloads · each signature is replay-gated atomically with its credit deposit · play-credits also enter through the one-time 5,000 grant, 1.7× hit returns, pots and balance-based staking rewards · none of those operations mint RCX`);
     push('champs', 'green', 'Champions are paid peer-to-peer, keylessly',
-      `every reload splits by the same frozen 70/30/0 — 70% burns, 30% lands straight in the daily podium's wallets inside the payer's own signed transaction · ${(st.champPaid || 0).toLocaleString()} RCX paid to champions so far · HOLDER RULE: a champion must keep ≥50% of their 7-day winnings or the seat passes down · no pool, no custody, no claim button`);
+      `every reload uses the frozen 70/30/0 split — 70% burns and 30% lands straight in the published live-daily podium snapshot inside the payer's own signed transaction · ${(st.champPaid || 0).toLocaleString()} RCX paid to other champions so far · today's settled-XP top three update live; previous-day seats only fill today's empty positions · no continuing hold or sell condition · no pool, custody or claim button`);
+    push('settlement', 'grey', 'Mainnet settlement program is legacy evidence; live mirroring is disabled',
+      'program 4WQ4…CM6E2 exists on mainnet, but its deployed rules do not meet the reviewed v2 first-crossing, confidence and disjoint void-deadline standard. The live game does not rely on it and it is not a vault',
+      'https://solscan.io/account/4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2');
+    push('vault', 'grey', 'Redeemable floor vault is not deployed',
+      'the Machine floor shown by the site is a labeled model only. No vault PDA, funded SOL balance, liability proof or no-withdraw program is being claimed');
     push('stake', 'green', 'Staking with no deposit',
       `registered wallets earn daily play-credits on their verified on-chain balance — tokens never leave the owner's wallet, so there is nothing to lock, nothing to withdraw, nothing to rug · ${(st.stakePaid || 0).toLocaleString()} credits paid to ${(st.stakers || 0)} stakers so far`);
     push('nokeys', 'green', 'No key can touch funds',
@@ -191,9 +199,11 @@ module.exports = async (req, res) => {
     try {
       const issued = await logCount();
       if (issued > 0) {
-        const all = [];
-        for (let c = 0; c * 500 < issued; c++)
-          for (const e of (await getJSON(`g:log:c:${c}`)) || []) all.push(e);
+        // Chunks are a legacy read accelerator and historically lost one row
+        // to a shared read-modify-write race.  The verifier must merge the
+        // authoritative per-index records exactly like /api/snapshot does;
+        // otherwise it can report a storage-view bug as a chain break.
+        const all = await readEntries(issued);
         const v = verifyChain(all, bbHead, issued);
         push('chain', v.ok ? 'green' : 'red',
           v.ok ? 'Every hash in the log recomputes from genesis'
