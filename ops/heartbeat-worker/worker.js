@@ -16,10 +16,7 @@ export default {
     // The poller is independent evidence fallback. The overlapping 85-second
     // subscriptions capture exact account transitions and are idempotent at
     // the durable store, so a cron boundary cannot create duplicate evidence.
-    ctx.waitUntil(Promise.allSettled([
-      runHeartbeat(env),
-      runStream(env),
-    ]));
+    ctx.waitUntil(runCycle(env));
   },
 
   async fetch(_request, env) {
@@ -28,6 +25,17 @@ export default {
     return runHeartbeat(env);
   },
 };
+
+async function runCycle(env) {
+  console.log('ratchet oracle cycle starting');
+  const [heartbeat, stream] = await Promise.allSettled([
+    runHeartbeat(env), runStream(env),
+  ]);
+  console.log(JSON.stringify({ event:'ratchet-oracle-cycle',
+    heartbeat:heartbeat.status,
+    stream:stream.status === 'fulfilled' ? stream.value
+      : { ok:false, reason:String(stream.reason && stream.reason.message || stream.reason) } }));
+}
 
 function target(env) {
   return String(env.TARGET || DEFAULT_TARGET).replace(/[?].*$/, '');
@@ -119,6 +127,8 @@ async function connectOnce(env, deadline, pending, stats, WebSocketImpl) {
         stats.duplicates += Number(result.duplicates) || 0;
       } catch (error) {
         stats.postErrors++;
+        stats.lastPostError = String(error && error.message || error).slice(0, 180);
+        console.error('oracle ingest failed: ' + stats.lastPostError);
         // Preserve the newest event for each account and retry shortly. A
         // reconnect also sends the current account value, so the latest valid
         // transition remains recoverable without inventing a price.
@@ -151,6 +161,7 @@ async function connectOnce(env, deadline, pending, stats, WebSocketImpl) {
 
     ws.addEventListener('open', () => {
       stats.connections++;
+      console.log('solana websocket open');
       for (const account of ACCOUNTS) {
         const id = requestId++;
         requests.set(id, account);
@@ -167,6 +178,7 @@ async function connectOnce(env, deadline, pending, stats, WebSocketImpl) {
         subscriptions.set(message.result, requests.get(message.id));
         requests.delete(message.id);
         stats.subscriptions = Math.max(stats.subscriptions, subscriptions.size);
+        if (subscriptions.size === ACCOUNTS.length) console.log('seven Pyth accounts subscribed');
         return;
       }
       const update = extractAccountNotification(message, subscriptions);
@@ -178,6 +190,7 @@ async function connectOnce(env, deadline, pending, stats, WebSocketImpl) {
 
     ws.addEventListener('error', () => {
       stats.socketErrors++;
+      console.error('solana websocket error');
       try { ws.close(); } catch {}
     });
     ws.addEventListener('close', () => {
@@ -200,8 +213,10 @@ export async function runStream(env, options = {}) {
   while (Date.now() < deadline - 1000) {
     try {
       await connectOnce(env, deadline, pending, stats, WebSocketImpl);
-    } catch {
+    } catch (error) {
       stats.socketErrors++;
+      stats.lastSocketError = String(error && error.message || error).slice(0, 180);
+      console.error('stream connection failed: ' + stats.lastSocketError);
     }
     if (Date.now() >= deadline - 1000) break;
     await new Promise(resolve => setTimeout(resolve, backoff));
