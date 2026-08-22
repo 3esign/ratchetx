@@ -11,16 +11,17 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 
 ## Is this repo actually the running code?
 
-Don't take our word for it — the site tells you. Both live endpoints return a build marker:
+This source tree is the local `h53-2026-08-22` release candidate. Production was
+last independently verified at `h52-2026-08-22`. After h53 is explicitly deployed,
+both live endpoints must return:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h52-2026-08-22"
-https://ratchetx.xyz/api/proof               ->  "v": "h52-2026-08-22"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h53-2026-08-22"
+https://ratchetx.xyz/api/proof               ->  "v": "h53-2026-08-22"
 ```
 
-All public APIs in this repo declare `const VERSION = 'h52-2026-08-22'`.
-If the live marker and the repo marker match, you are reading the code that is running.
-If they ever don't, the repo is stale and you should say so loudly.
+All public APIs in this repo declare `const VERSION = 'h53-2026-08-22'`.
+Do not claim h53 is live until the deployed marker matches the repo marker.
 
 ## Real rewards, still keyless
 

@@ -74,6 +74,9 @@ const kvOf = () => require('../lib/kv.js');
   const seen = log.verifyChain(short, { i: 7, h: short[6].h }, n);
   assert.equal(seen.ok, false, 'with the counter the loss is caught');
   assert.match(seen.reason, /8 issued, 7 stored/);
+  const middle = log.verifyChain(entries.filter(e => e.i !== 4), head, n);
+  assert.equal(middle.brokenAt, 4, 'the verifier reports the first actual missing index, not the current tail');
+  assert.match(middle.reason, /missing entry 4/);
   console.log('dropped entry: old check says ok, counter-aware check says ->', seen.reason);
 }
 
