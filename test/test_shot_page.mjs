@@ -25,6 +25,10 @@ const now = Date.now(), t = now - 300e3;
 await kv.setJSON(`u:${W}`, { w:W, closed:[
   { id:'abc123', kind:'dir', feed:'SOL', side, salt, commit, res:'hit', label:'SOL higher in 5 minutes',
     stake:2500, back:4250, xp:56, entry:86.0, exitPx:87.4, t, exp:now-60e3, settledAt:now-55e3, exitAt:now-58e3 },
+  { id:'oldmiss', kind:'dir', feed:'SOL', side:'NO', salt, commit, res:'miss', label:'legacy miss',
+    stake:500, xp:22, entry:86, exitPx:87, t, exp:now-60e3, settledAt:now-55e3 },
+  { id:'newmiss', kind:'dir', feed:'SOL', side:'NO', salt, commit, res:'miss', label:'new miss',
+    stake:500, xp:25, settleXp:25, skillXp:0, entry:86, exitPx:87, t, exp:now-60e3, settledAt:now-55e3 },
   // an OPEN shot parked in closed by mistake must still not reveal a side
   { id:'open99', kind:'dir', feed:'SOL', side:'NO', salt:'zz', commit:'x', label:'open one', t, exp:now+600e3 },
 ] });
@@ -43,6 +47,13 @@ ok(/\+1\.63%/.test(r.body), 'the move is computed');
 ok(/<svg/.test(r.body) && /class="sp"/.test(r.body), 'the oracle path is drawn from the recorded log');
 ok(/og:title/.test(r.body) && /twitter:card/.test(r.body), 'it unfurls when shared');
 ok(/first Pyth print at or after expiry/.test(r.body), 'the settling sample is named');
+
+r = await call({ w:W, id:'oldmiss' });
+ok(r.status === 200 && /<u>XP<\/u><b>0<\/b>/.test(r.body),
+  'a legacy MISS does not misreport its old potential XP as awarded');
+r = await call({ w:W, id:'newmiss' });
+ok(r.status === 200 && /<u>XP<\/u><b>\+25<\/b>/.test(r.body),
+  'a new MISS proves its fixed settlement XP');
 
 r = await call({ w:W, id:'open99' });
 ok(r.status === 404, 'a shot with no result is refused');

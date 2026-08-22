@@ -54,7 +54,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h56-2026-08-22';
+const VERSION = 'h57-2026-08-22';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -139,8 +139,8 @@ const shotCommit = (w, id, side, salt) =>
 // law lives in the shape of the curve, not in the tiers:
 //
 //   sublinear, so 25x the stake earns 5x the XP, never 25x — the ladder cannot
-//   be bought — and XP is still only ever awarded on a HIT, so a bigger stake
-//   buys leverage on being right and nothing whatsoever on being right.
+//   be bought. Every valid HIT/MISS gets fixed settlement XP; only the HIT's
+//   additional skill XP follows this stake curve. VOID gets zero.
 // BEING RIGHT HAS TO PAY (h12). Until now a HIT awarded XP and nothing else, so
 // a player's credit balance only ever fell — a perfect predictor still ran to
 // zero, and after the one-time grant there was no way back except buying RCX.
@@ -179,6 +179,10 @@ const STAKE_MAX = 1000000000;
 // this is the honest version of it.
 const STREAK_STEP = 0.15, STREAK_CAP = 2.0;
 const streakMult = k => Math.min(STREAK_CAP, 1 + Math.max(0, k) * STREAK_STEP);
+// Every deterministically settled human play leaves a small progression mark.
+// Fixed, never stake-scaled: HIT earns this plus skill XP; MISS earns this;
+// VOID earns zero because no outcome was established.
+const SETTLE_XP = 25;
 const XP_MULT_CAP = 20;
 const XP_CAP_AT = STAKE_MIN * XP_MULT_CAP * XP_MULT_CAP;   // 40,000
 const stakeMult = st => Math.min(XP_MULT_CAP, Math.sqrt(st / STAKE_MIN));
@@ -1460,6 +1464,7 @@ async function settle(p, prices) {
       if (at.expired) await noteSettle(s.feed, 'void', eventId);
       if (at2 && at2.expired) await noteSettle(s.feed2, 'void', eventId);
       refund(p, s); s.res = 'void'; s.settledAt = now; s.exitPx = null;
+      s.skillXp = 0; s.settleXp = 0; s.xp = 0;
       if (s.allocationRule !== 'on-settle-v2')
         await reverseStake(s.stake, p.w, s.id);
       const voidReason = strict
@@ -1492,6 +1497,7 @@ async function settle(p, prices) {
 
     if (outcome === 'VOID') {
       refund(p, s); s.res = 'void';
+      s.skillXp = 0; s.settleXp = 0; s.xp = 0;
       if (s.allocationRule !== 'on-settle-v2')
         await reverseStake(s.stake, p.w, s.id);
     } else if (outcome === s.side) {
@@ -1500,7 +1506,9 @@ async function settle(p, prices) {
       const sm = streakMult(p.streak);
       s.xpBase = s.xp;
       s.streakMult = +sm.toFixed(2);
-      s.xp = Math.max(1, Math.round(s.xp * sm));
+      s.skillXp = Math.max(1, Math.round(s.xp * sm));
+      s.settleXp = SETTLE_XP;
+      s.xp = s.skillXp + s.settleXp;
       p.streak++; p.best = Math.max(p.best, p.streak);
       p.xp += s.xp;
       await bumpLadderOnce(p.w, s.xp, p.qualified, s.id);
@@ -1517,8 +1525,11 @@ async function settle(p, prices) {
     } else {
       await fundSettledStake(s, p.w);
       p.shots++; s.res = 'miss'; p.streak = 0;
+      s.skillXp = 0; s.settleXp = SETTLE_XP; s.xp = SETTLE_XP;
+      p.xp += s.xp;
+      await bumpLadderOnce(p.w, s.xp, p.qualified, s.id);
       if (!isDemo(p.w)) await bumpFeed({ id:`settle:${eventId}`,
-        w:shortW(p.w), a:'MISS - streak reset', c:'miss' });
+        w:shortW(p.w), a:`MISS - streak reset - +${s.xp} XP`, c:'miss' });
     }
 
     s.settledAt = now; s.exitPx = px;
@@ -1537,9 +1548,11 @@ async function settle(p, prices) {
       res:s.res, exitPx:px, exitAt:s.exitAt, exitPx2:s.exitPx2,
       exitAt2:s.exitAt2, side:s.side, salt:s.salt, commit:s.commit,
       commitV:s.commitV || 1, settleRule:s.settleRule || 'observed-sample-v1',
-      allocationRule:s.allocationRule || 'upfront-v1' });
+      allocationRule:s.allocationRule || 'upfront-v1', xp:s.xp || 0,
+      settleXp:s.settleXp || 0, skillXp:s.skillXp || 0 });
     await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
-      res:s.res, xp:s.res === 'hit' ? s.xp : 0, back:s.back || 0,
+      res:s.res, xp:s.res === 'void' ? 0 : (s.xp || 0), back:s.back || 0,
+      settleXp:s.settleXp || 0, skillXp:s.skillXp || 0,
       stake:s.stake, entry:s.entry, exit:px });
     p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
   }
@@ -1917,7 +1930,7 @@ module.exports = async (req, res) => {
         split: SPLIT, potSplit: { day: POT_DAY_SHARE, week: 1 - POT_DAY_SHARE },
         prizes: { day: PRIZE_D, week: PRIZE_W },
         dayEnds: Date.UTC(new Date().getUTCFullYear(), new Date().getUTCMonth(), new Date().getUTCDate() + 1),
-        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number), hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP },
+        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, presets: Object.keys(STAKES).map(Number), hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP, settleXp: SETTLE_XP },
         champ: { pct:CHAMP.pct, curve:CHAMP.curve, receiptDays:CHAMP.receiptDays,
           seatRule:CHAMP.seatRule, snapshot:podNow.id || null,
           signingGraceSec:Math.floor(CHAMP.signingGraceMs/1000),
@@ -2312,7 +2325,7 @@ module.exports = async (req, res) => {
         flipsAt: (hour + 1) * 3600e3,
         prices: { src: prices.src, ages: prices.ages || null,
           ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x))) },
-        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP },
+        stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP, settleXp: SETTLE_XP },
         sealRule: 'entry price must be fresher than min(60, max(30, 0.15 * windowSeconds)) seconds',
         settleRule: 'the unique Pyth update with prev_publish_time < expiry <= publish_time; a missed/unusable crossing or no crossing inside 15 minutes voids and refunds',
         targets: Object.entries(board).map(([id, t]) => ({

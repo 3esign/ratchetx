@@ -19,7 +19,7 @@ const { pathFor } = require('../lib/pxlog.js');
 const { isWalletShaped, isDemo } = require('../lib/verify.js');
 const crypto = require('node:crypto');
 
-const VERSION = 'h56-2026-08-22';
+const VERSION = 'h57-2026-08-22';
 const SITE = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
 const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
 const esc = s => String(s == null ? '' : s)
@@ -126,6 +126,8 @@ a{color:var(--gold)}
       + `${moved != null ? ` (${moved >= 0 ? '+' : ''}${moved.toFixed(2)}%)` : ''}`
       + ` · sealed as a hash before the outcome, settled on Pyth.`;
 
+    const xpAwarded = vd ? 0 : hit ? Number(s.xp||0)
+      : Number.isFinite(+s.settleXp) ? Number(s.xp||0) : 0;
     const body = `<div class="card">
   <div class="k">${esc(short(w))} · ${esc(new Date(s.t || Date.now()).toISOString().replace('T',' ').slice(0,16))} UTC</div>
   <h1>${esc(s.label || 'shot')}</h1>
@@ -139,7 +141,8 @@ a{color:var(--gold)}
     <div class="c"><u>EXIT</u><b>$${esc(money(s.exitPx))}</b></div>
     <div class="c"><u>MOVED</u><b style="color:${moved==null?'var(--dim)':moved>=0?'var(--grn)':'var(--red)'}">${
       moved==null?'—':(moved>=0?'+':'')+moved.toFixed(2)+'%'}</b></div>
-    <div class="c"><u>XP</u><b>${hit ? '+'+esc(s.xp||0) : '0'}</b></div>
+    <div class="c"><u>XP</u><b>${xpAwarded ? '+'+esc(xpAwarded) : '0'}</b></div>
+    <div class="c"><u>CREDITS</u><b>${s.res === 'void' ? '+'+Number(s.stake||0).toLocaleString()+' REFUND' : s.res === 'hit' ? '+'+Number(s.back||0).toLocaleString() : '+0'}</b></div>
   </div>
   <div class="proof">
     <h2>CHECK IT YOURSELF</h2>

@@ -486,9 +486,10 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         <b style="color:var(--ink)">Your own agent can play as well</b> — same board, same oracle, same sealing —
         and what it earns is a public accuracy record nobody can edit afterwards. See THE ARENA below.<br>
         <b style="color:var(--ink)">1 · Call it.</b> Pick a question, pick YES or NO, and risk any whole amount
-        from 100 up to your available credits (server safety cap 1,000,000,000). XP follows
+        from 100 up to your available credits (server safety cap 1,000,000,000). Every valid settled play earns
+        <b style="color:var(--gold)">25 PLAY XP</b>. A HIT also earns skill XP, which follows
         <b style="color:var(--ink)">√(stake/100)</b> and caps at ×20 once stake reaches 40,000, so risking more
-        cannot buy more ladder XP. XP is paid only on a <b style="color:var(--grn)">HIT</b>. Each card quotes the
+        cannot buy more ladder XP. A VOID earns 0 XP and refunds the stake. Each card quotes the
         level it asks about — <s style="text-decoration:none;color:var(--ice)">NOW</s> is the live price and
         <s style="text-decoration:none;color:var(--ice)">CLEARS / BREAKS / BAND</s> is the rule. The public log
         stores only a commitment; other players and spectators cannot read your side before settlement. The server
@@ -501,11 +502,11 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         the public record. The legacy mainnet program is not used by the live game. Every displayed price carries
         its publish age; a fallback quote is display-only and can never seal or settle a real shot.<br>
         <b style="color:var(--ink)">3 · Being right pays.</b> A HIT returns <b style="color:var(--grn)">1.7× your
-        stake in credits</b> and earns XP; a MISS feeds the Machine. Break-even sits near 59% accuracy — beat the
+        stake in credits</b>, 25 play XP and skill XP; a MISS earns 25 play XP and feeds the Machine. Break-even sits near 59% accuracy — beat the
         market consistently and you play forever, guess and you run down. You can only ever win credits by risking
         credits you already hold, so it is a skill filter, not a faucet, and no token is ever minted.<br>
-        <b style="color:var(--ink)">4 · Climb.</b> XP comes only from being
-        <i>right</i>, never from spending. Ranks run COG → PISTON → FLYWHEEL → TURBINE → REACTOR and unlock more
+        <b style="color:var(--ink)">4 · Climb.</b> Participation XP comes from reaching a valid oracle settlement;
+        skill XP comes only from being <i>right</i>, never from spending. Ranks run COG → PISTON → FLYWHEEL → TURBINE → REACTOR and unlock more
         simultaneous chambers — <b style="color:var(--ink)">never better odds</b>.
 
         <div class="hh">HOW YOU WIN</div>
@@ -1162,7 +1163,7 @@ function paint(){
         ${L.bar}</div>`;}),
       ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}" data-settled="${c.id||''}" data-path="${c.feed||''}" data-from="${c.t||''}" data-to="${c.settledAt||c.exp||''}" data-entry="${c.entry||''}" data-exit="${c.exitPx||''}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
         <div class="ch2">${c.label}</div>
-        <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${c.res==='hit'?'+'+c.xp+' XP'+(c.streakMult>1?` <span style="color:var(--gold)">×${c.streakMult} STREAK</span>`:''):c.res==='miss'?'streak reset':'no move, no harm'}${
+        <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${settlementReceipt(c)}${
           AUTH&&c.id?` <button class="shareb" data-share="${c.id}">SHARE PROOF</button>`:''}</div></div>`)];
     
     // Add MIRROR ON-CHAIN logic to open shots (only those with commit hashes)
@@ -1185,7 +1186,7 @@ function paint(){
         return`<div class="kl"><span class="t">${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span>
           <span style="color:${col};width:40px;flex:none;font-weight:800">${e.res.toUpperCase()}</span>
           <span style="flex:1">${e.label} — <b>${e.side}</b> ${missMargin(e)}</span>
-          <span style="color:${col};font-weight:700;white-space:nowrap">${e.res==='hit'?'+'+e.xp+' XP'+(e.back?' · +'+e.back.toLocaleString():''):e.res==='void'?'refund':'streak ✕'}</span></div>`;}).join(""));}
+          <span style="color:${col};font-weight:700;white-space:nowrap">${settlementReceipt(e)}</span></div>`;}).join(""));}
     else if($("histP"))$("histP").style.display="none";
     // A guest who has just watched a shot settle is the only moment worth
     // interrupting. Once, ever, and never again.
@@ -1511,7 +1512,7 @@ document.addEventListener("visibilitychange", () => {
 function announceSettle(e){
   const hit = e.res === "hit", vd = e.res === "void";
   const head = vd ? "VOID — stake refunded" : hit ? "HIT ✓" : "MISS ✕";
-  const body = `${e.label}${e.res==="hit"&&e.back?` · +${e.back.toLocaleString()} credits`:""}`;
+  const body = `${e.label} · ${settlementReceipt(e).replace(/<[^>]*>/g,"")}`;
   pendingSettles++; markTitle();
   try{
     if (window.Notification && Notification.permission === "granted")
@@ -1599,6 +1600,19 @@ function missMargin(e){
   if(!Number.isFinite(e.entry)||!Number.isFinite(e.exit))return "";
   const d=(e.exit-e.entry)/e.entry;
   return `<span style="color:var(--dim)">· moved ${(d>=0?"+":"")+(d*100).toFixed(2)}%</span>`;
+}
+
+function settlementReceipt(e){
+  if(e.res==='void') return `0 XP · +${Number(e.stake||0).toLocaleString()} CREDITS REFUND`;
+  const legacyMiss=e.res==='miss'&&!Number.isFinite(+e.settleXp);
+  const xp=legacyMiss?0:(Number(e.xp)||0), credits=Number(e.back)||0;
+  if(e.res==='hit'){
+    const split=Number.isFinite(+e.settleXp)&&Number.isFinite(+e.skillXp)&&(+e.settleXp||+e.skillXp)
+      ? ` <span style="color:var(--dim)">(${+e.settleXp} PLAY + ${+e.skillXp} SKILL)</span>` : '';
+    const streak=e.streakMult>1?` <span style="color:var(--gold)">×${e.streakMult} STREAK</span>`:'';
+    return `+${xp} XP${split}${streak} · +${credits.toLocaleString()} CREDITS`;
+  }
+  return `+${xp} XP · +0 CREDITS · STREAK RESET`;
 }
 
 // YOUR LIVE POSITION. A ladder nobody can see themselves on is decoration.
@@ -2115,13 +2129,28 @@ document.addEventListener("visibilitychange",()=>{
     lastVisibleRefresh=Date.now();refresh();
   }
 });
-// surgical 1s ticker: update ONLY countdown text — no repaints, no flicker
+// Expired cards actively watch settlement. The regular 10s poll remains the
+// safety net; this bounded backoff makes the result appear without a reload.
+const settleWatches=new Map();
+let settleRefreshDue=0;
+function watchExpired(exp){
+  const now=Date.now(), prev=settleWatches.get(exp)||{tries:0,next:0};
+  if(now<prev.next)return;
+  prev.tries++;
+  prev.next=now+Math.min(15000,2000*Math.pow(1.45,prev.tries-1));
+  settleWatches.set(exp,prev);
+  if(now>=settleRefreshDue){settleRefreshDue=now+1500;refresh();}
+}
+// surgical 1s ticker: update countdown text, then wake settlement only at expiry
 setInterval(()=>{
+  const activeExp=new Set();
   document.querySelectorAll(".cd").forEach(sp=>{
     const left=Math.max(0,Math.round((+sp.dataset.exp-Date.now())/1000));
     const hh2=Math.floor(left/3600),mm=Math.floor((left%3600)/60),ss=left%60;
-    sp.textContent=hh2>0?`${hh2}h ${String(mm).padStart(2,"0")}m`:`${mm}:${String(ss).padStart(2,"0")}`;
+    if(left===0){sp.textContent="SETTLING…";activeExp.add(sp.dataset.exp);watchExpired(sp.dataset.exp);}
+    else sp.textContent=hh2>0?`${hh2}h ${String(mm).padStart(2,"0")}m`:`${mm}:${String(ss).padStart(2,"0")}`;
   });
+  for(const exp of settleWatches.keys())if(!activeExp.has(exp))settleWatches.delete(exp);
   if(STATE&&STATE.boardFlip){const l=Math.max(0,Math.round((STATE.boardFlip-Date.now())/1000));
     const el=$("boardIn");if(el)el.textContent=`NEW MIX IN ${Math.floor(l/60)}:${String(l%60).padStart(2,"0")}`;}
   if(STATE)standing();
