@@ -14,6 +14,8 @@ import { solanaDevnetRpc } from '@solana/kit-plugin-rpc';
 import { signer } from '@solana/kit-plugin-signer';
 import { fetchMint } from '@solana-program/token-2022';
 import { canonicalSnapshot } from './model.mjs';
+import { buildAchievementTree, verifyAchievementProof } from './merkle.mjs';
+import { ZERO_HASH, sealCheckpoint, validateCheckpointTransition } from './checkpoint-v2.mjs';
 import {
   createPassportMintPlan,
   describePassportLayout,
@@ -77,6 +79,35 @@ async function commandPlan() {
     network: 'devnet-only',
     productionTouched: false,
     ...layout,
+  }, null, 2));
+}
+
+async function commandV2Plan() {
+  const player = '11111111111111111111111111111111';
+  const records = [
+    { player, lifetimeXp: 1250, bestStreak: 3, shots: 12, podiumWins: 1, burned: 700 },
+    { player: 'SysvarRent111111111111111111111111111111111', lifetimeXp: 420, shots: 8 },
+  ];
+  const tree = buildAchievementTree(records);
+  const checkpoint = sealCheckpoint({
+    player,
+    passportMint: 'SysvarC1ock11111111111111111111111111111111',
+    sequence: 1,
+    previousCheckpointHash: ZERO_HASH,
+    logIndex: 900,
+    logHead: '1'.repeat(64),
+    stateRoot: tree.root,
+    snapshot: { ...records[0], epochDay: 20_687, checkpointUnix: 1_787_424_300 },
+  });
+  const transition = validateCheckpointTransition(null, checkpoint, { nowUnix: 1_787_424_300 });
+  console.log(JSON.stringify({
+    experiment: 'ratchet-player-passport-checkpoint-v2',
+    network: 'offline-model',
+    productionTouched: false,
+    checkpoint,
+    inclusionProof: tree.proofs.get(player),
+    inclusionVerified: verifyAchievementProof(records[0], tree.proofs.get(player), tree.root),
+    transition: { ok: transition.ok, errors: transition.errors },
   }, null, 2));
 }
 
@@ -215,10 +246,12 @@ const command = process.argv[2] || 'plan';
 try {
   if (command === 'plan') {
     await commandPlan();
+  } else if (command === 'v2-plan') {
+    await commandV2Plan();
   } else if (command === 'devnet-demo') {
     await commandDevnet();
   } else {
-    console.error('Usage: npm run passport -- [plan|devnet-demo]');
+    console.error('Usage: npm run passport -- [plan|v2-plan|devnet-demo]');
     process.exitCode = 2;
   }
 } catch (error) {

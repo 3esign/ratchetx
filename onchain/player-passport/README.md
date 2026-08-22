@@ -36,6 +36,7 @@ Numeric metadata values use fixed-width decimal strings. Updating them within th
 npm install
 npm test
 npm run passport -- plan
+npm run passport -- v2-plan
 npm run passport -- devnet-demo
 ```
 
@@ -44,6 +45,8 @@ npm run passport -- devnet-demo
 ## Authority boundary
 
 For the disposable devnet experiment, the ephemeral payer is also metadata update authority. A production design should not use a server hot key as the final trust model. The likely next step is a small program whose PDA can checkpoint only validated RATCHET state, with explicit recovery/governance rules. That program has **not** been built or deployed here.
+
+The next architecture is now specified and executable as a pure model in [`ARCHITECTURE_V2.md`](ARCHITECTURE_V2.md). It adds a hash-linked checkpoint sequence, monotonic game invariants, RATCHET log-head provenance and per-player Merkle inclusion proofs. This deliberately separates what a program can enforce from what an off-chain attestor still has to assert.
 
 ## Token-2022 versus an attestation service
 
