@@ -18,9 +18,9 @@
 //  the canonical JSON of `state` so mirrors can be compared.
 // ============================================================
 const crypto = require('node:crypto');
-const { getJSON, getManyJSON, scanKeys, scanZKeys, ztop, durable, hall} = require('../lib/kv.js');
+const { getJSON, getManyJSON, scanKeys, scanZKeys, ztop, durable, backend, hall} = require('../lib/kv.js');
 
-const VERSION = 'h53-2026-08-22';
+const VERSION = 'h55-2026-08-22';
 const MINT = process.env.RATCHET_MINT || '';
 
 const memo = globalThis.__ratchet_snap || (globalThis.__ratchet_snap = { t: 0, body: null });
@@ -148,7 +148,7 @@ module.exports = async (req, res) => {
 
     const canonical = JSON.stringify(state);
     const out = {
-      ok: true, v: VERSION, t: Date.now(), durable,
+      ok: true, v: VERSION, t: Date.now(), durable, storage:backend,
       note: 'This is the whole machine. Verify: replay `log` from sha256("ratchet-genesis") — it must reach `logHead`, whose anchors live on Solana. Restore: see RESURRECTION.md in the repo.',
       sha256: crypto.createHash('sha256').update(canonical).digest('hex'),
       logComplete: !!head && issued === head.i && log.length === issued,

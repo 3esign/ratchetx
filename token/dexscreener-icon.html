@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=512, initial-scale=1">
+  <title>RATCHETX DEXScreener Icon</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { width: 512px; height: 512px; margin: 0; overflow: hidden; }
+    body {
+      display: grid;
+      place-items: center;
+      background:
+        radial-gradient(circle at 50% 42%, rgba(226,177,73,.14), transparent 35%),
+        linear-gradient(145deg, #0d1117 0%, #05070a 72%);
+      color: #f5f0e4;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    .icon {
+      position: relative;
+      width: 488px;
+      height: 488px;
+      border: 2px solid rgba(224,173,71,.62);
+      border-radius: 104px;
+      overflow: hidden;
+      box-shadow: inset 0 0 80px rgba(0,0,0,.48);
+    }
+    .icon::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      opacity: .22;
+      background-image:
+        linear-gradient(rgba(255,255,255,.045) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(255,255,255,.045) 1px, transparent 1px);
+      background-size: 38px 38px;
+    }
+    .wheel {
+      position: absolute;
+      left: 74px;
+      top: 46px;
+      width: 340px;
+      height: 340px;
+      filter: drop-shadow(0 18px 35px rgba(0,0,0,.5));
+    }
+    .brand {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 38px;
+      text-align: center;
+      color: #f3ede0;
+      font: 800 30px/1 Georgia, "Times New Roman", serif;
+      letter-spacing: .18em;
+    }
+    .brand span { color: #e0ad47; }
+  </style>
+</head>
+<body>
+  <main class="icon">
+    <svg class="wheel" viewBox="0 0 340 340" role="img" aria-label="RATCHETX RX monogram">
+      <defs>
+        <linearGradient id="gold" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#f1c55f"/>
+          <stop offset=".52" stop-color="#d8a23b"/>
+          <stop offset="1" stop-color="#9b6820"/>
+        </linearGradient>
+      </defs>
+      <g transform="translate(170 170)" fill="url(#gold)">
+        <rect x="-13" y="-164" width="26" height="54" rx="8"/>
+        <rect x="-13" y="-164" width="26" height="54" rx="8" transform="rotate(45)"/>
+        <rect x="-13" y="-164" width="26" height="54" rx="8" transform="rotate(90)"/>
+        <rect x="-13" y="-164" width="26" height="54" rx="8" transform="rotate(135)"/>
+        <rect x="-13" y="-164" width="26" height="54" rx="8" transform="rotate(180)"/>
+        <rect x="-13" y="-164" width="26" height="54" rx="8" transform="rotate(225)"/>
+        <rect x="-13" y="-164" width="26" height="54" rx="8" transform="rotate(270)"/>
+        <rect x="-13" y="-164" width="26" height="54" rx="8" transform="rotate(315)"/>
+        <circle r="126"/>
+      </g>
+      <circle cx="170" cy="170" r="101" fill="#0b0e13" stroke="#f0c35d" stroke-width="3"/>
+      <circle cx="170" cy="170" r="84" fill="none" stroke="rgba(224,173,71,.24)" stroke-width="2"/>
+      <text x="170" y="197" text-anchor="middle" fill="#f4eee0" font-family="Georgia, Times New Roman, serif" font-size="82" font-weight="800" letter-spacing="-5">R<tspan fill="#e0ad47">X</tspan></text>
+    </svg>
+    <div class="brand">RATCHET<span>X</span></div>
+  </main>
+</body>
+</html>

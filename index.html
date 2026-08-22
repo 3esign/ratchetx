@@ -898,10 +898,19 @@ function guestId(){
 }
 async function connect(){
   const prov=window.solana||window.phantom&&window.phantom.solana;
-  if(!prov){ // no wallet at all — stay a guest, and say why
+  if(!prov){
+    // Ordinary mobile browsers cannot inject a wallet provider. A user click
+    // may safely open this page inside Phantom, where the normal provider path
+    // below works unchanged.
+    const mobile=/Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
+    if(mobile){
+      const page=encodeURIComponent(location.href), ref=encodeURIComponent(location.origin);
+      location.assign(`https://phantom.app/ul/browse/${page}?ref=${ref}`);
+      return;
+    }
     guestId();
     $("cx").textContent="GUEST · "+DEMO.slice(5);$("cx").classList.add("done");
-    toast("No wallet found — you're playing as a GUEST: free, but guest shots never enter the ladders or pots. Install Phantom to play ranked.");
+    toast("No wallet found — playing as a guest. Install Phantom to enter ranked play.");
     refresh();return;
   }
   try{
@@ -969,8 +978,10 @@ $("wmOut")&&($("wmOut").onclick=()=>{
 const who=()=>AUTH?AUTH.wallet:DEMO;
 
 // ---------- state ----------
+let refreshing=false;
 async function refresh(){
-  if(dead)return;
+  if(dead||refreshing)return;
+  refreshing=true;
   try{
     const w=who();
     const r=await fetch(API+"?action=state"+(w?("&wallet="+encodeURIComponent(w)):""));
@@ -979,8 +990,8 @@ async function refresh(){
     paint();
   }catch(e){
     $("mode").style.display="block";
-    $("mode").textContent="API unreachable — deploy this folder to Vercel and this page comes alive. ("+e.message+")";
-  }
+    $("mode").textContent="Game service is temporarily unavailable. Your wallet and funds are safe — retry shortly. ("+e.message+")";
+  }finally{refreshing=false;}
 }
 function paint(){
   const s=STATE;
@@ -2067,7 +2078,27 @@ async function mirrorShot(btn) {
   }
 }
 document.addEventListener("click", async e => { const b=e.target.closest&&e.target.closest(".mirrorb"); if(b) mirrorShot(b); });
-refresh();setInterval(refresh,6000);
+let lastVisibleRefresh=Date.now();
+async function pollState(){
+  const liveShot=!!(STATE&&STATE.player&&(STATE.player.open||[]).length);
+  const engaged=!!AUTH||liveShot;
+  const delay=engaged?10000:60000;
+  setTimeout(async()=>{
+    // Connected players and expiring shots keep a ten-second settlement watch,
+    // including in a hidden tab. Idle guests poll once a minute, foreground only.
+    if(engaged||document.visibilityState==="visible"){
+      lastVisibleRefresh=Date.now();
+      await refresh();
+    }
+    pollState();
+  },delay);
+}
+refresh().finally(pollState);
+document.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&Date.now()-lastVisibleRefresh>15000){
+    lastVisibleRefresh=Date.now();refresh();
+  }
+});
 // surgical 1s ticker: update ONLY countdown text — no repaints, no flicker
 setInterval(()=>{
   document.querySelectorAll(".cd").forEach(sp=>{

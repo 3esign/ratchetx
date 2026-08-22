@@ -11,16 +11,16 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 
 ## Is this repo actually the running code?
 
-This source tree is the local `h53-2026-08-22` release candidate. Production was
+This source tree is the local `h55-2026-08-22` release candidate. Production was
 last independently verified at `h52-2026-08-22`. After h53 is explicitly deployed,
 both live endpoints must return:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h53-2026-08-22"
-https://ratchetx.xyz/api/proof               ->  "v": "h53-2026-08-22"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h55-2026-08-22"
+https://ratchetx.xyz/api/proof               ->  "v": "h55-2026-08-22"
 ```
 
-All public APIs in this repo declare `const VERSION = 'h53-2026-08-22'`.
+All public APIs in this repo declare `const VERSION = 'h55-2026-08-22'`.
 Do not claim h53 is live until the deployed marker matches the repo marker.
 
 ## Real rewards, still keyless
@@ -150,7 +150,7 @@ and the page says so). Environment variables, all optional except the mint:
 
 `RATCHET_MINT` (arms real burns) · `PUBLIC_ORIGIN` (production default: `https://ratchetx.xyz`) ·
 `SOLANA_RPC_URL` or `SOLANA_RPC` (fast RPC lane; public RPCs are the
-fallback) · `KV_REST_API_URL` + `KV_REST_API_TOKEN` (durable state) · `CREDIT_PER_TOKEN`
+fallback) · `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (preferred free durable state; server-only) · `KV_REST_API_URL` + `KV_REST_API_TOKEN` (rollback/fallback durable state) · `CREDIT_PER_TOKEN`
 (default 1) · `RATCHET_LP_BURN_TX` (optional override for the LP proof line) · **`PYTH_API_KEY`** (required for
 direct Hermes calls since 2026-08-18; without it the game falls back
 to a thinner price source only if the primary on-chain route fails, and says so on the page) ·

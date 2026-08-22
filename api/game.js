@@ -41,8 +41,8 @@
 //      hits and misses alike. v0 heuristic, scored like everyone.
 // ============================================================
 const crypto = require('node:crypto');
-const { getJSON, getCached, getJSONStrict, setJSON, setManyJSONAtomic, setnxJSON,
-  acquireLease, releaseLease, delKey, scanKeys, durable, zincr, zmax, ztop, incrFloat,
+const { getJSON, getCached, getJSONStrict, getManyJSON, setJSON, setManyJSONAtomic, setnxJSON,
+  acquireLease, releaseLease, delKey, scanKeys, durable, backend, zincr, zmax, ztop, incrFloat,
   takeNum, hincr, hincrMany, zincrManyOnce, applyOnce, hall, hseed} = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped, b58decode } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
@@ -54,7 +54,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h53-2026-08-22';
+const VERSION = 'h55-2026-08-22';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -506,6 +506,13 @@ async function migrateLadder(pfx, period) {
       if (!isDemo(w) && Number.isFinite(xp) && xp > 0) await zincr(k, xp, w);
     }
   } catch { migSeen.delete(k); }        // let the next request try again
+}
+
+async function warmLadderMigrations(defs) {
+  const keys = defs.map(([pfx, period]) => zkey(pfx, period)).filter(k => !migSeen.has(k));
+  if (!keys.length) return;
+  const gates = await getManyJSON(keys.map(k => `mig:${k}`));
+  for (let i = 0; i < keys.length; i++) if (gates[i]) migSeen.add(keys[i]);
 }
 
 /** Ranked [wallet, xp] descending. n omitted = the whole board. */
@@ -1852,12 +1859,15 @@ module.exports = async (req, res) => {
         }
         if (changed2) { player.qualified = true; await savePlayer(p); }
       }
-      const st = await loadStats();
-      const lbRows = await ladderTop('lb:', seasonKey());
+      await warmLadderMigrations([['lb:', seasonKey()], ['lbd:', today()], ['lba:', 'all']]);
+      const [st, lbRows, dayRanked, allRanked] = await Promise.all([
+        loadStats(),
+        ladderTop('lb:', seasonKey()),
+        ladderTop('lbd:', today()),
+        ladderTop('lba:', 'all'),
+      ]);
       const ladder = lbRows.slice(0,20).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
-      const dayRanked = await ladderTop('lbd:', today());
       const ladderDay = dayRanked.slice(0,10).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
-      const allRanked = await ladderTop('lba:', 'all');
       const ladderAll = allRanked.slice(0,20).map(([wl,xp])=>({ w:shortW(wl), xp, me:wl===w }));
       // YOUR LIVE POSITION: where you stand today, what today would pay you if it
       // ended right now, and what it would take to move up. The ladder is only
@@ -1874,13 +1884,20 @@ module.exports = async (req, res) => {
         player.dayToSeat = (player.dayRank && player.dayRank <= seats) ? 0
           : Math.max(1, ((cut ? cut[1] : 0) + 1) - player.dayXp);
       }
-      return res.json({ ok:true, v: VERSION, durable,
+      const [feed, warden, wardenPrev, wardenHist, mcap, tokenProgram,
+        lastSeason, lastDay, logHead] = await Promise.all([
+        getCached('g:feed', 3_000), wardenLine(prices),
+        getCached('g:warden:rec:prev', 60_000), getCached('g:warden:hist', 5_000),
+        getMcap(), getMintProgram(), getCached('g:seasonResults', 30_000),
+        getCached('g:dayResults', 15_000), getCached('g:log:head', 3_000),
+      ]);
+      return res.json({ ok:true, v: VERSION, durable, storage:backend,
         prices:{src:prices.src,degraded:prices.degraded||null,ages:prices.ages||null,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
-        stats: st, feed: (await getCached('g:feed', 3_000)) || [], ladder, ladderDay,
-        warden: await wardenLine(prices), wardenRec,
+        stats: st, feed: feed || [], ladder, ladderDay,
+        warden, wardenRec,
         wardenModel: WARDEN_MODEL,
-        wardenPrev: await getCached('g:warden:rec:prev', 60_000), agents: fleet,
-        wardenHist: (await getCached('g:warden:hist', 5_000)) || [],
+        wardenPrev, agents: fleet,
+        wardenHist: wardenHist || [],
         targets: Object.fromEntries(Object.entries(targetBoard(boardHour()))
           .filter(([,t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))),
         boardFlip: (boardHour() + 1) * 3600e3,
@@ -1896,13 +1913,13 @@ module.exports = async (req, res) => {
           podium: (podNow.list || []).map(x => ({ w:shortW(x.w), owner:x.w, ata:x.ata,
             pct:x.pct, xp:x.xp, source:x.source || 'previous' })) },
         season: seasonKey(), day: today(), ladderAll,
-        mint: MINT || null, incinerator: MINT ? INCINERATOR : null, mcap: await getMcap(),
-        tokenProgram: await getMintProgram(),
+        mint: MINT || null, incinerator: MINT ? INCINERATOR : null, mcap,
+        tokenProgram,
         mirror: { enabled: MIRROR_ENABLED, programId: MIRROR_ENABLED ? MIRROR_PROGRAM_ID : null,
           cluster: MIRROR_ENABLED ? MIRROR_CLUSTER : null },
-        lastSeason: await getCached('g:seasonResults', 30_000),
-        lastDay: await getCached('g:dayResults', 15_000),
-        log: (await getCached('g:log:head', 3_000)) || null, player });
+        lastSeason,
+        lastDay,
+        log: logHead || null, player });
     }
 
     if (action === 'shot' || action === 'duel') {

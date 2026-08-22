@@ -1,0 +1,7 @@
+.env*
+.vercel/
+backups/
+node_modules/
+test/
+playwright-report/
+test-results/

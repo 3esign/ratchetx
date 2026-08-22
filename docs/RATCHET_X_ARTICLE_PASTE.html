@@ -1,0 +1,179 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RATCHET — formatted X Article</title>
+  <style>
+    :root { color-scheme: dark; }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: #07090d; color: #e9e7df; font: 18px/1.7 Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif; }
+    .controls { position: sticky; top: 0; z-index: 10; padding: 18px 24px; display: flex; gap: 18px; align-items: center; justify-content: center; background: rgba(7,9,13,.96); border-bottom: 1px solid #30281b; backdrop-filter: blur(12px); }
+    button { border: 1px solid #d8a63f; border-radius: 999px; padding: 12px 22px; background: #d8a63f; color: #090b0e; font: 800 14px/1 Inter, ui-sans-serif, system-ui, sans-serif; letter-spacing: .06em; cursor: pointer; }
+    .note { color: #a8a39a; font-size: 14px; line-height: 1.35; }
+    .page { width: min(860px, calc(100% - 40px)); margin: 48px auto 90px; }
+    .title { margin: 0 0 12px; color: #f6f2e9; font: 750 clamp(34px, 6vw, 54px)/1.08 Georgia, "Times New Roman", serif; }
+    .title-note { margin-bottom: 34px; color: #817b70; font-size: 14px; }
+    article { padding-top: 30px; border-top: 1px solid #332a1b; }
+    article > p:first-child { margin-top: 0; color: #c8c2b7; font-size: 21px; line-height: 1.5; }
+    h2 { margin: 58px 0 18px; color: #e0ad47; font: 750 31px/1.18 Georgia, "Times New Roman", serif; }
+    p { margin: 0 0 22px; }
+    strong { color: #fff8e8; font-weight: 800; }
+    em { color: #c6bda9; }
+    a { color: #70c9e9; text-decoration: underline; text-underline-offset: 3px; }
+    ul, ol { margin: 6px 0 26px; padding-left: 29px; }
+    li { margin: 8px 0; padding-left: 4px; }
+    blockquote { margin: 28px 0; padding: 17px 20px; border-left: 3px solid #d8a63f; background: #11141a; color: #d9d4ca; }
+    code { padding: 2px 5px; border-radius: 4px; background: #151820; color: #f0c86e; font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    hr { margin: 48px 0; border: 0; border-top: 1px solid #332a1b; }
+  </style>
+</head>
+<body>
+  <div class="controls">
+    <button id="copy">COPY FORMATTED BODY</button>
+    <div class="note">Then return to X → click inside the article body → Ctrl+A → Ctrl+V.<br>The existing title stays unchanged. Do not publish until Preview looks right.</div>
+  </div>
+  <main class="page">
+    <h1 class="title">RATCHET: The Solana Prediction Machine That Burns Its Own Token</h1>
+    <div class="title-note">Title preview only — the copy button copies the formatted body below, not this title.</div>
+    <article id="article"><p><em>Pyth-settled market calls, wallet-signed burns, a live player podium, autonomous agents, and an open-source Black Box anyone can verify or resurrect.</em></p>
+<p><strong>Play:</strong> <a href="https://ratchetx.xyz">ratchetx.xyz</a><br><strong>Token:</strong> <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump">$RCX on pump.fun</a><br><strong>Contract address:</strong> <code>FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump</code><br><strong>Source:</strong> <a href="https://github.com/3esign/ratchetx">github.com/3esign/ratchetx</a></p>
+<p>Most token projects launch a coin and promise to add utility later.</p>
+<p>RATCHET starts from the opposite direction. It is a live prediction arcade in which the token is already part of the machine: players fire sealed calls at real markets, outcomes settle from Pyth price data, correct calls return credits and build XP, and every verified RCX reload follows one public rule:</p>
+<p><strong>70% is burned forever. 30% goes directly to players on the live podium. 0% goes to the team.</strong></p>
+<p>No treasury receives the reload. No prize pool takes custody of it. No winner waits for an administrator or presses a claim button. The player reloading the machine signs the Solana transaction that burns and distributes the RCX, and the game credits that transaction only after verifying it on-chain.</p>
+<p>That makes RATCHET more than a themed website wrapped around a token. It is an experiment in making a game&#39;s economic behavior inspectable, repeatable, and difficult to fake.</p>
+<h2>The 60-second version</h2>
+<p>RATCHET gives every new wallet a one-time starting balance of 5,000 in-game credits.</p>
+<p>The Board deals a rotating set of market questions. A player chooses a target, chooses YES or NO, selects a credit stake, and fires a shot. Examples include:</p>
+<ul>
+<li>Will SOL be higher in five minutes?</li>
+<li>Will PUMP clear a stated threshold in thirty minutes?</li>
+<li>Will one asset outperform another over the next hour?</li>
+<li>Will price finish outside a defined range?</li>
+</ul>
+<p>The call is sealed before the result is known. When its window closes, RATCHET uses the first valid recorded Pyth price at or after expiry—not whatever price happens to appear when somebody later opens the page.</p>
+<p>A hit returns <strong>1.7× the credit stake</strong>. A miss feeds the Machine. The mathematical break-even point is therefore about <strong>58.8% accuracy</strong>: persistent skill can keep a player alive; random guessing eventually runs the balance down.</p>
+<p>Correct settled calls also earn XP. XP moves players through COG, PISTON, FLYWHEEL, TURBINE, and REACTOR ranks, unlocking more simultaneous chambers—but never better odds. Rank expands how much of the game you can play at once; it does not secretly improve the result.</p>
+<p>There are daily, weekly, and all-time records. The daily podium is intentionally dynamic: today&#39;s settled-XP top three take the live seats as they earn them. At 00:00 UTC, the previous day&#39;s winners temporarily fill empty seats, then today&#39;s third, second, and first place progressively replace them. There is no continuing hold-or-sell condition attached to a podium position.</p>
+<p>Anyone can take the podium. It does not close at an arbitrary hour while the day is still being played.</p>
+<h2>How one shot becomes a verifiable record</h2>
+<p>RATCHET does not publish an open player&#39;s answer in plain text.</p>
+<p>When a shot is fired, the game creates a versioned SHA-256 commitment binding the wallet, shot ID, side, and a random salt. Spectators see the hash, not the answer. After settlement, the side and salt are revealed so anyone can recompute the commitment and confirm that the public answer was not changed after the fact.</p>
+<p>This protects the player from spectator copying and creates a tamper-evident before-and-after record. It is important to state the boundary honestly: the server retains the reveal terms until settlement, so this is not zero-knowledge from the operator. The reviewed v2 on-chain referee is a roadmap target, not a claim about the current production game.</p>
+<p>The settlement rule is equally explicit:</p>
+<ol>
+<li>Record the entry price when the shot is accepted.</li>
+<li>Seal the player&#39;s answer.</li>
+<li>Wait until the prediction window expires.</li>
+<li>Use the first recorded oracle sample whose publish time crosses the expiry.</li>
+<li>If no valid sample exists inside the defined 15-minute settlement window, void the shot and refund the credit stake.</li>
+</ol>
+<p>That rule removes a subtle but common source of manipulation. Settlement is not “the price when an operator chooses to check.” Checking early, late, or on the next user request should resolve to the same recorded crossing sample.</p>
+<h2>A token economy that executes instead of promises</h2>
+<p>RCX was launched through <a href="https://pump.fun">pump.fun</a>, using the launchpad&#39;s open bonding-curve distribution, and graduated into its canonical <a href="https://swap.pump.fun">PumpSwap</a> market. Pump&#39;s own documentation describes graduation as an automatic migration from the bonding curve to PumpSwap; RATCHET&#39;s <a href="https://ratchetx.xyz/api/proof">live Proof page</a> verifies the resulting pool and token state rather than asking readers to trust a graphic.</p>
+<p>The RCX mint is a Solana <strong>Token-2022</strong> mint. Its mint authority is revoked. Its freeze authority is revoked. The token&#39;s metadata update authority is also null. Those are on-chain account properties, not promises in a roadmap.</p>
+<p>Inside the game, RCX is used to reload credits. The payer signs one transaction containing the required token movements:</p>
+<ul>
+<li><strong>70%:</strong> a supply-reducing Token-2022 burn;</li>
+<li><strong>30%:</strong> direct transfers to the published live podium, split 50/30/20;</li>
+<li><strong>0%:</strong> no reload transfer to the creator or a game treasury.</li>
+</ul>
+<p>The server then verifies the signature, the mint, the amounts, the destinations, the recency of the transaction, and whether that signature has already been used. Only a valid, unused transaction can create the corresponding game-credit deposit.</p>
+<p>The practical result is simple: the reward path does not depend on the game holding player funds. RCX moves from the payer to the burn instruction and current champions inside the payer&#39;s transaction. The game&#39;s public receipts distinguish tokens burned, RCX received from other players, RCX retained when the payer is also on the podium, and credits created inside the game.</p>
+<p>The system has already paid RCX to another player&#39;s wallet. Those transfers are linked from the interface and can be inspected on Solscan. RATCHET does not need to ask the community to imagine a future reward system—the first reward history exists today.</p>
+<p>Credit stakes use the same economic shape without pretending credits are tokens. A hit returns 1.7× credits. A miss removes the stake from the player balance, with 70% retired from active credit circulation and 30% feeding the daily and weekly competition pots. Credits are internal game accounting units; they are not RCX, not a stablecoin, and not a promise of redemption.</p>
+<p>The team is paid through the standard creator-fee path associated with the token&#39;s pump.fun/PumpSwap trading activity—not from RCX reloads and not from player credit stakes. That distinction is printed in the game and exposed in the code.</p>
+<h2>Why this belongs on Solana</h2>
+<p>RATCHET uses Solana for the parts that benefit most from a shared public ledger: wallet identity, signed token movement, supply-reducing burns, player-to-player RCX rewards, immutable transaction receipts, and public log anchors.</p>
+<p>Solana transactions group instructions into atomic state transitions: either the transaction&#39;s instructions succeed together or the transaction fails. That property is what allows one RCX reload to express the complete 70/30/0 rule instead of relying on a sequence of private bookkeeping promises. Solana&#39;s low transaction costs and fast execution also make frequent, player-signed game interactions practical rather than ceremonial. The underlying model is documented in <a href="https://solana.com/docs/core/transactions">Solana&#39;s transaction documentation</a>.</p>
+<p>RATCHET also ships a <a href="https://solana.com/docs/tools/actions">Solana Action</a> for anchoring the current event-log head. A wallet can publish the current RATCHET hash as a Solana Memo and earn a small once-daily XP reward. In other words, notarizing the game&#39;s public memory is itself a game action.</p>
+<p>Not every line of the game is on-chain, and we should not pretend otherwise. Credits, XP, boards, leaderboards, and current settlement orchestration live in the server layer today. The RCX movements and anchors are on Solana; the game state is public, exportable, hash-chained, and testable, but it is not yet governed by a fully on-chain referee.</p>
+<p>That boundary is a design choice for the current release, not a slogan to hide behind.</p>
+<h2>Why Pyth is more than a price widget</h2>
+<p>Pyth Network is not used merely to decorate the interface with market prices. RATCHET reads sponsored Pyth price-feed accounts on Solana and records the samples used by its settlement rule.</p>
+<p>Pyth price data includes the price, confidence interval, exponent, and publish time. Pyth&#39;s own <a href="https://docs.pyth.network/price-feeds/core/use-real-time-data/pull-integration/solana">Solana integration guide</a> emphasizes validating the feed identity and timestamp rather than blindly trusting any account that contains a price. RATCHET surfaces feed age, rejects short-window entries against stale data, records samples over time, and settles at the first valid crossing after expiry.</p>
+<p>If the primary on-chain route is unavailable, a thinner fallback may keep display prices visible, but fallback display data is not silently promoted into an eligible real-money settlement source. The Proof page reports the oracle route so the source cannot quietly change behind a green light.</p>
+<p>RATCHET also publishes an <a href="https://ratchetx.xyz/api/feeds">Oracle Observatory</a>: a consumer-side record of observed Pyth feed ages, gaps, confidence bands, and settlement impact. It is useful beyond this game because it shows what an application actually experienced while consuming the feeds—not only what an oracle claims in the abstract.</p>
+<h2>Security is a collection of mechanisms, not one word</h2>
+<p>“Trustless” is often used as marketing shorthand. RATCHET takes the narrower and more useful approach: identify each trust boundary and remove or expose it where possible.</p>
+<p>The production system currently includes:</p>
+<ul>
+<li><strong>No server private key capable of moving player funds.</strong> Wallets sign their own RCX burns and reward transfers.</li>
+<li><strong>No token custody for reloads.</strong> The game verifies a completed transaction; it does not first take possession of a deposit.</li>
+<li><strong>Revoked mint and freeze authorities.</strong> The live mint account can be inspected independently.</li>
+<li><strong>Replay-gated reloads.</strong> One Solana transaction signature cannot be credited twice.</li>
+<li><strong>Published podium destinations.</strong> A reload is rejected if its 30% distribution does not match the current immutable transaction snapshot.</li>
+<li><strong>Cryptographic shot commitments.</strong> Open answers are hidden from spectators and revealed after settlement.</li>
+<li><strong>Deterministic first-crossing settlement.</strong> The exit is tied to recorded oracle time, not operator timing.</li>
+<li><strong>Hash-chained events and Solana anchors.</strong> Any wallet can notarize a checkpoint.</li>
+<li><strong>Export and restore tooling.</strong> The Black Box snapshot includes the state needed to verify and rebuild the machine on fresh storage.</li>
+<li><strong>Public build identity and tests.</strong> The live h53 release exposes its version, has zero known npm audit vulnerabilities, and passes 26 isolated test suites covering economic invariants, signatures, settlements, snapshots, log verification, responsive layout, and failure paths.</li>
+</ul>
+<p>This is an internal engineering audit and public verification surface, not an independent third-party security audit. The distinction matters.</p>
+<p>The <a href="https://ratchetx.xyz/api/proof">Proof endpoint</a> is also allowed to be red. Production currently discloses one historical storage gap at event 345 instead of inventing a replacement row or moving the error to the end of the log. The h53 verifier identifies the actual missing index and reports how many entries were issued and stored. New heads can still be anchored and compared from a known checkpoint, but a complete replay across the missing row is impossible. A proof system that cannot admit damage is only decoration.</p>
+<h2>The Warden, public models, and machine-native players</h2>
+<p>RATCHET is designed for humans and software agents to compete on the same market questions.</p>
+<p>The Warden publishes a directional view and an explicit probability. Players can go with it or take the other side. Its hits and misses are both retained, and calibration can be measured with a Brier score. A model that only displays winning predictions is advertising; a model with a permanent error record can become evidence.</p>
+<p>The Agent Arena extends the same principle. External agents authenticate with an Ed25519 wallet signature and call the same shot API as a human. There is no privileged “agent endpoint” with easier prices, different settlement, or hidden odds. Agents are published immediately and ranked only after enough settled calls to make a tiny lucky streak less convincing.</p>
+<p>Four public house strategies—Momentum, Reversion, Volatility, and Contrarian—play under the same rules and lose in public. The repository includes a zero-dependency reference agent that can first run in demo mode, then graduate to a real signed identity.</p>
+<p>The Warden is a labeled heuristic today, not artificial general intelligence. The more interesting long-term goal is not to paste an AI label onto the interface. It is to build a public arena where increasingly capable models can make time-stamped, economically meaningful predictions and accumulate records they cannot quietly edit.</p>
+<h2>Open source means you can fork the Machine</h2>
+<p>The complete RATCHET code is public on <a href="https://github.com/3esign/ratchetx">GitHub</a>. The game core is intentionally small, framework-free, and free of production npm dependencies. The repository includes the serverless endpoints, browser client, oracle decoder, burn verifier, event log, public record, agent example, test suites, snapshot exporter, and restore script.</p>
+<p>Anyone can deploy a new instance, inspect the rules, change the markets, build a different Warden, or create a different visual identity. More importantly, anyone can download the canonical Black Box snapshot and verify its envelope and hash chain before restoring it.</p>
+<p>That does not mean every fork inherits the canonical game&#39;s reputation. A fork must publish its own rules, build marker, proof surface, anchors, and trust boundaries. Open source makes independent machines possible; public history is what makes one of them credible.</p>
+<p>The larger idea is a permissionless family of prediction machines: community-run boards, specialist agent tournaments, new oracle-defined questions, and alternative game economies built from the same inspectable primitives. “Run your own casino” is the playful version. The serious version is: <strong>fork a verifiable market game without asking the original operator for permission.</strong></p>
+<h2>What is live, and what is next</h2>
+<p>RATCHET h53 is live today at <a href="https://ratchetx.xyz">ratchetx.xyz</a>:</p>
+<ul>
+<li>real wallet authentication;</li>
+<li>sealed prediction shots;</li>
+<li>Pyth-based first-crossing settlement;</li>
+<li>1.7× credit returns on hits;</li>
+<li>daily, weekly, and all-time ladders;</li>
+<li>a dynamic daily RCX podium;</li>
+<li>wallet-signed 70/30/0 reloads;</li>
+<li>verified burns and direct player rewards;</li>
+<li>balance-based, no-deposit credit rewards;</li>
+<li>public agents, Warden records, and challenges;</li>
+<li>Proof, Observatory, Supply Clock, Record, Snapshot, and restore tooling;</li>
+<li>Token-2022 on Solana and a canonical PumpSwap market.</li>
+</ul>
+<p>The next phase should deepen the system without pretending unfinished work is already guaranteed:</p>
+<ol>
+<li><strong>A hardened v2 on-chain referee.</strong> Permissionless settlement with strict first-crossing time rules, confidence limits, disjoint settle/void deadlines, and cleanup that cannot trap state.</li>
+<li><strong>Durable autonomous sampling.</strong> Move the continuous oracle/observatory heartbeat from a local operator process to redundant managed infrastructure with visible liveness and recovery.</li>
+<li><strong>Independent security review.</strong> External review of token paths, server invariants, snapshot recovery, and any new Solana program before stronger trust claims are made.</li>
+<li><strong>A real vault only if it can be proved safe.</strong> A separately funded vault would require explicit liabilities, no hidden withdrawal authority, redemption rules, and independent review. Until then, the displayed floor remains a clearly labeled, non-redeemable model.</li>
+<li><strong>Agent seasons and tournaments.</strong> Longer public records, strategy classes, calibration leagues, challenge markets, and open datasets for researchers and builders.</li>
+<li><strong>More Solana-native entry points.</strong> Additional Actions and Blinks for public game actions that remain understandable before a wallet signs them.</li>
+<li><strong>A forkable protocol layer.</strong> Tools for communities to launch their own boards and machines while publishing compatible proofs and histories.</li>
+</ol>
+<p>These are development directions and open questions, not guaranteed returns or fixed delivery dates. RATCHET should earn the right to make each stronger claim by shipping the mechanism first.</p>
+<h2>The Machine&#39;s proposition</h2>
+<p>RATCHET is not asking players to believe that a team will someday create a burn, a game, an agent economy, or a reward loop.</p>
+<p>The game is live. The RCX supply has already fallen. Other players have already received tokens. The Board already settles calls from recorded Pyth data. The Warden already has losses in public. The code can already be read. The state can already be exported. The Proof page can already disagree with the marketing.</p>
+<p>That last property may be the most important one.</p>
+<p>Crypto does not need more systems that can only tell their own success story. It needs machines that preserve evidence, expose boundaries, and make their economic rules harder to change than their slogans.</p>
+<p>RATCHET is one such machine, built on Solana.</p>
+<p>Fire a shot. Beat the Warden. Take the podium. Verify everything.</p>
+<hr>
+<p><strong>Play:</strong> <a href="https://ratchetx.xyz">https://ratchetx.xyz</a><br><strong>Proof:</strong> <a href="https://ratchetx.xyz/api/proof">https://ratchetx.xyz/api/proof</a><br><strong>Open source:</strong> <a href="https://github.com/3esign/ratchetx">https://github.com/3esign/ratchetx</a><br><strong>pump.fun:</strong> <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump">RCX token page</a><br><strong>PumpSwap:</strong> <a href="https://swap.pump.fun/?input=FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump&output=So11111111111111111111111111111111111111112">Trade RCX/SOL</a><br><strong>DEXScreener:</strong> <a href="https://dexscreener.com/solana/3gbsebmbbfqrc7wt7crajnkuhxntbfynjhrmedchjusv">RCX/SOL market</a><br><strong>Telegram:</strong> <a href="https://t.me/rchetx">https://t.me/rchetx</a><br><strong>X:</strong> <a href="https://x.com/SonyxEth">@SonyxEth</a><br><strong>CA:</strong> <code>FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump</code></p>
+<p><em>RATCHET is an experimental prediction game. Credits are internal game units, not tokens and not redeemable claims. RCX is a volatile crypto-asset and can lose value. The modeled floor is not a funded or redeemable vault. This article describes software and game mechanics; it is not financial advice or a promise of future performance.</em></p>
+</article>
+  </main>
+  <script>
+    document.getElementById('copy').addEventListener('click', event => {
+      const article = document.getElementById('article');
+      const selection = window.getSelection();
+      const range = document.createRange();
+      range.selectNodeContents(article);
+      selection.removeAllRanges();
+      selection.addRange(range);
+      const copied = document.execCommand('copy');
+      selection.removeAllRanges();
+      event.currentTarget.textContent = copied ? 'FORMATTED BODY COPIED' : 'SELECT ARTICLE AND COPY';
+    });
+  </script>
+</body>
+</html>

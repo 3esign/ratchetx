@@ -1,7 +1,7 @@
 # RATCHET - DEXScreener submission packet
 
 Prepared: 2026-08-22
-Status: READY EXCEPT FOR THE TWO OFFICIAL SOCIAL URLS AND h53 DEPLOY/SMOKE
+Status: READY EXCEPT FOR THE PUBLIC X ARTICLE URL
 
 ## Existing listing
 
@@ -18,18 +18,22 @@ Enhanced Token Info, not a new token listing.
 ## Submit these fields
 
 - Website: `https://ratchetx.xyz`
-- GitHub: `https://github.com/3esign/ratchetx`
-- Proof: `https://ratchetx.xyz/api/proof`
-- Icon: `https://ratchetx.xyz/token/logo.png` (512 x 512 PNG)
-- Header: `https://ratchetx.xyz/og-v2.png` (1200 x 630 PNG)
+- Docs: `https://github.com/3esign/ratchetx#readme`
+- Additional / GitHub: `https://github.com/3esign/ratchetx`
+- Additional / Live Proof: `https://ratchetx.xyz/api/proof`
+- Icon upload: `token/dexscreener-icon.png` (512 x 512 PNG)
+- Header upload: `token/dexscreener-header.png` (1500 x 500 PNG, exact 3:1)
 - X article: `TBD_EXACT_X_STATUS_URL`
-- Telegram announcements: `TBD_EXACT_TME_URL`
+- Telegram: `https://t.me/rchetx`
 
 ### Short description
 
-> Keyless prediction arcade on Solana. Sealed market shots settle on Pyth.
-> Every RCX reload: 70% burned, 30% paid peer-to-peer to players, 0% to the
-> team. Live game, public source and public proof.
+> RATCHET is an open-source prediction arcade on Solana, born on pump.fun and
+> trading on PumpSwap. Players fire sealed market calls settled from recorded
+> on-chain Pyth price samples, earn credits and XP, and compete for a live daily
+> podium. Every verified RCX reload is wallet-signed: 70% is burned, 30% is paid
+> directly to podium players, and 0% goes to the team. No token custody. No claim
+> button. Verify the code and live proof.
 
 ### Full description
 
@@ -50,23 +54,34 @@ Enhanced Token Info, not a new token listing.
 
 ## Purchase order
 
-1. Publish the X article and copy its exact status URL.
-2. Make the Telegram destination public/read-only and copy its exact `t.me` URL.
-3. Deploy h53 and confirm proof reports the real historical gap at #345.
-4. Recheck icon, header, website, GitHub, proof, X and Telegram URLs in incognito.
-5. Buy Enhanced Token Info and submit the fields above.
+1. Publish the X article and copy its exact public article URL.
+2. Set `https://t.me/rchetx` so only admins can post, and verify it opens publicly.
+3. Recheck icon, header, website, GitHub, proof, X and Telegram URLs in incognito.
+4. Buy Enhanced Token Info and submit the fields above.
+5. Save the order receipt and submission screenshot.
 6. Wait until the profile displays correctly on desktop and mobile.
 7. Do not buy a Boost yet. First observe organic profile traffic and make sure
    liquidity, support load and announcements are ready for attention.
 
 ## Final pre-payment gate
 
-- [ ] h53 live on apex and www
-- [ ] proof and state return the same h53 marker
+- [x] h53 live on apex and www
+- [x] proof and state return the same h53 marker
 - [ ] Telegram URL supplied and opens without an invite error
 - [ ] X article URL supplied and opens publicly
-- [ ] DEX icon and header render
+- [x] DEX icon is `dexscreener-icon.png`, 512 x 512 and below 4.5 MB
+- [ ] DEX header is 1500 x 500 PNG, below 4.5 MB, and visually approved
 - [ ] CA copied exactly from this file
 - [ ] No vault, backing, guaranteed-return or fully-on-chain claim
 - [ ] One operator wallet is ready for the DEXScreener payment
 - [ ] Screenshot/receipt of the paid order is retained
+
+## Paid form notes
+
+- Chain: select **Solana**.
+- Token Address: paste the mint / CA, not the PumpSwap pair address.
+- Description accepts plain text; use the short description above.
+- The X field should contain the final published Article URL, not a draft URL.
+- Leave **Locked Supply** and **Locked Addresses** empty. Revoked token authorities,
+  supply burns and protocol-held PumpSwap liquidity are not locked circulating supply.
+- Do not enter burn addresses manually; DEXScreener checks recognized burn addresses.
