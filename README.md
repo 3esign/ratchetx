@@ -11,15 +11,15 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 
 ## Is this repo actually the running code?
 
-This source tree and both production domains run `h58-2026-08-22`. Verified after
-Vercel production deployment `dpl_BCZV668x1E5QihqCJpgrcn5ng8jX`:
+This source tree and both production domains run `h59-2026-08-22`. Verified after
+Vercel production deployment `dpl_EfJ7WekkUC1dhmiqdGjBpnCpU7m2`:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h58-2026-08-22"
-https://ratchetx.xyz/api/proof               ->  "v": "h58-2026-08-22"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h59-2026-08-22"
+https://ratchetx.xyz/api/proof               ->  "v": "h59-2026-08-22"
 ```
 
-All public APIs in this repo declare `const VERSION = 'h58-2026-08-22'`.
+All public APIs in this repo declare `const VERSION = 'h59-2026-08-22'`.
 
 ## Real rewards, still keyless
 
