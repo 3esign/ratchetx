@@ -54,7 +54,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h58-2026-08-22';
+const VERSION = 'h59-2026-08-22';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -182,7 +182,7 @@ const streakMult = k => Math.min(STREAK_CAP, 1 + Math.max(0, k) * STREAK_STEP);
 // Every deterministically settled human play leaves a small progression mark.
 // Fixed, never stake-scaled: HIT earns this plus skill XP; MISS earns this;
 // VOID earns zero because no outcome was established.
-const SETTLE_XP = 25;
+const SETTLE_XP = 1;
 const XP_MULT_CAP = 20;
 const XP_CAP_AT = STAKE_MIN * XP_MULT_CAP * XP_MULT_CAP;   // 40,000
 const stakeMult = st => Math.min(XP_MULT_CAP, Math.sqrt(st / STAKE_MIN));

@@ -180,8 +180,8 @@ const crAtSeal = getMem('u:demo-abc123').cr;
 let p = getMem('u:demo-abc123');
 p.open[0].exp = Date.now() - 1000; p.open[0].entry = 90; seedStubPx(p.open[0].exp); setMem('u:demo-abc123', p); tickPx();
 r = await call('GET', { query: { action: 'state', wallet: 'demo-abc123' } });
-// 22 skill XP plus the fixed 25 XP awarded to every valid settlement.
-ok(r.body.player.hits === 1 && r.body.player.xp === 47, 'demo hit earns settle XP plus skill XP');
+// 22 skill XP plus the fixed 1 XP awarded to every valid settlement.
+ok(r.body.player.hits === 1 && r.body.player.xp === 23, 'demo hit earns settle XP plus skill XP');
 // being right must pay: 500 staked, 1.7x back = 850 credits returned
 ok(r.body.player.cr === crAtSeal + 850, 'a hit returns 1.7x the stake in credits');
 const wk = Object.keys(mem).length; // touch
@@ -264,7 +264,7 @@ setMem(`u:${RW}`, { w: RW, xp: 0, streak: 0, best: 0, hits: 0, shots: 0, bal: 50
 seedStubPx(getMem(`u:${RW}`).open[0].exp);
 r = await call('GET', { query: { action: 'state', wallet: RW } });
 ok(r.body.player.hits === 1, 'real wallet hit settled');
-ok(zScore('lb:', r.body.season, RW) === 35 && zScore('lbd:', r.body.day, RW) === 35, 'real settle + skill XP reaches daily and weekly boards');
+ok(zScore('lb:', r.body.season, RW) === 11 && zScore('lbd:', r.body.day, RW) === 11, 'real settle + skill XP reaches daily and weekly boards');
 ok((getMem('g:feed') || []).some(f => f.a.includes('HIT')), 'real hit visible in feed');
 
 // 5 ---- VOID refunds to source and reverses pot/burn
@@ -679,8 +679,8 @@ const EXPW = 'demo-optn1';
   const st1 = getMem(`u:${EXPW}`);
   ok(st1.open.length === 0 && st1.closed[0].res === 'miss',
      'late settle uses the price AT EXPIRY, not the favourable one now');
-  ok(st1.xp === 25 && st1.closed[0].xp === 25,
-     'a valid MISS earns exactly the fixed 25 settlement XP');
+  ok(st1.xp === 1 && st1.closed[0].xp === 1,
+     'a valid MISS earns exactly the fixed 1 settlement XP');
   ok(st1.closed[0].exitPx === 90, `exit price pinned to the expiry sample (got ${st1.closed[0].exitPx})`);
   ok(st1.closed[0].exitAt === exp + 1000, 'the settling sample is recorded, so anyone can recompute it');
 }
@@ -897,7 +897,7 @@ const kvmod = require('../lib/kv.js');
   tickPx();
   r = await call('GET', { query: { action: 'state', wallet: UNQ } });
   const up = getMem(`u:${UNQ}`);
-  ok(up.hits === 1 && up.xp === 65, 'an unverified wallet gets settle XP plus skill XP');
+  ok(up.hits === 1 && up.xp === 41, 'an unverified wallet gets settle XP plus skill XP');
   ok(zScore('lbd:', r.body.day, UNQ) === 0 && zScore('lb:', r.body.season, UNQ) === 0,
      'but its XP reaches NO paying ladder — a free keypair cannot farm the podium');
 
@@ -910,7 +910,7 @@ const kvmod = require('../lib/kv.js');
   tickPx();
   r = await call('GET', { query: { action: 'state', wallet: OLD } });
   ok(getMem(`u:${OLD}`).qualified === true, 'an existing player is grandfathered, not demoted');
-  ok(zScore('lbd:', r.body.day, OLD) === 40, 'and ranks with settle XP plus skill XP');
+  ok(zScore('lbd:', r.body.day, OLD) === 16, 'and ranks with settle XP plus skill XP');
 }
 
 
@@ -981,9 +981,9 @@ const kvmod = require('../lib/kv.js');
     return getMem(`u:${W}`).closed[0]; };
 
   const cold = await run(0), warm = await run(3), hot = await run(20);
-  ok(cold.xp === 125 && cold.skillXp === 100 && cold.settleXp === 25, `no streak: 100 skill + 25 settle XP (${cold.xp})`);
-  ok(warm.xp === 170 && warm.streakMult === 1.45, `a 3-run: 145 skill + 25 settle XP (${warm.xp})`);
-  ok(hot.xp === 225 && hot.streakMult === 2, `the skill bonus caps at x2, then adds 25 (${hot.xp})`);
+  ok(cold.xp === 101 && cold.skillXp === 100 && cold.settleXp === 1, `no streak: 100 skill + 1 settle XP (${cold.xp})`);
+  ok(warm.xp === 146 && warm.streakMult === 1.45, `a 3-run: 145 skill + 1 settle XP (${warm.xp})`);
+  ok(hot.xp === 201 && hot.streakMult === 2, `the skill bonus caps at x2, then adds 1 (${hot.xp})`);
   ok(cold.xpBase === 100 && warm.xpBase === 100, 'the base XP is recorded, so the bonus is auditable');
   // a miss must cost the run — that is the whole mechanic
   setMem(`u:${W}`, { ...getMem(`u:${W}`), streak: 5, closed: [],
@@ -991,7 +991,7 @@ const kvmod = require('../lib/kv.js');
             stake:500, xp:100, label:'t', src:'cr' }] });
   tickPx(); await call('GET', { query:{ action:'state', wallet:W } });
   ok(getMem(`u:${W}`).streak === 0, 'one miss resets the run — which is what makes it worth protecting');
-  ok(getMem(`u:${W}`).closed[0].xp === 25, 'the same miss still earns fixed settlement XP');
+  ok(getMem(`u:${W}`).closed[0].xp === 1, 'the same miss still earns fixed settlement XP');
 }
 
 // ============================================================
