@@ -11,17 +11,15 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 
 ## Is this repo actually the running code?
 
-This source tree is the local `h55-2026-08-22` release candidate. Production was
-last independently verified at `h52-2026-08-22`. After h53 is explicitly deployed,
-both live endpoints must return:
+This source tree and both production domains run `h56-2026-08-22`. Verified after
+Vercel production deployment `dpl_BCZV668x1E5QihqCJpgrcn5ng8jX`:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h55-2026-08-22"
-https://ratchetx.xyz/api/proof               ->  "v": "h55-2026-08-22"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h56-2026-08-22"
+https://ratchetx.xyz/api/proof               ->  "v": "h56-2026-08-22"
 ```
 
-All public APIs in this repo declare `const VERSION = 'h55-2026-08-22'`.
-Do not claim h53 is live until the deployed marker matches the repo marker.
+All public APIs in this repo declare `const VERSION = 'h56-2026-08-22'`.
 
 ## Real rewards, still keyless
 
@@ -38,7 +36,7 @@ The token authorities are revoked and the code is public. The state is exportabl
 trustless: `GET /api/snapshot` includes players, queues, receipts, sorted leaderboards and the full
 hash-chained log. `docs/RESURRECTION.md` verifies the envelope hash and event chain before restoring
 a saved export. Solana memo anchors timestamp log checkpoints and daily balance roots; they do not
-prove every live Upstash mutation between checkpoints. Keep frequent snapshots.
+prove every live database mutation between checkpoints. Keep frequent snapshots.
 
 ## Sealed means sealed — now cryptographically
 
@@ -78,7 +76,7 @@ No key that can touch funds.
 | `lib/burn.js` | reads a burn transaction from the chain and credits it only if it is real, recent, supply-reducing, and never seen before |
 | `lib/verify.js` | wallet-signature auth (Ed25519 via node:crypto), no JWT, no session store |
 | `lib/log.js` | the hash-chained event log and its permissionless on-chain memo anchor |
-| `lib/kv.js` | Upstash Redis if configured, honest in-memory fallback if not |
+| `lib/kv.js` | Supabase/Postgres in production, documented Upstash rollback, honest in-memory local fallback |
 | `api/snapshot.js` | the Black Box: the whole state, downloadable and verifiable by anyone |
 | `lib/pxlog.js` | the observed price record: what the oracle said, minute by minute — settlement reads from this, not from "the price now" |
 | `lib/vol.js` | realised volatility, measured from that record. The Warden's stated probability comes from here |

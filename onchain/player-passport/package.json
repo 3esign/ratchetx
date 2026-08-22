@@ -1,0 +1,19 @@
+{
+  "name": "@ratchetx/player-passport-prototype",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated devnet prototype for a non-transferable Token-2022 RATCHET Player Passport.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "passport": "node src/cli.mjs"
+  },
+  "dependencies": {
+    "@solana-program/system": "0.13.0",
+    "@solana-program/token-2022": "0.15.0",
+    "@solana/kit": "7.1.1",
+    "@solana/kit-plugin-instruction-plan": "0.13.0",
+    "@solana/kit-plugin-rpc": "0.13.0",
+    "@solana/kit-plugin-signer": "0.13.0"
+  }
+}

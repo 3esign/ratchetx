@@ -20,12 +20,13 @@ const { getJSON, setJSON, hall} = require('../lib/kv.js');
 const { rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { snap: snapSupply } = require('../lib/supplylog.js');
 const { getPrices } = require('../lib/prices.js');
+const { pathFor } = require('../lib/pxlog.js');
 const { verifyChain, logCount, readEntries } = require('../lib/log.js');
 
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h55-2026-08-22';
+const VERSION = 'h56-2026-08-22';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
@@ -70,6 +71,32 @@ module.exports = async (req, res) => {
     const stH = await hall('h:stats');
     const st = Object.keys(stH).length ? stH : ((await getJSON('g:stats')) || {});
     let supply = null;
+    // A live RPC read proves the oracle answers now; it does not prove that
+    // first-crossing evidence was sampled continuously while nobody watched.
+    try {
+      const now = Date.now(), windowMs = 60 * 60_000;
+      const samples = await pathFor('SOL', now - windowMs, now);
+      const last = samples.length ? samples[samples.length - 1][0] : 0;
+      const ageSec = last ? Math.max(0, Math.floor((now - last) / 1000)) : null;
+      const duty = +(samples.length / 60 * 100).toFixed(1);
+      const fresh = ageSec != null && ageSec <= 120;
+      const complete = duty >= 90;
+      const ageText = ageSec == null ? 'no recent sample' : 'latest ' + ageSec + 's ago';
+      push('sampler', fresh && complete ? 'green' : (fresh ? 'grey' : 'red'),
+        fresh && complete ? 'Settlement sampler is continuous'
+          : (fresh ? 'Settlement sampler is live but has coverage gaps'
+                   : 'Settlement sampler is not current'),
+        samples.length + '/60 expected minute samples in the last hour (' + duty
+          + '% duty) · ' + ageText
+          + ' · missing minutes can force an otherwise valid shot to void and refund',
+        '/api/feeds');
+    } catch (e) {
+      push('sampler', 'grey', 'Settlement sampler health unavailable',
+        'the stored price path could not be read right now — '
+          + String(e && e.message || e).slice(0, 80),
+        '/api/feeds');
+    }
+
     if (!MINT) {
       push('mint', 'grey', 'Token checks arm at TGE', 'RATCHET_MINT is not set yet — every line below goes live the moment it is');
     } else {
@@ -177,47 +204,59 @@ module.exports = async (req, res) => {
     push('pots', 'green', 'Pots pay automatically, on two clocks',
       'daily pot: top 3 (50/30/20) at 00:00 UTC · weekly season: top 5 (40/25/15/12/8) Sunday 00:00 UTC · unclaimed shares roll over · demo play never ranks and is never paid');
 
-    // ---- the Black Box: full log retained + exportable by anyone
+    // ---- the Black Box: exportable by anyone, but green only when the
+    // exported event log is complete and verifies.
     const bbHead = await getJSON('g:log:head');
-    const bbC0 = bbHead ? await getJSON('g:log:c:0') : null;
     const lastRoot = await getJSON('g:lastRoot');
-    push('blackbox', bbHead ? (bbC0 ? 'green' : 'grey') : 'grey',
-      'The machine can be resurrected by anyone',
-      bbHead
-        ? (bbC0
-            ? `the FULL ${bbHead.i.toLocaleString()}-entry log is retained and the whole state exports at /api/snapshot — code public, heads anchored on Solana, RESURRECTION.md in the repo${lastRoot ? ` · daily balance root in the log: ${lastRoot.root.slice(0, 10)}… (${lastRoot.day}, ${lastRoot.players} players)` : ''}. Killing our hosting pauses the game; it can no longer end it`
-            : 'full-log retention arms on the next event — snapshot exports the state either way')
-        : 'arms with the first logged event',
-      '/api/snapshot');
+    let chainVerdict = null, chainEntries = [], chainError = null, issued = 0;
+    try {
+      issued = await logCount();
+      if (issued > 0) {
+        chainEntries = await readEntries(issued);
+        chainVerdict = verifyChain(chainEntries, bbHead, issued);
+      }
+    } catch (e) { chainError = e; }
+
+    let bbStatus = 'grey', bbDetail = 'arms with the first logged event';
+    if (chainError) {
+      bbDetail = 'snapshot export is available, but log completeness could not be checked right now: '
+        + String(chainError.message || chainError).slice(0, 90);
+    } else if (chainVerdict && !chainVerdict.ok) {
+      bbStatus = 'red';
+      bbDetail = 'snapshot export is available, but resurrection verification currently fails at entry '
+        + chainVerdict.brokenAt + ': ' + chainVerdict.reason
+        + '. The gap is disclosed and must not be described as a complete restorable log';
+    } else if (chainVerdict && chainVerdict.ok) {
+      bbStatus = 'green';
+      bbDetail = 'all ' + chainEntries.length.toLocaleString()
+        + ' issued entries are retained and verify; the whole state exports at /api/snapshot'
+        + ' — code public, heads anchored on Solana, RESURRECTION.md in the repo'
+        + (lastRoot ? ' · daily balance root: ' + lastRoot.root.slice(0, 10) + '… ('
+            + lastRoot.day + ', ' + lastRoot.players + ' players)' : '');
+    }
+    push('blackbox', bbStatus, 'The machine can be resurrected by anyone',
+      bbDetail, '/api/snapshot');
 
     // ---- THE CHAIN, ACTUALLY VERIFIED.
-    // Retention was reported here; integrity was not. The page said the log
-    // was kept, and asked you to take the hashes on faith. Now it recomputes
-    // every hash from genesis on each check, and compares the entry count
-    // against the server-issued index — so a dropped event is reported rather
-    // than hidden by a chain that is merely self-consistent.
-    try {
-      const issued = await logCount();
-      if (issued > 0) {
-        // Chunks are a legacy read accelerator and historically lost one row
-        // to a shared read-modify-write race.  The verifier must merge the
-        // authoritative per-index records exactly like /api/snapshot does;
-        // otherwise it can report a storage-view bug as a chain break.
-        const all = await readEntries(issued);
-        const v = verifyChain(all, bbHead, issued);
-        push('chain', v.ok ? 'green' : 'red',
-          v.ok ? 'Every hash in the log recomputes from genesis'
-               : 'The log does not verify — and this check is how you would know',
-          v.ok
-            ? `${all.length.toLocaleString()} entries replayed hash-by-hash, ${issued.toLocaleString()} issued by the server and ${all.length.toLocaleString()} stored. Rewriting any past event changes every hash after it, so this line turns red and stays red`
-            : `broken at index ${v.brokenAt} — ${v.reason}. Nothing here is being hidden from you: the verifier reports the break instead of papering over it`,
-          '/api/snapshot');
-      }
-    } catch (e) {
+    if (chainError) {
       push('chain', 'grey', 'Chain verification unavailable',
-        'the log could not be read to verify right now — ' + String(e && e.message || e).slice(0, 80));
+        'the log could not be read to verify right now — '
+          + String(chainError && chainError.message || chainError).slice(0, 80));
+    } else if (issued > 0) {
+      const v = chainVerdict;
+      push('chain', v.ok ? 'green' : 'red',
+        v.ok ? 'Every hash in the log recomputes from genesis'
+             : 'The log does not verify — and this check is how you would know',
+        v.ok
+          ? chainEntries.length.toLocaleString() + ' entries replayed hash-by-hash, '
+              + issued.toLocaleString() + ' issued by the server and '
+              + chainEntries.length.toLocaleString() + ' stored. Rewriting any past event '
+              + 'changes every hash after it, so this line turns red and stays red'
+          : 'broken at index ' + v.brokenAt + ' — ' + v.reason
+              + '. Nothing here is being hidden from you: the verifier reports the break '
+              + 'instead of papering over it',
+        '/api/snapshot');
     }
-
     const logHead = await getJSON('g:log:head');
     const anchors = (await getJSON('g:anchors')) || [];
     push('log', anchors.length ? 'green' : 'grey', 'Event log anchored on-chain',

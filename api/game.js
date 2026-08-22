@@ -54,7 +54,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h55-2026-08-22';
+const VERSION = 'h56-2026-08-22';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -1707,7 +1707,17 @@ module.exports = async (req, res) => {
     // only the one request per instance per minute that genuinely samples
     // pays for the round trip. The try/catch keeps the original promise
     // intact — a failed write still never fails the request.
-    try { await samplePx(prices); } catch {}
+    let sampled = false;
+    try { sampled = await samplePx(prices); } catch {}
+
+    // A scheduler needs only to wake the sampler. Unlike blockhash, this does
+    // not perform a second RPC operation after the evidence write succeeds.
+    // sample() is lease-gated and minute-throttled, so duplicate invocations
+    // are harmless and cannot create duplicate settlement rows.
+    if (action === 'heartbeat') {
+      return res.json({ ok:true, v:VERSION, t:Date.now(), src:prices.src,
+        sampled, durable, storage:backend });
+    }
 
     // Expiry moves credits, so it completes before the request continues.
     // Fire-and-forget is unsafe on serverless (the function may freeze after
@@ -1893,7 +1903,10 @@ module.exports = async (req, res) => {
       ]);
       return res.json({ ok:true, v: VERSION, durable, storage:backend,
         prices:{src:prices.src,degraded:prices.degraded||null,ages:prices.ages||null,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
-        stats: st, feed: feed || [], ladder, ladderDay,
+        // The main killfeed is for player activity. Agent calls remain in the
+        // Arena payload and the append-only event log, but do not crowd out
+        // human seals, settlements, reloads, staking and anchors here.
+        stats: st, feed: (feed || []).filter(x => !x.agent), ladder, ladderDay,
         warden, wardenRec,
         wardenModel: WARDEN_MODEL,
         wardenPrev, agents: fleet,

@@ -6,7 +6,7 @@ const kv = readFileSync(new URL('../lib/kv.js', import.meta.url), 'utf8');
 
 assert.match(html, /phantom\.app\/ul\/browse\/\$\{page\}\?ref=\$\{ref\}/,
   'mobile Connect must hand off to Phantom’s documented in-app browse link');
-assert.match(html, /let refreshing=false;[\s\S]*if\(dead\|\|refreshing\)return;[\s\S]*finally\{refreshing=false;\}/,
+assert.match(html, /let refreshing=false;[\s\S]*if\(dead\|\|refreshing\)return;[\s\S]*finally\{clearTimeout\(timeout\);refreshing=false;\}/,
   'state refreshes must not overlap and create player-lock 409s');
 assert.match(html, /const delay=engaged\?10000:60000/,
   'connected play stays responsive while idle guests stop hammering storage');

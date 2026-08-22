@@ -122,5 +122,23 @@ const html = fs.readFileSync('../index.html', 'utf8');
                     : 'every published repo link resolves to a file in this repo');
 }
 
+// ---- 9. OPERATIONAL TRUTH AND SELF-RECOVERY ----
+{
+  const game = fs.readFileSync('../api/game.js', 'utf8');
+  const proof = fs.readFileSync('../api/proof.js', 'utf8');
+  const prices = fs.readFileSync('../lib/prices.js', 'utf8');
+  ok(/feed:\s*\(feed \|\| \[\]\)\.filter\(x => !x\.agent\)/.test(game),
+    'agent actions stay out of the player killfeed');
+  ok(/STATE_TIMEOUT_MS=12000/.test(html) && /reconnecting automatically/.test(html)
+      && /scheduleRecovery\(\)/.test(html),
+    'a hung state request times out and automatically retries without a page reload');
+  ok(/push\('sampler'/.test(proof) && /samples\.length \/ 60/.test(proof),
+    'the proof page reports settlement-sampler duty separately from a live oracle read');
+  ok(/filter\(s => s !== 'JUP'\)/.test(prices),
+    'the ambiguous Coinbase JUP symbol cannot corrupt divergence or fallback display data');
+  ok(/chainVerdict && !chainVerdict\.ok/.test(proof)
+      && /must not be described as a complete restorable log/.test(proof),
+    'a broken event chain makes the resurrection claim red and explicitly incomplete');
+}
 console.log(fails ? `\n${fails} FAILED` : '\nEVIDENCE STANDARD OK');
 process.exit(fails ? 1 : 0);
