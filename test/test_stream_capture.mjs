@@ -209,6 +209,44 @@ assert.equal(upgradeRun.connections, 1, 'accepted socket subscribes without wait
 assert.equal(upgradeRun.subscriptions, 7);
 assert.equal(upgradePosts, 7);
 
+// A socket that confirms only part of the feed set is unhealthy. The Worker
+// closes it quickly and rotates to the next endpoint instead of waiting out the cron.
+let gateSockets = 0, gatePosts = 0;
+class PartialAcceptedSocket extends AcceptedSocket {
+  send(raw) {
+    const req = JSON.parse(raw);
+    if (req.id !== 1) return;
+    const subscription = 7000 + req.id;
+    setTimeout(() => {
+      this.emit('message', { data:JSON.stringify({ id:req.id, result:subscription }) });
+      this.emit('message', { data:JSON.stringify({
+        method:'accountNotification',
+        params:{ subscription, result:{ context:{slot:3000},
+          value:accountValues.get(req.params[0]) } },
+      }) });
+    }, 0);
+  }
+}
+globalThis.fetch = async (_url, options) => {
+  if (options && options.headers && options.headers.Upgrade === 'websocket') {
+    gateSockets++;
+    return { status:101, webSocket:gateSockets === 1
+      ? new PartialAcceptedSocket() : new AcceptedSocket() };
+  }
+  const batch = JSON.parse(options.body).updates;
+  gatePosts += batch.length;
+  return new Response(JSON.stringify({ ok:true, accepted:batch.length, duplicates:0 }),
+    { status:200, headers:{'content-type':'application/json'} });
+};
+const gateRun = await worker.runStream(
+  { CAPTURE_SECRET:'test-capture-secret', TARGET:'https://unit.test/api/game',
+    SOLANA_WS:'wss://partial.unit.test/' },
+  { sessionMs:1500, subscriptionTimeoutMs:50, backoffMs:1, maxBackoffMs:2 });
+globalThis.fetch = realFetch;
+assert.ok(gateRun.connections >= 2, 'partial subscription set rotates endpoints');
+assert.ok(gateRun.socketErrors >= 1, 'partial subscription set fails health gate');
+assert.equal(gateRun.subscriptions, 7);
+assert.ok(gatePosts >= 8, 'partial state is preserved before healthy reconnect');
 // A backend outage backs off instead of exhausting Cloudflare subrequests.
 let outageAttempts = 0;
 globalThis.fetch = async (_url, options) => {

@@ -111,7 +111,8 @@ async function postUpdates(env, updates) {
   return parsed;
 }
 
-async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImpl) {
+async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImpl,
+    subscriptionTimeoutMs) {
   let ws;
   if (WebSocketImpl) {
     ws = new WebSocketImpl(endpoint);
@@ -170,15 +171,19 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
 
   return new Promise(resolve => {
     let finished = false;
+    let subscriptionTimer = null;
+    let rotationTimer = null;
     const finish = async reason => {
       if (finished) return;
       finished = true;
+      if (subscriptionTimer) { clearTimeout(subscriptionTimer); subscriptionTimer = null; }
+      if (rotationTimer) { clearTimeout(rotationTimer); rotationTimer = null; }
       if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
       await flush();
       await flushing.catch(() => {});
       resolve(reason);
     };
-    const timer = setTimeout(() => {
+    rotationTimer = setTimeout(() => {
       try { ws.close(1000, 'session rotation'); } catch {}
       finish('rotation');
     }, Math.max(1, deadline - Date.now()));
@@ -195,6 +200,15 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
         ws.send(JSON.stringify({ jsonrpc:'2.0', id, method:'accountSubscribe',
           params:[account, { encoding:'base64', commitment:'confirmed' }] }));
       }
+      const remaining = Math.max(1, deadline - Date.now() - 250);
+      subscriptionTimer = setTimeout(() => {
+        if (subscriptions.size === ACCOUNTS.length) return;
+        stats.socketErrors++;
+        stats.lastSocketError = `subscription gate confirmed ${subscriptions.size}/${ACCOUNTS.length}`;
+        console.error('stream connection failed: ' + stats.lastSocketError);
+        try { ws.close(1013, 'incomplete subscriptions'); } catch {}
+        finish('subscription-gate');
+      }, Math.min(subscriptionTimeoutMs, remaining));
     };
     ws.addEventListener('open', subscribe);
 
@@ -206,7 +220,10 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
         subscriptions.set(message.result, requests.get(message.id));
         requests.delete(message.id);
         stats.subscriptions = Math.max(stats.subscriptions, subscriptions.size);
-        if (subscriptions.size === ACCOUNTS.length) console.log('seven Pyth accounts subscribed');
+        if (subscriptions.size === ACCOUNTS.length) {
+          if (subscriptionTimer) { clearTimeout(subscriptionTimer); subscriptionTimer = null; }
+          console.log('seven Pyth accounts subscribed');
+        }
         return;
       }
       const update = extractAccountNotification(message, subscriptions);
@@ -222,7 +239,6 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
       try { ws.close(); } catch {}
     });
     ws.addEventListener('close', () => {
-      clearTimeout(timer);
       finish('closed');
     });
     // fetch(Upgrade) sockets are already open after accept() and do not emit
@@ -247,7 +263,8 @@ export async function runStream(env, options = {}) {
   let backoff = Number(options.backoffMs) || 250;
   while (Date.now() < deadline - 1000) {
     try {
-      await connectOnce(env, endpoints[endpointIndex], deadline, pending, stats, WebSocketImpl);
+      await connectOnce(env, endpoints[endpointIndex], deadline, pending, stats, WebSocketImpl,
+        Number(options.subscriptionTimeoutMs) || 6000);
     } catch (error) {
       stats.socketErrors++;
       stats.lastSocketError = String(error && error.message || error).slice(0, 180);
