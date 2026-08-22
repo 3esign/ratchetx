@@ -20,13 +20,13 @@ const { getJSON, setJSON, hall} = require('../lib/kv.js');
 const { rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { snap: snapSupply } = require('../lib/supplylog.js');
 const { getPrices } = require('../lib/prices.js');
-const { pathFor } = require('../lib/pxlog.js');
+const { pathFor, streamHealth: pxStreamHealth } = require('../lib/pxlog.js');
 const { verifyChain, logCount, readEntries } = require('../lib/log.js');
 
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h59-2026-08-22';
+const VERSION = 'h60-2026-08-23';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
@@ -75,7 +75,7 @@ module.exports = async (req, res) => {
     // first-crossing evidence was sampled continuously while nobody watched.
     try {
       const now = Date.now(), windowMs = 60 * 60_000;
-      const samples = await pathFor('SOL', now - windowMs, now);
+      const samples = await pathFor('SOL', now - windowMs, now, 'pyth-onchain');
       const last = samples.length ? samples[samples.length - 1][0] : 0;
       const ageSec = last ? Math.max(0, Math.floor((now - last) / 1000)) : null;
       const duty = +(samples.length / 60 * 100).toFixed(1);
@@ -83,18 +83,37 @@ module.exports = async (req, res) => {
       const complete = duty >= 90;
       const ageText = ageSec == null ? 'no recent sample' : 'latest ' + ageSec + 's ago';
       push('sampler', fresh && complete ? 'green' : (fresh ? 'grey' : 'red'),
-        fresh && complete ? 'Settlement sampler is continuous'
-          : (fresh ? 'Settlement sampler is live but has coverage gaps'
-                   : 'Settlement sampler is not current'),
+        fresh && complete ? 'Fallback settlement sampler is continuous'
+          : (fresh ? 'Fallback settlement sampler is live but has coverage gaps'
+                   : 'Fallback settlement sampler is not current'),
         samples.length + '/60 expected minute samples in the last hour (' + duty
           + '% duty) · ' + ageText
           + ' · missing minutes can force an otherwise valid shot to void and refund',
         '/api/feeds');
     } catch (e) {
-      push('sampler', 'grey', 'Settlement sampler health unavailable',
+      push('sampler', 'grey', 'Fallback settlement sampler health unavailable',
         'the stored price path could not be read right now — '
           + String(e && e.message || e).slice(0, 80),
         '/api/feeds');
+    }
+
+    try {
+      const sh = await pxStreamHealth();
+      const ages = Object.values(sh.feeds).map(f => f.ageS).filter(Number.isFinite);
+      const oldest = ages.length ? Math.max(...ages) : null;
+      push('oracle-stream', sh.ok ? 'green' : (sh.active ? 'grey' : 'red'),
+        sh.ok ? 'Exact Pyth account-transition stream is live'
+          : (sh.active ? 'Pyth transition stream is partially live'
+                       : 'Pyth transition stream has no current feeds'),
+        sh.active + '/' + sh.total + ' sponsored accounts current'
+          + (oldest == null ? '' : ' · oldest received event ' + oldest + 's ago')
+          + ' · account bytes are revalidated server-side and duplicate publishes are idempotent'
+          + ' · minute polling remains an independent fallback',
+        '/api/game?action=stream-health');
+    } catch (e) {
+      push('oracle-stream', 'grey', 'Pyth transition stream health unavailable',
+        String(e && e.message || e).slice(0, 100),
+        '/api/game?action=stream-health');
     }
 
     if (!MINT) {

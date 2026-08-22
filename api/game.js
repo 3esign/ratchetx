@@ -46,15 +46,17 @@ const { getJSON, getCached, getJSONStrict, getManyJSON, setJSON, setManyJSONAtom
   takeNum, hincr, hincrMany, zincrManyOnce, applyOnce, hall, hseed} = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped, b58decode } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
-const { priceAt, priceCrossing, pathFor, sample: samplePx } = require('../lib/pxlog.js');
+const { priceAt, priceCrossing, pathFor, sample: samplePx,
+  ingestUpdate: ingestPxUpdate, streamHealth: pxStreamHealth } = require('../lib/pxlog.js');
 const { report: feedReport, noteSettle, ensureRollups } = require('../lib/feedhealth.js');
 const { realisedVol, sigmaOver, probAbove } = require('../lib/vol.js');
-const { ACCOUNTS: PX_ACCOUNTS } = require('../lib/onchain_px.js');
+const { ACCOUNTS: PX_ACCOUNTS, PYTH_OWNERS, decode: decodePx,
+  MAX_AGE_S: PX_MAX_AGE_S, MAX_CONF_BPS: PX_MAX_CONF_BPS } = require('../lib/onchain_px.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h59-2026-08-22';
+const VERSION = 'h60-2026-08-23';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -1648,6 +1650,60 @@ async function reverseStake(stake, w, shotId = null) {
   }
 }
 
+function captureAuthorized(req, secret) {
+  if (!secret) return false;
+  const got = Buffer.from(String(req.headers.authorization || ''), 'utf8');
+  const want = Buffer.from(`Bearer ${secret}`, 'utf8');
+  return got.length === want.length && crypto.timingSafeEqual(got, want);
+}
+
+async function oracleIngest(req, res) {
+  const secret = process.env.RATCHET_CAPTURE_SECRET || '';
+  if (!secret) return res.status(503).json({ ok:false, reason:'capture service is not configured' });
+  if (req.method !== 'POST') return res.status(405).json({ ok:false, reason:'POST required' });
+  if (!captureAuthorized(req, secret))
+    return res.status(401).json({ ok:false, reason:'unauthorized capture service' });
+
+  const updates = Array.isArray(req.body && req.body.updates) ? req.body.updates : [];
+  if (!updates.length || updates.length > 32)
+    return res.status(400).json({ ok:false, reason:'updates must contain 1-32 account events' });
+
+  const byAccount = new Map(Object.entries(PX_ACCOUNTS)
+    .map(([feed, spec]) => [spec[0], { feed, feedId:spec[1] }]));
+  const now = Math.floor(Date.now() / 1000);
+  const validated = [];
+  try {
+    for (const update of updates) {
+      const spec = byAccount.get(String(update && update.account || ''));
+      if (!spec) throw new Error('unknown sponsored account');
+      if (!PYTH_OWNERS.has(String(update.owner || ''))) throw new Error('wrong Pyth owner');
+      if (typeof update.data !== 'string' || update.data.length > 4096)
+        throw new Error('invalid account data');
+      const slot = Number(update.slot);
+      if (!Number.isSafeInteger(slot) || slot < 0) throw new Error('invalid slot');
+      const decoded = decodePx(update.data, spec.feedId);
+      const age = now - decoded.publishTime;
+      if (age < -5 || age > PX_MAX_AGE_S) throw new Error('stale or future Pyth update');
+      const confBps = decoded.px > 0 ? decoded.conf / decoded.px * 10000 : Infinity;
+      if (!Number.isFinite(confBps) || confBps > PX_MAX_CONF_BPS)
+        throw new Error('Pyth confidence too wide');
+      validated.push({ feed:spec.feed, slot, price:decoded.px,
+        publishTime:decoded.publishTime, prevPublishTime:decoded.prevPublishTime,
+        confBps:+confBps.toFixed(3) });
+    }
+  } catch (error) {
+    return res.status(400).json({ ok:false, reason:String(error.message || error) });
+  }
+
+  let accepted = 0, duplicates = 0;
+  const receivedAt = Date.now();
+  for (const update of validated) {
+    const kept = await ingestPxUpdate(update.feed, { ...update, receivedAt });
+    kept ? accepted++ : duplicates++;
+  }
+  return res.json({ ok:true, v:VERSION, accepted, duplicates, receivedAt });
+}
+
 module.exports = async (req, res) => {
   const heldPlayerLocks = [];
   const acquirePlayerLock = async w => {
@@ -1659,11 +1715,15 @@ module.exports = async (req, res) => {
     heldPlayerLocks.push({ key, token }); return true;
   };
   try {
+    const action = (req.method === 'GET' ? req.query.action : (req.body||{}).action) || 'state';
+    // The stream has its own strong service authentication and can legitimately
+    // burst when several Pyth accounts update in the same Solana slot. Keep it
+    // outside the public per-IP limiter; every byte is validated again here.
+    if (action === 'oracle-ingest') return oracleIngest(req, res);
+
     const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
     const isPost = req.method !== 'GET';
     if (rateLimited(ip, isPost)) return res.status(429).json({ ok:false, reason:'slow down - too many requests from this address' });
-
-    const action = (req.method === 'GET' ? req.query.action : (req.body||{}).action) || 'state';
     // Player records are JSON blobs. Without a per-wallet mutex, two shots
     // can load the same credit balance, both spend it, then last-write-wins
     // the balance while retaining economic effects from both requests.
@@ -1693,6 +1753,13 @@ module.exports = async (req, res) => {
     //  wants to look at it. A health page that goes dark with the thing it
     //  monitors is not a health page.
     // ============================================================
+    if (action === 'stream-health') {
+      const stream = await pxStreamHealth();
+      res.setHeader('access-control-allow-origin', '*');
+      return res.json({ ok:true, v:VERSION, t:Date.now(), source:'solana-accountSubscribe',
+        settlementFallback:'one-minute direct Solana RPC sampler', stream });
+    }
+
     if (action === 'feeds') {
       // Summarise any completed day whose raw buckets are still alive. This
       // is the deadline nobody sees: the buckets carry a four-day TTL, so a
@@ -1705,8 +1772,9 @@ module.exports = async (req, res) => {
         rep.feeds[f].feedId  = (PX_ACCOUNTS[f] || [])[1] || null;
       }
       rep.ok = true; rep.v = VERSION;
+      try { rep.stream = await pxStreamHealth(); } catch {}
       rep.what = 'third-party measurement of Pyth sponsored push feeds on Solana, taken by a consumer that settles real bets on them';
-      rep.method = 'one read of each sponsored price account per minute over plain JSON-RPC; PriceUpdateV2 decoded locally; owner, discriminator, verification level and feed id all checked before a number is kept';
+      rep.method = 'Solana accountSubscribe captures each sponsored-account transition; one-minute JSON-RPC polling remains as fallback; PriceUpdateV2 is decoded locally and owner, discriminator, verification level, feed id, age and confidence are checked before a number is kept';
       rep.reproduce = 'GET /api/game?action=path&feed=SOL&from=<ms>&to=<ms> returns the same samples these statistics are computed from';
       res.setHeader('access-control-allow-origin', '*');
       return res.json(rep);
