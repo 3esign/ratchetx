@@ -89,7 +89,9 @@ console.log('Pyth entry + Coinbase-only exit window -> void/refund');
   const r = await priceCrossing('SOL', exp, exp + 100_000);
   assert.equal(r.expired, true);
   assert.equal(r.reason, 'crossing-update-missed');
-  console.log('later Pyth update with prev>=expiry -> VOID, never chosen as a substitute');
+  assert.deepEqual(r.indicative, { price:222, publishTime:pub*1000, gapMs:90_000, confBps:10 },
+    'the nearest observed print is returned only as labelled diagnostics');
+  console.log('later Pyth update with prev>=expiry -> VOID, with non-settling proximity diagnostics');
 }
 
 // ---- 5e. THE EXACT CROSSING IS ACCEPTED WITH ITS ORACLE TIMESTAMP ----

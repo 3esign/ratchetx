@@ -54,7 +54,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h57-2026-08-22';
+const VERSION = 'h58-2026-08-22';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -1465,15 +1465,27 @@ async function settle(p, prices) {
       if (at2 && at2.expired) await noteSettle(s.feed2, 'void', eventId);
       refund(p, s); s.res = 'void'; s.settledAt = now; s.exitPx = null;
       s.skillXp = 0; s.settleXp = 0; s.xp = 0;
+      // A race needs two comparable diagnostics; do not mislabel one feed as the other.
+      const indicative = s.kind === 'race' ? null : (at.indicative || null);
+      if (indicative) {
+        s.indicativePx = indicative.price;
+        s.indicativeAt = indicative.publishTime;
+        s.indicativeGapSec = Math.round(indicative.gapMs / 1000);
+      }
       if (s.allocationRule !== 'on-settle-v2')
         await reverseStake(s.stake, p.w, s.id);
       const voidReason = strict
         ? (at.reason || (at2 && at2.reason) || 'no-oracle-crossing-in-window')
         : (at.expired ? 'no-oracle-sample-in-window' : 'feed-gone');
       await appendOnce(`settle:${eventId}`, { k:'settle', w:p.w, id:s.id,
-        res:'void', reason:voidReason, commitV:s.commitV || 1 });
+        res:'void', reason:voidReason, commitV:s.commitV || 1,
+        indicativePx:s.indicativePx ?? null, indicativeAt:s.indicativeAt ?? null,
+        indicativeGapSec:s.indicativeGapSec ?? null });
       await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
-        res:'void', xp:0, stake:s.stake, entry:s.entry, exit:null });
+        res:'void', xp:0, stake:s.stake, entry:s.entry, exit:null,
+        kind:s.kind, thresh:s.thresh, pct:s.pct,
+        indicativePx:s.indicativePx ?? null, indicativeAt:s.indicativeAt ?? null,
+        indicativeGapSec:s.indicativeGapSec ?? null });
       p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
       continue;
     }
@@ -1553,7 +1565,8 @@ async function settle(p, prices) {
     await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
       res:s.res, xp:s.res === 'void' ? 0 : (s.xp || 0), back:s.back || 0,
       settleXp:s.settleXp || 0, skillXp:s.skillXp || 0,
-      stake:s.stake, entry:s.entry, exit:px });
+      stake:s.stake, entry:s.entry, exit:px, kind:s.kind,
+      thresh:s.thresh, pct:s.pct });
     p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
   }
   p.open = still;

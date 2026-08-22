@@ -13,6 +13,8 @@ assert.match(html, /const delay=engaged\?10000:60000/,
   'connected play stays responsive while idle guests stop hammering storage');
 assert.match(html, /if\(left===0\)\{sp\.textContent="SETTLING…";[\s\S]*watchExpired\(sp\.dataset\.exp\)/,
   'an expired shot must show SETTLING and trigger bounded live refresh without a manual reload');
+assert.match(html, /function settlementMargin\(e\)[\s\S]*INDICATIVE[\s\S]*NOT USED TO SETTLE/,
+  'VOID proximity must be labelled indicative and never presented as settlement');
 assert.match(html, /function settlementReceipt\(e\)[\s\S]*CREDITS REFUND[\s\S]*PLAY \+.*SKILL/,
   'settled cards must itemize outcome, XP, credits, and refunds');
 assert.match(game, /appendOnce\(`settle:\$\{eventId\}`[\s\S]*settleXp:s\.settleXp \|\| 0, skillXp:s\.skillXp \|\| 0/,

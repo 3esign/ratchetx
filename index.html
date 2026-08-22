@@ -1163,7 +1163,7 @@ function paint(){
         ${L.bar}</div>`;}),
       ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}" data-settled="${c.id||''}" data-path="${c.feed||''}" data-from="${c.t||''}" data-to="${c.settledAt||c.exp||''}" data-entry="${c.entry||''}" data-exit="${c.exitPx||''}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
         <div class="ch2">${c.label}</div>
-        <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${settlementReceipt(c)}${
+        <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${settlementReceipt(c)}${settlementMargin(c)}${
           AUTH&&c.id?` <button class="shareb" data-share="${c.id}">SHARE PROOF</button>`:''}</div></div>`)];
     
     // Add MIRROR ON-CHAIN logic to open shots (only those with commit hashes)
@@ -1602,9 +1602,30 @@ function missMargin(e){
   return `<span style="color:var(--dim)">· moved ${(d>=0?"+":"")+(d*100).toFixed(2)}%</span>`;
 }
 
+function settlementMargin(e){
+  const indicative=e.res==='void'&&e.indicativePx!=null&&Number.isFinite(+e.indicativePx);
+  const px=indicative?+e.indicativePx:(e.exitPx!=null&&Number.isFinite(+e.exitPx)?+e.exitPx:e.exit!=null&&Number.isFinite(+e.exit)?+e.exit:null);
+  if(!Number.isFinite(px))return '';
+  let detail='';
+  if((e.kind==='thr'||e.kind==='thrDown')&&Number.isFinite(+e.thresh)){
+    const d=(px-(+e.thresh))/(+e.thresh)*100;
+    detail=`${Math.abs(d).toFixed(2)}% ${d>=0?'ABOVE':'BELOW'} TARGET`;
+  }else if(e.kind==='range'&&Number.isFinite(+e.entry)&&Number.isFinite(+e.pct)){
+    const move=Math.abs((px-(+e.entry))/(+e.entry))*100, target=(+e.pct)*100;
+    detail=`MOVE ${move.toFixed(2)}% · ${Math.abs(move-target).toFixed(2)}% FROM BAND`;
+  }else if(Number.isFinite(+e.entry)){
+    const move=(px-(+e.entry))/(+e.entry)*100;
+    detail=`MOVE ${move>=0?'+':''}${move.toFixed(2)}% FROM ENTRY`;
+  }
+  if(!detail)return '';
+  return indicative
+    ? ` · <span style="color:var(--gold)">INDICATIVE ${detail} · NOT USED TO SETTLE</span>`
+    : ` · <span style="color:var(--dim)">${detail}</span>`;
+}
+
 function settlementReceipt(e){
   if(e.res==='void') return `0 XP · +${Number(e.stake||0).toLocaleString()} CREDITS REFUND`;
-  const legacyMiss=e.res==='miss'&&!Number.isFinite(+e.settleXp);
+  const legacyMiss=e.res==='miss'&&(e.settleXp==null||!Number.isFinite(+e.settleXp));
   const xp=legacyMiss?0:(Number(e.xp)||0), credits=Number(e.back)||0;
   if(e.res==='hit'){
     const split=Number.isFinite(+e.settleXp)&&Number.isFinite(+e.skillXp)&&(+e.settleXp||+e.skillXp)
