@@ -17,13 +17,25 @@ const fresh = () => {
 const W1 = 'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM';
 const W2 = 'ExtQ7bK9mVn3Rd5Tf8Yh2Jq4Lw6Zs1Ap3Cx5Vb7Ncmq';
 
-async function seed(log, { w, id, side, feed = 'SOL', stake = 500, res = 'hit', settle = true }) {
+async function seed(log, { w, id, side, feed = 'SOL', stake = 500, res = 'hit', settle = true, commitVersion = 1 }) {
   const salt = crypto.randomBytes(8).toString('hex');
-  const commit = sha(`${side}|${salt}`);
-  await log.append({ k: 'seal', w, id, feed, stake, exp: Date.now() + 300e3, entry: 100, commit });
+  const commit = commitVersion >= 2 ? sha(`RATCHET|v2|${w}|${id}|${side}|${salt}`) : sha(`${side}|${salt}`);
+  await log.append({ k: 'seal', w, id, feed, stake, exp: Date.now() + 300e3, entry: 100, commit, commitV:commitVersion });
   if (settle) await log.append({ k: 'settle', w, id, res, exitPx: 101, exitAt: Date.now(),
-    side, salt, commit });
+    side, salt, commit, commitV:commitVersion });
   return { salt, commit };
+}
+
+// ---- 1b. the current wallet-and-shot-bound v2 path is active, not hypothetical ----
+{
+  const { log, rec } = fresh();
+  await seed(log, { w: W1, id: 'v2row1', side: 'NO', commitVersion: 2 });
+  const { rows } = await rec.rows({ limit: 10 });
+  assert.equal(rows[0].commitVersion, 2);
+  assert.equal(rows[0].commitVerified, true);
+  assert.equal(rows[0].settlementAuthority, 'ratchet-server');
+  assert.match(rows[0].oracleSource, /pyth-price-update-v2/);
+  console.log('v2 row -> wallet/shot binding verifies and truth plane is explicit');
 }
 
 // ---- 1. a settled shot becomes one complete, self-verifying row ----

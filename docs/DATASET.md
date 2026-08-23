@@ -5,7 +5,7 @@ backed by a stake, and settled by a deterministic oracle rule**.
 
 - **Endpoint:** `https://ratchetx.xyz/api/record`
 - **Licence:** public domain. No key, no signup, no attribution requirement, no rate deal.
-- **Schema version:** 2 — additive only. New columns may appear; existing columns never change meaning.
+- **Schema version:** 3 — additive only. New columns may appear; existing columns never change meaning.
 
 ```
 curl -s 'https://ratchetx.xyz/api/record?format=ndjson&limit=1000&after=0'
@@ -20,9 +20,10 @@ never do:
    legacy rows retain `commitVersion: 1` and `sha256("SIDE|salt")`. Side and salt are revealed only
    at settlement. The export recomputes the versioned formula.
 2. **Backed by a stake.** `stake` is what the caller stood to lose. This is not a costless opinion.
-3. **Settled by rule, not by judgement.** `exit` is the first Pyth oracle publish at or after `expiry`
-   — the same first-crossing rule (`prev_publish_time < expiry <= publish_time`) the on-chain program
-   enforces. It does not matter who triggered the settlement or when.
+3. **Settled by rule, not by judgement.** The canonical authority today is the RATCHET server. `exit`
+   is the first fully validated Pyth account transition RATCHET captured at or after `expiry`, using
+   the first-crossing rule (`prev_publish_time < expiry <= publish_time`). The separate optional
+   on-chain seal beta does not replace that authority. Capture coverage is therefore part of proof.
 
 Prediction markets publish prices but not who said what. Social media has calls with no seal and no
 stake. Firms that keep real records do not publish them. This one is public, and it grows every time
@@ -55,9 +56,11 @@ for the next page. An empty page means you are at the end — poll the same curs
 | `expiry` | ms | When the claim came due. |
 | `side` | `YES`\|`NO` | The revealed call. Sealed until settlement; never served before. |
 | `result` | `hit`\|`miss`\|`void` | Outcome. A `void` means the market did not move enough to resolve, or no oracle sample landed in the grace window. The stake is refunded either way. |
-| `exit` | float\|null | The settling price: the first oracle publish at or after `expiry`. |
+| `exit` | float\|null | The settling price: the first fully validated Pyth transition captured by RATCHET at or after `expiry`. |
 | `exitAt` | ms\|null | Timestamp of that exact oracle sample, so the row is reproducible. |
 | `settledAt` | ms | When settlement was recorded. |
+| `settlementAuthority` | string | Canonical settlement plane for the row: currently `ratchet-server`. |
+| `oracleSource` | string | The oracle input plane used by settlement. |
 | `commit` | hex | Published versioned commitment. |
 | `commitVersion` | int | `2` binds wallet + shot id + side + salt; `1` is legacy side + salt. |
 | `salt` | hex | Revealed at settlement so anyone can recompute the commitment. |
@@ -104,6 +107,9 @@ against those anchors before treating old rows as fixed.
   the seal is the point.
 - **Open shots are absent on purpose.** A row appears only after settlement, because an open shot's
   side is sealed and this export must not be the hole in that.
+- **Capture coverage matters.** The server can select only from validated transitions it captured.
+  Observatory duty and anchor freshness must be checked alongside the row; “first captured” is not
+  a claim that no earlier qualifying update existed outside the captured stream.
 - **Small numbers are small numbers.** At its current size this is a curiosity, not a study. The whole
   value proposition is elapsed time, and time cannot be hurried.
 - **Credits, not tokens.** `stake` is denominated in in-game credits (play-rights), not in $RCX.

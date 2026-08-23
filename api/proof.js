@@ -22,6 +22,7 @@ const { snap: snapSupply } = require('../lib/supplylog.js');
 const { getPrices } = require('../lib/prices.js');
 const { pathFor, streamHealth: pxStreamHealth } = require('../lib/pxlog.js');
 const { verifyChain, logCount, readEntries } = require('../lib/log.js');
+const { anchorFreshness } = require('../lib/anchor-health.js');
 
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
@@ -31,7 +32,7 @@ const SEAL_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
 const MAINNET_SEAL_V2 = '23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX';
 const MAINNET_SOL_CLOCK = 'CE5m9Xag3wwgcfVkbSBnv5WFKPrY1ZhLwSSru9wu9gN';
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h67-2026-08-23';
+const VERSION = 'h68-2026-08-23';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
@@ -300,14 +301,21 @@ module.exports = async (req, res) => {
     }
     const logHead = await getJSON('g:log:head');
     const anchors = (await getJSON('g:anchors')) || [];
-    push('log', anchors.length ? 'green' : 'grey', 'Event log anchored on-chain',
+    const latestAnchor = anchors[0] || null;
+    const freshness = anchorFreshness({ anchor:latestAnchor, head:logHead });
+    const { ageSec:anchorAgeSec, headDistance:anchorHeadDistance, status:anchorStatus } = freshness;
+    push('log', anchorStatus, 'Event log anchor freshness',
       logHead
         ? (anchors.length
-            ? `${logHead.i.toLocaleString()} hash-chained events · anchored ${anchors.length}× · latest at entry #${anchors[0].i} by ${anchors[0].w}`
+            ? `${logHead.i.toLocaleString()} hash-chained events · anchored ${anchors.length}× · latest at entry #${latestAnchor.i} by ${latestAnchor.w} · ${anchorHeadDistance == null ? 'distance unknown' : `${anchorHeadDistance.toLocaleString()} entries behind`}${anchorAgeSec == null ? '' : ` · ${Math.floor(anchorAgeSec/3600)}h old`}`
             : `${logHead.i.toLocaleString()} hash-chained events · head published · not yet anchored — any wallet can be first (+25 XP)`)
         : 'log is empty — first event creates it',
-      anchors.length ? `${SOLSCAN}/tx/${anchors[0].sig}` : null);
+      latestAnchor ? `${SOLSCAN}/tx/${latestAnchor.sig}` : null);
     const out = { ok: true, v: VERSION, t: Date.now(), mint: MINT || null, supply, checks,
+      truthPlane: { canonicalSettlement:'ratchet-server',
+        oracleInput:'pyth-price-update-v2-accounts-read-from-solana',
+        onchainSeal:SEAL_PROGRAM_ID ? `optional-${SEAL_CLUSTER}` : 'disabled' },
+      anchorFreshness: freshness,
       log: logHead || null, anchors: anchors.slice(0, 8),
       logRecent: ((await getJSON('g:log:recent')) || []).slice(0, 12) };
     await setJSON('g:proofcache', out);

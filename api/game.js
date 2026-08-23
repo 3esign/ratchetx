@@ -41,6 +41,7 @@
 //      hits and misses alike. v0 heuristic, scored like everyone.
 // ============================================================
 const crypto = require('node:crypto');
+const { hashCommit } = require('../lib/commit.js');
 const { getJSON, getCached, getJSONStrict, getManyJSON, setJSON, setManyJSONAtomic, setnxJSON,
   acquireLease, releaseLease, delKey, scanKeys, durable, backend, zincr, zmax, ztop, incrFloat,
   takeNum, hincr, hincrMany, zincrManyOnce, applyOnce, hall, hseed} = require('../lib/kv.js');
@@ -56,7 +57,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h67-2026-08-23';
+const VERSION = 'h68-2026-08-23';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC || process.env.SOLANA_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -158,8 +159,9 @@ const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
 // Legacy v1 (`side|salt`) remains verifiable in the public record, but a v1
 // commitment can be copied between shots without the hash itself proving
 // which identity and round it belonged to.
-const shotCommit = (w, id, side, salt) =>
-  sha256hex(`RATCHET|v2|${w}|${id}|${side}|${salt}`);
+const shotCommit = (w, id, side, salt) => hashCommit({
+  version: 2, wallet: w, shotId: id, side, salt,
+});
 // FREE STAKING (h11). The old three tiers — 100 x1, 500 x2, 2500 x5 — were three
 // points on a square root: sqrt(stake/100). Making the curve continuous lets a
 // player stake ANY amount in range without touching the design law, because the
@@ -2050,6 +2052,12 @@ module.exports = async (req, res) => {
         getCached('g:dayResults', 15_000), getCached('g:log:head', 3_000),
       ]);
       return res.json({ ok:true, v: VERSION, durable, storage:backend,
+        truthPlane: {
+          canonicalSettlement: 'ratchet-server',
+          oracleInput: 'pyth-price-update-v2-accounts-read-from-solana',
+          rule: SETTLE_RULE,
+          onchainSeal: MIRROR_ENABLED ? 'optional-mainnet-beta' : 'disabled',
+        },
         prices:{src:prices.src,degraded:prices.degraded||null,ages:prices.ages||null,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
         // The main killfeed is for player activity. Agent calls remain in the
         // Arena payload and the append-only event log, but do not crowd out

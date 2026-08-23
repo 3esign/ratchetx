@@ -11,15 +11,15 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 
 ## Is this repo actually the running code?
 
-This source tree declares `h67-2026-08-23`. A deployment is release-consistent only when
+This source tree declares `h68-2026-08-23`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h67-2026-08-23"
-https://ratchetx.xyz/api/proof               ->  "v": "h67-2026-08-23"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h68-2026-08-23"
+https://ratchetx.xyz/api/proof               ->  "v": "h68-2026-08-23"
 ```
 
-All public APIs in this repo declare `const VERSION = 'h67-2026-08-23'`.
+All public APIs in this repo declare `const VERSION = 'h68-2026-08-23'`.
 
 ## Balanced questions, fewer refunds
 

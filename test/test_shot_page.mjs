@@ -21,6 +21,8 @@ const call = q => new Promise(r => {
 const W = 'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM';
 const side = 'YES', salt = 'a1b2c3d4e5f6a7b8';
 const commit = crypto.createHash('sha256').update(`${side}|${salt}`).digest('hex');
+const v2Salt = '12'.repeat(16), v2Id = 'v2shot';
+const v2Commit = crypto.createHash('sha256').update(`RATCHET|v2|${W}|${v2Id}|NO|${v2Salt}`).digest('hex');
 const now = Date.now(), t = now - 300e3;
 await kv.setJSON(`u:${W}`, { w:W, closed:[
   { id:'abc123', kind:'dir', feed:'SOL', side, salt, commit, res:'hit', label:'SOL higher in 5 minutes',
@@ -28,7 +30,13 @@ await kv.setJSON(`u:${W}`, { w:W, closed:[
   { id:'oldmiss', kind:'dir', feed:'SOL', side:'NO', salt, commit, res:'miss', label:'legacy miss',
     stake:500, xp:22, entry:86, exitPx:87, t, exp:now-60e3, settledAt:now-55e3 },
   { id:'newmiss', kind:'dir', feed:'SOL', side:'NO', salt, commit, res:'miss', label:'new miss',
-    stake:500, xp:25, settleXp:25, skillXp:0, entry:86, exitPx:87, t, exp:now-60e3, settledAt:now-55e3 },
+    stake:500, xp:1, settleXp:1, skillXp:0, entry:86, exitPx:87, t, exp:now-60e3, settledAt:now-55e3 },
+  { id:v2Id, kind:'dir', feed:'SOL', side:'NO', salt:v2Salt, commit:v2Commit, commitV:2,
+    res:'hit', label:'v2 bound shot', stake:500, back:850, xp:3, entry:87, exitPx:86,
+    t, exp:now-60e3, settledAt:now-55e3, exitAt:now-58e3, settleRuleApplied:'pyth-first-observed-after-v3' },
+  { id:'badbind', kind:'dir', feed:'SOL', side:'NO', salt:v2Salt, commit:v2Commit, commitV:2,
+    res:'hit', label:'wrong shot binding', stake:500, back:850, xp:3, entry:87, exitPx:86,
+    t, exp:now-60e3, settledAt:now-55e3 },
   // an OPEN shot parked in closed by mistake must still not reveal a side
   { id:'open99', kind:'dir', feed:'SOL', side:'NO', salt:'zz', commit:'x', label:'open one', t, exp:now+600e3 },
 ] });
@@ -46,14 +54,20 @@ ok(/\$86\.00/.test(r.body) && /\$87\.40/.test(r.body), 'entry and exit are shown
 ok(/\+1\.63%/.test(r.body), 'the move is computed');
 ok(/<svg/.test(r.body) && /class="sp"/.test(r.body), 'the oracle path is drawn from the recorded log');
 ok(/og:title/.test(r.body) && /twitter:card/.test(r.body), 'it unfurls when shared');
-ok(/first Pyth print at or after expiry/.test(r.body), 'the settling sample is named');
+ok(/first fully validated Pyth transition captured by RATCHET at or after expiry/.test(r.body), 'the settling sample is named without overstating capture coverage');
 
 r = await call({ w:W, id:'oldmiss' });
 ok(r.status === 200 && /<u>XP<\/u><b>0<\/b>/.test(r.body),
   'a legacy MISS does not misreport its old potential XP as awarded');
 r = await call({ w:W, id:'newmiss' });
-ok(r.status === 200 && /<u>XP<\/u><b>\+25<\/b>/.test(r.body),
+ok(r.status === 200 && /<u>XP<\/u><b>\+1<\/b>/.test(r.body),
   'a new MISS proves its fixed settlement XP');
+
+r = await call({ w:W, id:v2Id });
+ok(r.status === 200 && /MATCHES/.test(r.body), 'a live v2 wallet-and-shot-bound commitment verifies');
+ok(r.body.includes(`RATCHET|v2|${W}|${v2Id}|NO|${v2Salt}`), 'the exact v2 preimage is published');
+r = await call({ w:W, id:'badbind' });
+ok(r.status === 200 && /COMMITMENT MISMATCH/.test(r.body), 'reusing a v2 commitment under another shot id is rejected');
 
 r = await call({ w:W, id:'open99' });
 ok(r.status === 404, 'a shot with no result is refused');

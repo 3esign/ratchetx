@@ -20,7 +20,7 @@ const { rows, toCsv, COLUMNS, SCHEMA, SALT, MAX_LIMIT } = require('../lib/record
 const { logCount } = require('../lib/log.js');
 const { getJSON } = require('../lib/kv.js');
 
-const VERSION = 'h67-2026-08-23';
+const VERSION = 'h68-2026-08-23';
 const SITE = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
 const REPO = 'https://github.com/3esign/ratchetx';
 const esc = s => String(s == null ? '' : s)
@@ -150,9 +150,11 @@ This one is open, it grows every time somebody plays, and it cannot be back-fill
     ['expiry', 'ms', 'When the claim came due.'],
     ['side', 'YES|NO', 'The revealed call. Sealed until settlement; never served before.'],
     ['result', 'hit|miss|void', 'The outcome. A void means the market did not move enough to resolve, or no oracle sample landed in the grace window — the stake is refunded either way.'],
-    ['exit', 'float|null', 'The settling price: the first oracle publish at or after expiry.'],
+    ['exit', 'float|null', 'The settling price: the first fully validated Pyth transition captured by RATCHET at or after expiry.'],
     ['exitAt', 'ms|null', 'Timestamp of that exact oracle sample. The row is reproducible from it.'],
     ['settledAt', 'ms', 'When settlement was recorded.'],
+    ['settlementAuthority', 'string', 'Canonical settlement plane for the row: ratchet-server.'],
+    ['oracleSource', 'string', 'Pyth PriceUpdateV2 accounts read from Solana.'],
     ['commit', 'hex', 'Published commitment. v2 binds wallet, shot id, side and salt; legacy v1 binds side and salt.'],
     ['commitVersion', 'int', 'Formula: 2 = sha256("RATCHET|v2|wallet|shotId|SIDE|salt"); 1 = legacy sha256("SIDE|salt").'],
     ['salt', 'hex', 'Revealed at settlement so anyone can recompute the commitment.'],

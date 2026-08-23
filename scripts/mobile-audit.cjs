@@ -46,9 +46,9 @@ const sizes = [
         machine: rect('.machine'),
         playgrid: rect('.playgrid'),
         navScroll: hudBottom ? [hudBottom.clientWidth, hudBottom.scrollWidth, hudBottom.scrollLeft] : null,
-        targets: document.querySelectorAll('.target').length,
+        targets: document.querySelectorAll('.tgt').length,
         fireVisible: !![...document.querySelectorAll('button')].find(b => /fire|pick a target/i.test(b.textContent) && b.offsetParent),
-        stateVersion: window.STATE?.v || null,
+        stateVersion: typeof STATE !== 'undefined' ? STATE?.v || null : null,
         walletProvider: !!(window.solana || window.phantom?.solana),
       };
     });

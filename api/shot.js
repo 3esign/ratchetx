@@ -17,11 +17,10 @@
 const { getJSON } = require('../lib/kv.js');
 const { pathFor } = require('../lib/pxlog.js');
 const { isWalletShaped, isDemo } = require('../lib/verify.js');
-const crypto = require('node:crypto');
+const { verifyCommit } = require('../lib/commit.js');
 
-const VERSION = 'h67-2026-08-23';
+const VERSION = 'h68-2026-08-23';
 const SITE = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
-const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
   .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
@@ -87,7 +86,7 @@ code{font:600 11px/1.7 var(--mono);color:var(--ice);word-break:break-all}
 .f{margin-top:16px;font:600 10px var(--mono);letter-spacing:.08em;color:var(--dim);text-align:center}
 a{color:var(--gold)}
 </style></head><body><div class="w">${body}
-<div class="f"><a href="${SITE}">RATCHET</a> · sealed before the outcome · settled on Pyth read off Solana · ${esc(VERSION)}</div>
+<div class="f"><a href="${SITE}">RATCHET</a> · sealed before the outcome · server-settled from Pyth accounts read off Solana · ${esc(VERSION)}</div>
 </div></body></html>`;
 
   try {
@@ -111,8 +110,9 @@ a{color:var(--gold)}
       ? ((s.exitPx - s.entry) / s.entry) * 100 : null;
 
     // the whole point: recompute the commitment in front of the reader
-    const recomputed = (s.side && s.salt) ? sha256hex(`${s.side}|${s.salt}`) : null;
-    const matches = recomputed && s.commit && recomputed === s.commit;
+    const proof = verifyCommit({ version: s.commitV || s.commitVersion || 1,
+      wallet: w, shotId: s.id, side: s.side, salt: s.salt, commit: s.commit });
+    const { recomputed, matches } = proof;
 
     let path = [];
     try {
@@ -124,7 +124,7 @@ a{color:var(--gold)}
     const desc = `Called ${s.side}. ${Number.isFinite(s.entry) ? `Entry $${money(s.entry)}` : ''}`
       + `${Number.isFinite(s.exitPx) ? ` → exit $${money(s.exitPx)}` : ''}`
       + `${moved != null ? ` (${moved >= 0 ? '+' : ''}${moved.toFixed(2)}%)` : ''}`
-      + ` · sealed as a hash before the outcome, settled on Pyth.`;
+      + ` · sealed as a hash before the outcome, server-settled from Pyth accounts read off Solana.`;
 
     const xpAwarded = vd ? 0 : hit ? Number(s.xp||0)
       : Number.isFinite(+s.settleXp) ? Number(s.xp||0) : 0;
@@ -148,14 +148,16 @@ a{color:var(--gold)}
     <h2>CHECK IT YOURSELF</h2>
     <div class="k" style="margin-bottom:8px">The side was stored only as a hash until this shot settled.
       Recompute it — no part of this needs trusting us.</div>
-    <code>sha256("${esc(s.side)}|${esc(s.salt || '')}")<br>= ${esc(recomputed || '—')}</code>
+    <code>sha256("${esc(proof.preimage || '')}")<br>= ${esc(recomputed || '—')}</code>
     <div class="k" style="margin:9px 0 4px">SEALED COMMITMENT</div>
     <code>${esc(s.commit || '—')}</code>
     <div style="margin-top:9px" class="${matches?'ok':''}">${matches
       ? '✓ MATCHES — the answer scored is the answer given'
-      : '<span style="color:var(--red);font:800 10px var(--mono)">NO COMMITMENT RECORDED</span>'}</div>
+      : `<span style="color:var(--red);font:800 10px var(--mono)">${s.commit ? '✕ COMMITMENT MISMATCH' : 'NO VERIFIABLE COMMITMENT'}</span>`}</div>
+    <div class="k" style="margin:11px 0 4px">SETTLEMENT AUTHORITY</div>
+    <code>RATCHET SERVER · ${esc(s.settleRuleApplied || s.settleRule || 'recorded settlement rule')}</code>
     ${s.exitAt ? `<div class="k" style="margin:11px 0 4px">SETTLING ORACLE SAMPLE</div>
-      <code>${esc(new Date(s.exitAt).toISOString())} · first Pyth print at or after expiry</code>` : ''}
+      <code>${esc(new Date(s.exitAt).toISOString())} · first fully validated Pyth transition captured by RATCHET at or after expiry</code>` : ''}
   </div>
 </div>`;
     return send(200, page(title, desc, body));

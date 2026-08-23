@@ -615,6 +615,9 @@ ok(!r.body.ok && r.status === 400, 'stake: demo wallet refused (mint unset in te
 r = await call('GET', { query: { action: 'state' } });
 ok(r.body.champ && r.body.champ.pct === 0.30 && r.body.champ.seatRule === 'live-daily-xp' && Array.isArray(r.body.champ.podium), 'state exposes the live daily champ cut + payout snapshot');
 ok(Array.isArray(r.body.ladderAll), 'state exposes a public all-time XP list with no payout claim');
+ok(r.body.truthPlane && r.body.truthPlane.canonicalSettlement === 'ratchet-server'
+   && /pyth-price-update-v2/.test(r.body.truthPlane.oracleInput),
+   'state names the canonical server settlement plane and its on-chain Pyth input');
 
 // 13 ---- proof endpoint runs (no mint armed in test env)
 const proof = require('../api/proof.js');
@@ -626,6 +629,11 @@ ok(r.body.ok && r.body.checks.some(c => c.id === 'pots'), 'proof answers with po
 ok(r.body.checks.some(c => c.id === 'champs' && /peer-to-peer/.test(c.label)), 'proof carries the champions line');
 ok(r.body.checks.some(c => c.id === 'credits' && /play-credits also enter/.test(c.detail)),
    'credits line discloses every faucet instead of claiming none exist');
+ok(r.body.truthPlane && r.body.truthPlane.canonicalSettlement === 'ratchet-server',
+   'proof names the canonical settlement authority');
+ok(r.body.anchorFreshness && Object.hasOwn(r.body.anchorFreshness, 'headDistance')
+   && Object.hasOwn(r.body.anchorFreshness, 'ageSec'),
+   'proof exposes anchor age and distance from the current log head');
 
 
 // 2c ---- CUSTOM STAKES: any whole amount in range, scored on the same sqrt curve
