@@ -56,9 +56,9 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h65-2026-08-23';
+const VERSION = 'h66-2026-08-23';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
-const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC_URL || process.env.SOLANA_RPC || '';
+const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC || process.env.SOLANA_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
 const MIRROR_FEEDS = new Set(String(process.env.RATCHET_SEAL_FEEDS || 'SOL').split(',').map(x => x.trim().toUpperCase()).filter(Boolean));
 const MIRROR_ENABLED = !!(MIRROR_PROGRAM_ID && MIRROR_RPC_URL);

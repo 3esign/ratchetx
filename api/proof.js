@@ -26,12 +26,12 @@ const { verifyChain, logCount, readEntries } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
 const SEAL_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
-const SEAL_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC_URL || process.env.SOLANA_RPC || '';
+const SEAL_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC || process.env.SOLANA_RPC_URL || '';
 const SEAL_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
 const MAINNET_SEAL_V2 = '23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX';
 const MAINNET_SOL_CLOCK = 'CE5m9Xag3wwgcfVkbSBnv5WFKPrY1ZhLwSSru9wu9gN';
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h65-2026-08-23';
+const VERSION = 'h66-2026-08-23';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
