@@ -11,7 +11,7 @@ use anchor_lang::prelude::*;
 use solana_sha256_hasher::hashv;
 use pyth_solana_receiver_sdk::{
     price_update::{get_feed_id_from_hex, PriceUpdateV2, VerificationLevel},
-    PYTH_PUSH_ORACLE_ID,
+    ID_CONST, PYTH_PUSH_ORACLE_ID,
 };
 
 declare_id!("23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX");
@@ -51,7 +51,7 @@ pub mod ratchet_seal {
 
         let feed_id = get_feed_id_from_hex(&feed_id_hex)
             .map_err(|_| error!(RatchetError::BadFeed))?;
-        let pu = load_push_price_update(&ctx.accounts.price_update)?;
+        let pu = load_push_price_update(&ctx.accounts.price_update, &feed_id)?;
         let price = pu
             .get_price_no_older_than(&clock, MAX_STALENESS_AT_SEAL, &feed_id)
             .map_err(|_| error!(RatchetError::InvalidSealPrice))?;
@@ -92,7 +92,7 @@ pub mod ratchet_seal {
     /// Permissionless capture of a fully verified sponsored Pyth push update.
     /// Duplicate or older observations are harmless no-ops.
     pub fn checkpoint(ctx: Context<Checkpoint>, feed_id: [u8; 32]) -> Result<()> {
-        let pu = load_push_price_update(&ctx.accounts.price_update)?;
+        let pu = load_push_price_update(&ctx.accounts.price_update, &feed_id)?;
         let msg = &pu.price_message;
         require!(msg.feed_id == feed_id, RatchetError::BadFeed);
         require!(msg.prev_publish_time < msg.publish_time, RatchetError::NotFirstUpdate);
@@ -336,13 +336,24 @@ fn check_confidence(price: i64, conf: u64) -> Result<()> {
     Ok(())
 }
 
-/// Deserialize only the official upgraded sponsored Pyth push-feed account.
-fn load_push_price_update(ai: &AccountInfo) -> Result<PriceUpdateV2> {
-    require!(*ai.owner == PYTH_PUSH_ORACLE_ID, RatchetError::BadPriceAccount);
+/// Deserialize only the official upgraded shard-0 sponsored Pyth push feed.
+fn load_push_price_update(ai: &AccountInfo, feed_id: &[u8; 32]) -> Result<PriceUpdateV2> {
+    require!(*ai.owner == ID_CONST, RatchetError::BadPriceAccount);
+    let shard_id = 0u16.to_le_bytes();
+    let (expected_feed, _) = Pubkey::find_program_address(
+        &[shard_id.as_ref(), feed_id.as_ref()],
+        &PYTH_PUSH_ORACLE_ID,
+    );
+    require!(ai.key() == expected_feed, RatchetError::BadPriceAccount);
+
     let data = ai.try_borrow_data()?;
     let mut slice: &[u8] = &data;
     let update = PriceUpdateV2::try_deserialize(&mut slice)
         .map_err(|_| error!(RatchetError::BadPriceAccount))?;
+    require!(
+        update.write_authority == expected_feed,
+        RatchetError::BadPriceAccount
+    );
     require!(
         update.verification_level.gte(VerificationLevel::Full),
         RatchetError::PartialVerification
@@ -644,6 +655,24 @@ mod tests {
         assert!(validate_shot_id("ABC").is_err());
         assert!(validate_salt("0123456789abcdef0123456789abcdef").is_ok());
         assert!(validate_salt("0123456789ABCDEF0123456789ABCDEF").is_err());
+    }
+
+    #[test]
+    fn upgraded_sol_feed_is_the_expected_sponsored_pda() {
+        let feed_id = get_feed_id_from_hex(
+            "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+        )
+        .unwrap();
+        let shard_id = 0u16.to_le_bytes();
+        let (address, _) = Pubkey::find_program_address(
+            &[shard_id.as_ref(), feed_id.as_ref()],
+            &PYTH_PUSH_ORACLE_ID,
+        );
+        assert_eq!(
+            address,
+            pubkey!("7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE")
+        );
+        assert_eq!(ID_CONST, pubkey!("rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp"));
     }
 
     #[test]
