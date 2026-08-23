@@ -11,7 +11,7 @@ use anchor_lang::prelude::*;
 use solana_sha256_hasher::hashv;
 use pyth_solana_receiver_sdk::{
     price_update::{get_feed_id_from_hex, PriceUpdateV2, VerificationLevel},
-    ID_CONST, PYTH_PUSH_ORACLE_ID,
+    ID_CONST as PYTH_RECEIVER_ID, PYTH_PUSH_ORACLE_ID,
 };
 
 declare_id!("23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX");
@@ -338,7 +338,7 @@ fn check_confidence(price: i64, conf: u64) -> Result<()> {
 
 /// Deserialize only the official upgraded shard-0 sponsored Pyth push feed.
 fn load_push_price_update(ai: &AccountInfo, feed_id: &[u8; 32]) -> Result<PriceUpdateV2> {
-    require!(*ai.owner == ID_CONST, RatchetError::BadPriceAccount);
+    require!(*ai.owner == PYTH_RECEIVER_ID, RatchetError::BadPriceAccount);
     let shard_id = 0u16.to_le_bytes();
     let (expected_feed, _) = Pubkey::find_program_address(
         &[shard_id.as_ref(), feed_id.as_ref()],
@@ -672,7 +672,7 @@ mod tests {
             address,
             pubkey!("7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE")
         );
-        assert_eq!(ID_CONST, pubkey!("rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp"));
+        assert_eq!(PYTH_RECEIVER_ID, pubkey!("rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp"));
     }
 
     #[test]
