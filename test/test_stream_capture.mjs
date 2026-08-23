@@ -21,9 +21,19 @@ const transition = {
   confBps:4.2,
   receivedAt:expiry + 13_000,
   slot:123456,
+  postedSlot:123456,
 };
-assert.equal(await px.ingestUpdate('SOL', transition), true);
-assert.equal(await px.ingestUpdate('SOL', transition), false, 'overlap must deduplicate');
+const stalled = { ...transition, price:93.20,
+  prevPublishTime:transition.publishTime, receivedAt:expiry + 12_000,
+  slot:123455, postedSlot:123455 };
+assert.equal(await px.ingestUpdate('SOL', stalled), true);
+assert.equal(await px.ingestUpdate('SOL', transition), true,
+  'a distinct same-second interval must not be discarded as a duplicate');
+assert.equal(await px.ingestUpdate('SOL', transition), false, 'an exact overlap must deduplicate');
+const later = { ...transition, price:93.30, receivedAt:expiry + 13_500,
+  slot:123457, postedSlot:123457 };
+assert.equal(await px.ingestUpdate('SOL', later), true,
+  'multiple valid same-second account transitions remain auditable');
 assert.equal(await px.ingestUpdate('BONK', {
   ...transition, price:0.00001234,
   prevPublishTime:transition.publishTime,
@@ -33,7 +43,8 @@ assert.equal(crossing.price, 93.25);
 assert.equal(crossing.row.src, 'pyth-onchain-stream');
 assert.equal(crossing.publishTime, transition.publishTime * 1000);
 const path = await px.pathFor('SOL', expiry, expiry + 60_000);
-assert.deepEqual(path, [[transition.receivedAt, 93.25]]);
+assert.deepEqual(path, [[stalled.receivedAt, 93.20], [transition.receivedAt, 93.25],
+  [later.receivedAt, 93.30]]);
 const health = await px.streamHealth(transition.receivedAt + 1000);
 assert.equal(health.feeds.SOL.active, true);
 assert.equal(health.feeds.BTC.active, false);
@@ -99,6 +110,8 @@ response = await request({ method:'GET', action:'stream-health', ip:'stream-heal
 assert.equal(response.status, 200);
 assert.equal(response.body.source, 'solana-accountSubscribe');
 assert.equal(response.body.stream.feeds.BTC.active, true);
+assert.equal(response.body.stream.feeds.BTC.postedSlot, 999,
+  'stream health exposes the stable on-chain posted slot');
 
 // Cloudflare's parser must bind the subscription id to the exact account.
 const worker = await import('../ops/heartbeat-worker/worker.js');

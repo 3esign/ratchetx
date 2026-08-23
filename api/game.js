@@ -56,7 +56,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h61-2026-08-23';
+const VERSION = 'h62-2026-08-23';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -1696,6 +1696,7 @@ async function oracleIngest(req, res) {
       const slot = Number(update.slot);
       if (!Number.isSafeInteger(slot) || slot < 0) throw new Error('invalid slot');
       const decoded = decodePx(update.data, spec.feedId);
+      if (decoded.postedSlot > slot) throw new Error('Pyth posted slot is ahead of notification');
       const age = now - decoded.publishTime;
       if (decoded.prevPublishTime > decoded.publishTime)
         throw new Error('invalid Pyth publish interval');
@@ -1703,7 +1704,7 @@ async function oracleIngest(req, res) {
       const confBps = decoded.px > 0 ? decoded.conf / decoded.px * 10000 : Infinity;
       if (!Number.isFinite(confBps) || confBps > PX_MAX_CONF_BPS)
         throw new Error('Pyth confidence too wide');
-      validated.push({ feed:spec.feed, slot, price:decoded.px,
+      validated.push({ feed:spec.feed, slot, postedSlot:decoded.postedSlot, price:decoded.px,
         publishTime:decoded.publishTime, prevPublishTime:decoded.prevPublishTime,
         confBps:+confBps.toFixed(3) });
     }
