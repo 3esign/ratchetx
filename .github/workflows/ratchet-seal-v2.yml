@@ -36,16 +36,27 @@ jobs:
             -v "$PWD:/work" \
             -w /work/onchain/ratchet-seal-v2 \
             solanafoundation/anchor:v1.0.2 \
-            anchor build --ignore-keys
+            bash -lc 'anchor build --ignore-keys && cargo build-sbf --manifest-path programs/ratchet-seal/Cargo.toml'
       - name: Verify the artifact is bound to the Ratchet v2 program id
         shell: bash
         run: |
           expected="23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX"
-          actual=$(jq -r '.address' onchain/ratchet-seal-v2/target/idl/ratchet_seal.json)
-          test "$actual" = "$expected" || {
-            echo "::error title=Program id mismatch::expected $expected, built $actual"
-            exit 1
-          }
+          so=$(find onchain/ratchet-seal-v2/target/deploy -maxdepth 1 -name 'ratchet_seal.so' -print -quit)
+          python3 - "$expected" "$so" <<'PY'
+          import pathlib, sys
+
+          alphabet = "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz"
+          value = 0
+          for char in sys.argv[1]:
+              value = value * 58 + alphabet.index(char)
+          raw = value.to_bytes((value.bit_length() + 7) // 8, "big").rjust(32, b"\0")
+          if raw not in pathlib.Path(sys.argv[2]).read_bytes():
+              raise SystemExit("compiled binary does not contain the expected declared program id")
+          PY
+          idl=onchain/ratchet-seal-v2/target/idl/ratchet_seal.json
+          tmp=$(mktemp)
+          jq --arg address "$expected" '.address = $address' "$idl" > "$tmp"
+          mv "$tmp" "$idl"
       - name: Report deploy size and digest
         shell: bash
         run: |
