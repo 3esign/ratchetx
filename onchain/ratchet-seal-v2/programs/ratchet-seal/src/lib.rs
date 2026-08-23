@@ -4,6 +4,8 @@
 //! player's game credits or RCX. It binds a hidden YES/NO choice to the exact
 //! wallet and game shot, records the Pyth entry price, accepts only the fully
 //! verified first Pyth update crossing expiry, and makes equality a void.
+//! Sponsored Pyth push updates are checkpointed into a compact program-owned
+//! ring buffer, so settlement needs no Hermes API key or trusted data signer.
 
 use anchor_lang::prelude::*;
 use solana_sha256_hasher::hashv;
@@ -20,6 +22,7 @@ const MAX_EXPIRY_HORIZON_SECS: i64 = 90_000; // live game max 24h + 1h tolerance
 const MAX_CONF_BPS: u128 = 200;
 const MAX_SHOT_ID_BYTES: usize = 32;
 const SALT_HEX_BYTES: usize = 32;
+const CLOCK_CAPACITY: usize = 64;
 
 #[program]
 pub mod ratchet_seal {
@@ -48,7 +51,7 @@ pub mod ratchet_seal {
 
         let feed_id = get_feed_id_from_hex(&feed_id_hex)
             .map_err(|_| error!(RatchetError::BadFeed))?;
-        let pu = load_price_update(&ctx.accounts.price_update, true)?;
+        let pu = load_push_price_update(&ctx.accounts.price_update)?;
         let price = pu
             .get_price_no_older_than(&clock, MAX_STALENESS_AT_SEAL, &feed_id)
             .map_err(|_| error!(RatchetError::InvalidSealPrice))?;
@@ -86,6 +89,55 @@ pub mod ratchet_seal {
         Ok(())
     }
 
+    /// Permissionless capture of a fully verified sponsored Pyth push update.
+    /// Duplicate or older observations are harmless no-ops.
+    pub fn checkpoint(ctx: Context<Checkpoint>, feed_id: [u8; 32]) -> Result<()> {
+        let pu = load_push_price_update(&ctx.accounts.price_update)?;
+        let msg = &pu.price_message;
+        require!(msg.feed_id == feed_id, RatchetError::BadFeed);
+        require!(msg.prev_publish_time < msg.publish_time, RatchetError::NotFirstUpdate);
+        check_confidence(msg.price, msg.conf)?;
+        let price_e12 = scale_to_e12(msg.price, msg.exponent)?;
+
+        let feed_clock = &mut ctx.accounts.feed_clock;
+        if feed_clock.feed_id == [0; 32] {
+            feed_clock.feed_id = feed_id;
+            feed_clock.bump = ctx.bumps.feed_clock;
+        }
+        require!(feed_clock.feed_id == feed_id, RatchetError::BadFeed);
+
+        if msg.publish_time <= feed_clock.latest_publish_time {
+            return Ok(());
+        }
+
+        let observation = Observation {
+            prev_publish_time: msg.prev_publish_time,
+            publish_time: msg.publish_time,
+            price_e12,
+            posted_slot: pu.posted_slot,
+        };
+        if feed_clock.observations.len() < CLOCK_CAPACITY {
+            feed_clock.observations.push(observation);
+            feed_clock.head = (feed_clock.observations.len() % CLOCK_CAPACITY) as u8;
+        } else {
+            let index = feed_clock.head as usize;
+            feed_clock.observations[index] = observation;
+            feed_clock.head = ((index + 1) % CLOCK_CAPACITY) as u8;
+        }
+        feed_clock.latest_publish_time = msg.publish_time;
+
+        emit!(Checkpointed {
+            feed_clock: feed_clock.key(),
+            feed_id,
+            prev_publish_time: msg.prev_publish_time,
+            publish_time: msg.publish_time,
+            price_e12,
+            posted_slot: pu.posted_slot,
+            cranker: ctx.accounts.cranker.key(),
+        });
+        Ok(())
+    }
+
     /// Permissionless deterministic settlement. Only the unique fully verified
     /// Pyth update satisfying `prev_publish_time < expiry <= publish_time` is
     /// admissible, and only before the liveness deadline.
@@ -100,19 +152,16 @@ pub mod ratchet_seal {
             .ok_or(RatchetError::MathOverflow)?;
         require!(now < deadline, RatchetError::SettlementDeadlinePassed);
 
-        let pu = load_price_update(&ctx.accounts.price_update, false)?;
+        let feed_clock = &ctx.accounts.feed_clock;
+        require!(feed_clock.feed_id == shot.feed_id, RatchetError::BadFeed);
+        let observation = feed_clock
+            .crossing(shot.expiry_ts)
+            .ok_or(RatchetError::CrossingNotCheckpointed)?;
         require!(
-            pu.write_authority == ctx.accounts.cranker.key(),
-            RatchetError::WrongUpdateAuthority
+            observation.publish_time <= deadline,
+            RatchetError::PriceOutsideWindow
         );
-        let msg = &pu.price_message;
-        require!(msg.feed_id == shot.feed_id, RatchetError::BadFeed);
-        require!(msg.prev_publish_time < msg.publish_time, RatchetError::NotFirstUpdate);
-        require!(msg.prev_publish_time < shot.expiry_ts, RatchetError::NotFirstUpdate);
-        require!(msg.publish_time >= shot.expiry_ts, RatchetError::PriceOutsideWindow);
-        require!(msg.publish_time <= deadline, RatchetError::PriceOutsideWindow);
-        check_confidence(msg.price, msg.conf)?;
-        let exit_e12 = scale_to_e12(msg.price, msg.exponent)?;
+        let exit_e12 = observation.price_e12;
 
         shot.exit_e12 = exit_e12;
         shot.settled_ts = now;
@@ -134,8 +183,8 @@ pub mod ratchet_seal {
         emit!(Settled {
             shot: shot.key(),
             exit_e12,
-            publish_time: msg.publish_time,
-            posted_slot: pu.posted_slot,
+            publish_time: observation.publish_time,
+            posted_slot: observation.posted_slot,
             cranker: ctx.accounts.cranker.key(),
         });
         Ok(())
@@ -287,14 +336,9 @@ fn check_confidence(price: i64, conf: u64) -> Result<()> {
     Ok(())
 }
 
-/// Deserialize the official SDK type while accepting either upgraded Pyth
-/// receiver-owned ephemeral updates or upgraded push-feed accounts.
-fn load_price_update(ai: &AccountInfo, allow_push: bool) -> Result<PriceUpdateV2> {
-    require!(
-        *ai.owner == pyth_solana_receiver_sdk::ID
-            || (allow_push && *ai.owner == PYTH_PUSH_ORACLE_ID),
-        RatchetError::BadPriceAccount
-    );
+/// Deserialize only the official upgraded sponsored Pyth push-feed account.
+fn load_push_price_update(ai: &AccountInfo) -> Result<PriceUpdateV2> {
+    require!(*ai.owner == PYTH_PUSH_ORACLE_ID, RatchetError::BadPriceAccount);
     let data = ai.try_borrow_data()?;
     let mut slice: &[u8] = &data;
     let update = PriceUpdateV2::try_deserialize(&mut slice)
@@ -319,7 +363,25 @@ pub struct Seal<'info> {
     pub shot: Account<'info, Shot>,
     #[account(mut)]
     pub player: Signer<'info>,
-    /// CHECK: owner, discriminator and full verification are checked by load_price_update.
+    /// CHECK: owner, discriminator and full verification are checked by load_push_price_update.
+    pub price_update: UncheckedAccount<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+#[instruction(feed_id: [u8; 32])]
+pub struct Checkpoint<'info> {
+    #[account(
+        init_if_needed,
+        payer = cranker,
+        space = 8 + FeedClock::SIZE,
+        seeds = [b"clock", feed_id.as_ref()],
+        bump
+    )]
+    pub feed_clock: Account<'info, FeedClock>,
+    #[account(mut)]
+    pub cranker: Signer<'info>,
+    /// CHECK: owner, discriminator and full verification are checked by load_push_price_update.
     pub price_update: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
@@ -328,8 +390,8 @@ pub struct Seal<'info> {
 pub struct Settle<'info> {
     #[account(mut)]
     pub shot: Account<'info, Shot>,
-    /// CHECK: owner, discriminator and full verification are checked by load_price_update.
-    pub price_update: UncheckedAccount<'info>,
+    #[account(seeds = [b"clock", shot.feed_id.as_ref()], bump = feed_clock.bump)]
+    pub feed_clock: Account<'info, FeedClock>,
     pub cranker: Signer<'info>,
 }
 
@@ -399,6 +461,38 @@ impl Shot {
     pub const SIZE: usize = 32 + 8 + 32 + 32 + 1 + 32 + (8 * 6) + 6;
 }
 
+#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Default)]
+pub struct Observation {
+    pub prev_publish_time: i64,
+    pub publish_time: i64,
+    pub price_e12: i64,
+    pub posted_slot: u64,
+}
+
+#[account]
+pub struct FeedClock {
+    pub feed_id: [u8; 32],
+    pub latest_publish_time: i64,
+    pub head: u8,
+    pub bump: u8,
+    pub observations: Vec<Observation>,
+}
+
+impl FeedClock {
+    pub const SIZE: usize = 32 + 8 + 1 + 1 + 4 + (CLOCK_CAPACITY * 32);
+
+    fn crossing(&self, expiry_ts: i64) -> Option<Observation> {
+        self.observations
+            .iter()
+            .copied()
+            .filter(|observation| {
+                observation.prev_publish_time < expiry_ts
+                    && observation.publish_time >= expiry_ts
+            })
+            .min_by_key(|observation| observation.publish_time)
+    }
+}
+
 #[account]
 pub struct PlayerRecord {
     pub player: Pubkey,
@@ -440,6 +534,17 @@ pub struct Settled {
     pub shot: Pubkey,
     pub exit_e12: i64,
     pub publish_time: i64,
+    pub posted_slot: u64,
+    pub cranker: Pubkey,
+}
+
+#[event]
+pub struct Checkpointed {
+    pub feed_clock: Pubkey,
+    pub feed_id: [u8; 32],
+    pub prev_publish_time: i64,
+    pub publish_time: i64,
+    pub price_e12: i64,
     pub posted_slot: u64,
     pub cranker: Pubkey,
 }
@@ -494,8 +599,8 @@ pub enum RatchetError {
     CommitMismatch,
     #[msg("not the first price update crossing expiry")]
     NotFirstUpdate,
-    #[msg("settlement update must be a dedicated Hermes-posted account owned by the cranker")]
-    WrongUpdateAuthority,
+    #[msg("the exact first Pyth update crossing expiry has not been checkpointed")]
+    CrossingNotCheckpointed,
     #[msg("strict settlement deadline has passed")]
     SettlementDeadlinePassed,
     #[msg("shot is not voidable yet")]
@@ -539,5 +644,40 @@ mod tests {
         assert!(validate_shot_id("ABC").is_err());
         assert!(validate_salt("0123456789abcdef0123456789abcdef").is_ok());
         assert!(validate_salt("0123456789ABCDEF0123456789ABCDEF").is_err());
+    }
+
+    #[test]
+    fn clock_selects_the_unique_first_crossing() {
+        let mut feed_clock = FeedClock {
+            feed_id: [7; 32],
+            latest_publish_time: 120,
+            head: 3,
+            bump: 255,
+            observations: vec![
+                Observation {
+                    prev_publish_time: 90,
+                    publish_time: 100,
+                    price_e12: 1,
+                    posted_slot: 1,
+                },
+                Observation {
+                    prev_publish_time: 100,
+                    publish_time: 110,
+                    price_e12: 2,
+                    posted_slot: 2,
+                },
+                Observation {
+                    prev_publish_time: 110,
+                    publish_time: 120,
+                    price_e12: 3,
+                    posted_slot: 3,
+                },
+            ],
+        };
+
+        assert_eq!(feed_clock.crossing(105).unwrap().publish_time, 110);
+        assert_eq!(feed_clock.crossing(110).unwrap().publish_time, 110);
+        assert!(feed_clock.crossing(90).is_none());
+        assert!(feed_clock.crossing(121).is_none());
     }
 }
