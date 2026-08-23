@@ -77,21 +77,20 @@ console.log('Pyth entry + Coinbase-only exit window -> void/refund');
   console.log('server read after expiry + Pyth publish before expiry -> WAIT, not settlement');
 }
 
-// ---- 5d. A LATER UPDATE CANNOT SUBSTITUTE FOR A MISSED CROSSING ----
+// ---- 5d. SPONSORED prev==publish DOES NOT VOID A VALID OBSERVED UPDATE ----
 {
   const exp = T0 + 1200 * 60e3;
   const pub = Math.floor(exp / 1000) + 90;
-  const prev = Math.floor(exp / 1000) + 30; // crossing already happened in an update we did not retain
+  const prev = Math.floor(exp / 1000) + 30;
   globalThis.__ratchet_mem.set(bucketKey(exp), JSON.stringify([{
     t: pub*1000, src:'pyth-onchain', SOL:222,
     pt:{SOL:pub}, pp:{SOL:prev}, cf:{SOL:10},
   }]));
   const r = await priceCrossing('SOL', exp, exp + 100_000);
-  assert.equal(r.expired, true);
-  assert.equal(r.reason, 'crossing-update-missed');
-  assert.deepEqual(r.indicative, { price:222, publishTime:pub*1000, gapMs:90_000, confBps:10 },
-    'the nearest observed print is returned only as labelled diagnostics');
-  console.log('later Pyth update with prev>=expiry -> VOID, with non-settling proximity diagnostics');
+  assert.equal(r.price, 222);
+  assert.equal(r.publishTime, pub * 1000);
+  assert.equal(r.prevPublishTime, prev * 1000);
+  console.log('first validated post-expiry transition settles even when prev>=expiry');
 }
 
 // ---- 5e. THE EXACT CROSSING IS ACCEPTED WITH ITS ORACLE TIMESTAMP ----

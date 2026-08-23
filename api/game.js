@@ -56,7 +56,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h63-2026-08-23';
+const VERSION = 'h64-2026-08-23';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -266,6 +266,9 @@ const PXFEEDS = ['SOL','BTC','ETH','BONK','WIF','JUP','PUMP'];   // below this a
 const PRIZE_W = [0.40, 0.25, 0.15, 0.12, 0.08];   // weekly season: top 5
 const PRIZE_D = [0.50, 0.30, 0.20];               // daily pot: top 3
 const OUTCOME_RULE = 'strict-compare-v2';
+const SETTLE_RULE = 'pyth-first-observed-after-v3';
+const PRIOR_SETTLE_RULE = 'pyth-first-crossing-v2';
+const usesPythTransition = rule => rule === SETTLE_RULE || rule === PRIOR_SETTLE_RULE;
 const LEGACY_EPS = 0.0004;
 const order = (a, b) => a > b ? 1 : a < b ? -1 : 0;
 // No economic dead zone: a question resolves whenever its two values differ.
@@ -1081,12 +1084,12 @@ async function wardenTick(prices) {
         const sealedAt = Date.now();
         const candidate = { id:wl.id, feed:wl.feed, thresh:wl.thresh, p:wl.p,
           q:wl.q, entry:prices[wl.feed], t:sealedAt, exp:sealedAt + wl.mins * 60e3,
-          settleRule:'pyth-first-crossing-v2', outcomeRule:OUTCOME_RULE, oracleSrc:'pyth-onchain' };
+          settleRule:SETTLE_RULE, outcomeRule:OUTCOME_RULE, oracleSrc:'pyth-onchain' };
         if (await setnxJSON(sealKey, candidate)) sealed = candidate;
         else sealed = await getJSONStrict(sealKey);
       }
       if (sealed) {
-        if (sealed.settleRule === 'pyth-first-crossing-v2')
+        if (usesPythTransition(sealed.settleRule))
           await appendOnce(`wseal:${sealed.id}`, { k:'wseal', id:sealed.id, feed:sealed.feed,
             thresh:sealed.thresh, p:sealed.p, exp:sealed.exp, settleRule:sealed.settleRule,
             outcomeRule:sealed.outcomeRule || 'dead-zone-4bp-v1' });
@@ -1101,7 +1104,7 @@ async function wardenTick(prices) {
     rec.applied = Array.isArray(rec.applied) ? rec.applied : [];
     for (const s of open) {
       if (now < s.exp) { still.push(s); continue; }
-      if (s.settleRule !== 'pyth-first-crossing-v2') {
+      if (!usesPythTransition(s.settleRule)) {
         await appendOnce(`wvoid:${s.id}`, { k:'wvoid', id:s.id,
           reason:'legacy-nondeterministic-settlement' });
         changed = true; continue;
@@ -1110,7 +1113,7 @@ async function wardenTick(prices) {
       if (at.wait) { still.push(s); continue; }
       if (at.expired || !Number.isFinite(at.price)) {
         await appendOnce(`wvoid:${s.id}`, { k:'wvoid', id:s.id,
-          reason:at.reason || 'no-oracle-crossing-in-window' });
+          reason:at.reason || 'no-observed-update-in-window' });
         changed = true; continue;
       }
       const comparison = s.outcomeRule === OUTCOME_RULE
@@ -1283,7 +1286,7 @@ async function agentsTick(prices) {
 
     for (const o of open) {
       if (now < o.exp) { still.push(o); continue; }
-      if (o.settleRule !== 'pyth-first-crossing-v2') {
+      if (!usesPythTransition(o.settleRule)) {
         if (!(await getJSONStrict(`asettled:${o.id}`)))
           await appendOnce(`avoid:${o.id}`, { k:'avoid', agent:o.agent, id:o.id,
             reason:'legacy-nondeterministic-settlement' });
@@ -1297,7 +1300,7 @@ async function agentsTick(prices) {
       if (at.expired || (at2 && at2.expired)
           || !Number.isFinite(at.price) || (at2 && !Number.isFinite(at2.price))) {
         await appendOnce(`avoid:${o.id}`, { k:'avoid', agent:o.agent, id:o.id,
-          reason:at.reason || (at2 && at2.reason) || 'no-oracle-crossing-in-window' });
+          reason:at.reason || (at2 && at2.reason) || 'no-observed-update-in-window' });
         changed = true; continue;
       }
 
@@ -1359,7 +1362,7 @@ async function agentsTick(prices) {
           feed:t.feed, feed2:t.feed2 || null, side, entry:p1,
           entry2:t.feed2 ? prices[t.feed2] : null, pct:t.pct == null ? null : t.pct,
           t:now, exp:now + t.mins * 60e3,
-          settleRule:'pyth-first-crossing-v2', outcomeRule:OUTCOME_RULE, oracleSrc:'pyth-onchain' };
+          settleRule:SETTLE_RULE, outcomeRule:OUTCOME_RULE, oracleSrc:'pyth-onchain' };
         if (t.kind === 'thr') candidate.thresh = p1 * (1 + t.pct);
         else if (t.kind === 'thrDown') candidate.thresh = p1 * (1 - t.pct);
         else if (t.kind === 'range') {
@@ -1372,7 +1375,7 @@ async function agentsTick(prices) {
           else sealed = await getJSONStrict(sealKey);
         }
         if (sealed) {
-          if (sealed.settleRule === 'pyth-first-crossing-v2')
+          if (usesPythTransition(sealed.settleRule))
             await appendOnce(`aseal:${id}`, { k:'aseal', agent:a.id, id,
               label:sealed.label, kind:sealed.kind, feed:sealed.feed,
               feed2:sealed.feed2 || null, side:sealed.side, entry:sealed.entry,
@@ -1470,7 +1473,7 @@ async function settle(p, prices) {
     if (s.sealAccountingV === 2) await recordSealedShot(s, p.w);
     if (now < s.exp) { still.push(s); continue; }
 
-    const strict = s.settleRule === 'pyth-first-crossing-v2';
+    const strict = usesPythTransition(s.settleRule);
     const at = strict
       ? await priceCrossing(s.feed, s.exp, now, s.oracleSrc || 'pyth-onchain')
       : await priceAt(s.exp, now, s.oracleSrc || null);
@@ -1505,15 +1508,22 @@ async function settle(p, prices) {
       if (s.allocationRule !== 'on-settle-v2')
         await reverseStake(s.stake, p.w, s.id);
       const voidReason = strict
-        ? (at.reason || (at2 && at2.reason) || 'no-oracle-crossing-in-window')
+        ? (at.reason || (at2 && at2.reason) || 'no-observed-update-in-window')
         : (at.expired ? 'no-oracle-sample-in-window' : 'feed-gone');
+      const appliedSettleRule = strict
+        ? SETTLE_RULE
+        : (s.settleRule || 'observed-sample-v1');
+      s.voidReason = voidReason;
+      s.settleRuleApplied = appliedSettleRule;
       await appendOnce(`settle:${eventId}`, { k:'settle', w:p.w, id:s.id,
         res:'void', reason:voidReason, commitV:s.commitV || 1,
+        settleRuleApplied:appliedSettleRule,
         indicativePx:s.indicativePx ?? null, indicativeAt:s.indicativeAt ?? null,
         indicativeGapSec:s.indicativeGapSec ?? null });
       await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
         res:'void', xp:0, stake:s.stake, entry:s.entry, exit:null,
         kind:s.kind, thresh:s.thresh, pct:s.pct,
+        reason:voidReason, settleRuleApplied:appliedSettleRule,
         indicativePx:s.indicativePx ?? null, indicativeAt:s.indicativeAt ?? null,
         indicativeGapSec:s.indicativeGapSec ?? null });
       p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
@@ -1559,6 +1569,7 @@ async function settle(p, prices) {
         w:shortW(p.w), a:`MISS - streak reset - +${s.xp} XP`, c:'miss' });
     }
 
+    s.settleRuleApplied = strict ? SETTLE_RULE : (s.settleRule || 'observed-sample-v1');
     s.settledAt = now; s.exitPx = px;
     s.exitAt = strict ? at.publishTime : at.row.t;
     if (strict) {
@@ -1575,6 +1586,7 @@ async function settle(p, prices) {
       res:s.res, exitPx:px, exitAt:s.exitAt, exitPx2:s.exitPx2,
       exitAt2:s.exitAt2, side:s.side, salt:s.salt, commit:s.commit,
       commitV:s.commitV || 1, settleRule:s.settleRule || 'observed-sample-v1',
+      settleRuleApplied:s.settleRuleApplied,
       outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1',
       allocationRule:s.allocationRule || 'upfront-v1', xp:s.xp || 0,
       settleXp:s.settleXp || 0, skillXp:s.skillXp || 0 });
@@ -2114,7 +2126,7 @@ module.exports = async (req, res) => {
         shot = { id: Math.random().toString(36).slice(2,10),
           kind, feed:t.feed, side:b.side,
           entry: prices[t.feed], entryAge: (prices.ages || {})[t.feed], oracleSrc: prices.src,
-          exp: Date.now()+t.mins*60e3, stake, settleRule:'pyth-first-crossing-v2',
+          exp: Date.now()+t.mins*60e3, stake, settleRule:SETTLE_RULE,
           outcomeRule:OUTCOME_RULE, allocationRule:'on-settle-v2', sealAccountingV:2,
           xp: Math.max(1, Math.round(t.baseXp * stakeMult(stake) * xpMult)), label: t.label };
         if (kind === 'thr') shot.thresh = prices[t.feed] * (1 + t.pct);
@@ -2127,7 +2139,7 @@ module.exports = async (req, res) => {
         shot = { id: Math.random().toString(36).slice(2,10), kind:'thr', feed:wl.feed, thresh:wl.thresh,
           side: withW ? (wl.p >= 50 ? 'YES':'NO') : (wl.p >= 50 ? 'NO':'YES'),
           entry: prices[wl.feed], oracleSrc: prices.src, exp: Date.now()+wl.mins*60e3, stake,
-          settleRule:'pyth-first-crossing-v2', outcomeRule:OUTCOME_RULE,
+          settleRule:SETTLE_RULE, outcomeRule:OUTCOME_RULE,
           allocationRule:'on-settle-v2', sealAccountingV:2,
           xp: Math.max(1, Math.round(14 * stakeMult(stake) * (withW ? 0.8 : 3.4))), label: 'DUEL vs the Warden: '+wl.q, duel:true };
       }
@@ -2331,7 +2343,7 @@ module.exports = async (req, res) => {
         const sh = { id: Math.random().toString(36).slice(2,10), kind: c.kind, feed: c.feed,
           side, entry: px, oracleSrc: prices.src, exp, stake: c.stake,
           xp: Math.max(1, Math.round(xp * stakeMult(c.stake))), label: c.label,
-          chal: c.id, src: srcTag, settleRule:'pyth-first-crossing-v2',
+          chal: c.id, src: srcTag, settleRule:SETTLE_RULE,
           outcomeRule:c.outcomeRule || 'dead-zone-4bp-v1',
           allocationRule:c.allocationRule || 'upfront-v1', sealAccountingV:2 };
         if (c.kind === 'thr') sh.thresh = px * (1 + c.pct);
@@ -2429,7 +2441,7 @@ module.exports = async (req, res) => {
           ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x))) },
         stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP, settleXp: SETTLE_XP },
         sealRule: 'entry price must be fresher than min(60, max(30, 0.15 * windowSeconds)) seconds',
-        settleRule: 'the unique Pyth update with prev_publish_time < expiry <= publish_time; a missed/unusable crossing or no crossing inside 15 minutes voids and refunds',
+        settleRule: 'the first fully validated Pyth account transition observed with publish_time >= expiry; no valid transition observed inside 15 minutes voids and refunds',
         tieRule: 'strict numerical comparison; only true equality voids and refunds — there is no economic dead zone',
         targets: Object.entries(board).map(([id, t]) => ({
           id, kind: t.kind || 'dir', feed: t.feed, feed2: t.feed2 || null,

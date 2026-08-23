@@ -39,9 +39,11 @@ assert.equal(await px.ingestUpdate('BONK', {
   prevPublishTime:transition.publishTime,
 }), true, 'same-second consecutive Pyth publishes are valid evidence');
 const crossing = await px.priceCrossing('SOL', expiry, expiry + 60_000, 'pyth-onchain');
-assert.equal(crossing.price, 93.25);
+assert.equal(crossing.price, 93.20,
+  'the first validated transition wins even when the sponsored account reports prev == publish');
 assert.equal(crossing.row.src, 'pyth-onchain-stream');
 assert.equal(crossing.publishTime, transition.publishTime * 1000);
+assert.equal(crossing.prevPublishTime, transition.publishTime * 1000);
 const path = await px.pathFor('SOL', expiry, expiry + 60_000);
 assert.deepEqual(path, [[stalled.receivedAt, 93.20], [transition.receivedAt, 93.25],
   [later.receivedAt, 93.30]]);
