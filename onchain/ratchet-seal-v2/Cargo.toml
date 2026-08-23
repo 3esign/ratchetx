@@ -7,7 +7,7 @@ opt-level = "z"
 overflow-checks = true
 lto = "fat"
 codegen-units = 1
-strip = "symbols"
+strip = "debuginfo"
 
 [profile.release.build-override]
 opt-level = 3
