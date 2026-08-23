@@ -1,0 +1,13 @@
+[toolchain]
+anchor_version = "0.31.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.devnet]
+ratchet_seal = "4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"

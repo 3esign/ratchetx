@@ -1,0 +1,45 @@
+name: Ratchet Seal v2
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - codex/ratchet-seal-v2
+    paths:
+      - onchain/ratchet-seal-v2/**
+      - .github/workflows/ratchet-seal-v2.yml
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run focused host tests
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work/onchain/ratchet-seal-v2 \
+            solanafoundation/anchor:0.31.1 \
+            cargo test --workspace
+      - name: Build with the pinned Anchor toolchain
+        run: |
+          docker run --rm \
+            -v "$PWD:/work" \
+            -w /work/onchain/ratchet-seal-v2 \
+            solanafoundation/anchor:0.31.1 \
+            anchor build
+      - name: Report deploy size and digest
+        run: |
+          ls -lh onchain/ratchet-seal-v2/target/deploy/*.so
+          sha256sum onchain/ratchet-seal-v2/target/deploy/*.so
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ratchet-seal-v2-build
+          path: |
+            onchain/ratchet-seal-v2/target/deploy/*.so
+            onchain/ratchet-seal-v2/target/idl/*.json
+          if-no-files-found: error

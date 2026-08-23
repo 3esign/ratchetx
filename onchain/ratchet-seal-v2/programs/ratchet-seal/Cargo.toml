@@ -1,0 +1,21 @@
+[package]
+name = "ratchet-seal"
+version = "2.0.0"
+description = "RATCHET deterministic Pyth-settled prediction receipt"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ratchet_seal"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "0.31.1", features = ["init-if-needed"] }
+pyth-solana-receiver-sdk = { version = "=2.0.0", features = ["pro-compatible"] }
