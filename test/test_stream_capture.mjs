@@ -127,8 +127,9 @@ assert.equal(worker.extractAccountNotification({ method:'slotNotification' }, su
 // A dropped socket reconnects inside the same cron session. Overlapping initial
 // notifications are harmless because the backend is the idempotency boundary.
 let sockets = 0, posted = 0;
+const accountSpecs = new Map(Object.values(ACCOUNTS).map(spec => [spec[0], spec]));
 const accountValues = new Map();
-for (const [account, spec] of Object.values(ACCOUNTS).map(spec => [spec[0], spec])) {
+for (const [account, spec] of accountSpecs) {
   accountValues.set(account, {
     owner:OWNER,
     data:[accountData(spec[1], now - 1, now - 61), 'base64'],
@@ -147,6 +148,12 @@ class MockWebSocket {
     const subscription = this.id * 100 + req.id;
     setTimeout(() => {
       this.emit('message', { data:JSON.stringify({ id:req.id, result:subscription }) });
+      if (req.id === 1) this.emit('message', { data:JSON.stringify({
+        method:'accountNotification',
+        params:{ subscription, result:{ context:{slot:900 + this.id},
+          value:{ owner:OWNER, data:[accountData(accountSpecs.get(req.params[0])[1],
+            now - 1, now - 1), 'base64'] } } },
+      }) });
       this.emit('message', { data:JSON.stringify({
         method:'accountNotification',
         params:{ subscription, result:{ context:{slot:1000 + this.id},
@@ -174,7 +181,8 @@ const streamRun = await worker.runStream(
 globalThis.fetch = realFetch;
 assert.ok(streamRun.connections >= 2, 'socket close must reconnect in the same cron session');
 assert.equal(streamRun.subscriptions, 7);
-assert.ok(posted >= 14, 'initial account states from overlapping sessions are forwarded');
+assert.ok(posted >= 16,
+  'multiple same-account transitions inside one batch are all forwarded');
 
 // Cloudflare fetch(Upgrade) returns an already accepted socket and emits no
 // future open event. The Worker must subscribe immediately on that path.

@@ -111,6 +111,10 @@ async function postUpdates(env, updates) {
   return parsed;
 }
 
+function notificationKey(update) {
+  return `${update.account}:${update.slot}:${update.data}`;
+}
+
 async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImpl,
     subscriptionTimeoutMs) {
   let ws;
@@ -138,28 +142,33 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
   const flush = () => {
     if (flushTimer) { clearTimeout(flushTimer); flushTimer = null; }
     if (!pending.size) return flushing;
-    const batch = [...pending.values()];
-    pending.clear();
     flushing = flushing.then(async () => {
-      const waitMs = Math.max(0, nextPostAt - Date.now());
-      if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs));
-      try {
-        const result = await postUpdates(env, batch);
-        stats.accepted += Number(result.accepted) || 0;
-        stats.duplicates += Number(result.duplicates) || 0;
-        retryMs = 500;
-        nextPostAt = 0;
-      } catch (error) {
-        stats.postErrors++;
-        stats.lastPostError = String(error && error.message || error).slice(0, 180);
-        console.error('oracle ingest failed: ' + stats.lastPostError);
-        // Preserve only the newest event per account. Exponential backoff
-        // prevents an upstream/store outage from becoming a Worker retry storm.
-        for (const item of batch) if (!pending.has(item.account)) pending.set(item.account, item);
-        nextPostAt = Date.now() + retryMs;
-        retryMs = Math.min(retryMs * 2, 10_000);
-        if (nextPostAt < deadline && !flushTimer)
-          flushTimer = setTimeout(flush, Math.max(1, nextPostAt - Date.now()));
+      while (pending.size) {
+        const entries = [...pending.entries()].slice(0, 32);
+        for (const [key] of entries) pending.delete(key);
+        const batch = entries.map(([, item]) => item);
+        const waitMs = Math.max(0, nextPostAt - Date.now());
+        if (waitMs) await new Promise(resolve => setTimeout(resolve, waitMs));
+        try {
+          const result = await postUpdates(env, batch);
+          stats.accepted += Number(result.accepted) || 0;
+          stats.duplicates += Number(result.duplicates) || 0;
+          retryMs = 500;
+          nextPostAt = 0;
+        } catch (error) {
+          stats.postErrors++;
+          stats.lastPostError = String(error && error.message || error).slice(0, 180);
+          console.error('oracle ingest failed: ' + stats.lastPostError);
+          // Put every unsent transition back. A Pyth account can change more
+          // than once inside the 100ms batching window; keeping only the latest
+          // state would erase the unique first-crossing settlement evidence.
+          for (const [key, item] of entries) if (!pending.has(key)) pending.set(key, item);
+          nextPostAt = Date.now() + retryMs;
+          retryMs = Math.min(retryMs * 2, 10_000);
+          if (nextPostAt < deadline && !flushTimer)
+            flushTimer = setTimeout(flush, Math.max(1, nextPostAt - Date.now()));
+          break;
+        }
       }
     });
     return flushing;
@@ -228,7 +237,7 @@ async function connectOnce(env, endpoint, deadline, pending, stats, WebSocketImp
       }
       const update = extractAccountNotification(message, subscriptions);
       if (!update || !Number.isSafeInteger(update.slot)) return;
-      pending.set(update.account, update);
+      pending.set(notificationKey(update), update);
       stats.notifications++;
       scheduleFlush();
     });

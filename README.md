@@ -11,15 +11,15 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 
 ## Is this repo actually the running code?
 
-This source tree declares `h62-2026-08-23`. A deployment is release-consistent only when
+This source tree declares `h63-2026-08-23`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h62-2026-08-23"
-https://ratchetx.xyz/api/proof               ->  "v": "h62-2026-08-23"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h63-2026-08-23"
+https://ratchetx.xyz/api/proof               ->  "v": "h63-2026-08-23"
 ```
 
-All public APIs in this repo declare `const VERSION = 'h62-2026-08-23'`.
+All public APIs in this repo declare `const VERSION = 'h63-2026-08-23'`.
 
 ## Balanced questions, fewer refunds
 
@@ -30,6 +30,8 @@ any real numerical difference settles, while exact equality or missing oracle ev
 Legacy open shots keep their original 4bp dead-zone rule; a release never rewrites a sealed bet.
 Distinct Pyth transitions that share one-second `publish_time` are retained by their full evidence
 fields and ordered by on-chain `posted_slot`; timestamp equality alone never discards a crossing.
+The capture Worker queues every distinct account/slot/data event instead of coalescing rapid
+same-account transitions, and submits batches within the authenticated API's 32-event limit.
 
 ## Real rewards, still keyless
 
