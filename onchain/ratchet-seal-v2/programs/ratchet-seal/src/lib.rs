@@ -6,7 +6,7 @@
 //! verified first Pyth update crossing expiry, and makes equality a void.
 
 use anchor_lang::prelude::*;
-use anchor_lang::solana_program::hash::hashv;
+use solana_sha256_hasher::hashv;
 use pyth_solana_receiver_sdk::{
     price_update::{get_feed_id_from_hex, PriceUpdateV2, VerificationLevel},
     PYTH_PUSH_ORACLE_ID,
