@@ -54,7 +54,7 @@ assert.equal(health.feeds.BTC.active, false);
 // Byte-exact PriceUpdateV2 fixture: the API must revalidate what the Worker saw.
 const { ACCOUNTS } = require('../lib/onchain_px.js');
 const DISC = crypto.createHash('sha256').update('account:PriceUpdateV2').digest().subarray(0,8);
-const OWNER = 'pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT';
+const OWNER = 'rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp';
 function number(fn, value, bytes) {
   const b = Buffer.alloc(bytes); b[fn](value, 0); return b;
 }

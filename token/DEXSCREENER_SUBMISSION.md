@@ -47,7 +47,7 @@ Enhanced Token Info, not a new token listing.
 ## Truth boundary - never remove
 
 - The displayed SOL floor is a model, not a redeemable vault.
-- The deployed mainnet program is legacy evidence; live mirroring is disabled.
+- The v2 mainnet program is deployed; optional SOL sealing is beta, while server settlement remains canonical during soak.
 - Do not claim a fully on-chain referee or independent security audit.
 - The historical event log has one disclosed missing entry at #345.
 - The 70/30/0 reload rule and verified reward transactions are live.

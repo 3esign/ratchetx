@@ -56,10 +56,11 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h64-2026-08-23';
+const VERSION = 'h65-2026-08-23';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
-const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
+const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC_URL || process.env.SOLANA_RPC || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
+const MIRROR_FEEDS = new Set(String(process.env.RATCHET_SEAL_FEEDS || 'SOL').split(',').map(x => x.trim().toUpperCase()).filter(Boolean));
 const MIRROR_ENABLED = !!(MIRROR_PROGRAM_ID && MIRROR_RPC_URL);
 
 async function mirrorRpc(method, params) {
@@ -82,24 +83,48 @@ async function getMirrorTx(sig) {
 
 // Decode the exact Anchor `seal` instruction shape. Confirmation used to
 // compare only the commitment, which meant a transaction with altered feed,
-// expiry, kind or threshold could still earn mirror XP. Treat every field as
+// expiry, kind or threshold could still be accepted as a receipt. Treat every field as
 // part of the receipt or keep the feature disabled.
 function parseMirrorSeal(data) {
-  if (!Buffer.isBuffer(data) || data.length < 69) return null;
+  if (!Buffer.isBuffer(data) || data.length < 138) return null;
   if (!data.subarray(0, 8).equals(Buffer.from('66caaba31b9869f2', 'hex'))) return null;
-  const feedLen = data.readUInt32LE(48);
-  if (feedLen !== 64 || data.length !== 69 + feedLen) return null;
-  const feed = data.subarray(52, 52 + feedLen).toString('utf8');
-  if (!/^[0-9a-f]{64}$/.test(feed)) return null;
-  let o = 52 + feedLen;
+  let o = 48;
+  const readString = max => {
+    if (o + 4 > data.length) return null;
+    const len = data.readUInt32LE(o); o += 4;
+    if (!len || len > max || o + len > data.length) return null;
+    const value = data.subarray(o, o + len).toString('utf8'); o += len;
+    return value;
+  };
+  const shotId = readString(32);
+  if (!shotId || !/^[a-z0-9]{1,32}$/.test(shotId)) return null;
+  const feed = readString(64);
+  if (!feed || !/^[0-9a-f]{64}$/.test(feed) || o + 17 !== data.length) return null;
   const expiry = Number(data.readBigInt64LE(o)); o += 8;
   const kind = data[o++];
-  const thresholdE6 = data.readBigInt64LE(o);
+  const thresholdE12 = data.readBigInt64LE(o);
   return {
     nonce: data.readBigUInt64LE(8),
     commit: data.subarray(16, 48).toString('hex'),
-    feed, expiry, kind, thresholdE6,
+    shotId, feed, expiry, kind, thresholdE12,
   };
+}
+
+const anchorString = value => {
+  const bytes = Buffer.from(String(value), 'utf8');
+  const len = Buffer.alloc(4); len.writeUInt32LE(bytes.length);
+  return Buffer.concat([len, bytes]);
+};
+
+// Convert the decimal text, not `number * 1e12`: BTC-sized values exceed
+// JavaScript's safe integer range after scaling and would silently change the
+// terms signed by the player.
+function priceToE12(value) {
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < 0) throw new Error('invalid threshold');
+  const [whole, fraction = ''] = n.toFixed(12).split('.');
+  return BigInt(whole) * 1_000_000_000_000n
+    + BigInt(fraction.padEnd(12, '0').slice(0, 12));
 }
 
 const SPLIT = { burn: 0.70, pot: 0.30, creator: 0.0 };   // frozen headline
@@ -2052,8 +2077,9 @@ module.exports = async (req, res) => {
         season: seasonKey(), day: today(), ladderAll,
         mint: MINT || null, incinerator: MINT ? INCINERATOR : null, mcap,
         tokenProgram,
-        mirror: { enabled: MIRROR_ENABLED, programId: MIRROR_ENABLED ? MIRROR_PROGRAM_ID : null,
-          cluster: MIRROR_ENABLED ? MIRROR_CLUSTER : null },
+        mirror: { enabled: MIRROR_ENABLED, version:'seal-v2', mode:'optional-seal',
+          programId: MIRROR_ENABLED ? MIRROR_PROGRAM_ID : null,
+          cluster: MIRROR_ENABLED ? MIRROR_CLUSTER : null, feeds: MIRROR_ENABLED ? [...MIRROR_FEEDS] : [] },
         lastSeason,
         lastDay,
         log: logHead || null, player });
@@ -2595,37 +2621,49 @@ module.exports = async (req, res) => {
       if (shot.mirrored) return res.status(409).json({ ok:false, reason:'already mirrored' });
       if (!shot.commit || !/^[0-9a-f]{64}$/.test(shot.commit))
         return res.status(400).json({ ok:false, reason:'this legacy shot has no mirrorable commitment' });
-      if ((shot.commitV || 1) >= 2) return res.status(503).json({ ok:false,
-        reason:'bound v2 commitments require the reviewed settlement-program upgrade; mirroring stays disabled until that exact binary is deployed and verified' });
+      if (shot.commitV !== 2) return res.status(400).json({ ok:false,
+        reason:'only wallet-and-shot-bound v2 commitments can be sealed on-chain' });
+      if (!/^[a-z0-9]{1,32}$/.test(shot.id)) return res.status(400).json({ ok:false,
+        reason:'shot id is not canonical for the v2 program' });
+      if (!MIRROR_FEEDS.has(String(shot.feed).toUpperCase())) return res.status(400).json({ ok:false,
+        reason:`on-chain seal beta is not enabled for ${shot.feed}` });
       const kindMap = { dir:0, thr:1, thrDown:2 };
       if (!(shot.kind in kindMap)) return res.status(400).json({ ok:false,
         reason:`${shot.kind} shots are not supported by the current on-chain program` });
       
       // Anchor instruction discriminator = sha256("global:seal")[..8].
       const disc = Buffer.from("66caaba31b9869f2", "hex");
-      const nonce = Date.now();
-      const nonceBuf = Buffer.alloc(8);
-      nonceBuf.writeBigUInt64LE(BigInt(nonce));
+      // A random u64 prevents PDA collisions between tabs and concurrent shots.
+      const nonceBuf = crypto.randomBytes(8);
       
       const commitBuf = Buffer.from(shot.commit, "hex");
       
       const feed = PX_ACCOUNTS[shot.feed];
       if (!feed) return res.status(400).json({ ok:false, reason:'feed not mapped' });
       const feedIdHex = feed[1];
-      const feedStrBuf = Buffer.from(feedIdHex, "utf8");
-      const strLenBuf = Buffer.alloc(4);
-      strLenBuf.writeUInt32LE(feedStrBuf.length, 0);
+      const shotIdBuf = anchorString(shot.id);
+      const feedStrBuf = anchorString(feedIdHex);
       
       const expBuf = Buffer.alloc(8);
       // Browser/game timestamps are milliseconds; the program uses Unix seconds.
-      expBuf.writeBigInt64LE(BigInt(Math.floor(shot.exp / 1000)), 0);
+      const expiry = Math.floor(shot.exp / 1000);
+      if (expiry <= Math.floor(Date.now() / 1000)) return res.status(409).json({ ok:false,
+        reason:'this shot has already reached expiry and can no longer be sealed' });
+      expBuf.writeBigInt64LE(BigInt(expiry), 0);
       
       const kindByte = Buffer.from([kindMap[shot.kind]]);
       
       const threshBuf = Buffer.alloc(8);
-      threshBuf.writeBigInt64LE(BigInt(Math.floor((shot.thresh||0)*1e6)), 0);
+      let thresholdE12;
+      try { thresholdE12 = shot.kind === 'dir' ? 0n : priceToE12(shot.thresh); }
+      catch { return res.status(400).json({ ok:false, reason:'invalid shot threshold' }); }
+      if (shot.kind !== 'dir' && thresholdE12 <= 0n)
+        return res.status(400).json({ ok:false, reason:'threshold shot must have a positive threshold' });
+      if (thresholdE12 > 9_223_372_036_854_775_807n)
+        return res.status(400).json({ ok:false, reason:'threshold exceeds the on-chain i64 range' });
+      threshBuf.writeBigInt64LE(thresholdE12, 0);
       
-      const data = Buffer.concat([disc, nonceBuf, commitBuf, strLenBuf, feedStrBuf, expBuf, kindByte, threshBuf]);
+      const data = Buffer.concat([disc, nonceBuf, commitBuf, shotIdBuf, feedStrBuf, expBuf, kindByte, threshBuf]);
       
       const latest = await mirrorRpc('getLatestBlockhash', [{ commitment:'confirmed' }]);
       const blockhash = latest && latest.value && latest.value.blockhash;
@@ -2669,36 +2707,40 @@ module.exports = async (req, res) => {
 
       // Verify the whole instruction, not merely one attractive field.
       const PROGRAM_ID = MIRROR_PROGRAM_ID;
-      let seal = null;
+      let seal = null, sealIx = null;
       for (const ix of (msg && msg.instructions) || []) {
         if (ix.programId === PROGRAM_ID && ix.data) {
           try { seal = parseMirrorSeal(b58decode(ix.data)); } catch { seal = null; }
-          if (seal) break;
+          if (seal) { sealIx = ix; break; }
         }
       }
 
       if (!seal) return res.status(400).json({ ok:false, reason:'valid seal instruction not found' });
       const feed = PX_ACCOUNTS[shot.feed];
+      const accounts = (sealIx && sealIx.accounts) || [];
+      if (!feed || accounts.length < 4 || accounts[1] !== w || accounts[2] !== feed[0]
+          || accounts[3] !== '11111111111111111111111111111111')
+        return res.status(400).json({ ok:false, reason:'seal accounts do not match this shot' });
       const kindMap = { dir:0, thr:1, thrDown:2 };
-      const expectedThreshold = BigInt(Math.floor((shot.thresh || 0) * 1e6));
-      if (seal.commit !== shot.commit || !feed || seal.feed !== feed[1]
+      let expectedThreshold;
+      try { expectedThreshold = shot.kind === 'dir' ? 0n : priceToE12(shot.thresh); }
+      catch { return res.status(400).json({ ok:false, reason:'invalid shot threshold' }); }
+      if (seal.commit !== shot.commit || seal.shotId !== shot.id || !feed || seal.feed !== feed[1]
           || seal.expiry !== Math.floor(shot.exp / 1000)
           || seal.kind !== kindMap[shot.kind]
-          || seal.thresholdE6 !== expectedThreshold)
+          || seal.thresholdE12 !== expectedThreshold)
         return res.status(400).json({ ok:false, reason:'seal terms do not match this shot' });
 
-      // One reward per shot, not merely per transaction signature. Otherwise
-      // a retry or alternate valid transaction can race the non-atomic player
-      // blob and credit the same shot twice.
+      // One receipt per shot, not merely per transaction signature. Sealing is
+      // proof, not a way to buy ladder position, so it awards no XP.
       if (!(await setnxJSON(`mirshot:${w}:${shotId}`, { sig, t: Date.now() })))
         return res.status(409).json({ ok:false, reason:'already credited' });
         
       shot.mirrored = true;
-      p.xp += 100;
-      await bumpLadder(w, 100, p.qualified);
+      shot.mirrorSig = sig;
       await savePlayer(p);
       await append({ k:'mirror', w, sig, id: shotId, commit: shot.commit });
-      return res.json({ ok:true, xp: 100 });
+      return res.json({ ok:true, xp: 0 });
     }
 
     if (action === 'anchor') {

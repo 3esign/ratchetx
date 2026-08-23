@@ -20,7 +20,7 @@
 const crypto = require('node:crypto');
 const { getJSON, getManyJSON, scanKeys, scanZKeys, ztop, durable, backend, hall} = require('../lib/kv.js');
 
-const VERSION = 'h64-2026-08-23';
+const VERSION = 'h65-2026-08-23';
 const MINT = process.env.RATCHET_MINT || '';
 
 const memo = globalThis.__ratchet_snap || (globalThis.__ratchet_snap = { t: 0, body: null });

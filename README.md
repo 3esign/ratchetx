@@ -11,15 +11,15 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 
 ## Is this repo actually the running code?
 
-This source tree declares `h64-2026-08-23`. A deployment is release-consistent only when
+This source tree declares `h65-2026-08-23`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h64-2026-08-23"
-https://ratchetx.xyz/api/proof               ->  "v": "h64-2026-08-23"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h65-2026-08-23"
+https://ratchetx.xyz/api/proof               ->  "v": "h65-2026-08-23"
 ```
 
-All public APIs in this repo declare `const VERSION = 'h64-2026-08-23'`.
+All public APIs in this repo declare `const VERSION = 'h65-2026-08-23'`.
 
 ## Balanced questions, fewer refunds
 
@@ -59,18 +59,20 @@ against spectators and copied public calls; it is not zero-knowledge from the op
 
 ## Mainnet settlement program status
 
-A non-custodial settlement program exists on Solana mainnet:
+The reviewed v2 non-custodial program is deployed on Solana mainnet:
 
-**Program `4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2`**
+**Program `23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX`**<br>
+**SOL FeedClock `CE5m9Xag3wwgcfVkbSBnv5WFKPrY1ZhLwSSru9wu9gN`**
 
-That deployment is public engineering evidence, not the live referee and not a redeemable vault.
-Its legacy rules permit an overlapping settlement/void period and lack the reviewed confidence
-gate/final-deadline guarantees, so browser mirroring is disabled. The live game settles server-side
-from recorded on-chain Pyth first-crossing samples. The hardened local v2 direction is strict
-`prev_publish_time < expiry <= publish_time`, confidence-bounded, with disjoint settle/void
-deadlines and permissionless cleanup. Do not describe the modeled floor as redeemable until a
-separate funded vault PDA, liabilities proof and no-withdraw path are deployed and independently
-reviewed.
+The deployed binary verifies official upgraded shard-0 sponsored Pyth accounts, confidence,
+canonical shot terms and wallet-bound v2 commitments. Permissionless checkpoints form a compact
+program-owned clock; settlement selects the first verified Ratchet checkpoint crossing expiry,
+with disjoint settle/void deadlines, commit-reveal and rent cleanup. This needs no Hermes API key or
+trusted price signer. Eligible SOL chambers expose optional player-paid sealing during the soak
+period; server settlement remains canonical until checkpoint, settle, reveal and close automation
+is integrated end to end. Upgrade authority is deliberately retained during soak. This program is
+not a redeemable floor vault; do not describe the modeled floor as redeemable until a separate
+funded vault PDA, liabilities proof and no-withdraw path are deployed and independently reviewed.
 
 ## The whole backend, small enough to read in one sitting
 
@@ -165,7 +167,9 @@ fallback) · `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (preferred free durable sta
 direct Hermes calls since 2026-08-18; without it the game falls back
 to a thinner price source only if the primary on-chain route fails, and says so on the page) ·
 `PYTH_HERMES_URL` (override the Hermes host) · `RATCHET_SEAL_PROGRAM_ID` +
-`RATCHET_SEAL_RPC_URL` + `RATCHET_SEAL_CLUSTER` (all required before the optional mirror UI appears)
+`RATCHET_SEAL_CLUSTER` (arms optional sealing; it reuses `SOLANA_RPC_URL` unless `RATCHET_SEAL_RPC_URL` is set) ·
+`RATCHET_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)
 
-No private key exists anywhere in this system. There is nothing to steal and nothing to rug —
-not as a promise, as a property. Read the code; that's what it's for.
+No player-funds key exists in the site or backend; the game cannot custody or move player tokens. The
+program upgrade authority is retained offline only for the declared soak period and should move to a
+reviewed multisig or be revoked after the integrated path is proven. Read the code; that is the point.

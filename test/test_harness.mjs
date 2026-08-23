@@ -102,18 +102,23 @@ ok(r.body.stats.potD === 0, 'daily pot initialised');
   const disc = Buffer.from('66caaba31b9869f2', 'hex');
   const nonce = Buffer.alloc(8); nonce.writeBigUInt64LE(42n);
   const commit = Buffer.alloc(32, 7);
-  const feed = Buffer.from('ab'.repeat(32));
-  const len = Buffer.alloc(4); len.writeUInt32LE(feed.length);
+  const anchorString = value => {
+    const bytes = Buffer.from(value, 'utf8');
+    const len = Buffer.alloc(4); len.writeUInt32LE(bytes.length);
+    return Buffer.concat([len, bytes]);
+  };
+  const shotId = 'shot42';
+  const feed = 'ab'.repeat(32);
   const exp = Buffer.alloc(8); exp.writeBigInt64LE(123456n);
   const threshold = Buffer.alloc(8); threshold.writeBigInt64LE(987654n);
-  const data = Buffer.concat([disc, nonce, commit, len, feed, exp, Buffer.from([1]), threshold]);
+  const data = Buffer.concat([disc, nonce, commit, anchorString(shotId), anchorString(feed), exp, Buffer.from([1]), threshold]);
   const seal = game.parseMirrorSeal(data);
   ok(seal && seal.nonce === 42n && seal.commit === '07'.repeat(32)
-     && seal.feed === 'ab'.repeat(32) && seal.expiry === 123456
-     && seal.kind === 1 && seal.thresholdE6 === 987654n,
-     'mirror confirmation decodes every sealed term');
+     && seal.shotId === shotId && seal.feed === feed && seal.expiry === 123456
+     && seal.kind === 1 && seal.thresholdE12 === 987654n,
+     'mirror confirmation decodes every v2 sealed term');
   const altered = Buffer.from(data); altered[altered.length - 1] ^= 1;
-  ok(game.parseMirrorSeal(altered).thresholdE6 !== seal.thresholdE6,
+  ok(game.parseMirrorSeal(altered).thresholdE12 !== seal.thresholdE12,
      'mirror receipt exposes altered terms instead of checking only commitment');
 }
 // THE WARDEN MUST NOT SPEAK BEFORE IT CAN MEASURE.

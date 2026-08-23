@@ -548,11 +548,12 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         receipts and the complete event chain. Anyone can verify the chain and compare anchored checkpoints; a
         saved verified export can restore the machine. Anchors timestamp the event chain and daily balance roots,
         but do not make live database state between checkpoints trustless.<br>
-        <b style="color:var(--ink)">Mainnet program status.</b> Program
-        <span style="color:var(--ice);word-break:break-all">4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2</span>
-        exists on mainnet as non-custodial settlement evidence. Its deployed legacy rules do not meet the reviewed
-        v2 first-crossing/confidence/disjoint-void standard, so live mirroring is disabled. It is not the floor
-        vault; the live game still settles server-side.
+        <b style="color:var(--ink)">Mainnet program status.</b> V2 program
+        <span style="color:var(--ice);word-break:break-all">23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX</span>
+        is deployed with confidence-gated Pyth seals, program-owned first-checkpoint clocks, disjoint settle/void
+        deadlines, commit-reveal and permissionless cleanup. During soak, eligible SOL chambers expose an optional
+        on-chain seal; server settlement remains canonical. It is not the floor vault, and its upgrade authority
+        remains active until the integration is proven stable.
 
         <div class="hh">WHY IT CANNOT RUG YOU</div>
         There is no team wallet in any reward path, no pool holding player funds, no key in this system that can
@@ -1166,13 +1167,13 @@ function paint(){
         <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${settlementReceipt(c)}${settlementMargin(c)}${
           AUTH&&c.id?` <button class="shareb" data-share="${c.id}">SHARE PROOF</button>`:''}</div></div>`)];
     
-    // Add MIRROR ON-CHAIN logic to open shots (only those with commit hashes)
+    // Optional mainnet v2 seal. The live game continues normally if disabled.
     for(let i=0;i<p.open.length;i++){
       const c = p.open[i];
-      if(AUTH && STATE.mirror && STATE.mirror.enabled && ['dir','thr','thrDown'].includes(c.kind) && c.id && c.commit && !c.mirrored){
-        rows[i] = rows[i].replace('</div></div>', ` <div style="margin-top:6px;text-align:right"><button class="mirrorb shareb" data-id="${c.id}" data-feed="${c.feed}" data-exp="${c.exp}" data-kind="${c.kind}" data-thresh="${c.thresh||0}" data-pct="${c.pct||0}" data-feed2="${c.feed2||''}" data-commit="${c.commit}" style="border-color:var(--ink2);color:var(--ice)">MIRROR ON-CHAIN</button></div></div>`);
+      if(AUTH && STATE.mirror && STATE.mirror.enabled && (STATE.mirror.feeds||[]).includes(c.feed) && ['dir','thr','thrDown'].includes(c.kind) && c.id && c.commit && !c.mirrored){
+        rows[i] = rows[i].replace('</div></div>', ` <div style="margin-top:6px;text-align:right"><button class="mirrorb shareb" data-id="${c.id}" data-feed="${c.feed}" data-exp="${c.exp}" data-kind="${c.kind}" data-thresh="${c.thresh||0}" data-pct="${c.pct||0}" data-feed2="${c.feed2||''}" data-commit="${c.commit}" style="border-color:var(--ink2);color:var(--ice)">SEAL ON-CHAIN · BETA</button></div></div>`);
       } else if (c.mirrored) {
-        rows[i] = rows[i].replace('</div></div>', ` <div style="margin-top:6px;text-align:right"><span style="color:var(--ice);font:700 9.5px var(--mono);letter-spacing:.05em">⚓ MIRRORED ON-CHAIN</span></div></div>`);
+        rows[i] = rows[i].replace('</div></div>', ` <div style="margin-top:6px;text-align:right"><span style="color:var(--ice);font:700 9.5px var(--mono);letter-spacing:.05em">⚓ SEALED ON-CHAIN</span></div></div>`);
       }
     }
     setHTML($("chams"),rows.length?rows.join(""):'<div class="empty">EMPTY — FIRE A SHOT</div>');
@@ -2120,11 +2121,11 @@ async function mirrorShot(btn) {
     await new Promise(r=>setTimeout(r,4000));
     const confirm = await post({ action: "mirror_confirm", auth: AUTH, id: shotId, sig: signature });
     if(!confirm.ok) throw new Error(confirm.reason);
-    toast("⚓ SHOT MIRRORED ON-CHAIN +100 XP!");
+    toast("⚓ SHOT SEALED ON-CHAIN");
     refresh();
   } catch(err) {
-    toast("Mirror failed: " + ((err&&err.message)||err));
-    btn.textContent = "MIRROR ON-CHAIN";
+    toast("On-chain seal failed: " + ((err&&err.message)||err));
+    btn.textContent = "SEAL ON-CHAIN · BETA";
     btn.disabled = false;
   }
 }

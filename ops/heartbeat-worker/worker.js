@@ -6,13 +6,13 @@ const DEFAULT_SOLANA_WS = [
 ];
 const SESSION_MS = 85_000;
 const ACCOUNTS = [
-  '7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE',
-  '4cSM2e6rvbGQUFiJbqytoVMi5GgghSMr8LwVrT9VPSPo',
-  '42amVS4KgzR9rA28tkVYqVXjq9Qa8dcZQMbH5EYFX6XC',
-  'DBE3N8uNjhKPRHfANdwGvCZghWXyLPdqdSbEW2XFwBiX',
-  'HMm3GPbdnqGwbkTnUUqCFsH8AMHDdEC3Lg8gcPD3HJSH',
-  '7dbob1psH1iZBS7qPsm3Kwbf5DzSXK8Jyg31CTgTnxH5',
-  '6B23K3tkb51vLZA14jcEQVCA1pfHptzEHFA93V5dYwbT',
+  '7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE',
+  'APgzQGGdv2qCgBkX6aHVkrGePtBVDDg68GiqaM7rmtf5',
+  '7odryi4WfoMFHtv2eubdMgP1pqQMmdiXSK1N2tqZ2nRH',
+  '3nMpgBXnjBSDYupQQEVR7DZM65zkJCdKy1Up7nkqp99w',
+  '4KL8nVtrXmLjbbHtrDz5YCHNqmii62oHfr9bsUtx1bgi',
+  'EitcZS5LtbR4EyNhCSy56vvUHPhsifSfWFG5gwSkjNpV',
+  '9Sn9FVu6WpufA8yZFSRuxYyFgpBrhc5PpTgB3mq2DcsG',
 ];
 
 export default {

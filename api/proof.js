@@ -25,8 +25,13 @@ const { verifyChain, logCount, readEntries } = require('../lib/log.js');
 
 const MINT = process.env.RATCHET_MINT || '';
 const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn -> flips that line green with the tx link
+const SEAL_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
+const SEAL_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC_URL || process.env.SOLANA_RPC || '';
+const SEAL_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
+const MAINNET_SEAL_V2 = '23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX';
+const MAINNET_SOL_CLOCK = 'CE5m9Xag3wwgcfVkbSBnv5WFKPrY1ZhLwSSru9wu9gN';
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h64-2026-08-23';
+const VERSION = 'h65-2026-08-23';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
@@ -211,9 +216,26 @@ module.exports = async (req, res) => {
       `${(st.realBurned || 0).toLocaleString()} RCX verifiably removed from player wallets and attributed to game reloads · each signature is replay-gated atomically with its credit deposit · play-credits also enter through the one-time 5,000 grant, 1.7× hit returns, pots and balance-based staking rewards · none of those operations mint RCX`);
     push('champs', 'green', 'Champions are paid peer-to-peer, keylessly',
       `every reload uses the frozen 70/30/0 split — 70% burns and 30% lands straight in the published live-daily podium snapshot inside the payer's own signed transaction · ${(st.champPaid || 0).toLocaleString()} RCX paid to other champions so far · today's settled-XP top three update live; previous-day seats only fill today's empty positions · no continuing hold or sell condition · no pool, custody or claim button`);
-    push('settlement', 'grey', 'Mainnet settlement program is legacy evidence; live mirroring is disabled',
-      'program 4WQ4…CM6E2 exists on mainnet, but its deployed rules do not meet the reviewed v2 first-crossing, confidence and disjoint void-deadline standard. The live game does not rely on it and it is not a vault',
-      'https://solscan.io/account/4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2');
+    let sealProgramLive = false, sealClockLive = false;
+    if (SEAL_PROGRAM_ID === MAINNET_SEAL_V2 && SEAL_CLUSTER === 'mainnet-beta' && SEAL_RPC_URL) {
+      try {
+        const rr = await fetch(SEAL_RPC_URL, { method:'POST', headers:{'content-type':'application/json'},
+          body:JSON.stringify({ jsonrpc:'2.0', id:1, method:'getMultipleAccounts',
+            params:[[MAINNET_SEAL_V2, MAINNET_SOL_CLOCK], { encoding:'base64', commitment:'confirmed' }] }),
+          signal:AbortSignal.timeout(4500) });
+        const jj = await rr.json(), vv = jj && jj.result && jj.result.value;
+        sealProgramLive = !!(vv && vv[0] && vv[0].executable);
+        sealClockLive = !!(vv && vv[1] && vv[1].owner === MAINNET_SEAL_V2);
+      } catch {}
+    }
+    const sealBetaLive = sealProgramLive && sealClockLive;
+    push('settlement', sealBetaLive ? 'green' : 'grey',
+      sealBetaLive ? 'V2 mainnet program and SOL clock verified; optional sealing beta is live'
+                   : 'V2 mainnet program is deployed; browser sealing is disabled or its live check is unavailable',
+      sealBetaLive
+        ? 'program 23k3…ZEEX is executable and owns the SOL FeedClock checked now · a player may seal a SOL shot on-chain without changing game XP · server settlement remains canonical during the soak period · upgrade authority is retained during that period · this program is not the floor vault'
+        : 'program 23k3…ZEEX was deployed from the reproducible v2 binary with first-checkpoint crossing, confidence and disjoint void-deadline rules; the feature stays optional until the configured program, cluster, RPC and clock all verify',
+      'https://solscan.io/account/' + MAINNET_SEAL_V2);
     push('vault', 'grey', 'Redeemable floor vault is not deployed',
       'the Machine floor shown by the site is a labeled model only. No vault PDA, funded SOL balance, liability proof or no-withdraw program is being claimed');
     push('stake', 'green', 'Staking with no deposit',
