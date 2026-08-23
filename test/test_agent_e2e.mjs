@@ -12,10 +12,10 @@ const burnPath = require.resolve('../lib/burn.js');
 let T = 100;
 const FEEDS = ['SOL','BTC','ETH','BONK','WIF','JUP','PUMP'];
 require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true,
-  exports: { getPrices: async () => { const t=Math.floor(Date.now()/1000); return { src:'pyth-onchain',
+  exports: { getPrices: async () => { const t=Math.floor(Date.now()/1000), scale=(T+=0.4)/100; return { src:'pyth-onchain',
     ages:Object.fromEntries(FEEDS.map(f=>[f,3])), confs:Object.fromEntries(FEEDS.map(f=>[f,10])),
     pubs:Object.fromEntries(FEEDS.map(f=>[f,t])), prevPubs:Object.fromEntries(FEEDS.map(f=>[f,t-60])),
-    SOL:(T+=0.4), BTC:60000, ETH:2000, BONK:0.000002, WIF:0.1, JUP:0.2, PUMP:0.005 }; } } };
+    SOL:T, BTC:60000*scale, ETH:2000*scale, BONK:0.000002*scale, WIF:0.1*scale, JUP:0.2*scale, PUMP:0.005*scale }; } } };
 require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
   exports: { INCINERATOR:'1nc1nerator11111111111111111111111111111111',
     rpcCall: async()=>null, getTx: async()=>null, decideBurn: ()=>({ok:false,reason:'stub'}) } };
@@ -56,7 +56,7 @@ const origSet = globalThis.__ratchet_mem.set.bind(globalThis.__ratchet_mem);
 globalThis.__ratchet_mem.set = (k, v) => {
   if (typeof k === 'string' && k.startsWith('u:') && typeof v === 'string' && v.includes('"open"')) {
     try { const o = JSON.parse(v);
-      // This test compresses a two-minute market into milliseconds. It is not
+      // This test compresses a five-minute market into milliseconds. It is not
       // the source-pinning test (test_settle covers that), so make these
       // synthetic positions legacy/source-agnostic to avoid the real sampler's
       // 45-second dedupe interval blocking the artificial settlement.

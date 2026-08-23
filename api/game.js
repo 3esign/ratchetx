@@ -56,7 +56,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h60-2026-08-23';
+const VERSION = 'h61-2026-08-23';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -193,39 +193,42 @@ const STAKES = { 500: 2.24, 2500: 5, 10000: 10, 50000: 20 };   // presets the UI
 // THE BOARD (h4): targets are GENERATED, not hardcoded — a fresh mix
 // every hour, deterministic from the clock (seeded PRNG), so every
 // player and every server instance derives the same board with no
-// coordination and no KV. Three evergreen anchors keep the rhythm;
-// five rotating slots keep it alive: PUMPs and DUMPs sized to each
-// feed's typical volatility, a head-to-head RACE, and THE BOX
+// coordination and no KV. Seven directional windows assign every feed
+// exactly once per hour; four structural slots add volatility-sized PUMPs
+// and DUMPs, a head-to-head RACE, and THE BOX
 // (breakout-or-not). Everything settles at expiry on the exit price —
 // labels say "after", never "within", because honesty is the aesthetic.
 // A sealed shot carries its own settlement spec, so board rotation can
 // never touch an open bet. All feeds are external Pyth majors that no
 // player can move.
-const EVERGREEN = {
-  // A first-time visitor used to have to wait five minutes to find out anything,
-  // which is longer than most people stay. FLASH is the shortest window the
-  // oracle can honestly settle: the sponsored feeds heartbeat at 60s, so two
-  // minutes guarantees at least one print inside the window and usually several.
-  // Anything shorter would void more often than it settled.
-  SOL2:   { kind: 'dir', feed: 'SOL',  mins: 2,    baseXp: 8,  label: 'FLASH: SOL higher in 2 minutes' },
-  SOL5:   { kind: 'dir', feed: 'SOL',  mins: 5,    baseXp: 10, label: 'SOL higher in 5 minutes' },
-  PUMP30: { kind: 'dir', feed: 'PUMP', mins: 30,   baseXp: 14, label: 'PUMP higher in 30 minutes' },
-  BTC60:  { kind: 'dir', feed: 'BTC',  mins: 60,   baseXp: 16, label: 'BTC higher in 1 hour' },
-  ETH24:  { kind: 'dir', feed: 'ETH',  mins: 1440, baseXp: 24, label: 'ETH higher in 24 hours' },
-    JUP15:  { kind: 'dir', feed: 'JUP',  mins: 15,   baseXp: 12, label: 'JUP higher in 15 minutes' },
-    BONK30: { kind: 'dir', feed: 'BONK', mins: 30,   baseXp: 14, label: 'BONK higher in 30 minutes' },
-};
+const BOARD_MODEL = 'v2-balanced-hourly';
 const ROTFEEDS = ['SOL', 'BTC', 'ETH', 'BONK', 'WIF', 'JUP', 'PUMP'];
 const TYPVOL = { SOL: 0.0075, BTC: 0.0045, ETH: 0.0065, BONK: 0.02, WIF: 0.018, JUP: 0.012, PUMP: 0.014 }; // typical hourly move
+const DIRECTION_WINDOWS = [
+  { mins:5,    tag:'FLASH', baseXp:10 },
+  { mins:10,   tag:'QUICK', baseXp:11 },
+  { mins:15,   tag:'PULSE', baseXp:12 },
+  { mins:30,   tag:'',      baseXp:14 },
+  { mins:60,   tag:'',      baseXp:16 },
+  { mins:360,  tag:'',      baseXp:20 },
+  { mins:1440, tag:'',      baseXp:24 },
+];
 function mulberry32(a) { return function () { a |= 0; a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
 const winTxt = m => m >= 60 ? (m === 60 ? '1 hour' : (m / 60) + ' hours') : m + ' minutes';
 function targetBoard(hour) {
   const rnd = mulberry32((hour * 2654435761) % 2147483647);
   const pick = arr => arr[Math.floor(rnd() * arr.length)];
-  const board = { ...EVERGREEN };
-  { // rotator: a fast directional on a rotating meme feed
-    const f = pick(['BONK', 'WIF', 'JUP']); const m = pick([10, 15, 30]);
-    board[`H${hour}A`] = { kind: 'dir', feed: f, mins: m, baseXp: 12 + Math.round(m / 10), label: `${f} higher in ${m} minutes` };
+  const feeds = [...ROTFEEDS];
+  for (let i = feeds.length - 1; i > 0; i--) {
+    const j = Math.floor(rnd() * (i + 1));
+    [feeds[i], feeds[j]] = [feeds[j], feeds[i]];
+  }
+  const board = {};
+  for (let i = 0; i < DIRECTION_WINDOWS.length; i++) {
+    const f = feeds[i], q = DIRECTION_WINDOWS[i];
+    const prefix = q.tag ? q.tag + ': ' : '';
+    board[`H${hour}Q${i}`] = { kind:'dir', feed:f, mins:q.mins, baseXp:q.baseXp,
+      label:`${prefix}${f} higher in ${winTxt(q.mins)}` };
   }
   { // THE PUMP: up-threshold sized to the feed's volatility
     const f = pick(ROTFEEDS); const m = pick([30, 60]); const mult = pick([1.2, 1.8, 2.5]);
@@ -262,7 +265,43 @@ const PXFEEDS = ['SOL','BTC','ETH','BONK','WIF','JUP','PUMP'];   // below this a
 // Prize curves. Unclaimed shares ROLL OVER into the next pot of the same cadence.
 const PRIZE_W = [0.40, 0.25, 0.15, 0.12, 0.08];   // weekly season: top 5
 const PRIZE_D = [0.50, 0.30, 0.20];               // daily pot: top 3
-const EPS = 0.0004; // |move| under 4bp = void -> stake refunded, no XP
+const OUTCOME_RULE = 'strict-compare-v2';
+const LEGACY_EPS = 0.0004;
+const order = (a, b) => a > b ? 1 : a < b ? -1 : 0;
+// No economic dead zone: a question resolves whenever its two values differ.
+// VOID is reserved for true equality or missing/unusable oracle evidence.
+function questionOutcome(s, px, px2) {
+  // A shot is a sealed promise. Shots created before h61 do not carry an
+  // outcomeRule, so preserve their original 4bp dead zone. Only newly sealed
+  // v2 shots use strict numerical comparison.
+  if (s.outcomeRule !== OUTCOME_RULE) {
+    if (s.kind === 'thr')
+      return Math.abs(px - s.thresh) / s.thresh < LEGACY_EPS ? 'VOID' : (px > s.thresh ? 'YES' : 'NO');
+    if (s.kind === 'thrDown')
+      return Math.abs(px - s.thresh) / s.thresh < LEGACY_EPS ? 'VOID' : (px < s.thresh ? 'YES' : 'NO');
+    if (s.kind === 'range') {
+      const d = Math.abs((px - s.entry) / s.entry);
+      return Math.abs(d - s.pct) < LEGACY_EPS ? 'VOID' : (d >= s.pct ? 'YES' : 'NO');
+    }
+    if (s.kind === 'race') {
+      const a = (px - s.entry) / s.entry, b = (px2 - s.entry2) / s.entry2;
+      return Math.abs(a - b) < LEGACY_EPS ? 'VOID' : (a > b ? 'YES' : 'NO');
+    }
+    const d = (px - s.entry) / s.entry;
+    return Math.abs(d) < LEGACY_EPS ? 'VOID' : (d > 0 ? 'YES' : 'NO');
+  }
+  let c;
+  if (s.kind === 'thr') c = order(px, s.thresh);
+  else if (s.kind === 'thrDown') c = -order(px, s.thresh);
+  else if (s.kind === 'range') {
+    const distance = Math.abs((px - s.entry) / s.entry);
+    c = order(distance, s.pct);
+  } else if (s.kind === 'race') {
+    const a = (px - s.entry) / s.entry, b = (px2 - s.entry2) / s.entry2;
+    c = order(a, b);
+  } else c = order(px, s.entry);
+  return c === 0 ? 'VOID' : c > 0 ? 'YES' : 'NO';
+}
 const FLOOR_BASE = 0.004180;
 const STALE_VOID_MS = 24 * 3600e3;  // feed gone 24h past expiry -> auto-void
 // Integer allocation, with every unit accounted for.  Floating 0.70/0.15
@@ -1042,14 +1081,15 @@ async function wardenTick(prices) {
         const sealedAt = Date.now();
         const candidate = { id:wl.id, feed:wl.feed, thresh:wl.thresh, p:wl.p,
           q:wl.q, entry:prices[wl.feed], t:sealedAt, exp:sealedAt + wl.mins * 60e3,
-          settleRule:'pyth-first-crossing-v2', oracleSrc:'pyth-onchain' };
+          settleRule:'pyth-first-crossing-v2', outcomeRule:OUTCOME_RULE, oracleSrc:'pyth-onchain' };
         if (await setnxJSON(sealKey, candidate)) sealed = candidate;
         else sealed = await getJSONStrict(sealKey);
       }
       if (sealed) {
         if (sealed.settleRule === 'pyth-first-crossing-v2')
           await appendOnce(`wseal:${sealed.id}`, { k:'wseal', id:sealed.id, feed:sealed.feed,
-            thresh:sealed.thresh, p:sealed.p, exp:sealed.exp, settleRule:sealed.settleRule });
+            thresh:sealed.thresh, p:sealed.p, exp:sealed.exp, settleRule:sealed.settleRule,
+            outcomeRule:sealed.outcomeRule || 'dead-zone-4bp-v1' });
         open.push(sealed);
         changed = true;
       }
@@ -1073,18 +1113,20 @@ async function wardenTick(prices) {
           reason:at.reason || 'no-oracle-crossing-in-window' });
         changed = true; continue;
       }
-      const move = Math.abs((at.price - s.thresh) / s.thresh);
-      if (move < EPS) {
+      const comparison = s.outcomeRule === OUTCOME_RULE
+        ? order(at.price, s.thresh)
+        : (Math.abs(at.price - s.thresh) / s.thresh < LEGACY_EPS ? 0 : order(at.price, s.thresh));
+      if (comparison === 0) {
         await appendOnce(`wvoid:${s.id}`, { k:'wvoid', id:s.id,
           reason:'threshold-tie', exitPx:at.price, exitAt:at.publishTime });
         changed = true; continue;
       }
-      const outcome = at.price > s.thresh;
+      const outcome = comparison > 0;
       const said = s.p >= 50;
       const hit = said === outcome;
       await appendOnce(`wsettle:${s.id}`, { k:'wsettle', id:s.id, outcome, hit,
         exitPx:at.price, exitAt:at.publishTime, prevExitAt:at.prevPublishTime,
-        confBps:at.confBps });
+        confBps:at.confBps, outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1' });
       if (!rec.applied.includes(s.id)) {
         rec.n++; if (hit) rec.hits++;
         rec.brier += Math.pow(s.p / 100 - (outcome ? 1 : 0), 2);
@@ -1260,22 +1302,7 @@ async function agentsTick(prices) {
       }
 
       const px = at.price, px2 = at2 && at2.price;
-      let outcome = 'VOID';
-      if (o.kind === 'thr') {
-        if (Math.abs(px - o.thresh) / o.thresh >= EPS) outcome = px > o.thresh ? 'YES' : 'NO';
-      } else if (o.kind === 'thrDown') {
-        if (Math.abs(px - o.thresh) / o.thresh >= EPS) outcome = px < o.thresh ? 'YES' : 'NO';
-      } else if (o.kind === 'range') {
-        const d = Math.abs((px - o.entry) / o.entry);
-        if (Math.abs(d - o.pct) >= EPS) outcome = d >= o.pct ? 'YES' : 'NO';
-      } else if (o.kind === 'race') {
-        const a = (px - o.entry) / o.entry;
-        const b = (px2 - o.entry2) / o.entry2;
-        if (Math.abs(a - b) >= EPS) outcome = a > b ? 'YES' : 'NO';
-      } else {
-        const d = (px - o.entry) / o.entry;
-        if (Math.abs(d) >= EPS) outcome = d > 0 ? 'YES' : 'NO';
-      }
+      const outcome = questionOutcome(o, px, px2);
       if (outcome === 'VOID') {
         await appendOnce(`avoid:${o.id}`, { k:'avoid', agent:o.agent, id:o.id,
           reason:'tie', exitPx:px, exitPx2:px2 || null, exitAt:at.publishTime });
@@ -1332,7 +1359,7 @@ async function agentsTick(prices) {
           feed:t.feed, feed2:t.feed2 || null, side, entry:p1,
           entry2:t.feed2 ? prices[t.feed2] : null, pct:t.pct == null ? null : t.pct,
           t:now, exp:now + t.mins * 60e3,
-          settleRule:'pyth-first-crossing-v2', oracleSrc:'pyth-onchain' };
+          settleRule:'pyth-first-crossing-v2', outcomeRule:OUTCOME_RULE, oracleSrc:'pyth-onchain' };
         if (t.kind === 'thr') candidate.thresh = p1 * (1 + t.pct);
         else if (t.kind === 'thrDown') candidate.thresh = p1 * (1 - t.pct);
         else if (t.kind === 'range') {
@@ -1350,7 +1377,8 @@ async function agentsTick(prices) {
               label:sealed.label, kind:sealed.kind, feed:sealed.feed,
               feed2:sealed.feed2 || null, side:sealed.side, entry:sealed.entry,
               entry2:sealed.entry2, pct:sealed.pct, exp:sealed.exp,
-              settleRule:sealed.settleRule });
+              settleRule:sealed.settleRule,
+              outcomeRule:sealed.outcomeRule || 'dead-zone-4bp-v1' });
           open.push(sealed); changed = true;
         }
       }
@@ -1493,22 +1521,7 @@ async function settle(p, prices) {
     }
 
     changed = true;
-    let outcome;
-    if (s.kind === 'thr')
-      outcome = Math.abs(px - s.thresh) / s.thresh < EPS ? 'VOID' : (px > s.thresh ? 'YES' : 'NO');
-    else if (s.kind === 'thrDown')
-      outcome = Math.abs(px - s.thresh) / s.thresh < EPS ? 'VOID' : (px < s.thresh ? 'YES' : 'NO');
-    else if (s.kind === 'range') {
-      const d = Math.abs((px - s.entry) / s.entry);
-      outcome = Math.abs(d - s.pct) < EPS ? 'VOID' : (d >= s.pct ? 'YES' : 'NO');
-    } else if (s.kind === 'race') {
-      const a = (px - s.entry) / s.entry, b = (px2 - s.entry2) / s.entry2;
-      outcome = Math.abs(a - b) < EPS ? 'VOID' : (a > b ? 'YES' : 'NO');
-    } else {
-      const d = (px - s.entry) / s.entry;
-      outcome = Math.abs(d) < EPS ? 'VOID' : (d > 0 ? 'YES' : 'NO');
-    }
-
+    const outcome = questionOutcome(s, px, px2);
     if (outcome === 'VOID') {
       refund(p, s); s.res = 'void';
       s.skillXp = 0; s.settleXp = 0; s.xp = 0;
@@ -1562,6 +1575,7 @@ async function settle(p, prices) {
       res:s.res, exitPx:px, exitAt:s.exitAt, exitPx2:s.exitPx2,
       exitAt2:s.exitAt2, side:s.side, salt:s.salt, commit:s.commit,
       commitV:s.commitV || 1, settleRule:s.settleRule || 'observed-sample-v1',
+      outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1',
       allocationRule:s.allocationRule || 'upfront-v1', xp:s.xp || 0,
       settleXp:s.settleXp || 0, skillXp:s.skillXp || 0 });
     await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
@@ -1619,8 +1633,8 @@ async function recordSealedShot(s, w) {
   await appendOnce(`seal:${w}:${s.id}`, { k:'seal', w, id:s.id,
     feed:s.feed, feed2:s.feed2 || null, stake:s.stake, exp:s.exp,
     entry:s.entry, entry2:s.entry2, commit:s.commit, commitV:s.commitV,
-    settleRule:s.settleRule, allocationRule:s.allocationRule,
-    challenge:s.chal || null });
+    settleRule:s.settleRule, outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1',
+    allocationRule:s.allocationRule, challenge:s.chal || null });
   return true;
 }
 
@@ -2007,6 +2021,7 @@ module.exports = async (req, res) => {
         wardenModel: WARDEN_MODEL,
         wardenPrev, agents: fleet,
         wardenHist: wardenHist || [],
+        boardModel: BOARD_MODEL,
         targets: Object.fromEntries(Object.entries(targetBoard(boardHour()))
           .filter(([,t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))),
         boardFlip: (boardHour() + 1) * 3600e3,
@@ -2099,7 +2114,7 @@ module.exports = async (req, res) => {
           kind, feed:t.feed, side:b.side,
           entry: prices[t.feed], entryAge: (prices.ages || {})[t.feed], oracleSrc: prices.src,
           exp: Date.now()+t.mins*60e3, stake, settleRule:'pyth-first-crossing-v2',
-          allocationRule:'on-settle-v2', sealAccountingV:2,
+          outcomeRule:OUTCOME_RULE, allocationRule:'on-settle-v2', sealAccountingV:2,
           xp: Math.max(1, Math.round(t.baseXp * stakeMult(stake) * xpMult)), label: t.label };
         if (kind === 'thr') shot.thresh = prices[t.feed] * (1 + t.pct);
         if (kind === 'thrDown') shot.thresh = prices[t.feed] * (1 - t.pct);
@@ -2111,7 +2126,8 @@ module.exports = async (req, res) => {
         shot = { id: Math.random().toString(36).slice(2,10), kind:'thr', feed:wl.feed, thresh:wl.thresh,
           side: withW ? (wl.p >= 50 ? 'YES':'NO') : (wl.p >= 50 ? 'NO':'YES'),
           entry: prices[wl.feed], oracleSrc: prices.src, exp: Date.now()+wl.mins*60e3, stake,
-          settleRule:'pyth-first-crossing-v2', allocationRule:'on-settle-v2', sealAccountingV:2,
+          settleRule:'pyth-first-crossing-v2', outcomeRule:OUTCOME_RULE,
+          allocationRule:'on-settle-v2', sealAccountingV:2,
           xp: Math.max(1, Math.round(14 * stakeMult(stake) * (withW ? 0.8 : 3.4))), label: 'DUEL vs the Warden: '+wl.q, duel:true };
       }
       shot.salt = crypto.randomBytes(16).toString('hex');
@@ -2173,6 +2189,7 @@ module.exports = async (req, res) => {
         open: raw.filter(c => c && c.expiresAt > now2).map(c => ({
           id: c.id, by: shortW(c.by), kind: c.kind, feed: c.feed, pct: c.pct || null,
           mins: c.mins, side: c.side, stake: c.stake, label: c.label,
+          outcomeRule: c.outcomeRule || 'dead-zone-4bp-v1',
           expiresAt: c.expiresAt })) });
     }
 
@@ -2214,12 +2231,12 @@ module.exports = async (req, res) => {
         if (bad) { await savePlayer(p); return res.status(400).json({ ok:false, reason: bad }); }
 
         const label = kind === 'dir' ? `${feed} higher in ${winTxt(mins)}`
-          : kind === 'thr' ? `${feed} up +${(pct*100).toFixed(2)}% within ${winTxt(mins)}`
-          : `${feed} down -${(pct*100).toFixed(2)}% within ${winTxt(mins)}`;
+          : kind === 'thr' ? `${feed} up +${(pct*100).toFixed(2)}% after ${winTxt(mins)}`
+          : `${feed} down -${(pct*100).toFixed(2)}% after ${winTxt(mins)}`;
         const c = { id: 'c' + Math.random().toString(36).slice(2,9), by: w, kind, feed, mins,
           pct: kind === 'dir' ? null : pct, side, stake, label,
           createdAt: Date.now(), expiresAt: Date.now() + CHAL_OPEN_MS,
-          allocationRule:'on-settle-v2' };
+          allocationRule:'on-settle-v2', outcomeRule:OUTCOME_RULE };
         list.unshift(c);
         try {
           await setManyJSONAtomic([
@@ -2314,6 +2331,7 @@ module.exports = async (req, res) => {
           side, entry: px, oracleSrc: prices.src, exp, stake: c.stake,
           xp: Math.max(1, Math.round(xp * stakeMult(c.stake))), label: c.label,
           chal: c.id, src: srcTag, settleRule:'pyth-first-crossing-v2',
+          outcomeRule:c.outcomeRule || 'dead-zone-4bp-v1',
           allocationRule:c.allocationRule || 'upfront-v1', sealAccountingV:2 };
         if (c.kind === 'thr') sh.thresh = px * (1 + c.pct);
         if (c.kind === 'thrDown') sh.thresh = px * (1 - c.pct);
@@ -2404,13 +2422,14 @@ module.exports = async (req, res) => {
     if (action === 'board') {
       const hour = boardHour();
       const board = targetBoard(hour);
-      return res.json({ ok:true, v: VERSION, hour,
+      return res.json({ ok:true, v: VERSION, hour, generator:BOARD_MODEL,
         flipsAt: (hour + 1) * 3600e3,
         prices: { src: prices.src, ages: prices.ages || null,
           ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x))) },
         stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP, settleXp: SETTLE_XP },
         sealRule: 'entry price must be fresher than min(60, max(30, 0.15 * windowSeconds)) seconds',
         settleRule: 'the unique Pyth update with prev_publish_time < expiry <= publish_time; a missed/unusable crossing or no crossing inside 15 minutes voids and refunds',
+        tieRule: 'strict numerical comparison; only true equality voids and refunds — there is no economic dead zone',
         targets: Object.entries(board).map(([id, t]) => ({
           id, kind: t.kind || 'dir', feed: t.feed, feed2: t.feed2 || null,
           mins: t.mins, pct: t.pct || null, baseXp: t.baseXp,

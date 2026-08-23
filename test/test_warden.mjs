@@ -98,7 +98,11 @@ const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails
   const wl = game.slice(game.indexOf('async function wardenLine'), game.indexOf('async function wardenTick'));
   ok(/at the \$\{c\.mins \/ 60\}-hour mark/.test(wl), 'the question is now terminal, not a touch');
   ok(!/within \$\{c\.mins/.test(wl), 'and the "within N hours" wording is gone');
-  ok(/priceCrossing\(s\.feed, s\.exp/.test(game) && /const outcome = at\.price > s\.thresh/.test(game), 'settlement uses the unique Pyth price crossing at expiry');
+  ok(/priceCrossing\(s\.feed, s\.exp/.test(game)
+    && /const comparison = s\.outcomeRule === OUTCOME_RULE/.test(game)
+    && /\? order\(at\.price, s\.thresh\)/.test(game)
+    && /const outcome = comparison > 0/.test(game),
+    'settlement uses the unique Pyth crossing and each sealed outcome rule');
 }
 
 // ---- 6. it publishes the inputs, so the number is checkable ----

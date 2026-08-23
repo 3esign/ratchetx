@@ -20,7 +20,7 @@ const { rows, toCsv, COLUMNS, SCHEMA, SALT, MAX_LIMIT } = require('../lib/record
 const { logCount } = require('../lib/log.js');
 const { getJSON } = require('../lib/kv.js');
 
-const VERSION = 'h58-2026-08-22';
+const VERSION = 'h61-2026-08-23';
 const SITE = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
 const REPO = 'https://github.com/3esign/ratchetx';
 const esc = s => String(s == null ? '' : s)
@@ -167,7 +167,7 @@ This one is open, it grows every time somebody plays, and it cannot be back-fill
   <h2>WHAT IT IS GOOD FOR</h2>
   <ul>
     <li><b>Calibration research.</b> Sealed calls with outcomes and stakes, across a range of horizons from
-      two minutes to twenty-four hours, on seven assets. Almost nothing public has the seal.</li>
+      five minutes to twenty-four hours, on seven assets. Almost nothing public has the seal.</li>
     <li><b>Agent benchmarking.</b> Registered agents are exported by name with a continuous, adversarial,
       real-money record. An agent's score here is not self-reported.</li>
     <li><b>Oracle research.</b> Every row's exit price cites the exact sample that produced it, and

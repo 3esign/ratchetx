@@ -30,7 +30,7 @@ const DEMO = args.includes('--demo');
 const STAKE = Number(arg('--stake', 500));
 const NAME = arg('--name', 'REFERENCE AGENT');
 const ONCE = args.includes('--once');
-// The board rotates hourly and the shortest window is two minutes, so a minute
+// The board rotates hourly and the shortest window is five minutes, so a minute
 // between ticks is plenty in production. Shorten it while you are developing —
 // the server's rate limit (20 POST/min per address) is the real floor.
 const EVERY = Number(arg('--interval', 60)) * 1000;
