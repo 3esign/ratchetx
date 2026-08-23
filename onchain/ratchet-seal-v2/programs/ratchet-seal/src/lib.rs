@@ -12,7 +12,7 @@ use pyth_solana_receiver_sdk::{
     PYTH_PUSH_ORACLE_ID,
 };
 
-declare_id!("4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2");
+declare_id!("23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX");
 
 const SETTLE_DEADLINE_SECS: i64 = 900;
 const MAX_STALENESS_AT_SEAL: u64 = 60;

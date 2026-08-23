@@ -3,3 +3,6 @@
 node_modules
 
 backups/
+
+# Local Solana deployment authorities (never commit)
+onchain/ratchet-seal-v2/.keys/

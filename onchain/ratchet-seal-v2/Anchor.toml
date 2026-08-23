@@ -7,7 +7,7 @@ resolution = true
 skip-lint = false
 
 [programs.devnet]
-ratchet_seal = "4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2"
+ratchet_seal = "23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX"
 
 [provider]
 cluster = "devnet"
