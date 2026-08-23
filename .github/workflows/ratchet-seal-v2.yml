@@ -36,17 +36,14 @@ jobs:
             -v "$PWD:/work" \
             -w /work/onchain/ratchet-seal-v2 \
             solanafoundation/anchor:v1.0.2 \
-            bash -lc 'anchor build --ignore-keys && touch programs/ratchet-seal/src/lib.rs && cargo build-sbf --manifest-path programs/ratchet-seal/Cargo.toml'
+            cargo build-sbf --manifest-path programs/ratchet-seal/Cargo.toml
       - name: Verify and normalize the Ratchet v2 program id
         shell: bash
         run: |
           expected="23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX"
           grep -Fq "declare_id!(\"$expected\")" onchain/ratchet-seal-v2/programs/ratchet-seal/src/lib.rs
           grep -Fq "$expected" onchain/ratchet-seal-v2/Anchor.toml
-          idl=onchain/ratchet-seal-v2/target/idl/ratchet_seal.json
-          tmp=$(mktemp)
-          jq --arg address "$expected" '.address = $address' "$idl" > "$tmp"
-          mv "$tmp" "$idl"
+          test "$(jq -r '.address' onchain/ratchet-seal-v2/idl/ratchet_seal.json)" = "$expected"
       - name: Report deploy size and digest
         shell: bash
         run: |
@@ -61,6 +58,6 @@ jobs:
           name: ratchet-seal-v2-build
           path: |
             onchain/ratchet-seal-v2/target/deploy/*.so
-            onchain/ratchet-seal-v2/target/idl/*.json
+            onchain/ratchet-seal-v2/idl/*.json
             onchain/ratchet-seal-v2/Cargo.lock
           if-no-files-found: error

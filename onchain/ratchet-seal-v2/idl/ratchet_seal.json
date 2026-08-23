@@ -1,0 +1,897 @@
+{
+  "address": "23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX",
+  "metadata": {
+    "name": "ratchet_seal",
+    "version": "2.0.0",
+    "spec": "0.1.0",
+    "description": "RATCHET deterministic Pyth-settled prediction receipt"
+  },
+  "instructions": [
+    {
+      "name": "checkpoint",
+      "docs": [
+        "Permissionless capture of a fully verified sponsored Pyth push update.",
+        "Duplicate or older observations are harmless no-ops."
+      ],
+      "discriminator": [
+        213,
+        200,
+        19,
+        204,
+        240,
+        143,
+        184,
+        252
+      ],
+      "accounts": [
+        {
+          "name": "feed_clock",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              },
+              {
+                "kind": "arg",
+                "path": "feed_id"
+              }
+            ]
+          }
+        },
+        {
+          "name": "cranker",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "price_update"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "feed_id",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "name": "close_shot",
+      "docs": [
+        "Anyone may clean up, but rent always returns to the recorded player."
+      ],
+      "discriminator": [
+        211,
+        130,
+        172,
+        41,
+        129,
+        85,
+        133,
+        15
+      ],
+      "accounts": [
+        {
+          "name": "shot",
+          "writable": true
+        },
+        {
+          "name": "player",
+          "writable": true,
+          "relations": [
+            "shot"
+          ]
+        },
+        {
+          "name": "cranker",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "reveal",
+      "docs": [
+        "Reveal the choice and salt. The v2 preimage is exactly:",
+        "`RATCHET|v2|<wallet>|<shot_id>|<YES-or-NO>|<32-lower-hex-salt>`."
+      ],
+      "discriminator": [
+        9,
+        35,
+        59,
+        190,
+        167,
+        249,
+        76,
+        115
+      ],
+      "accounts": [
+        {
+          "name": "shot",
+          "writable": true
+        },
+        {
+          "name": "record",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  114,
+                  101,
+                  99,
+                  111,
+                  114,
+                  100
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "shot.player",
+                "account": "Shot"
+              }
+            ]
+          }
+        },
+        {
+          "name": "revealer",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "side",
+          "type": "u8"
+        },
+        {
+          "name": "salt",
+          "type": "string"
+        }
+      ]
+    },
+    {
+      "name": "seal",
+      "docs": [
+        "`kind`: 0 direction, 1 threshold-up, 2 threshold-down."
+      ],
+      "discriminator": [
+        102,
+        202,
+        171,
+        163,
+        27,
+        152,
+        105,
+        242
+      ],
+      "accounts": [
+        {
+          "name": "shot",
+          "writable": true,
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  115,
+                  104,
+                  111,
+                  116
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "player"
+              },
+              {
+                "kind": "arg",
+                "path": "nonce"
+              }
+            ]
+          }
+        },
+        {
+          "name": "player",
+          "writable": true,
+          "signer": true
+        },
+        {
+          "name": "price_update"
+        },
+        {
+          "name": "system_program",
+          "address": "11111111111111111111111111111111"
+        }
+      ],
+      "args": [
+        {
+          "name": "nonce",
+          "type": "u64"
+        },
+        {
+          "name": "commit",
+          "type": {
+            "array": [
+              "u8",
+              32
+            ]
+          }
+        },
+        {
+          "name": "shot_id",
+          "type": "string"
+        },
+        {
+          "name": "feed_id_hex",
+          "type": "string"
+        },
+        {
+          "name": "expiry_ts",
+          "type": "i64"
+        },
+        {
+          "name": "kind",
+          "type": "u8"
+        },
+        {
+          "name": "threshold_e12",
+          "type": "i64"
+        }
+      ]
+    },
+    {
+      "name": "settle",
+      "docs": [
+        "Permissionless deterministic settlement. Only the unique fully verified",
+        "Pyth update satisfying `prev_publish_time < expiry <= publish_time` is",
+        "admissible, and only before the liveness deadline."
+      ],
+      "discriminator": [
+        175,
+        42,
+        185,
+        87,
+        144,
+        131,
+        102,
+        212
+      ],
+      "accounts": [
+        {
+          "name": "shot",
+          "writable": true
+        },
+        {
+          "name": "feed_clock",
+          "pda": {
+            "seeds": [
+              {
+                "kind": "const",
+                "value": [
+                  99,
+                  108,
+                  111,
+                  99,
+                  107
+                ]
+              },
+              {
+                "kind": "account",
+                "path": "shot.feed_id",
+                "account": "Shot"
+              }
+            ]
+          }
+        },
+        {
+          "name": "cranker",
+          "signer": true
+        }
+      ],
+      "args": []
+    },
+    {
+      "name": "void_shot",
+      "docs": [
+        "After the strict window closes, an unresolved sealed shot can only void."
+      ],
+      "discriminator": [
+        75,
+        205,
+        152,
+        250,
+        229,
+        54,
+        201,
+        91
+      ],
+      "accounts": [
+        {
+          "name": "shot",
+          "writable": true
+        },
+        {
+          "name": "cranker",
+          "signer": true
+        }
+      ],
+      "args": []
+    }
+  ],
+  "accounts": [
+    {
+      "name": "FeedClock",
+      "discriminator": [
+        89,
+        61,
+        81,
+        101,
+        90,
+        132,
+        190,
+        203
+      ]
+    },
+    {
+      "name": "PlayerRecord",
+      "discriminator": [
+        219,
+        240,
+        186,
+        119,
+        195,
+        187,
+        19,
+        160
+      ]
+    },
+    {
+      "name": "Shot",
+      "discriminator": [
+        225,
+        162,
+        168,
+        18,
+        207,
+        193,
+        241,
+        107
+      ]
+    }
+  ],
+  "events": [
+    {
+      "name": "Checkpointed",
+      "discriminator": [
+        98,
+        75,
+        60,
+        154,
+        157,
+        193,
+        32,
+        209
+      ]
+    },
+    {
+      "name": "Revealed",
+      "discriminator": [
+        180,
+        7,
+        199,
+        88,
+        154,
+        19,
+        181,
+        154
+      ]
+    },
+    {
+      "name": "Sealed",
+      "discriminator": [
+        82,
+        112,
+        101,
+        218,
+        79,
+        58,
+        49,
+        30
+      ]
+    },
+    {
+      "name": "Settled",
+      "discriminator": [
+        232,
+        210,
+        40,
+        17,
+        142,
+        124,
+        145,
+        238
+      ]
+    },
+    {
+      "name": "Voided",
+      "discriminator": [
+        32,
+        48,
+        163,
+        95,
+        71,
+        91,
+        86,
+        179
+      ]
+    }
+  ],
+  "errors": [
+    {
+      "code": 6000,
+      "name": "ExpiryInPast",
+      "msg": "expiry must be in the future"
+    },
+    {
+      "code": 6001,
+      "name": "ExpiryTooFar",
+      "msg": "expiry exceeds the supported game horizon"
+    },
+    {
+      "code": 6002,
+      "name": "BadKind",
+      "msg": "unknown shot kind"
+    },
+    {
+      "code": 6003,
+      "name": "BadThreshold",
+      "msg": "threshold is not canonical for this shot kind"
+    },
+    {
+      "code": 6004,
+      "name": "BadShotId",
+      "msg": "shot id must be 1-32 lowercase ASCII letters or digits"
+    },
+    {
+      "code": 6005,
+      "name": "BadSalt",
+      "msg": "salt must be exactly 32 lowercase hexadecimal characters"
+    },
+    {
+      "code": 6006,
+      "name": "BadSide",
+      "msg": "bad side"
+    },
+    {
+      "code": 6007,
+      "name": "BadFeed",
+      "msg": "bad or unknown price feed"
+    },
+    {
+      "code": 6008,
+      "name": "BadPriceAccount",
+      "msg": "not an upgraded Pyth price update account"
+    },
+    {
+      "code": 6009,
+      "name": "PartialVerification",
+      "msg": "price update is not fully verified"
+    },
+    {
+      "code": 6010,
+      "name": "InvalidSealPrice",
+      "msg": "seal price is stale, mismatched or otherwise invalid"
+    },
+    {
+      "code": 6011,
+      "name": "WrongState",
+      "msg": "shot is not in the required state"
+    },
+    {
+      "code": 6012,
+      "name": "NotExpired",
+      "msg": "window has not expired yet"
+    },
+    {
+      "code": 6013,
+      "name": "PriceOutsideWindow",
+      "msg": "price update is outside the strict settle window"
+    },
+    {
+      "code": 6014,
+      "name": "CommitMismatch",
+      "msg": "reveal does not match the wallet-bound shot commitment"
+    },
+    {
+      "code": 6015,
+      "name": "NotFirstUpdate",
+      "msg": "not the first price update crossing expiry"
+    },
+    {
+      "code": 6016,
+      "name": "CrossingNotCheckpointed",
+      "msg": "the exact first Pyth update crossing expiry has not been checkpointed"
+    },
+    {
+      "code": 6017,
+      "name": "SettlementDeadlinePassed",
+      "msg": "strict settlement deadline has passed"
+    },
+    {
+      "code": 6018,
+      "name": "NotVoidable",
+      "msg": "shot is not voidable yet"
+    },
+    {
+      "code": 6019,
+      "name": "BadPrice",
+      "msg": "oracle price must be positive"
+    },
+    {
+      "code": 6020,
+      "name": "TooUncertain",
+      "msg": "oracle confidence band is too wide"
+    },
+    {
+      "code": 6021,
+      "name": "MathOverflow",
+      "msg": "math overflow"
+    }
+  ],
+  "types": [
+    {
+      "name": "Checkpointed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_clock",
+            "type": "pubkey"
+          },
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "prev_publish_time",
+            "type": "i64"
+          },
+          {
+            "name": "publish_time",
+            "type": "i64"
+          },
+          {
+            "name": "price_e12",
+            "type": "i64"
+          },
+          {
+            "name": "posted_slot",
+            "type": "u64"
+          },
+          {
+            "name": "cranker",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "FeedClock",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "latest_publish_time",
+            "type": "i64"
+          },
+          {
+            "name": "head",
+            "type": "u8"
+          },
+          {
+            "name": "bump",
+            "type": "u8"
+          },
+          {
+            "name": "observations",
+            "type": {
+              "vec": {
+                "defined": {
+                  "name": "Observation"
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "Observation",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "prev_publish_time",
+            "type": "i64"
+          },
+          {
+            "name": "publish_time",
+            "type": "i64"
+          },
+          {
+            "name": "price_e12",
+            "type": "i64"
+          },
+          {
+            "name": "posted_slot",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "PlayerRecord",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "shots",
+            "type": "u64"
+          },
+          {
+            "name": "hits",
+            "type": "u64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Revealed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "shot",
+            "type": "pubkey"
+          },
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "hit",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Sealed",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "shot",
+            "type": "pubkey"
+          },
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "shot_id",
+            "type": "string"
+          },
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "expiry_ts",
+            "type": "i64"
+          },
+          {
+            "name": "entry_e12",
+            "type": "i64"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Settled",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "shot",
+            "type": "pubkey"
+          },
+          {
+            "name": "exit_e12",
+            "type": "i64"
+          },
+          {
+            "name": "publish_time",
+            "type": "i64"
+          },
+          {
+            "name": "posted_slot",
+            "type": "u64"
+          },
+          {
+            "name": "cranker",
+            "type": "pubkey"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Shot",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "nonce",
+            "type": "u64"
+          },
+          {
+            "name": "commit",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "shot_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "shot_id_len",
+            "type": "u8"
+          },
+          {
+            "name": "feed_id",
+            "type": {
+              "array": [
+                "u8",
+                32
+              ]
+            }
+          },
+          {
+            "name": "sealed_ts",
+            "type": "i64"
+          },
+          {
+            "name": "expiry_ts",
+            "type": "i64"
+          },
+          {
+            "name": "settled_ts",
+            "type": "i64"
+          },
+          {
+            "name": "entry_e12",
+            "type": "i64"
+          },
+          {
+            "name": "exit_e12",
+            "type": "i64"
+          },
+          {
+            "name": "threshold_e12",
+            "type": "i64"
+          },
+          {
+            "name": "kind",
+            "type": "u8"
+          },
+          {
+            "name": "side",
+            "type": "u8"
+          },
+          {
+            "name": "hit",
+            "type": "u8"
+          },
+          {
+            "name": "state",
+            "type": "u8"
+          },
+          {
+            "name": "strict",
+            "type": "u8"
+          },
+          {
+            "name": "void_reason",
+            "type": "u8"
+          }
+        ]
+      }
+    },
+    {
+      "name": "Voided",
+      "type": {
+        "kind": "struct",
+        "fields": [
+          {
+            "name": "shot",
+            "type": "pubkey"
+          },
+          {
+            "name": "player",
+            "type": "pubkey"
+          },
+          {
+            "name": "reason",
+            "type": "u8"
+          },
+          {
+            "name": "exit_e12",
+            "type": "i64"
+          }
+        ]
+      }
+    }
+  ]
+}
