@@ -19,12 +19,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - name: Run focused host tests
+        shell: bash
         run: |
-          docker run --rm \
-            -v "$PWD:/work" \
-            -w /work/onchain/ratchet-seal-v2 \
-            solanafoundation/anchor:v1.0.2 \
-            cargo test --workspace
+          set +e
+          docker run --rm -v "$PWD:/work" -w /work/onchain/ratchet-seal-v2 solanafoundation/anchor:v1.0.2 cargo test --workspace > cargo-test.log 2>&1
+          code=$?
+          cat cargo-test.log
+          if [ "$code" -ne 0 ]; then
+            encoded=$(tail -c 12000 cargo-test.log | base64 -w0)
+            echo "::error title=Rust compiler log base64::$encoded"
+          fi
+          exit "$code"
       - name: Build with the pinned Anchor toolchain
         run: |
           docker run --rm \
