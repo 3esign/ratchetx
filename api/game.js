@@ -56,7 +56,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h66-2026-08-23';
+const VERSION = 'h67-2026-08-23';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC || process.env.SOLANA_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -2694,7 +2694,10 @@ module.exports = async (req, res) => {
       const p = await loadPlayer(w);
       const shot = p.open.find(s => s.id === shotId) || p.closed.find(s => s.id === shotId);
       if (!shot) return res.status(404).json({ ok:false, reason:'shot not found' });
-      if (shot.mirrored) return res.status(409).json({ ok:false, reason:'already mirrored' });
+      if (shot.mirrored) {
+        if (shot.mirrorSig === sig) return res.json({ ok:true, xp:0, already:true });
+        return res.status(409).json({ ok:false, reason:'already mirrored' });
+      }
       
       const tx = await getMirrorTx(sig);
       if (tx === undefined) return res.status(503).json({ ok:false, reason:'RPC unreachable' });
@@ -2733,8 +2736,14 @@ module.exports = async (req, res) => {
 
       // One receipt per shot, not merely per transaction signature. Sealing is
       // proof, not a way to buy ladder position, so it awards no XP.
-      if (!(await setnxJSON(`mirshot:${w}:${shotId}`, { sig, t: Date.now() })))
-        return res.status(409).json({ ok:false, reason:'already credited' });
+      const mirrorKey = `mirshot:${w}:${shotId}`;
+      if (!(await setnxJSON(mirrorKey, { sig, t: Date.now() }))) {
+        const prior = await getJSONStrict(mirrorKey);
+        if (!prior || prior.sig !== sig)
+          return res.status(409).json({ ok:false, reason:'already credited by another transaction' });
+        // Same verified signature after an interrupted response/save: repair the
+        // player receipt below instead of trapping the UI in a false failure.
+      }
         
       shot.mirrored = true;
       shot.mirrorSig = sig;

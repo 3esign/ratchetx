@@ -153,6 +153,8 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .tgt .tmkt{display:flex;justify-content:space-between;gap:8px;margin-top:9px;padding-top:9px;
   border-top:1px solid var(--line);font:700 9.5px/1.3 var(--mono);letter-spacing:.06em;color:var(--dim)}
 .tgt .tmkt b{color:var(--ink2);font-weight:800}
+.tgt.onchain{border-color:rgba(125,211,252,.42);box-shadow:inset 0 0 0 1px rgba(125,211,252,.06)}
+.chainTag{margin-top:9px;font:800 9px/1 var(--mono);letter-spacing:.12em;color:var(--ice)}
 .updown{display:flex;gap:7px;margin-top:11px}
 .ud{flex:1;border:1px solid var(--line);background:none;border-radius:8px;padding:8px 0;cursor:pointer;text-align:center;
   font:800 11px/1 var(--mono);letter-spacing:.12em;color:var(--dim);transition:.12s}
@@ -248,6 +250,8 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .cham{border:1px solid rgba(125,211,252,.22);background:rgba(125,211,252,.04);border-radius:11px;padding:11px 13px;animation:in .35s ease}
 .cham .ch1{display:flex;justify-content:space-between;font:600 10px/1 var(--mono);letter-spacing:.1em;color:var(--ice);margin-bottom:6px}
 .cham .ch2{font:650 12.5px/1.3 var(--sans)}
+.mirrorRow{position:relative;z-index:1;display:flex;justify-content:flex-end;margin-top:10px;padding-top:9px;border-top:1px solid var(--line)}
+.mirrorRow .mirrorb{max-width:100%;white-space:nowrap}
 .cham.hit{border-color:rgba(61,220,132,.45);background:rgba(61,220,132,.06)}
 .cham.hit .ch1{color:var(--grn)}
 .cham.miss{border-color:rgba(255,82,82,.4);background:rgba(255,82,82,.05)}
@@ -1064,12 +1068,17 @@ function paint(){
     if(t.kind==="thrDown") return `<span>NOW <b>${d(p)}</b></span><span>BREAKS <b style="color:var(--red)">${d(p*(1-t.pct))}</b></span>`;
     if(t.kind==="range")   return `<span>NOW <b>${d(p)}</b></span><span>BAND <b>${d(p*(1-t.pct))} – ${d(p*(1+t.pct))}</b></span>`;
     return `<span>NOW <b>${d(p)}</b></span><span>STRIKE <b>AT SEAL</b></span>`;};
-  // targets
-  setHTML($("targets"),Object.entries(s.targets).map(([k,t])=>`
-    <button class="tgt ${sel.t===k?'pick':''}" data-k="${k}">
+  // During the SOL-only seal beta, surface the eligible target first without
+  // changing the deterministic board, its odds, windows or settlement terms.
+  const mirrorFeeds=new Set(s.mirror&&s.mirror.enabled?(s.mirror.feeds||[]):[]);
+  const mirrorable=t=>mirrorFeeds.has(t.feed)&&['dir','thr','thrDown'].includes(t.kind);
+  const targetRows=Object.entries(s.targets).sort((a,b)=>Number(mirrorable(b[1]))-Number(mirrorable(a[1])));
+  setHTML($("targets"),targetRows.map(([k,t])=>`
+    <button class="tgt ${sel.t===k?'pick':''} ${mirrorable(t)?'onchain':''}" data-k="${k}">
       <div class="tq">${t.label}?</div>
       <div class="tmeta"><span>WINDOW <s>${t.mins>=60?(t.mins/60)+"H":t.mins+"M"}</s></span><span>BASE ${t.baseXp} XP</span></div>
       <div class="tmkt">${mkt(t)}</div>
+      ${mirrorable(t)?'<div class="chainTag">⚓ ON-CHAIN SEAL BETA</div>':''}
       <div class="updown">
         <span class="ud up ${sel.t===k&&sel.side==='YES'?'on':''}" data-k="${k}" data-side="YES">YES</span>
         <span class="ud dn ${sel.t===k&&sel.side==='NO'?'on':''}" data-k="${k}" data-side="NO">NO</span>
@@ -1159,23 +1168,19 @@ function paint(){
     const rows=[...p.open.map(c=>{
       const sd=c.side||SIDES[c.id];
       const L=liveShot(c,sd);
+      const canMirror=AUTH&&STATE.mirror&&STATE.mirror.enabled&&(STATE.mirror.feeds||[]).includes(c.feed)&&['dir','thr','thrDown'].includes(c.kind)&&c.id&&c.commit&&!c.mirrored;
+      const mirror=c.mirrored
+        ? '<div class="mirrorRow"><span style="color:var(--ice);font:700 9.5px var(--mono);letter-spacing:.05em">⚓ SEALED ON-CHAIN</span></div>'
+        : canMirror?`<div class="mirrorRow"><button class="mirrorb shareb" data-id="${c.id}" data-feed="${c.feed}" data-exp="${c.exp}" data-kind="${c.kind}" data-thresh="${c.thresh||0}" data-pct="${c.pct||0}" data-feed2="${c.feed2||''}" data-commit="${c.commit}" style="border-color:var(--ink2);color:var(--ice)">SEAL ON-CHAIN · BETA</button></div>`:'';
       return`<div class="cham${L.cls}"><div class="ch1"><span>${L.head}</span><span class="cd" data-exp="${c.exp}">…</span></div>
         <div class="ch2">${c.label} — <b>${sd?sd:"🔒 side sealed"}</b> · entry $${fmtCmp(c.entry)}</div>
-        ${L.bar}</div>`;}),
+        ${L.bar}${mirror}</div>`;}),
       ...p.closed.slice(0,3).map(c=>`<div class="cham ${c.res}" data-settled="${c.id||''}" data-path="${c.feed||''}" data-from="${c.t||''}" data-to="${c.settledAt||c.exp||''}" data-entry="${c.entry||''}" data-exit="${c.exitPx||''}"><div class="ch1"><span>${c.res==="hit"?"HIT ✓":c.res==="miss"?"MISS ✕":"VOID — refunded"}</span><span>${c.side}</span></div>
         <div class="ch2">${c.label}</div>
         <div class="xps" style="color:${c.res==='hit'?'var(--grn)':c.res==='miss'?'var(--red)':'var(--dim)'}">${settlementReceipt(c)}${settlementMargin(c)}${
           AUTH&&c.id?` <button class="shareb" data-share="${c.id}">SHARE PROOF</button>`:''}</div></div>`)];
     
-    // Optional mainnet v2 seal. The live game continues normally if disabled.
-    for(let i=0;i<p.open.length;i++){
-      const c = p.open[i];
-      if(AUTH && STATE.mirror && STATE.mirror.enabled && (STATE.mirror.feeds||[]).includes(c.feed) && ['dir','thr','thrDown'].includes(c.kind) && c.id && c.commit && !c.mirrored){
-        rows[i] = rows[i].replace('</div></div>', ` <div style="margin-top:6px;text-align:right"><button class="mirrorb shareb" data-id="${c.id}" data-feed="${c.feed}" data-exp="${c.exp}" data-kind="${c.kind}" data-thresh="${c.thresh||0}" data-pct="${c.pct||0}" data-feed2="${c.feed2||''}" data-commit="${c.commit}" style="border-color:var(--ink2);color:var(--ice)">SEAL ON-CHAIN · BETA</button></div></div>`);
-      } else if (c.mirrored) {
-        rows[i] = rows[i].replace('</div></div>', ` <div style="margin-top:6px;text-align:right"><span style="color:var(--ice);font:700 9.5px var(--mono);letter-spacing:.05em">⚓ SEALED ON-CHAIN</span></div></div>`);
-      }
-    }
+
     setHTML($("chams"),rows.length?rows.join(""):'<div class="empty">EMPTY — FIRE A SHOT</div>');
     drawPaths();
     scanSettlements(p);
@@ -2118,9 +2123,14 @@ async function mirrorShot(btn) {
     btn.textContent = "SIGNING...";
     const { signature } = await prov.signAndSendTransaction(tx);
     btn.textContent = "CONFIRMING...";
-    await new Promise(r=>setTimeout(r,4000));
-    const confirm = await post({ action: "mirror_confirm", auth: AUTH, id: shotId, sig: signature });
-    if(!confirm.ok) throw new Error(confirm.reason);
+    let confirm=null;
+    for(let attempt=0;attempt<6;attempt++){
+      await new Promise(r=>setTimeout(r,attempt?2000:2500));
+      confirm=await post({ action: "mirror_confirm", auth: AUTH, id: shotId, sig: signature });
+      if(confirm.ok)break;
+      if(!/tx not found yet|RPC unreachable/i.test(confirm.reason||''))throw new Error(confirm.reason);
+    }
+    if(!confirm||!confirm.ok)throw new Error((confirm&&confirm.reason)||"confirmation timed out — transaction may still be finalizing");
     toast("⚓ SHOT SEALED ON-CHAIN");
     refresh();
   } catch(err) {

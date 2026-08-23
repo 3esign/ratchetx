@@ -5,6 +5,7 @@ const require = createRequire(import.meta.url);
 
 const { parseMirrorSeal } = require('../api/game.js');
 const source = fs.readFileSync(new URL('../api/game.js', import.meta.url), 'utf8');
+const ui = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
 const disc = Buffer.from('66caaba31b9869f2', 'hex');
 const nonce = Buffer.alloc(8); nonce.writeBigUInt64LE(123456789n);
 const commit = Buffer.alloc(32, 0xab);
@@ -39,4 +40,10 @@ assert.match(source, /priceToE12\(shot\.thresh\)/, 'thresholds use the v2 e12 co
 assert.doesNotMatch(source, /p\.xp \+= 100|bumpLadder\(w, 100/, 'sealing cannot buy ladder XP');
 assert.match(source, /seal\.shotId !== shot\.id/, 'confirmation binds the receipt to the game shot id');
 assert.match(source, /accounts\[1\] !== w/, 'confirmation binds the instruction player account');
+assert.match(source, /shot\.mirrorSig === sig/, 'same confirmed signature is idempotent');
+assert.match(source, /prior\.sig !== sig/, 'interrupted saves can repair only the same verified receipt');
+assert.match(ui, /const targetRows=Object\.entries\(s\.targets\)\.sort/, 'eligible beta target is surfaced without changing the board');
+assert.match(ui, /class="mirrorRow"/, 'seal control renders in its own chamber row');
+assert.doesNotMatch(ui, /rows\[i\] = rows\[i\]\.replace/, 'seal control is not injected into an arbitrary nested div');
+assert.match(ui, /for\(let attempt=0;attempt<6;attempt\+\+\)/, 'wallet confirmation retries boundedly while RPC catches up');
 console.log('MIRROR V2 ADAPTER OK');
