@@ -23,14 +23,14 @@ jobs:
           docker run --rm \
             -v "$PWD:/work" \
             -w /work/onchain/ratchet-seal-v2 \
-            solanafoundation/anchor:v0.31.1 \
+            solanafoundation/anchor:v1.0.2 \
             cargo test --workspace
       - name: Build with the pinned Anchor toolchain
         run: |
           docker run --rm \
             -v "$PWD:/work" \
             -w /work/onchain/ratchet-seal-v2 \
-            solanafoundation/anchor:v0.31.1 \
+            solanafoundation/anchor:v1.0.2 \
             anchor build
       - name: Report deploy size and digest
         run: |
