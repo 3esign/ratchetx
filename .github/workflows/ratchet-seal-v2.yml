@@ -36,7 +36,16 @@ jobs:
             -v "$PWD:/work" \
             -w /work/onchain/ratchet-seal-v2 \
             solanafoundation/anchor:v1.0.2 \
-            anchor build
+            anchor build --ignore-keys
+      - name: Verify the artifact is bound to the Ratchet v2 program id
+        shell: bash
+        run: |
+          expected="23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX"
+          actual=$(jq -r '.address' onchain/ratchet-seal-v2/target/idl/ratchet_seal.json)
+          test "$actual" = "$expected" || {
+            echo "::error title=Program id mismatch::expected $expected, built $actual"
+            exit 1
+          }
       - name: Report deploy size and digest
         shell: bash
         run: |
