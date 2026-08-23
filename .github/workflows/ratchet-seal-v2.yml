@@ -36,7 +36,7 @@ jobs:
             -v "$PWD:/work" \
             -w /work/onchain/ratchet-seal-v2 \
             solanafoundation/anchor:v1.0.2 \
-            bash -lc 'anchor build --ignore-keys && cargo build-sbf --manifest-path programs/ratchet-seal/Cargo.toml'
+            bash -lc 'anchor build --ignore-keys && touch programs/ratchet-seal/src/lib.rs && cargo build-sbf --manifest-path programs/ratchet-seal/Cargo.toml'
       - name: Verify the artifact is bound to the Ratchet v2 program id
         shell: bash
         run: |
