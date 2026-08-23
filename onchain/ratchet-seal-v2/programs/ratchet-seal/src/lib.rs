@@ -2,8 +2,9 @@
 //!
 //! A shot is a non-custodial on-chain receipt. The program never holds the
 //! player's game credits or RCX. It binds a hidden YES/NO choice to the exact
-//! wallet and game shot, records the Pyth entry price, accepts only the fully
-//! verified first Pyth update crossing expiry, and makes equality a void.
+//! wallet and game shot, records the Pyth entry price, accepts only the first
+//! fully verified sponsored-push checkpoint crossing expiry, and makes
+//! equality a void.
 //! Sponsored Pyth push updates are checkpointed into a compact program-owned
 //! ring buffer, so settlement needs no Hermes API key or trusted data signer.
 
@@ -110,8 +111,18 @@ pub mod ratchet_seal {
             return Ok(());
         }
 
+        // Sponsored push accounts are mutable snapshots and may skip source
+        // ticks between checkpoints. The Ratchet clock therefore links each
+        // verified snapshot to the previous snapshot it actually recorded.
+        // On the first checkpoint there is deliberately no historical
+        // crossing: a shot must begin after the clock has been initialized.
+        let previous_checkpoint_publish_time = feed_clock.latest_publish_time;
         let observation = Observation {
-            prev_publish_time: msg.prev_publish_time,
+            prev_publish_time: if previous_checkpoint_publish_time == 0 {
+                msg.publish_time
+            } else {
+                previous_checkpoint_publish_time
+            },
             publish_time: msg.publish_time,
             price_e12,
             posted_slot: pu.posted_slot,
@@ -708,5 +719,24 @@ mod tests {
         assert_eq!(feed_clock.crossing(110).unwrap().publish_time, 110);
         assert!(feed_clock.crossing(90).is_none());
         assert!(feed_clock.crossing(121).is_none());
+    }
+
+    #[test]
+    fn first_checkpoint_cannot_invent_a_historical_crossing() {
+        let feed_clock = FeedClock {
+            feed_id: [8; 32],
+            latest_publish_time: 100,
+            head: 1,
+            bump: 254,
+            observations: vec![Observation {
+                prev_publish_time: 100,
+                publish_time: 100,
+                price_e12: 1,
+                posted_slot: 1,
+            }],
+        };
+
+        assert!(feed_clock.crossing(99).is_none());
+        assert!(feed_clock.crossing(100).is_none());
     }
 }
