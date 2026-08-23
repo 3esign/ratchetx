@@ -38,13 +38,19 @@ jobs:
             solanafoundation/anchor:v1.0.2 \
             anchor build
       - name: Report deploy size and digest
+        shell: bash
         run: |
-          ls -lh onchain/ratchet-seal-v2/target/deploy/*.so
-          sha256sum onchain/ratchet-seal-v2/target/deploy/*.so
+          so=$(find onchain/ratchet-seal-v2/target/deploy -maxdepth 1 -name '*.so' -print -quit)
+          bytes=$(stat -c%s "$so")
+          digest=$(sha256sum "$so" | cut -d' ' -f1)
+          echo "::notice title=Ratchet Seal v2 binary::$bytes bytes · sha256 $digest"
+          ls -lh "$so"
+          sha256sum "$so"
       - uses: actions/upload-artifact@v4
         with:
           name: ratchet-seal-v2-build
           path: |
             onchain/ratchet-seal-v2/target/deploy/*.so
             onchain/ratchet-seal-v2/target/idl/*.json
+            onchain/ratchet-seal-v2/Cargo.lock
           if-no-files-found: error
