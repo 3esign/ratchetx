@@ -394,7 +394,7 @@ const RL = globalThis.__ratchet_rl || (globalThis.__ratchet_rl = new Map());
 // every six-second UI poll. The explicit anchor endpoint remains immediate.
 const AUTO_ANCHOR_SCAN = globalThis.__ratchet_anchor_scan || (globalThis.__ratchet_anchor_scan = new Map());
 function rateLimited(ip, isPost) {
-  const now = Date.now(), win = 60e3, cap = isPost ? 20 : 80;
+  const now = Date.now(), win = 60e3, cap = isPost ? 60 : 120;
   const e = RL.get(ip) || { t: now, n: 0 };
   if (now - e.t > win) { e.t = now; e.n = 0; }
   e.n++; RL.set(ip, e);
