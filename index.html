@@ -1990,7 +1990,12 @@ $("oneBurnSol").onclick=async()=>{
   try{
     const W3=await loadW3(),prov=window.solana||window.phantom.solana;
     const bytes=Uint8Array.from(atob(lastBuiltTx.transaction), c=>c.charCodeAt(0));
-    const tx=W3.Transaction.from(bytes);
+    let tx;
+    try {
+      tx = W3.VersionedTransaction.deserialize(bytes);
+    } catch {
+      tx = W3.Transaction.from(bytes);
+    }
     const {signature}=await prov.signAndSendTransaction(tx);
     const estTokens=Math.floor(Number(lastBuiltTx.tokensOut)/1e6);
     setPB({sig:signature,amt:estTokens,t:Date.now()});

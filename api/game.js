@@ -2565,7 +2565,7 @@ module.exports = async (req, res) => {
       const slippage = Number(b.slippage || req.query.slippage || 0.05);
 
       try {
-        const { PublicKey, SystemProgram, Transaction, TransactionInstruction } = require('@solana/web3.js');
+        const { PublicKey, SystemProgram, TransactionMessage, VersionedTransaction, AddressLookupTableAccount, TransactionInstruction } = require('@solana/web3.js');
         const ATA_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
         
         const playerPubkey = new PublicKey(w);
@@ -2586,25 +2586,48 @@ module.exports = async (req, res) => {
         
         const tokensOut = BigInt(quote.outAmount);
         
-        // Fetch swap transaction from Jupiter
+        // Fetch swap transaction from Jupiter (v0 versioned transaction)
         const swapRes = await fetch('https://api.jup.ag/swap/v1/swap', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             quoteResponse: quote,
             userPublicKey: w,
-            wrapAndUnwrapSol: true,
-            asLegacyTransaction: true
+            wrapAndUnwrapSol: true
           })
         });
         const swapResult = await swapRes.json();
         if (swapResult.error) throw new Error(swapResult.error || 'Failed to fetch swap transaction from Jupiter');
         
-        // Deserialize the legacy transaction returned by Jupiter
-        const tx = Transaction.from(Buffer.from(swapResult.swapTransaction, 'base64'));
+        // Deserialize the versioned transaction returned by Jupiter
+        const tx = VersionedTransaction.deserialize(Buffer.from(swapResult.swapTransaction, 'base64'));
+        
+        // Fetch address lookup table accounts to decompile
+        const lookupTableAddresses = tx.message.addressTableLookups.map(l => l.accountKey);
+        const lookupTableAccounts = [];
+        if (lookupTableAddresses.length > 0) {
+          const tableKeys = lookupTableAddresses.map(k => k.toBase58());
+          const getTables = await rpcCall('getMultipleAccounts', [tableKeys, { encoding: 'base64' }]);
+          if (getTables && getTables.value) {
+            for (let i = 0; i < lookupTableAddresses.length; i++) {
+              const info = getTables.value[i];
+              if (!info) continue;
+              const data = Buffer.from(info.data[0], 'base64');
+              lookupTableAccounts.push(new AddressLookupTableAccount({
+                key: lookupTableAddresses[i],
+                state: AddressLookupTableAccount.deserialize(data)
+              }));
+            }
+          }
+        }
+        
+        // Decompile the versioned message into a TransactionMessage
+        const decompiled = TransactionMessage.decompile(tx.message, {
+          addressLookupTableAccounts: lookupTableAccounts
+        });
         
         // Add idempotent ATA creation for the incinerator (burn destination)
-        tx.add(new TransactionInstruction({
+        decompiled.instructions.push(new TransactionInstruction({
           programId: ATA_PROGRAM_ID,
           keys: [
             { pubkey: playerPubkey, isSigner: true, isWritable: true },
@@ -2625,7 +2648,7 @@ module.exports = async (req, res) => {
         transferData.writeUInt8(3, 0); // Transfer instruction index
         transferData.writeBigUInt64LE(burnAmt, 1);
         
-        tx.add(new TransactionInstruction({
+        decompiled.instructions.push(new TransactionInstruction({
           programId: tokenProgramId,
           keys: [
             { pubkey: userAta, isSigner: false, isWritable: true },
@@ -2653,7 +2676,7 @@ module.exports = async (req, res) => {
                 const seatAta = seat.ata ? new PublicKey(seat.ata) : PublicKey.findProgramAddressSync([seatPubkey.toBuffer(), tokenProgramId.toBuffer(), mintPubkey.toBuffer()], ATA_PROGRAM_ID)[0];
                 
                 // Idempotent ATA creation for champion
-                tx.add(new TransactionInstruction({
+                decompiled.instructions.push(new TransactionInstruction({
                   programId: ATA_PROGRAM_ID,
                   keys: [
                     { pubkey: playerPubkey, isSigner: true, isWritable: true },
@@ -2671,7 +2694,7 @@ module.exports = async (req, res) => {
                 champTransfer.writeUInt8(3, 0);
                 champTransfer.writeBigUInt64LE(seatShare, 1);
                 
-                tx.add(new TransactionInstruction({
+                decompiled.instructions.push(new TransactionInstruction({
                   programId: tokenProgramId,
                   keys: [
                     { pubkey: userAta, isSigner: false, isWritable: true },
@@ -2689,7 +2712,7 @@ module.exports = async (req, res) => {
               const leftoverTransfer = Buffer.alloc(9);
               leftoverTransfer.writeUInt8(3, 0);
               leftoverTransfer.writeBigUInt64LE(leftover, 1);
-              tx.add(new TransactionInstruction({
+              decompiled.instructions.push(new TransactionInstruction({
                 programId: tokenProgramId,
                 keys: [
                   { pubkey: userAta, isSigner: false, isWritable: true },
@@ -2704,7 +2727,7 @@ module.exports = async (req, res) => {
             const allTransfer = Buffer.alloc(9);
             allTransfer.writeUInt8(3, 0);
             allTransfer.writeBigUInt64LE(podiumAmt, 1);
-            tx.add(new TransactionInstruction({
+            decompiled.instructions.push(new TransactionInstruction({
               programId: tokenProgramId,
               keys: [
                 { pubkey: userAta, isSigner: false, isWritable: true },
@@ -2719,16 +2742,18 @@ module.exports = async (req, res) => {
         // Refresh blockhash for a full transaction lifespan
         const getBH = await rpcCall('getLatestBlockhash', [{ commitment:'confirmed' }]);
         if (!getBH || !getBH.value || !getBH.value.blockhash) throw new Error('Failed to get latest blockhash');
-        tx.recentBlockhash = getBH.value.blockhash;
-        tx.feePayer = playerPubkey;
+        decompiled.recentBlockhash = getBH.value.blockhash;
         
-        const serialized = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+        const newV0Message = decompiled.compileToV0Message(lookupTableAccounts);
+        const newTx = new VersionedTransaction(newV0Message);
+        
+        const serialized = newTx.serialize();
         
         return res.json({
           ok: true,
           tokensOut: tokensOut.toString(),
           maxSolCost: solInLamports.toString(),
-          transaction: serialized.toString('base64'),
+          transaction: Buffer.from(serialized).toString('base64'),
         });
       } catch (e) {
         console.error(e);
