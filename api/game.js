@@ -2578,6 +2578,13 @@ module.exports = async (req, res) => {
         
         const solInLamports = Math.floor(solAmount * 1e9);
         
+        // Fetch player's SOL balance and verify sufficient funds
+        const balanceRes = await rpcCall('getBalance', [w]);
+        const balance = (balanceRes && Number(balanceRes.value)) || 0;
+        if (balance < solInLamports + 5000) {
+          throw new Error(`Insufficient SOL balance: you have ${(balance / 1e9).toFixed(5)} SOL, but need ${solAmount} SOL (plus a small fee).`);
+        }
+        
         // Fetch quote from Jupiter API
         const quoteUrl = `https://api.jup.ag/swap/v1/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${MINT}&amount=${solInLamports}&slippageBps=${Math.floor(slippage * 10000)}`;
         const quoteRes = await fetch(quoteUrl);
@@ -2611,7 +2618,7 @@ module.exports = async (req, res) => {
           if (getTables && getTables.value) {
             for (let i = 0; i < lookupTableAddresses.length; i++) {
               const info = getTables.value[i];
-              if (!info) continue;
+              if (!info || !info.data || !Array.isArray(info.data)) continue;
               const data = Buffer.from(info.data[0], 'base64');
               lookupTableAccounts.push(new AddressLookupTableAccount({
                 key: lookupTableAddresses[i],
