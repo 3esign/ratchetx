@@ -2679,6 +2679,7 @@ module.exports = async (req, res) => {
               const seatShare = (podiumAmt * BigInt(Math.floor(sharePct * 1000))) / 1000n;
               if (seatShare > 0n) {
                 distributed += seatShare;
+                if (seat.w === w) continue;
                 const seatPubkey = new PublicKey(seat.w);
                 const seatAta = seat.ata ? new PublicKey(seat.ata) : PublicKey.findProgramAddressSync([seatPubkey.toBuffer(), tokenProgramId.toBuffer(), mintPubkey.toBuffer()], ATA_PROGRAM_ID)[0];
                 
