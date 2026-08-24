@@ -2566,54 +2566,45 @@ module.exports = async (req, res) => {
 
       try {
         const { PublicKey, SystemProgram, Transaction, TransactionInstruction } = require('@solana/web3.js');
-        const PUMP_FUN_PROGRAM_ID = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
         const ATA_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
-        const SYSVAR_RENT = new PublicKey('SysvarRent111111111111111111111111111111111');
         
         const playerPubkey = new PublicKey(w);
         const mintPubkey = new PublicKey(MINT);
         const incinPubkey = new PublicKey(INCINERATOR);
-        
         const tokenProgramId = new PublicKey(await getMintProgram() || 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
         
         const userAta = PublicKey.findProgramAddressSync([playerPubkey.toBuffer(), tokenProgramId.toBuffer(), mintPubkey.toBuffer()], ATA_PROGRAM_ID)[0];
         const incinAta = PublicKey.findProgramAddressSync([incinPubkey.toBuffer(), tokenProgramId.toBuffer(), mintPubkey.toBuffer()], ATA_PROGRAM_ID)[0];
         
-        const bondingCurve = PublicKey.findProgramAddressSync([Buffer.from("bonding-curve"), mintPubkey.toBuffer()], PUMP_FUN_PROGRAM_ID)[0];
-        const associatedBondingCurve = PublicKey.findProgramAddressSync([bondingCurve.toBuffer(), tokenProgramId.toBuffer(), mintPubkey.toBuffer()], ATA_PROGRAM_ID)[0];
+        const solInLamports = Math.floor(solAmount * 1e9);
         
-        const globalAccount = PublicKey.findProgramAddressSync([Buffer.from("global")], PUMP_FUN_PROGRAM_ID)[0];
-        const globalInfo = await rpcCall('getAccountInfo', [globalAccount.toBase58(), { encoding: 'base64' }]);
-        if (!globalInfo || !globalInfo.value) throw new Error('Pump.fun global configuration not found');
-        const globalData = Buffer.from(globalInfo.value.data[0], 'base64');
-        const feeRecipient = new PublicKey(globalData.subarray(41, 73));
+        // Fetch quote from Jupiter API
+        const quoteUrl = `https://quote-api.jup.ag/v6/quote?inputMint=So11111111111111111111111111111111111111112&outputMint=${MINT}&amount=${solInLamports}&slippageBps=${Math.floor(slippage * 10000)}`;
+        const quoteRes = await fetch(quoteUrl);
+        const quote = await quoteRes.json();
+        if (quote.error) throw new Error(quote.error || 'Failed to fetch quote from Jupiter');
         
-        const curveInfo = await rpcCall('getAccountInfo', [bondingCurve.toBase58(), { encoding: 'base64' }]);
-        if (!curveInfo || !curveInfo.value) throw new Error('Token bonding curve not found');
-        const curveData = Buffer.from(curveInfo.value.data[0], 'base64');
-        const virtualTokenReserves = curveData.readBigUInt64LE(8);
-        const virtualSolReserves = curveData.readBigUInt64LE(16);
+        const tokensOut = BigInt(quote.outAmount);
         
-        const solInLamports = BigInt(Math.floor(solAmount * 1e9));
-        const tokensOut = (solInLamports * virtualTokenReserves) / (virtualSolReserves + solInLamports);
-        const maxSolCost = BigInt(Math.floor(Number(solInLamports) * (1 + slippage)));
+        // Fetch swap transaction from Jupiter
+        const swapRes = await fetch('https://quote-api.jup.ag/v6/swap', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            quoteResponse: quote,
+            userPublicKey: w,
+            wrapAndUnwrapSol: true,
+            asLegacyTransaction: true
+          })
+        });
+        const swapResult = await swapRes.json();
+        if (swapResult.error) throw new Error(swapResult.error || 'Failed to fetch swap transaction from Jupiter');
         
-        const instructions = [];
+        // Deserialize the legacy transaction returned by Jupiter
+        const tx = Transaction.from(Buffer.from(swapResult.swapTransaction, 'base64'));
         
-        instructions.push(new TransactionInstruction({
-          programId: ATA_PROGRAM_ID,
-          keys: [
-            { pubkey: playerPubkey, isSigner: true, isWritable: true },
-            { pubkey: userAta, isSigner: false, isWritable: true },
-            { pubkey: playerPubkey, isSigner: false, isWritable: false },
-            { pubkey: mintPubkey, isSigner: false, isWritable: false },
-            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-            { pubkey: tokenProgramId, isSigner: false, isWritable: false },
-          ],
-          data: Buffer.from([1]),
-        }));
-
-        instructions.push(new TransactionInstruction({
+        // Add idempotent ATA creation for the incinerator (burn destination)
+        tx.add(new TransactionInstruction({
           programId: ATA_PROGRAM_ID,
           keys: [
             { pubkey: playerPubkey, isSigner: true, isWritable: true },
@@ -2623,40 +2614,18 @@ module.exports = async (req, res) => {
             { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
             { pubkey: tokenProgramId, isSigner: false, isWritable: false },
           ],
-          data: Buffer.from([1]),
+          data: Buffer.from([1]), // createIdempotent
         }));
         
-        const eventAuthority = PublicKey.findProgramAddressSync([Buffer.from("__event_authority")], PUMP_FUN_PROGRAM_ID)[0];
+        // Split 70% burn and 30% podium
+        const burnAmt = (tokensOut * 70n) / 100n;
         
-        const buyDiscriminator = Buffer.from([102, 6, 61, 18, 1, 218, 235, 234]);
-        const amountBuf = Buffer.alloc(8); amountBuf.writeBigUInt64LE(tokensOut, 0);
-        const maxSolCostBuf = Buffer.alloc(8); maxSolCostBuf.writeBigUInt64LE(maxSolCost, 0);
-        const buyData = Buffer.concat([buyDiscriminator, amountBuf, maxSolCostBuf]);
-        
-        instructions.push(new TransactionInstruction({
-          programId: PUMP_FUN_PROGRAM_ID,
-          keys: [
-            { pubkey: globalAccount, isSigner: false, isWritable: true },
-            { pubkey: feeRecipient, isSigner: false, isWritable: true },
-            { pubkey: mintPubkey, isSigner: false, isWritable: false },
-            { pubkey: bondingCurve, isSigner: false, isWritable: true },
-            { pubkey: associatedBondingCurve, isSigner: false, isWritable: true },
-            { pubkey: userAta, isSigner: false, isWritable: true },
-            { pubkey: playerPubkey, isSigner: true, isWritable: true },
-            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
-            { pubkey: tokenProgramId, isSigner: false, isWritable: false },
-            { pubkey: SYSVAR_RENT, isSigner: false, isWritable: false },
-            { pubkey: eventAuthority, isSigner: false, isWritable: false },
-            { pubkey: PUMP_FUN_PROGRAM_ID, isSigner: false, isWritable: false },
-          ],
-          data: buyData,
-        }));
-        
+        // Transfer 70% to incinerator
         const transferData = Buffer.alloc(9);
-        transferData.writeUInt8(3, 0);
-        transferData.writeBigUInt64LE(tokensOut, 1);
+        transferData.writeUInt8(3, 0); // Transfer instruction index
+        transferData.writeBigUInt64LE(burnAmt, 1);
         
-        instructions.push(new TransactionInstruction({
+        tx.add(new TransactionInstruction({
           programId: tokenProgramId,
           keys: [
             { pubkey: userAta, isSigner: false, isWritable: true },
@@ -2666,21 +2635,99 @@ module.exports = async (req, res) => {
           data: transferData,
         }));
         
+        // Transfer 30% split to podium seats
+        const podiumAmt = tokensOut - burnAmt;
+        if (podiumAmt > 0n) {
+          const podNow = await refreshLivePodium();
+          const cl = (podNow && podNow.list) || [];
+          if (cl.length > 0) {
+            let distributed = 0n;
+            for (let i = 0; i < cl.length; i++) {
+              const seat = cl[i];
+              if (!seat || !seat.w) continue;
+              const sharePct = seat.pct; // e.g. 0.5, 0.3, 0.2
+              const seatShare = (podiumAmt * BigInt(Math.floor(sharePct * 1000))) / 1000n;
+              if (seatShare > 0n) {
+                distributed += seatShare;
+                const seatPubkey = new PublicKey(seat.w);
+                const seatAta = seat.ata ? new PublicKey(seat.ata) : PublicKey.findProgramAddressSync([seatPubkey.toBuffer(), tokenProgramId.toBuffer(), mintPubkey.toBuffer()], ATA_PROGRAM_ID)[0];
+                
+                // Idempotent ATA creation for champion
+                tx.add(new TransactionInstruction({
+                  programId: ATA_PROGRAM_ID,
+                  keys: [
+                    { pubkey: playerPubkey, isSigner: true, isWritable: true },
+                    { pubkey: seatAta, isSigner: false, isWritable: true },
+                    { pubkey: seatPubkey, isSigner: false, isWritable: false },
+                    { pubkey: mintPubkey, isSigner: false, isWritable: false },
+                    { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+                    { pubkey: tokenProgramId, isSigner: false, isWritable: false },
+                  ],
+                  data: Buffer.from([1]),
+                }));
+                
+                // Transfer to champion
+                const champTransfer = Buffer.alloc(9);
+                champTransfer.writeUInt8(3, 0);
+                champTransfer.writeBigUInt64LE(seatShare, 1);
+                
+                tx.add(new TransactionInstruction({
+                  programId: tokenProgramId,
+                  keys: [
+                    { pubkey: userAta, isSigner: false, isWritable: true },
+                    { pubkey: seatAta, isSigner: false, isWritable: true },
+                    { pubkey: playerPubkey, isSigner: true, isWritable: false },
+                  ],
+                  data: champTransfer,
+                }));
+              }
+            }
+            
+            // Leftover dust to incinerator
+            const leftover = podiumAmt - distributed;
+            if (leftover > 0n) {
+              const leftoverTransfer = Buffer.alloc(9);
+              leftoverTransfer.writeUInt8(3, 0);
+              leftoverTransfer.writeBigUInt64LE(leftover, 1);
+              tx.add(new TransactionInstruction({
+                programId: tokenProgramId,
+                keys: [
+                  { pubkey: userAta, isSigner: false, isWritable: true },
+                  { pubkey: incinAta, isSigner: false, isWritable: true },
+                  { pubkey: playerPubkey, isSigner: true, isWritable: false },
+                ],
+                data: leftoverTransfer,
+              }));
+            }
+          } else {
+            // No podium, burn all 100%
+            const allTransfer = Buffer.alloc(9);
+            allTransfer.writeUInt8(3, 0);
+            allTransfer.writeBigUInt64LE(podiumAmt, 1);
+            tx.add(new TransactionInstruction({
+              programId: tokenProgramId,
+              keys: [
+                { pubkey: userAta, isSigner: false, isWritable: true },
+                { pubkey: incinAta, isSigner: false, isWritable: true },
+                { pubkey: playerPubkey, isSigner: true, isWritable: false },
+              ],
+              data: allTransfer,
+            }));
+          }
+        }
+        
+        // Refresh blockhash for a full transaction lifespan
         const getBH = await rpcCall('getLatestBlockhash', [{ commitment:'confirmed' }]);
         if (!getBH || !getBH.value || !getBH.value.blockhash) throw new Error('Failed to get latest blockhash');
-        const blockhash = getBH.value.blockhash;
-        
-        const tx = new Transaction();
-        tx.recentBlockhash = blockhash;
+        tx.recentBlockhash = getBH.value.blockhash;
         tx.feePayer = playerPubkey;
-        tx.add(...instructions);
         
         const serialized = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
         
         return res.json({
           ok: true,
           tokensOut: tokensOut.toString(),
-          maxSolCost: maxSolCost.toString(),
+          maxSolCost: solInLamports.toString(),
           transaction: serialized.toString('base64'),
         });
       } catch (e) {
