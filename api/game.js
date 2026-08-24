@@ -2582,7 +2582,7 @@ module.exports = async (req, res) => {
         const balanceRes = await rpcCall('getBalance', [w]);
         const balance = (balanceRes && Number(balanceRes.value)) || 0;
         if (balance < solInLamports + 5000) {
-          throw new Error(`Insufficient SOL balance: you have ${(balance / 1e9).toFixed(5)} SOL, but need ${solAmount} SOL (plus a small fee).`);
+          return res.status(200).json({ ok: false, reason: `Insufficient SOL balance: you have ${(balance / 1e9).toFixed(5)} SOL, but need ${solAmount} SOL (plus a small fee).` });
         }
         
         // Fetch quote from Jupiter API
