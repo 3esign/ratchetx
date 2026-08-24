@@ -621,7 +621,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
           <input id="burnInSol" type="number" inputmode="numeric" min="0.01" step="0.01" placeholder="any amount of SOL">
         </div>
         <div class="splitOut" id="burnSplitOutSol">—</div>
-        <button class="fire" id="oneBurnSol">🔥 SWAP & RELOAD</button>
+        <button class="fire" id="oneBurnSol">🔥 BUY & RELOAD RCX</button>
       </div>
 
       <!-- RCX BURN SECTION -->
@@ -1858,12 +1858,12 @@ function setBurnSol(v,fromInput){
   
   if(!AUTH){
     if(out)out.textContent="Connect wallet to check swap estimate";
-    if(b&&!PB)b.textContent="🔥 SWAP & RELOAD";
+    if(b&&!PB)b.textContent="🔥 BUY & RELOAD RCX";
     return;
   }
   
   if(out)out.textContent="Calculating swap estimation...";
-  if(b&&!PB)b.textContent=`🔥 SWAP & RELOAD ${solAmt} SOL`;
+  if(b&&!PB)b.textContent=`🔥 BUY & RELOAD RCX ${solAmt} SOL`;
   
   if(setBurnTimeout)clearTimeout(setBurnTimeout);
   setBurnTimeout=setTimeout(async()=>{
@@ -1873,7 +1873,7 @@ function setBurnSol(v,fromInput){
         lastBuiltTx=j;
         const tokensOut=Math.floor(Number(j.tokensOut)/1e6);
         if(out)out.textContent=`Est. ${tokensOut.toLocaleString()} RCX bought · 70% burns · 30% pays podium`;
-        if(b&&!PB)b.textContent=`🔥 SWAP & RELOAD ${solAmt} SOL`;
+        if(b&&!PB)b.textContent=`🔥 BUY & RELOAD RCX ${solAmt} SOL`;
       }else{
         lastBuiltTx=null;
         if(out)out.textContent=`Error: ${j.reason}`;
@@ -1946,7 +1946,7 @@ function paintBurnBtn(){
   const bSol=$("oneBurnSol"), bRcx=$("oneBurnRcx");
   if(bSol){
     bSol.disabled=!!PB;
-    bSol.textContent=PB?"⏳ VERIFYING RELOAD — CREDITS INCOMING…" : `🔥 SWAP & RELOAD ${solAmt} SOL`;
+    bSol.textContent=PB?"⏳ VERIFYING RELOAD — CREDITS INCOMING…" : `🔥 BUY & RELOAD RCX ${solAmt} SOL`;
   }
   if(bRcx){
     bRcx.disabled=!!PB;
