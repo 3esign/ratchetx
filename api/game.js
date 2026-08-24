@@ -2769,25 +2769,25 @@ module.exports = async (req, res) => {
     }
 
     if (action === 'reload') {
-      if (!MINT) return res.status(400).json({ ok:false, reason:'token not launched yet - paper mode only' });
+      if (!MINT) return res.status(200).json({ ok:false, reason:'token not launched yet - paper mode only' });
       const b = req.body || {};
       const w = b.auth && b.auth.wallet;
-      if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'connect a real wallet to reload' });
+      if (!w || isDemo(w)) return res.status(200).json({ ok:false, reason:'connect a real wallet to reload' });
       const v = verifyAuth(b.auth);
-      if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
+      if (!v.ok) return res.status(200).json({ ok:false, reason:v.reason });
       const sig = String(b.sig || '').trim();
-      if (!/^[1-9A-HJ-NP-Za-km-z]{60,100}$/.test(sig)) return res.status(400).json({ ok:false, reason:'that does not look like a transaction signature' });
+      if (!/^[1-9A-HJ-NP-Za-km-z]{60,100}$/.test(sig)) return res.status(200).json({ ok:false, reason:'that does not look like a transaction signature' });
       const prior = await getJSONStrict(`sig:${sig}`);
       if (prior) {
         await repairReloadReceipt(sig, prior);
-        return res.status(409).json({ ok:false, reason:'that burn was already credited' });
+        return res.status(200).json({ ok:false, reason:'that burn was already credited' });
       }
       const tx = await getTx(sig);
       const pod = (await getJSONStrict('g:podium')) || { t:0, list:[] };
       const podHistory = (await getJSONStrict('g:podium:history')) || [];
       const d = decideBurn(tx, { wallet:w, mint:MINT, minAmount:1,
         podiumSets:[pod, ...podHistory], podiumPct:CHAMP.pct });
-      if (!d.ok) return res.status(400).json({ ok:false, reason: d.reason });
+      if (!d.ok) return res.status(200).json({ ok:false, reason: d.reason });
       const p = await loadPlayer(w);
       // Persist any older queued payout before applying this reload. The new
       // credit deliberately stays in `pend:` until the next player read, so a
@@ -2811,7 +2811,7 @@ module.exports = async (req, res) => {
       }))) {
         const winner = await getJSONStrict(`sig:${sig}`);
         await repairReloadReceipt(sig, winner);
-        return res.status(409).json({ ok:false, reason:'that burn was already credited' });
+        return res.status(200).json({ ok:false, reason:'that burn was already credited' });
       }
 
       p.burned += burnAmt;
