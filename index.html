@@ -411,7 +411,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
 .fire{border-radius:9px;background:linear-gradient(135deg,#e0b85e,#c99638);box-shadow:0 10px 24px rgba(0,0,0,.22)}
 .stk,.cin,.stakeCustom input{border-radius:8px}.foot{line-height:1.9}
 @media(max-width:640px){.wrap{padding-left:16px;padding-right:16px}.machine{padding:22px 16px}.panel{padding:16px}}
-</style><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"RATCHET","applicationCategory":"GameApplication","operatingSystem":"Web","url":"https://ratchetx.xyz","description":"A keyless prediction arcade on Solana. Sealed commit-reveal shots settled on Pyth oracle prices, 70% of every stake burned, 30% paid to players peer-to-peer, 0% to the team.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"sameAs":["https://github.com/3esign/ratchetx","https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump"]}</script>
+.splitOut { min-height: 32px; display: flex; align-items: center; justify-content: center; }</style><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"RATCHET","applicationCategory":"GameApplication","operatingSystem":"Web","url":"https://ratchetx.xyz","description":"A keyless prediction arcade on Solana. Sealed commit-reveal shots settled on Pyth oracle prices, 70% of every stake burned, 30% paid to players peer-to-peer, 0% to the team.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"sameAs":["https://github.com/3esign/ratchetx","https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump"]}</script>
 </head><body>
 
 <div class="hud"><div class="wrap hudrow">
@@ -876,7 +876,7 @@ const API='/api/game';
 let AUTH=null, DEMO=null, STATE=null, sel={t:null,side:null,stake:500}, dead=false;
 // SEALED means sealed: the server no longer returns open shots' sides to
 // anyone — including this client. Your own sides live here, locally.
-let SIDES={};try{SIDES=JSON.parse(localStorage.getItem("ratchet_sides"))||{}}catch{}
+let SIDES={};try{SIDES=JSON.parse(localStorage.getItem("ratchet_sides"))||{}}catch(e){if(e&&e.message&&e.message.includes("slow down")) { PB.slow = (PB.slow||0)+1; if(PB.slow>3) { toast("Reload paused due to rate limits. Click CREDIT manually."); setPB(null); paintBurnBtn(); } }}
 function rememberSide(shot){if(!shot||!shot.id)return;SIDES[shot.id]=shot.side;
   const ks=Object.keys(SIDES);if(ks.length>80)delete SIDES[ks[0]];
   localStorage.setItem("ratchet_sides",JSON.stringify(SIDES));}
