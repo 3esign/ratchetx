@@ -574,7 +574,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
     </div>
     <div class="tcap">THE BOARD · <span id="boardIn" style="color:var(--gold)">NEW MIX EVERY HOUR</span> · SETTLES ON REAL ORACLE PRICES</div>
     <div class="targets" id="targets"></div>
-    <div class="tcap">STAKE — BIGGER BURN, BIGGER XP</div>
+    <div class="tcap">STAKE — BIGGER🔥 BURN, BIGGER XP</div>
     <div class="stakes">
       <button class="stk on" data-s="500">500<small>×2.24 XP</small></button>
       <button class="stk" data-s="2500">2,500<small>×5 XP</small></button>
@@ -589,7 +589,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
     <div class="splitOut none" id="xpCapNote" style="margin:8px 0 0"></div>
     <div id="payLine" style="font:700 9.5px var(--mono);letter-spacing:.1em;color:var(--dim);margin-top:8px"></div>
     <button class="fire" id="fire" disabled>PICK A TARGET AND A SIDE</button>
-    <div class="splitline">EVERY SHOT: <b>70% BURNED</b> · 30% POTS (15% DAILY / 15% WEEKLY) · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
+    <div class="splitline">EVERY SHOT: <b>70%🔥 BURNED</b> · 30% POTS (15% DAILY / 15% WEEKLY) · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
   </div></div>
   <div class="rcol">
     <div class="railInner">
@@ -598,8 +598,8 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
     <div class="panel" id="reloadP" style="display:none;flex:none">
       <h3>RELOAD YOUR CREDITS</h3>
       <div style="display:flex;gap:8px;margin-bottom:12px;">
-        <button id="tabSwap" class="connect" style="flex:1;border-radius:8px">BUY & RELOAD</button>
-        <button id="tabBurn" class="connect done" style="flex:1;border-radius:8px">BURN RCX</button>
+        <button id="tabSwap" class="connect" style="flex:1;border-radius:8px">BUY & RELOAD RCX</button>
+        <button id="tabBurn" class="connect done" style="flex:1;border-radius:8px">BURN RCX & PLAY</button>
       </div>
       <div style="font:400 12.5px/1.6 var(--sans);color:var(--ink2);margin-bottom:10px" id="reloadDesc">
         Swap SOL for $RCX and burn it automatically to get credits. Every reload splits by the frozen rule:
@@ -621,10 +621,10 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
           <input id="burnInSol" type="number" inputmode="numeric" min="0.01" step="0.01" placeholder="any amount of SOL">
         </div>
         <div class="splitOut" id="burnSplitOutSol">—</div>
-        <button class="fire" id="oneBurnSol">🔥 BUY & RELOAD RCX</button>
+        <button class="fire" id="oneBurnSol">🔥🔥 BUY & RELOAD RCX</button>
       </div>
 
-      <!-- RCX BURN SECTION -->
+      <!-- RCX🔥 BURN SECTION -->
       <div id="secBurn" style="display:none">
         <div class="burnPick" id="burnPickRcx">
           <button class="stk" data-b="1000">1,000 RCX</button>
@@ -637,14 +637,14 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
           <input id="burnInRcx" type="number" inputmode="numeric" min="100" step="100" placeholder="any amount of RCX">
         </div>
         <div class="splitOut" id="burnSplitOutRcx">—</div>
-        <button class="fire" id="oneBurnRcx">🔥 BURN RCX</button>
+        <button class="fire" id="oneBurnRcx">🔥🔥🔥 BURN RCX & PLAY</button>
       </div>
 
-      <div class="splitline" style="margin:9px 0 10px;letter-spacing:.06em">70% BURNS · 30% TO THE PODIUM · <b>0% TO US</b></div>
+      <div class="splitline" style="margin:9px 0 10px;letter-spacing:.06em">70%🔥 BURNS · 30% TO THE PODIUM · <b>0% TO US</b></div>
       <div id="getRcxRow" style="text-align:center;margin-bottom:14px"></div>
       <!-- RECOVERY, NOT AN ALTERNATIVE ROUTE.
            This used to lead with "MANUAL FALLBACK - send RCX to the incinerator
-           yourself", directly under a line promising 70% BURNS / 30% TO THE
+           yourself", directly under a line promising 70%🔥 BURNS / 30% TO THE
            PODIUM. A hand-sent burn carries no champion legs, so it destroys
            100% and pays the podium nothing - quietly contradicting the promise
            printed one line above it.
@@ -664,7 +664,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         is checked against the chain and can only ever be credited once.</div>
       <details style="margin-top:10px">
         <summary style="font:600 9.5px var(--mono);color:var(--dim);letter-spacing:.08em;cursor:pointer">
-          BURNING BY HAND INSTEAD ▸</summary>
+         🔥 BURNING BY HAND INSTEAD ▸</summary>
         <div style="font:400 11.5px/1.6 var(--sans);color:var(--ink2);margin:9px 0 8px">
           You can send RCX to the incinerator yourself, but read this first: a hand-sent burn destroys
           <b style="color:var(--ink)">100%</b> and pays the podium <b style="color:var(--ink)">nothing</b>.
@@ -710,7 +710,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
       <div id="fleetBox" style="font:400 12.5px/1.6 var(--sans);color:var(--ink2)">—</div>
       <div style="font:600 9px/1.6 var(--mono);letter-spacing:.08em;color:var(--dim);margin-top:12px;
         border-top:1px solid var(--line);padding-top:10px">AGENTS NEVER ENTER A LADDER, A POT, THE PODIUM OR THE
-        BURN COUNTER. THEY STAKE NOTHING AND WIN NOTHING. THEY EXIST TO BE BEATEN.</div></div>
+       🔥 BURN COUNTER. THEY STAKE NOTHING AND WIN NOTHING. THEY EXIST TO BE BEATEN.</div></div>
     <!-- THE ARENA. The API and the docs existed before this block did, which
          meant nobody standing on the page could tell the door was there. -->
     <div class="panel" style="flex:none"><h3>CHALLENGES <span id="chalN" style="color:var(--ice)"></span></h3>
@@ -1250,8 +1250,8 @@ function paint(){
     const cl=(s.champ&&s.champ.podium)||[];
     $("podiumBox").style.display="block";
     $("podiumBox").innerHTML=cl.length
-      ?"THIS RELOAD PAYS THE CURRENT SNAPSHOT: "+cl.map((c,i)=>`${i+1}. <span style="color:var(--gold)">${c.w}</span> ${Math.round((s.champ.pct*c.pct)*100)}% <span style="color:var(--dim)">${c.source==="today"?"TODAY":"PREVIOUS-DAY FALLBACK"}</span>`).join(" · ")+" — THE REST BURNS"
-      :"NO CURRENT OR PREVIOUS-DAY PODIUM — ALL OF THIS RELOAD BURNS";}  else $("reloadP").style.display="none";
+      ?"THIS RELOAD PAYS THE CURRENT SNAPSHOT: "+cl.map((c,i)=>`${i+1}. <span style="color:var(--gold)">${c.w}</span> ${Math.round((s.champ.pct*c.pct)*100)}% <span style="color:var(--dim)">${c.source==="today"?"TODAY":"PREVIOUS-DAY FALLBACK"}</span>`).join(" · ")+" — THE REST🔥 BURNS"
+      :"NO CURRENT OR PREVIOUS-DAY PODIUM — ALL OF THIS RELOAD🔥 BURNS";}  else $("reloadP").style.display="none";
   { const g=$("getRcxRow");
     if(g){ const u=buyUrl();
       // Only when it is the actual next step — a prompt to buy shown to
@@ -1727,8 +1727,8 @@ function standing(){
     const has = holdsRcx(p);
     html=`<b style="color:var(--red)">OUT OF CREDITS</b> — YOU NEED ${(s.stakeRule&&s.stakeRule.min||100)} TO FIRE. `+
       (has === true
-        ? `YOU HOLD <b style="color:var(--gold)">${p.rcx.bal.toLocaleString()} $RCX</b> — RELOAD SOME FOR CREDITS, 1 FOR 1 — 70% BURNS, 30% PAYS THE PODIUM ${reloadBtn("RELOAD")}`
-        : `BURN $RCX FOR CREDITS, 1 FOR 1 — 70% BURNS, 30% PAYS THE PODIUM ${has === false ? buyBtn("GET $RCX") : ""}`);
+        ? `YOU HOLD <b style="color:var(--gold)">${p.rcx.bal.toLocaleString()} $RCX</b> — RELOAD SOME FOR CREDITS, 1 FOR 1 — 70%🔥 BURNS, 30% PAYS THE PODIUM ${reloadBtn("RELOAD")}`
+        : `BURN $RCX FOR CREDITS, 1 FOR 1 — 70%🔥 BURNS, 30% PAYS THE PODIUM ${has === false ? buyBtn("GET $RCX") : ""}`);
   }else if(p.qualified===false){
     // A wallet costs nothing to generate, so a free grant that also carried
     // RANK meant a script could farm the pot that pays real RCX. Playing is
@@ -1858,12 +1858,12 @@ function setBurnSol(v,fromInput){
   
   if(!AUTH){
     if(out)out.textContent="Connect wallet to check swap estimate";
-    if(b&&!PB)b.textContent="🔥 BUY & RELOAD RCX";
+    if(b&&!PB)b.textContent="🔥🔥 BUY & RELOAD RCX";
     return;
   }
   
   if(out)out.textContent="Calculating swap estimation...";
-  if(b&&!PB)b.textContent=`🔥 BUY & RELOAD RCX ${solAmt} SOL`;
+  if(b&&!PB)b.textContent=`🔥🔥 BUY & RELOAD RCX ${solAmt} SOL`;
   
   if(setBurnTimeout)clearTimeout(setBurnTimeout);
   setBurnTimeout=setTimeout(async()=>{
@@ -1873,7 +1873,7 @@ function setBurnSol(v,fromInput){
         lastBuiltTx=j;
         const tokensOut=Math.floor(Number(j.tokensOut)/1e6);
         if(out)out.textContent=`Est. ${tokensOut.toLocaleString()} RCX bought · 70% burns · 30% pays podium`;
-        if(b&&!PB)b.textContent=`🔥 BUY & RELOAD RCX ${solAmt} SOL`;
+        if(b&&!PB)b.textContent=`🔥🔥 BUY & RELOAD RCX ${solAmt} SOL`;
       }else{
         lastBuiltTx=null;
         if(out)out.textContent=`Error: ${j.reason}`;
@@ -1895,7 +1895,7 @@ document.querySelectorAll("#burnPickSol .stk").forEach(b=>b.onclick=()=>setBurnS
   inp.onkeydown=e=>{if(e.key==="Enter")inp.blur();};
 })();
 
-// --- RCX BURN ---
+// --- RCX🔥 BURN ---
 let burnAmt = 5000;
 function setBurnRcx(v,fromInput){
   const raw=Math.floor(+v||5000);
@@ -1911,7 +1911,7 @@ function setBurnRcx(v,fromInput){
     const toBurn=burnAmt-legTotal;
     out.textContent=`${toBurn.toLocaleString()} burns · ${legTotal.toLocaleString()} pays the podium`;
   }
-  if(b&&!PB)b.textContent=`🔥 BURN ${burnAmt.toLocaleString()} RCX`;
+  if(b&&!PB)b.textContent=`🔥🔥 BURN ${burnAmt.toLocaleString()} RCX`;
 }
 document.querySelectorAll("#burnPickRcx .stk").forEach(b=>b.onclick=()=>setBurnRcx(b.dataset.b,false));
 (()=> {
@@ -1946,11 +1946,11 @@ function paintBurnBtn(){
   const bSol=$("oneBurnSol"), bRcx=$("oneBurnRcx");
   if(bSol){
     bSol.disabled=!!PB;
-    bSol.textContent=PB?"⏳ VERIFYING RELOAD — CREDITS INCOMING…" : `🔥 BUY & RELOAD RCX ${solAmt} SOL`;
+    bSol.textContent=PB?"⏳⚡ VERIFYING RELOAD — CREDITS INCOMING…" : `🔥🔥 BUY & RELOAD RCX ${solAmt} SOL`;
   }
   if(bRcx){
     bRcx.disabled=!!PB;
-    bRcx.textContent=PB?"⏳ VERIFYING RELOAD — CREDITS INCOMING…" : `🔥 BURN ${burnAmt.toLocaleString()} RCX`;
+    bRcx.textContent=PB?"⏳⚡ VERIFYING RELOAD — CREDITS INCOMING…" : `🔥🔥 BURN ${burnAmt.toLocaleString()} RCX`;
   }
 }
 async function tryPB(){
@@ -2127,7 +2127,7 @@ function drawProof(){
     const other=s.otherDestroyed!=null?Math.round(s.otherDestroyed):null;
     $("supplyStrip").innerHTML=`<span class="pr">INITIAL <b>${s.initial.toLocaleString()}</b></span>
     <span class="pr">NOW <b>${s.current.toLocaleString()}</b></span>
-    ${pb!=null?`<span class="pr" style="border-color:var(--goldD)">PLAYERS BURNED <b style="color:var(--gold)">${pb.toLocaleString()}</b></span>`:""}
+    ${pb!=null?`<span class="pr" style="border-color:var(--goldD)">PLAYERS🔥 BURNED <b style="color:var(--gold)">${pb.toLocaleString()}</b></span>`:""}
     ${other!=null?`<span class="pr">LAUNCHPAD/OTHER <b>${other.toLocaleString()}</b></span>`:""}
     <span class="pr">AT INCINERATOR <b style="color:var(--red)">${s.incinerated.toLocaleString()}</b></span>`;}
   if(PROOF.log){$("logHead").textContent=` · ENTRY #${PROOF.log.i} · ${PROOF.log.h.slice(0,12)}…`;}
@@ -2141,7 +2141,7 @@ function drawProof(){
     const fo=other>=1e6?(other/1e6).toFixed(2)+"M":other.toLocaleString();
     $("burnChip").style.display="inline";$("burnChip").textContent="🔥 "+f+" PLAYER-BURNED";
     $("burnLine").style.display="block";
-    $("burnLine").textContent="🔥 "+pb.toLocaleString()+" RCX BURNED BY PLAYERS — VERIFIED ON-CHAIN"+(other>0?" · +"+fo+" REMOVED AT GRADUATION (PUMP.FUN-SIDE, NOT GAME ACTIVITY)":"");}
+    $("burnLine").textContent="🔥 "+pb.toLocaleString()+" RCX🔥 BURNED BY PLAYERS — VERIFIED ON-CHAIN"+(other>0?" · +"+fo+" REMOVED AT GRADUATION (PUMP.FUN-SIDE, NOT GAME ACTIVITY)":"");}
   setHTML($("anchorList"),(PROOF.anchors||[]).map(a=>`<div class="kl"><span class="t">#${a.i}</span>
     <span class="wl">${a.w}</span><span>anchored · <a href="https://solscan.io/tx/${a.sig}" target="_blank" rel="noopener" style="color:var(--ice)">tx ↗</a></span></div>`).join("")
     ||'<div class="empty">NOT YET ANCHORED — BE THE FIRST SCRIBE</div>');
