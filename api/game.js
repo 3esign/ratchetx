@@ -1881,12 +1881,6 @@ module.exports = async (req, res) => {
       return res.json({ ok: true, blockhash: bh });
     }
 
-    if (action === 'repair_sigs') {
-      const { delKey } = require('../lib/supabase_kv.js');
-      await delKey('sig:3gHQ2shTDACMeXxbC42Qhqs73soVQiYahaWEcA53LiKz8RCsf9faCNJV5h5gRyrNxt4Er3t99hWQRha3wjifg9nY');
-      await delKey('sig:2BMq8gM3iAfJ5sZE1nHT5BKHo1m8KrxDcoaeL2aT762JUQx31cqVGtcV6oe8ZNiUyuxYsL3triArtvNwHiW8tDj5');
-      return res.json({ ok: true, msg: 'Sigs deleted' });
-    }
     if (action === 'state') {
       // The daily cron lands here at 00:05 UTC, which is exactly when the
       // previous day has just closed and its buckets are freshest. Rolling
