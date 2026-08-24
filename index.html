@@ -1846,6 +1846,9 @@ let solAmt=0.1;
 const SOL_MIN=0.01, SOL_MAX=100;
 let lastBuiltTx = null;
 let setBurnTimeout = null;
+let lastFetchedSolAmt = null;
+let lastFetchedWallet = null;
+let lastFetchedTime = 0;
 
 function setBurnSol(v,fromInput){
   const raw=Number(v)||0.1;
@@ -1862,6 +1865,10 @@ function setBurnSol(v,fromInput){
     return;
   }
   
+  if (solAmt === lastFetchedSolAmt && AUTH.wallet === lastFetchedWallet && lastBuiltTx && (Date.now() - lastFetchedTime < 25000)) {
+    return;
+  }
+  
   if(out)out.textContent="Calculating swap estimation...";
   if(b&&!PB)b.textContent=`🔥🔥 BUY & RELOAD RCX ${solAmt} SOL`;
   
@@ -1871,6 +1878,9 @@ function setBurnSol(v,fromInput){
       const j=await post({action:"reload_build",wallet:AUTH.wallet,solAmount:solAmt});
       if(j.ok){
         lastBuiltTx=j;
+        lastFetchedSolAmt=solAmt;
+        lastFetchedWallet=AUTH.wallet;
+        lastFetchedTime=Date.now();
         const tokensOut=Math.floor(Number(j.tokensOut)/1e6);
         if(out)out.textContent=`Est. ${tokensOut.toLocaleString()} RCX bought · 70% burns · 30% pays podium`;
         if(b&&!PB)b.textContent=`🔥🔥 BUY & RELOAD RCX ${solAmt} SOL`;
