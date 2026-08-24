@@ -640,25 +640,15 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         <button class="fire" id="oneBurnRcx">🔥🔥🔥 BURN RCX & PLAY</button>
       </div>
 
-      <div class="splitline" style="margin:9px 0 10px;letter-spacing:.06em">70%🔥 BURNS · 30% TO THE PODIUM · <b>0% TO US</b></div>
-      <div id="getRcxRow" style="text-align:center;margin-bottom:14px"></div>
-      <!-- RECOVERY, NOT AN ALTERNATIVE ROUTE.
-           This used to lead with "MANUAL FALLBACK - send RCX to the incinerator
-           yourself", directly under a line promising 70%🔥 BURNS / 30% TO THE
-           PODIUM. A hand-sent burn carries no champion legs, so it destroys
-           100% and pays the podium nothing - quietly contradicting the promise
-           printed one line above it.
-           The signature box stays and stays prominent: if a reload lands on
-           chain but the browser dies before crediting, this is the only way to
-           get those credits, and removing it would strand real money. The
-           address moves behind a fold with the cost stated. -->
-      <div style="font:600 9.5px var(--mono);color:var(--dim);letter-spacing:.08em;margin-bottom:8px">
+      <div id="burnbox" style="font:600 9.5px var(--mono);color:var(--dim);letter-spacing:.08em;margin-bottom:8px">
         ALREADY SENT ONE? Paste the signature and we will credit it:</div>
-      <div style="display:flex;gap:8px">
+      <div style="display:flex;gap:8px;margin-bottom:14px">
         <input id="burnsig" placeholder="paste transaction signature" style="flex:1;background:var(--card2);
           border:1px solid var(--line);border-radius:8px;padding:11px 12px;color:var(--ink);font:12px var(--mono);outline:none">
         <button class="connect" style="border-radius:8px" id="burngo">CREDIT</button>
       </div>
+      <div class="splitline" style="margin:9px 0 10px;letter-spacing:.06em">70%🔥 BURNS · 30% TO THE PODIUM · <b>0% TO US</b></div>
+      <div id="getRcxRow" style="text-align:center;margin-bottom:14px"></div>
       <div style="font:400 11px/1.55 var(--sans);color:var(--dim);margin-top:8px">
         Use this if a reload went through on chain but the page lost it before crediting. Every signature
         is checked against the chain and can only ever be credited once.</div>
