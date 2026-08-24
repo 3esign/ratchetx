@@ -2553,6 +2553,142 @@ module.exports = async (req, res) => {
       return res.json({ ok: true, on: turnOn });
     }
 
+    if (action === 'reload_build') {
+      if (!MINT) return res.status(400).json({ ok:false, reason:'token not launched yet - paper mode only' });
+      const b = req.body || {};
+      const w = b.wallet || req.query.wallet;
+      if (!w) return res.status(400).json({ ok:false, reason:'wallet address required' });
+      
+      const solAmount = Number(b.solAmount || req.query.solAmount);
+      if (!solAmount || solAmount <= 0) return res.status(400).json({ ok:false, reason:'valid solAmount required' });
+      
+      const slippage = Number(b.slippage || req.query.slippage || 0.05);
+
+      try {
+        const { PublicKey, SystemProgram, Transaction, TransactionInstruction } = require('@solana/web3.js');
+        const PUMP_FUN_PROGRAM_ID = new PublicKey('6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P');
+        const ATA_PROGRAM_ID = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
+        const SYSVAR_RENT = new PublicKey('SysvarRent111111111111111111111111111111111');
+        
+        const playerPubkey = new PublicKey(w);
+        const mintPubkey = new PublicKey(MINT);
+        const incinPubkey = new PublicKey(INCINERATOR);
+        
+        const tokenProgramId = new PublicKey(await getMintProgram() || 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+        
+        const userAta = PublicKey.findProgramAddressSync([playerPubkey.toBuffer(), tokenProgramId.toBuffer(), mintPubkey.toBuffer()], ATA_PROGRAM_ID)[0];
+        const incinAta = PublicKey.findProgramAddressSync([incinPubkey.toBuffer(), tokenProgramId.toBuffer(), mintPubkey.toBuffer()], ATA_PROGRAM_ID)[0];
+        
+        const bondingCurve = PublicKey.findProgramAddressSync([Buffer.from("bonding-curve"), mintPubkey.toBuffer()], PUMP_FUN_PROGRAM_ID)[0];
+        const associatedBondingCurve = PublicKey.findProgramAddressSync([bondingCurve.toBuffer(), tokenProgramId.toBuffer(), mintPubkey.toBuffer()], ATA_PROGRAM_ID)[0];
+        
+        const globalAccount = PublicKey.findProgramAddressSync([Buffer.from("global")], PUMP_FUN_PROGRAM_ID)[0];
+        const globalInfo = await rpcCall('getAccountInfo', [globalAccount.toBase58(), { encoding: 'base64' }]);
+        if (!globalInfo || !globalInfo.value) throw new Error('Pump.fun global configuration not found');
+        const globalData = Buffer.from(globalInfo.value.data[0], 'base64');
+        const feeRecipient = new PublicKey(globalData.subarray(41, 73));
+        
+        const curveInfo = await rpcCall('getAccountInfo', [bondingCurve.toBase58(), { encoding: 'base64' }]);
+        if (!curveInfo || !curveInfo.value) throw new Error('Token bonding curve not found');
+        const curveData = Buffer.from(curveInfo.value.data[0], 'base64');
+        const virtualTokenReserves = curveData.readBigUInt64LE(8);
+        const virtualSolReserves = curveData.readBigUInt64LE(16);
+        
+        const solInLamports = BigInt(Math.floor(solAmount * 1e9));
+        const tokensOut = (solInLamports * virtualTokenReserves) / (virtualSolReserves + solInLamports);
+        const maxSolCost = BigInt(Math.floor(Number(solInLamports) * (1 + slippage)));
+        
+        const instructions = [];
+        
+        instructions.push(new TransactionInstruction({
+          programId: ATA_PROGRAM_ID,
+          keys: [
+            { pubkey: playerPubkey, isSigner: true, isWritable: true },
+            { pubkey: userAta, isSigner: false, isWritable: true },
+            { pubkey: playerPubkey, isSigner: false, isWritable: false },
+            { pubkey: mintPubkey, isSigner: false, isWritable: false },
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+            { pubkey: tokenProgramId, isSigner: false, isWritable: false },
+          ],
+          data: Buffer.from([1]),
+        }));
+
+        instructions.push(new TransactionInstruction({
+          programId: ATA_PROGRAM_ID,
+          keys: [
+            { pubkey: playerPubkey, isSigner: true, isWritable: true },
+            { pubkey: incinAta, isSigner: false, isWritable: true },
+            { pubkey: incinPubkey, isSigner: false, isWritable: false },
+            { pubkey: mintPubkey, isSigner: false, isWritable: false },
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+            { pubkey: tokenProgramId, isSigner: false, isWritable: false },
+          ],
+          data: Buffer.from([1]),
+        }));
+        
+        const eventAuthority = PublicKey.findProgramAddressSync([Buffer.from("__event_authority")], PUMP_FUN_PROGRAM_ID)[0];
+        
+        const buyDiscriminator = Buffer.from([102, 6, 61, 18, 1, 218, 235, 234]);
+        const amountBuf = Buffer.alloc(8); amountBuf.writeBigUInt64LE(tokensOut, 0);
+        const maxSolCostBuf = Buffer.alloc(8); maxSolCostBuf.writeBigUInt64LE(maxSolCost, 0);
+        const buyData = Buffer.concat([buyDiscriminator, amountBuf, maxSolCostBuf]);
+        
+        instructions.push(new TransactionInstruction({
+          programId: PUMP_FUN_PROGRAM_ID,
+          keys: [
+            { pubkey: globalAccount, isSigner: false, isWritable: true },
+            { pubkey: feeRecipient, isSigner: false, isWritable: true },
+            { pubkey: mintPubkey, isSigner: false, isWritable: false },
+            { pubkey: bondingCurve, isSigner: false, isWritable: true },
+            { pubkey: associatedBondingCurve, isSigner: false, isWritable: true },
+            { pubkey: userAta, isSigner: false, isWritable: true },
+            { pubkey: playerPubkey, isSigner: true, isWritable: true },
+            { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+            { pubkey: tokenProgramId, isSigner: false, isWritable: false },
+            { pubkey: SYSVAR_RENT, isSigner: false, isWritable: false },
+            { pubkey: eventAuthority, isSigner: false, isWritable: false },
+            { pubkey: PUMP_FUN_PROGRAM_ID, isSigner: false, isWritable: false },
+          ],
+          data: buyData,
+        }));
+        
+        const transferData = Buffer.alloc(9);
+        transferData.writeUInt8(3, 0);
+        transferData.writeBigUInt64LE(tokensOut, 1);
+        
+        instructions.push(new TransactionInstruction({
+          programId: tokenProgramId,
+          keys: [
+            { pubkey: userAta, isSigner: false, isWritable: true },
+            { pubkey: incinAta, isSigner: false, isWritable: true },
+            { pubkey: playerPubkey, isSigner: true, isWritable: false },
+          ],
+          data: transferData,
+        }));
+        
+        const getBH = await rpcCall('getLatestBlockhash', [{ commitment:'confirmed' }]);
+        if (!getBH || !getBH.value || !getBH.value.blockhash) throw new Error('Failed to get latest blockhash');
+        const blockhash = getBH.value.blockhash;
+        
+        const tx = new Transaction();
+        tx.recentBlockhash = blockhash;
+        tx.feePayer = playerPubkey;
+        tx.add(...instructions);
+        
+        const serialized = tx.serialize({ requireAllSignatures: false, verifySignatures: false });
+        
+        return res.json({
+          ok: true,
+          tokensOut: tokensOut.toString(),
+          maxSolCost: maxSolCost.toString(),
+          transaction: serialized.toString('base64'),
+        });
+      } catch (e) {
+        console.error(e);
+        return res.status(500).json({ ok: false, reason: String(e.message || e) });
+      }
+    }
+
     if (action === 'reload') {
       if (!MINT) return res.status(400).json({ ok:false, reason:'token not launched yet - paper mode only' });
       const b = req.body || {};

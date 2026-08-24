@@ -479,6 +479,26 @@ ok(wins.filter(Boolean).length === 1, 'setnx replay gate admits exactly one');
   ok(!d.ok && /unreadable token balance/.test(d.reason),
     'burn verifier refuses an unreadable balance instead of treating it as zero');
 
+  // 12a ---- decideBurn: atomic swap-and-burn (walletDelta is 0, parsed from instructions)
+  const swapTx = mkTx({ P: [10000, 10000], [INC]: [0, 7000], A: [0, 3000] });
+  swapTx.transaction = {
+    message: {
+      accountKeys: [
+        { pubkey: 'P', signer: true, writable: true },
+        { pubkey: 'M', signer: false, writable: false },
+        { pubkey: INC, signer: false, writable: true },
+        { pubkey: 'A', signer: false, writable: true },
+      ],
+      instructions: [
+        { parsed: { type: 'transferChecked', info: { authority: 'P', source: 'P-ATA', destination: 'INC-ATA', mint: 'M', tokenAmount: { amount: '7000', decimals: 0, uiAmount: 7000 } } } },
+        { parsed: { type: 'transferChecked', info: { authority: 'P', source: 'P-ATA', destination: 'A-ATA', mint: 'M', tokenAmount: { amount: '3000', decimals: 0, uiAmount: 3000 } } } },
+      ]
+    }
+  };
+  d = D(swapTx, { ...base, wallet: 'P', podium: ['A'] });
+  ok(d.ok && d.amount === 10000 && d.burned === 7000 && d.champPaid === 3000,
+    'champ: atomic swap-and-burn parses transfers successfully when net delta is 0');
+
   const now = Date.now();
   const liveSet = { v:'live-1', t:now-1000, list:[
     {w:'A',pct:0.5},{w:'B',pct:0.3},{w:'C',pct:0.2},
