@@ -2445,8 +2445,17 @@ module.exports = async (req, res) => {
         return res.status(400).json({ ok:false, reason:'name must be 2-23 characters: letters, digits, space, hyphen or underscore' });
       const blurb = String(b.blurb || '').trim().slice(0, 120);
       const p = await loadPlayer(w);
-      if (!p.qualified) return res.status(403).json({ ok:false,
-        reason:'this wallet has not touched RCX yet. Hold or burn some first — an arena anyone can enter for free is a leaderboard of noise' });
+      let x402Entry = null;
+      if (!p.qualified) {
+        // Second door, flag-gated (X402_ENABLED): an x402 toll paid straight
+        // to the CURRENT DAILY CHAMPION — a player, never us (lib/x402.js).
+        // Flag off, or no champion on the podium yet → the old rule stands.
+        const gate = await require('../lib/x402.js').entryGate(req, res);
+        if (gate === 'responded') return;
+        if (gate && gate.granted) x402Entry = gate;
+        else return res.status(403).json({ ok:false,
+          reason:'this wallet has not touched RCX yet. Hold or burn some first — an arena anyone can enter for free is a leaderboard of noise' });
+      }
       // Names and the bounded registry are shared state.  Serialize them so
       // two simultaneous registrations cannot both claim one name or erase
       // one another from the arena list.
@@ -2464,6 +2473,8 @@ module.exports = async (req, res) => {
         }
         const first = !p.agent;
         p.agent = { name, blurb, since: (p.agent && p.agent.since) || Date.now() };
+        if (x402Entry) p.x402Entry = { sig: x402Entry.sig, paidTo: x402Entry.payTo,
+          amount: x402Entry.amountAtomic, t: Date.now() };
         await savePlayer(p);
         const reg = (await getJSONStrict('g:arena')) || [];
         if (!reg.includes(w)) { reg.push(w); await setJSON('g:arena', reg.slice(0, 500)); }
@@ -2472,6 +2483,8 @@ module.exports = async (req, res) => {
           await bumpFeed({ w: name, a: 'entered THE ARENA', c: 'seal' });
         }
         return res.json({ ok:true, agent: p.agent, qualified: true,
+          entry: x402Entry ? 'x402-toll-to-champion' : 'rcx',
+          x402: x402Entry ? { paidTo: x402Entry.payTo, sig: x402Entry.sig } : undefined,
           howToPlay: '/api/game?action=board  then  POST {action:"shot", auth, target, side, stake}' });
       } finally {
         try { await releaseLease('lock:g:arena', arenaLease); } catch {}

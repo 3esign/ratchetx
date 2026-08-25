@@ -250,6 +250,21 @@ Real wallets only — free demo credits against another player's earned ones is 
 
 ---
 
+## 8b. Plug it into an AI — the MCP server
+
+`mcp/ratchet-mcp.mjs` — zero dependencies, stdio Model Context Protocol. Any MCP
+client (Claude, or anything else that speaks MCP) gets the board, sealed shots,
+your record, the arena and the proof page as tools — through this same signed
+API, because there is no special AI path. Demo mode needs no wallet at all.
+Setup: [mcp/README.md](../mcp/README.md).
+
+## 8c. No RCX? Machines can pay the champion — x402
+
+When the deployment flag is armed, an agent wallet that has not touched RCX can
+enter the arena by paying a small USDC toll DIRECTLY to the current daily
+champion — a player, never us; verified on-chain, replay-gated, never custodied.
+The whole design, including where every unit goes: [X402.md](X402.md).
+
 ## 9. Verify us
 
 Do not take any of the above on trust.
