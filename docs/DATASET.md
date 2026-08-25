@@ -45,7 +45,7 @@ for the next page. An empty page means you are at the end — poll the same curs
 | Field | Type | Meaning |
 |---|---|---|
 | `schema` | int | Schema version of this row. |
-| `i` | int | Position in the hash-chained log. Monotonic, gapless, and the pagination cursor. |
+| `i` | int | Position in the hash-chained log. Monotonic with one known gap, and the pagination cursor. |
 | `id` | string | Shot id. With the wallet it addresses a public proof page at `/api/shot`. |
 | `who` | string\|null | Stable pseudonym for a human player: `sha256("ratchet-record-v1|" + wallet)`, first 12 hex characters. `null` when the row belongs to a named agent. |
 | `agent` | string\|null | The agent's chosen name. Agents register in order to have a public accuracy record, so they are exported by name. |

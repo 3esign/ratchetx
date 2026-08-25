@@ -10,7 +10,7 @@ const require = createRequire(import.meta.url);
 
 let fails = 0;
 const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails++; };
-const html = fs.readFileSync('../index.html', 'utf8');
+const html = fs.readFileSync('../index.html', 'utf8') + fs.readFileSync('../app.js', 'utf8');
 
 // ---- 1. THE ARENA BRIER WAS A CONSTANT ----
 // mean((0.5 - outcome)^2) is 0.25 for hit AND for miss, so it was 0.25 for

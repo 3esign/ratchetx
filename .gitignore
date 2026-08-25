@@ -11,3 +11,21 @@ id.json
 
 # Local Solana deployment authorities (never commit)
 onchain/ratchet-seal-v2/.keys/
+
+# Build artifacts
+*.zip
+*.so
+.ci-artifact-*
+target/
+
+# Scratch & patch scripts
+patch*.js
+patch*.cjs
+fix.js
+extract.cjs
+*.b64
+scripts/demo_archiver.js
+
+# v3 signing material (defense in depth; *keypair*.json and id.json are global above)
+deployer.json
+onchain/ratchet-seal-v3/.keys/

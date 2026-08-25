@@ -58,7 +58,7 @@ assert.ok(calls.some(call => call.name === 'ratchet_kv_apply_once'
   && call.args.p_counters[0][0] === 'pend:A' && call.args.p_deltas.burned === 3));
 assert.ok(calls.some(call => call.name === 'ratchet_kv_zincr_many_once'
   && call.args.p_increments[0][1] === 'A'));
-const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const html = readFileSync(new URL('../index.html', import.meta.url), 'utf8') + readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 assert.ok(!html.includes('SUPABASE_SERVICE_KEY') && !html.includes('service_role'),
   'the service credential must never enter browser code');
 

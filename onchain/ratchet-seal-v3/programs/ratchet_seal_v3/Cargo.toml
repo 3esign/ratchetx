@@ -1,0 +1,22 @@
+[package]
+name = "ratchet-seal-v3"
+version = "3.0.0"
+description = "RATCHET V3 - Fully decentralized settlement with independent Checkpoint PDAs and JIT Pull cranking."
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ratchet_seal"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "=1.0.2", features = ["init-if-needed"] }
+pyth-solana-receiver-sdk = { version = "=2.0.0", features = ["pro-compatible"] }
+solana-sha256-hasher = "=3.1.0"

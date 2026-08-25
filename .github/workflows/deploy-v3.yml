@@ -1,0 +1,50 @@
+# Devnet CI for ratchet-seal-v3.
+#
+# SECURITY: no signing material lives in this repository — ever. The previous
+# version of this workflow read program-keypair.json and deployer.json from the
+# repo; both leaked publicly and are burned. This version generates EPHEMERAL
+# devnet keys per run. Before any real (stable-ID or mainnet) deploy: generate
+# fresh keypairs LOCALLY, update declare_id!/Anchor.toml, and never commit them.
+name: Deploy Ratchet Seal V3 (devnet, ephemeral keys)
+on:
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Install Solana
+        run: |
+          sh -c "$(curl -sSfL https://release.solana.com/v1.18.15/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> $GITHUB_PATH
+
+      - name: Install Anchor
+        run: |
+          cargo install --git https://github.com/coral-xyz/anchor avm --locked --force
+          avm install latest
+          avm use latest
+
+      - name: Install Node Dependencies
+        working-directory: onchain/ratchet-seal-v3
+        run: yarn install
+
+      - name: Generate ephemeral devnet keys (never from the repo)
+        run: |
+          mkdir -p onchain/ratchet-seal-v3/target/deploy ~/.config/solana
+          solana-keygen new --no-bip39-passphrase --silent -o onchain/ratchet-seal-v3/target/deploy/ratchet_seal_v3-keypair.json
+          solana-keygen new --no-bip39-passphrase --silent -o ~/.config/solana/ci-deployer.json
+          echo "Ephemeral program ID: $(solana-keygen pubkey onchain/ratchet-seal-v3/target/deploy/ratchet_seal_v3-keypair.json)"
+
+      - name: Run Tests
+        working-directory: onchain/ratchet-seal-v3
+        run: anchor test
+
+      - name: Deploy to Devnet (ephemeral)
+        working-directory: onchain/ratchet-seal-v3
+        run: |
+          solana config set --url devnet --keypair ~/.config/solana/ci-deployer.json
+          solana airdrop 2 || true
+          anchor build
+          anchor deploy --provider.cluster devnet || echo "devnet deploy is best-effort in CI"

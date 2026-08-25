@@ -62,11 +62,22 @@ if (DEMO) {
   WALLET = b58(Buffer.from(raw.slice(32)));
 }
 
+let TOKEN = null;
+const login = async () => {
+  if (DEMO) return;
+  const nr = await post({ action: 'nonce' });
+  if (!nr.ok) throw new Error("Agent nonce failed: " + nr.reason);
+  const nonce = nr.nonce;
+  const msg = Buffer.from(`RATCHET | ${WALLET} | ${nonce}`, 'utf8');
+  const sig = crypto.sign(null, msg, KEY).toString('base64');
+  const lr = await post({ action: 'login', wallet: WALLET, nonce, sig });
+  if (!lr.ok) throw new Error("Agent login failed: " + lr.reason);
+  TOKEN = lr.token;
+};
+
 const auth = () => {
   if (DEMO) return { wallet: WALLET };
-  const ts = Date.now();
-  return { wallet: WALLET, ts,
-    sig: crypto.sign(null, Buffer.from(`RATCHET | ${WALLET} | ${ts}`, 'utf8'), KEY).toString('base64') };
+  return { wallet: WALLET, token: TOKEN };
 };
 
 // ---------- transport ----------
@@ -160,6 +171,7 @@ async function tick() {
 
 // ---------- run ----------
 console.log(`RATCHET agent · ${DEMO ? 'DEMO (unranked, free)' : NAME} · ${WALLET}`);
+try { await login(); } catch(e) { console.error(e.message); process.exit(1); }
 if (!DEMO) {
   const reg = await post({ action: 'agent-register', auth: auth(), name: NAME,
     blurb: 'follows recent drift — the reference agent, here to be beaten' });

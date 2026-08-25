@@ -42,7 +42,7 @@
 // ============================================================
 const crypto = require('node:crypto');
 const { hashCommit } = require('../lib/commit.js');
-const { getJSON, getCached, getJSONStrict, getManyJSON, setJSON, setManyJSONAtomic, setnxJSON,
+const { getJSON, getCached, getJSONStrict, getManyJSON, setJSON, setManyJSONAtomic, setnxJSON, setJSONEx,
   acquireLease, releaseLease, delKey, scanKeys, durable, backend, zincr, zmax, ztop, incrFloat,
   takeNum, hincr, hincrMany, zincrManyOnce, applyOnce, hall, hseed, sweepExpired} = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped, b58decode } = require('../lib/verify.js');
@@ -1599,6 +1599,8 @@ async function settle(p, prices) {
         w:shortW(p.w), a:`MISS - streak reset - +${s.xp} XP`, c:'miss' });
     }
 
+    s.truthPlane = 'ratchet-server';
+    s.settlementAuthority = 'ratchet-server';
     s.settleRuleApplied = strict ? SETTLE_RULE : (s.settleRule || 'observed-sample-v1');
     s.settledAt = now; s.exitPx = px;
     s.exitAt = strict ? at.publishTime : at.row.t;
@@ -1619,12 +1621,14 @@ async function settle(p, prices) {
       settleRuleApplied:s.settleRuleApplied,
       outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1',
       allocationRule:s.allocationRule || 'upfront-v1', xp:s.xp || 0,
-      settleXp:s.settleXp || 0, skillXp:s.skillXp || 0 });
+      settleXp:s.settleXp || 0, skillXp:s.skillXp || 0,
+      truthPlane: s.truthPlane, settlementAuthority: s.settlementAuthority });
     await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
       res:s.res, xp:s.res === 'void' ? 0 : (s.xp || 0), back:s.back || 0,
       settleXp:s.settleXp || 0, skillXp:s.skillXp || 0,
       stake:s.stake, entry:s.entry, exit:px, kind:s.kind,
-      thresh:s.thresh, pct:s.pct });
+      thresh:s.thresh, pct:s.pct,
+      truthPlane: s.truthPlane, settlementAuthority: s.settlementAuthority });
     p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
   }
   p.open = still;
@@ -1782,7 +1786,28 @@ module.exports = async (req, res) => {
 
     const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
     const isPost = req.method !== 'GET';
-    if (rateLimited(ip, isPost)) return res.status(429).json({ ok:false, reason:'slow down - too many requests from this address' });
+    if (await rateLimited(ip, isPost)) return res.status(429).json({ ok:false, reason:'slow down - too many requests from this address' });
+
+    if (action === 'nonce') {
+      const crypto = require('node:crypto');
+      const nonce = crypto.randomBytes(16).toString('hex');
+      await setnxJSON(`nonce:${nonce}`, 1, 300); // valid 5 mins
+      return res.json({ ok:true, nonce });
+    }
+    if (action === 'login') {
+      const b = req.body || {};
+      const { verifySIWS } = require('../lib/verify.js');
+      if (!b.wallet || !b.sig || !b.nonce) return res.status(400).json({ ok:false, reason:'missing fields' });
+      const nKey = `nonce:${b.nonce}`;
+      const hasNonce = await getJSON(nKey);
+      if (!hasNonce) return res.status(401).json({ ok:false, reason:'nonce expired or invalid' });
+      await setJSONEx(nKey, 0, 1); // remove nonce immediately
+      if (!verifySIWS(b.wallet, b.nonce, b.sig)) return res.status(401).json({ ok:false, reason:'bad signature' });
+      const crypto = require('node:crypto');
+      const token = crypto.randomBytes(32).toString('hex');
+      await setnxJSON(`sess:${token}`, { wallet: b.wallet }, 3600); // 1 hr session
+      return res.json({ ok:true, token });
+    }
     // Player records are JSON blobs. Without a per-wallet mutex, two shots
     // can load the same credit balance, both spend it, then last-write-wins
     // the balance while retaining economic effects from both requests.
@@ -2112,7 +2137,7 @@ module.exports = async (req, res) => {
       const w = b.auth && b.auth.wallet;
       if (!w || typeof w !== 'string') return res.status(400).json({ ok:false, reason:'no wallet' });
       if (!isDemo(w)) {
-        const v = verifyAuth(b.auth);
+        const v = await verifyAuth(b.auth);
         if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
       }
       const p = await loadPlayer(w);
@@ -2261,7 +2286,7 @@ module.exports = async (req, res) => {
       // Demo credits are free and a challenge is zero-sum against a real
       // player's earned ones. Guests keep the main board.
       if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'challenges need a real wallet — guests play the open board' });
-      const v = verifyAuth(b.auth);
+      const v = await verifyAuth(b.auth);
       if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
 
       const kind = String(b.kind || 'dir');
@@ -2323,7 +2348,7 @@ module.exports = async (req, res) => {
       const b = req.body || {};
       const w = b.auth && b.auth.wallet;
       if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'challenges need a real wallet' });
-      const v = verifyAuth(b.auth);
+      const v = await verifyAuth(b.auth);
       if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
 
       const id = String(b.id || '');
@@ -2438,7 +2463,7 @@ module.exports = async (req, res) => {
       const b = req.body || {};
       const w = b.auth && b.auth.wallet;
       if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'an agent needs a real wallet — guests cannot enter the arena' });
-      const v = verifyAuth(b.auth);
+      const v = await verifyAuth(b.auth);
       if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
       const name = String(b.name || '').trim().toUpperCase();
       if (!/^[A-Z0-9][A-Z0-9 _-]{1,22}$/.test(name))
@@ -2548,7 +2573,7 @@ module.exports = async (req, res) => {
       const b = req.body || {};
       const w = b.auth && b.auth.wallet;
       if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'connect a real wallet to stake' });
-      const v = verifyAuth(b.auth);
+      const v = await verifyAuth(b.auth);
       if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
       const p = await loadPlayer(w);
       const turnOn = b.on !== false;
@@ -2788,7 +2813,7 @@ module.exports = async (req, res) => {
       const b = req.body || {};
       const w = b.auth && b.auth.wallet;
       if (!w || isDemo(w)) return res.status(200).json({ ok:false, reason:'connect a real wallet to reload' });
-      const v = verifyAuth(b.auth);
+      const v = await verifyAuth(b.auth);
       if (!v.ok) return res.status(200).json({ ok:false, reason:v.reason });
       const sig = String(b.sig || '').trim();
       if (!/^[1-9A-HJ-NP-Za-km-z]{60,100}$/.test(sig)) return res.status(200).json({ ok:false, reason:'that does not look like a transaction signature' });
@@ -2849,7 +2874,7 @@ module.exports = async (req, res) => {
       const b = req.body || {};
       const w = b.auth && b.auth.wallet;
       if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'connect a real wallet' });
-      const v = verifyAuth(b.auth);
+      const v = await verifyAuth(b.auth);
       if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
       
       const shotId = String(b.id || '');
@@ -2921,7 +2946,7 @@ module.exports = async (req, res) => {
       const b = req.body || {};
       const w = b.auth && b.auth.wallet;
       if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'connect a real wallet' });
-      const v = verifyAuth(b.auth);
+      const v = await verifyAuth(b.auth);
       if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
       
       const shotId = String(b.id || '');
@@ -2994,7 +3019,7 @@ module.exports = async (req, res) => {
       const b = req.body || {};
       const w = b.auth && b.auth.wallet;
       if (!w || isDemo(w)) return res.status(400).json({ ok:false, reason:'connect a real wallet to anchor' });
-      const v = verifyAuth(b.auth);
+      const v = await verifyAuth(b.auth);
       if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
       const sig = String(b.sig || '').trim();
       if (!/^[1-9A-HJ-NP-Za-km-z]{60,100}$/.test(sig)) return res.status(400).json({ ok:false, reason:'that does not look like a transaction signature' });

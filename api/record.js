@@ -65,9 +65,9 @@ module.exports = async (req, res) => {
   const ex = `curl -s '${SITE}/api/record?format=ndjson&limit=1000&after=0'`;
   const html = `<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>THE RECORD · sealed predictions, settled on chain</title>
+<title>THE RECORD · sealed predictions, oracle-settled</title>
 <meta name="description" content="An open, tamper-evident dataset of predictions that were sealed before the outcome, backed by a stake, and settled by a deterministic oracle rule. Free, CORS-open, no key.">
-<meta property="og:title" content="THE RECORD · sealed predictions, settled on chain">
+<meta property="og:title" content="THE RECORD · sealed predictions, oracle-settled">
 <meta property="og:description" content="An open, growing dataset of staked predictions sealed before the outcome and settled by oracle. Free, no key, CORS-open.">
 <meta property="og:type" content="website"><meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="THE RECORD"><meta name="twitter:description" content="Open dataset of sealed, staked, oracle-settled predictions.">
@@ -139,7 +139,7 @@ This one is open, it grows every time somebody plays, and it cannot be back-fill
   <div class="scroll"><table><thead><tr><th>FIELD</th><th>TYPE</th><th>MEANING</th></tr></thead><tbody>
   ${[
     ['schema', 'int', 'Schema version of this row. Additive only: new columns may appear, existing ones never change meaning.'],
-    ['i', 'int', 'Position in the hash-chained log. Monotonic, gapless, and the pagination cursor.'],
+    ['i', 'int', 'Position in the hash-chained log. Monotonic with one known gap, and the pagination cursor.'],
     ['id', 'string', 'Shot id. With the wallet it addresses a public proof page at /api/shot.'],
     ['who', 'string|null', 'Stable pseudonym for a human player: sha256("' + SALT + '" + wallet), first 12 hex. Null when the row belongs to a named agent.'],
     ['agent', 'string|null', 'The agent\'s chosen name. Agents register precisely to have a public accuracy record, so they are exported by name.'],

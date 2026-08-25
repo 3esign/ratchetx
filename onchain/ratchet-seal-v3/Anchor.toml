@@ -1,0 +1,25 @@
+[toolchain]
+anchor_version = "1.0.2"
+solana_version = "2.0.0"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+ratchet_seal = "CqVGgsJpkWm4KtSzQkLk4LaRikgxnRrhbYGietTtu7AB"
+
+[registry]
+url = "https://api.apr.dev"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
+
+[test]
+startup_wait = 5000
+
+[test.validator]
+url = "https://api.devnet.solana.com"
+[[test.validator.clone]]
+address = "rec5EKMGg6Mz7oGZ3rBhh2U5d46BwT2R9g9uA8bMpwE"

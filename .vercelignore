@@ -23,3 +23,9 @@ scripts/
 *keypair*.json
 *.keys/
 deploy_check.txt
+
+# v3/v4 drafts — committed to the tree, kept OUT of the deploy until they go live
+api/game_v3_indexer.js
+frontend_v3_snippet.js
+v4.html
+v4_app.js

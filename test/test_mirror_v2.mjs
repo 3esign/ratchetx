@@ -5,7 +5,7 @@ const require = createRequire(import.meta.url);
 
 const { parseMirrorSeal } = require('../api/game.js');
 const source = fs.readFileSync(new URL('../api/game.js', import.meta.url), 'utf8');
-const ui = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+const ui = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8') + fs.readFileSync(new URL('../app.js', import.meta.url), 'utf8');
 const disc = Buffer.from('66caaba31b9869f2', 'hex');
 const nonce = Buffer.alloc(8); nonce.writeBigUInt64LE(123456789n);
 const commit = Buffer.alloc(32, 0xab);

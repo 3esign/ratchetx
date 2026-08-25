@@ -164,9 +164,12 @@ function b58encode(buf) {
 }
 const { publicKey: _pk, privateKey: _sk } = crypto.generateKeyPairSync('ed25519');
 const SIGNER = b58encode(_pk.export({ format: 'der', type: 'spki' }).subarray(12));
-const authFor = (w = SIGNER) => {
-  const ts = Date.now();
-  return { wallet: w, ts, sig: crypto.sign(null, Buffer.from(`RATCHET | ${w} | ${ts}`, 'utf8'), _sk).toString('base64') };
+const authFor = async (w = SIGNER, k = _sk) => {
+  const nr = await call('POST', { body: { action: 'nonce' } });
+  const nonce = nr.body.nonce;
+  const sig = crypto.sign(null, Buffer.from(`RATCHET | ${w} | ${nonce}`, 'utf8'), k).toString('base64');
+  const lr = await call('POST', { body: { action: 'login', wallet: w, nonce, sig } });
+  return { wallet: w, token: lr.body.token };
 };
 
 // 2 ---- state?wallet=garbage must not mint records
@@ -205,7 +208,7 @@ ok((getMem('g:feed') || []).length === 0, 'demo hit absent from public feed');
 
 // 3b ---- the same stake from a REAL, signed wallet MUST move the counters.
 // Without this the guest test above could pass simply by the pot being broken.
-r = await call('POST', { body: { action: 'shot', auth: authFor(), target: TARGET5, side: 'YES', stake: 500 } });
+r = await call('POST', { body: { action: 'shot', auth: await authFor(), target: TARGET5, side: 'YES', stake: 500 } });
 ok(r.body.ok, 'signed real wallet accepted');
 let stR = stats();
 ok(stR.shots === 1, 'a durable real seal increments the public shot count exactly once');
@@ -245,8 +248,13 @@ ok(stR && !stR.burned && !stR.potD && !stR.pot,
   ok(JSON.stringify(externalAfterRetry)===JSON.stringify(externalAfterFirst),
     'settlement retry does not duplicate pots, payout, XP, feed, history or hash-log');
 }
-ok(!(await call('POST', { body: { action: 'shot', auth: { ...authFor(), sig: 'AAAA' }, target: TARGET5, side: 'YES', stake: 500 } })).body.ok,
-   'forged signature rejected');
+{
+  const nr = await call('POST', { body: { action: 'nonce' } });
+  const lr = await call('POST', { body: { action: 'login', wallet: SIGNER, nonce: nr.body.nonce, sig: 'AAAA' } });
+  const badAuth = { wallet: SIGNER, token: lr.body.token };
+  ok(!(await call('POST', { body: { action: 'shot', auth: badAuth, target: TARGET5, side: 'YES', stake: 500 } })).body.ok,
+     'forged signature rejected');
+}
 
 // Two simultaneous spends from one player used to load the same balance and
 // both succeed; the player blob then kept one deduction while global pots kept
@@ -254,13 +262,18 @@ ok(!(await call('POST', { body: { action: 'shot', auth: { ...authFor(), sig: 'AA
 {
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
   const w = b58encode(publicKey.export({format:'der',type:'spki'}).subarray(12));
-  const au = () => { const ts=Date.now(); return {wallet:w,ts,
-    sig:crypto.sign(null,Buffer.from(`RATCHET | ${w} | ${ts}`),privateKey).toString('base64')}; };
+  const au = async () => {
+    const nr = await call('POST', { body: { action: 'nonce' } });
+    const sig = crypto.sign(null, Buffer.from(`RATCHET | ${w} | ${nr.body.nonce}`, 'utf8'), privateKey).toString('base64');
+    const lr = await call('POST', { body: { action: 'login', wallet: w, nonce: nr.body.nonce, sig } });
+    return { wallet: w, token: lr.body.token };
+  };
   setMem(`u:${w}`, {w,xp:0,streak:0,best:0,hits:0,shots:0,cr:1000,granted:true,
     qualified:true,burned:0,day:new Date().toISOString().slice(0,10),open:[],closed:[]});
+  const auA = await au(), auB = await au();
   const [a,b] = await Promise.all([
-    call('POST',{ip:'20.0.0.1',body:{action:'shot',auth:au(),target:TARGET5,side:'YES',stake:1000}}),
-    call('POST',{ip:'20.0.0.2',body:{action:'shot',auth:au(),target:TARGET5,side:'NO', stake:1000}}),
+    call('POST',{ip:'20.0.0.1',body:{action:'shot',auth:auA,target:TARGET5,side:'YES',stake:1000}}),
+    call('POST',{ip:'20.0.0.2',body:{action:'shot',auth:auB,target:TARGET5,side:'NO', stake:1000}}),
   ]);
   ok([a,b].filter(x=>x.body.ok).length===1 && [a,b].some(x=>x.status===409),
      'concurrent spends from one wallet admit exactly one');
@@ -1005,11 +1018,16 @@ const kvmod = require('../lib/kv.js');
   // a signed but UNQUALIFIED wallet must not be able to enter
   const { publicKey: pk2, privateKey: sk2 } = crypto.generateKeyPairSync('ed25519');
   const W2 = b58encode(pk2.export({ format: 'der', type: 'spki' }).subarray(12));
-  const auth2 = () => { const ts = Date.now();
-    return { wallet: W2, ts, sig: crypto.sign(null, Buffer.from(`RATCHET | ${W2} | ${ts}`, 'utf8'), sk2).toString('base64') }; };
+  const auth2 = async () => {
+    const nr = await call('POST', { body: { action: 'nonce' } });
+    const nonce = nr.body.nonce;
+    const sig = crypto.sign(null, Buffer.from(`RATCHET | ${W2} | ${nonce}`, 'utf8'), sk2).toString('base64');
+    const lr = await call('POST', { body: { action: 'login', wallet: W2, nonce, sig } });
+    return { wallet: W2, token: lr.body.token };
+  };
   setMem(`u:${W2}`, { w: W2, xp:0, streak:0, best:0, hits:0, shots:0, cr:5000, granted:true,
     qualified:false, burned:0, day:new Date().toISOString().slice(0,10), open:[], closed:[] });
-  r = await call('POST', { body: { action: 'agent-register', auth: auth2(), name: 'FREELOADER' } });
+  r = await call('POST', { body: { action: 'agent-register', auth: await auth2(), name: 'FREELOADER' } });
   ok(!r.body.ok && /has not touched RCX/.test(r.body.reason || ''),
      'an unqualified wallet cannot enter the arena — free identities would make the board noise');
 
@@ -1017,19 +1035,19 @@ const kvmod = require('../lib/kv.js');
   resetRL();
   const pq = getMem(`u:${SIGNER}`) || {}; pq.qualified = true; pq.w = SIGNER;
   setMem(`u:${SIGNER}`, pq);
-  r = await call('POST', { body: { action: 'agent-register', auth: authFor(), name: 'test bot', blurb: 'reads the drift' } });
+  r = await call('POST', { body: { action: 'agent-register', auth: await authFor(), name: 'test bot', blurb: 'reads the drift' } });
   ok(r.body.ok && r.body.agent.name === 'TEST BOT', 'a qualified wallet registers, name normalised');
   ok(getMem(`u:${SIGNER}`).agent.since > 0, 'the agent record is stored on the wallet');
 
   // names cannot be stolen
   resetRL();
   setMem(`u:${W2}`, { ...getMem(`u:${W2}`), qualified: true });
-  r = await call('POST', { body: { action: 'agent-register', auth: auth2(), name: 'TEST BOT' } });
+  r = await call('POST', { body: { action: 'agent-register', auth: await auth2(), name: 'TEST BOT' } });
   ok(!r.body.ok && /taken/.test(r.body.reason || ''), 'a live agent name cannot be taken over');
 
   // bad names refused
   resetRL();
-  r = await call('POST', { body: { action: 'agent-register', auth: auth2(), name: 'x' } });
+  r = await call('POST', { body: { action: 'agent-register', auth: await auth2(), name: 'x' } });
   ok(!r.body.ok, 'a one-character name is refused');
 
   // the machine board carries everything an agent needs
@@ -1162,8 +1180,13 @@ const kvmod = require('../lib/kv.js');
   const { publicKey: pkB, privateKey: skB } = crypto.generateKeyPairSync('ed25519');
   const WA = b58encode(pkA.export({format:'der',type:'spki'}).subarray(12));
   const WB = b58encode(pkB.export({format:'der',type:'spki'}).subarray(12));
-  const au = (w,k)=>{ const ts=Date.now();
-    return { wallet:w, ts, sig: crypto.sign(null, Buffer.from(`RATCHET | ${w} | ${ts}`,'utf8'), k).toString('base64') }; };
+  const au = async (w, k) => {
+    const nr = await call('POST', { body: { action: 'nonce' } });
+    const nonce = nr.body.nonce;
+    const sig = crypto.sign(null, Buffer.from(`RATCHET | ${w} | ${nonce}`, 'utf8'), k).toString('base64');
+    const lr = await call('POST', { body: { action: 'login', wallet: w, nonce, sig } });
+    return { wallet: w, token: lr.body.token };
+  };
   const fundW = w => setMem(`u:${w}`, { w, xp:0, streak:0, best:0, hits:0, shots:0, cr:20000,
     granted:true, qualified:true, burned:0, day:new Date().toISOString().slice(0,10), open:[], closed:[] });
   fundW(WA); fundW(WB);
@@ -1175,7 +1198,7 @@ const kvmod = require('../lib/kv.js');
   resetRL();
   const crA0 = getMem(`u:${WA}`).cr;
   const shotsBeforeOffer = Number(stats().shots) || 0;
-  r = await call('POST', { body:{ action:'challenge', auth:au(WA,skA), kind:'thr', feed:'SOL', pct:0.01, mins:30, side:'YES', stake:500 } });
+  r = await call('POST', { body:{ action:'challenge', auth:await au(WA,skA), kind:'thr', feed:'SOL', pct:0.01, mins:30, side:'YES', stake:500 } });
   ok(r.body.ok && r.body.challenge.id && r.body.challenge.outcomeRule === 'strict-compare-v2',
     'a real wallet writes one with the strict comparison rule');
   const cid = r.body.ok && r.body.challenge.id;
@@ -1190,12 +1213,12 @@ const kvmod = require('../lib/kv.js');
 
   // you cannot take your own
   resetRL();
-  r = await call('POST', { body:{ action:'accept', auth:au(WA,skA), id:cid } });
+  r = await call('POST', { body:{ action:'accept', auth:await au(WA,skA), id:cid } });
   ok(!r.body.ok && /your own/.test(r.body.reason||''), 'the author cannot take their own side');
 
   // one challenge at a time
   resetRL();
-  r = await call('POST', { body:{ action:'challenge', auth:au(WA,skA), kind:'dir', feed:'BTC', mins:10, side:'NO', stake:500 } });
+  r = await call('POST', { body:{ action:'challenge', auth:await au(WA,skA), kind:'dir', feed:'BTC', mins:10, side:'NO', stake:500 } });
   ok(!r.body.ok && /one at a time/.test(r.body.reason||''), 'one open challenge per wallet');
 
   // An underfunded taker used to win the atomic acceptance key before the
@@ -1205,7 +1228,7 @@ const kvmod = require('../lib/kv.js');
   setMem(`u:${WC}`, {w:WC,xp:0,streak:0,best:0,hits:0,shots:0,cr:0,granted:true,
     qualified:true,burned:0,day:new Date().toISOString().slice(0,10),open:[],closed:[]});
   resetRL();
-  r = await call('POST', { body:{ action:'accept', auth:au(WC,skC), id:cid } });
+  r = await call('POST', { body:{ action:'accept', auth:await au(WC,skC), id:cid } });
   ok(!r.body.ok && !getMem(`chaltaken:${cid}`),
      'an underfunded taker releases the acceptance gate');
   ok((Number(stats().shots)||0) === shotsBeforeOffer, 'a failed acceptance creates no shot accounting');
@@ -1213,7 +1236,7 @@ const kvmod = require('../lib/kv.js');
   // the taker gets the opposite side, struck now
   resetRL();
   const crB0 = getMem(`u:${WB}`).cr;
-  r = await call('POST', { body:{ action:'accept', auth:au(WB,skB), id:cid } });
+  r = await call('POST', { body:{ action:'accept', auth:await au(WB,skB), id:cid } });
   ok(r.body.ok, 'another wallet takes it');
   ok(r.body.shot && r.body.shot.side === 'NO', 'and gets the opposite side');
   ok(Math.abs(r.body.struckAt - 100) < 1e-9, 'struck on the price at acceptance, not at authoring');
@@ -1237,14 +1260,14 @@ const kvmod = require('../lib/kv.js');
   r = await call('GET', { query:{ action:'challenges' } });
   ok(!r.body.open.some(c=>c.id===cid), 'a taken challenge leaves the board');
   resetRL();
-  r = await call('POST', { body:{ action:'accept', auth:au(WB,skB), id:cid } });
+  r = await call('POST', { body:{ action:'accept', auth:await au(WB,skB), id:cid } });
   ok(!r.body.ok, 'and cannot be taken twice');
 
   // nobody takes it -> the stake comes back
   resetRL();
   fundW(WA);
   const crA1 = getMem(`u:${WA}`).cr;
-  r = await call('POST', { body:{ action:'challenge', auth:au(WA,skA), kind:'dir', feed:'ETH', mins:15, side:'YES', stake:1000 } });
+  r = await call('POST', { body:{ action:'challenge', auth:await au(WA,skA), kind:'dir', feed:'ETH', mins:15, side:'YES', stake:1000 } });
   const gone = r.body.challenge.id;
   const cl = getMem('g:chal'); cl.find(c=>c.id===gone).expiresAt = Date.now()-1000; setMem('g:chal', cl);
   await new Promise(resolve => setTimeout(resolve, 5)); // let the prior response's finally release its player lease
@@ -1254,13 +1277,13 @@ const kvmod = require('../lib/kv.js');
 
   // bounds
   resetRL();
-  r = await call('POST', { body:{ action:'challenge', auth:au(WB,skB), kind:'thr', feed:'SOL', pct:0.9, mins:30, side:'YES', stake:500 } });
+  r = await call('POST', { body:{ action:'challenge', auth:await au(WB,skB), kind:'thr', feed:'SOL', pct:0.9, mins:30, side:'YES', stake:500 } });
   ok(!r.body.ok && /move must be/.test(r.body.reason||''), 'a 90% move is refused');
   resetRL();
-  r = await call('POST', { body:{ action:'challenge', auth:au(WB,skB), kind:'dir', feed:'DOGE', mins:30, side:'YES', stake:500 } });
+  r = await call('POST', { body:{ action:'challenge', auth:await au(WB,skB), kind:'dir', feed:'DOGE', mins:30, side:'YES', stake:500 } });
   ok(!r.body.ok && /unknown feed/.test(r.body.reason||''), 'an unknown feed is refused');
   resetRL();
-  r = await call('POST', { body:{ action:'challenge', auth:au(WB,skB), kind:'dir', feed:'SOL', mins:1, side:'YES', stake:500 } });
+  r = await call('POST', { body:{ action:'challenge', auth:await au(WB,skB), kind:'dir', feed:'SOL', mins:1, side:'YES', stake:500 } });
   ok(!r.body.ok && /window must be/.test(r.body.reason||''), 'a one-minute window is refused — below the oracle heartbeat');
 }
 
