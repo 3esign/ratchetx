@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RATCHET V4 ?" Unstoppable P2P Lobbies</title>
+  <link rel="stylesheet" href="/style.css">
+  <script src="https://unpkg.com/@solana/web3.js@latest/lib/index.iife.js"></script>
+</head>
+<body style="padding: 20px; font-family: monospace; color: var(--ice); background: var(--void);">
+  <h1>RATCHET V4 (P2P LOBBIES)</h1>
+  <button id="connectWallet" style="padding:10px; background:var(--ink2); color:var(--ice); border:none; cursor:pointer;">CONNECT WALLET</button>
+  <div id="walletStatus" style="margin-top:10px; color:var(--gold);"></div>
+  
+  <hr style="border: 1px solid var(--ink2); margin: 20px 0;">
+
+  <h2>1. CREATE A LOBBY (Bet 0.1 SOL)</h2>
+  <p>Target: BTC/USD (Pyth: e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43)</p>
+  <button id="btnYes" style="padding:10px; background:var(--grn); color:var(--void); border:none; cursor:pointer;">BET YES (UP 1%)</button>
+  <button id="btnNo" style="padding:10px; background:var(--red); color:var(--void); border:none; cursor:pointer;">BET NO (DOWN 1%)</button>
+
+  <hr style="border: 1px solid var(--ink2); margin: 20px 0;">
+
+  <h2>2. OPEN LOBBIES (Live from Solana)</h2>
+  <div id="lobbyList">Loading...</div>
+
+  <script src="/v4_app.js"></script>
+</body>
+</html>
