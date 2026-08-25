@@ -59,15 +59,23 @@ Fourteen days exist to be used. Each item is checkable; an item still open on
   mainnet-beta, tx signature linked here. Any instruction still unexercised on
   2026-09-08 is a named, accepted risk or a reason to wait. (Method: the program's
   transaction list on an explorer, plus server records.)
+  Status 2026-08-25, read from the site's own public records: **seal** is exercised —
+  sealed shots with transaction signatures appear in the public log (optional-seal
+  mirror live, feeds: SOL) — and the SOL FeedClock account exists on mainnet, so
+  **checkpoint** has run at least once. **settle, reveal, void_shot and close_shot
+  appear never to have been exercised on mainnet** — the end-to-end automation was
+  never armed. Those four are the real pre-freeze work: drive one sealed shot through
+  the full on-chain lifecycle, or accept each here as a named risk.
 - [ ] **Final byte-verification.** Rebuild with the pinned toolchain, compare SHA-256
   against the deployed program data one last time, record both hashes here. That pair
   is the claim that stays true forever.
 - [ ] **Kill-switch drill.** Unset `RATCHET_SEAL_PROGRAM_ID` once in a preview deploy
   and confirm the site cleanly stops arming sealing. It is the only lever that survives
   the freeze; prove it moves before relying on it.
-- [ ] **v3 independence.** Confirm the planned v3 cutover needs no new v2 instruction
-  and no v2 state migration (new program id, fresh accounts). One sentence here when
-  confirmed.
+- [x] **v3 independence.** Confirmed 2026-08-25 against the v3 RFC and program
+  source: v3 references v2 only as motivation — no CPI into v2, no shared accounts,
+  no migration instruction; it ships as a new program id with fresh PDAs. Freezing
+  v2 blocks nothing v3 needs.
 - [ ] **Ceremony logistics — done by 2026-09-05, not on the day.** Solana CLI installed
   locally; the offline authority keypair located; `solana program show` dry-run passes;
   the on-chain authority address matches the held key; the fee payer holds a little SOL.
