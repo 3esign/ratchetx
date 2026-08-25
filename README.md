@@ -70,7 +70,8 @@ program-owned clock; settlement selects the first verified Ratchet checkpoint cr
 with disjoint settle/void deadlines, commit-reveal and rent cleanup. This needs no Hermes API key or
 trusted price signer. Eligible SOL chambers expose optional player-paid sealing during the soak
 period; server settlement remains canonical until checkpoint, settle, reveal and close automation
-is integrated end to end. Upgrade authority is deliberately retained during soak. This program is
+is integrated end to end. Upgrade authority is deliberately retained during soak — and is revoked
+for good on **2026-09-08**, registered before the fact in [docs/FREEZE.md](docs/FREEZE.md). This program is
 not a redeemable floor vault; do not describe the modeled floor as redeemable until a separate
 funded vault PDA, liabilities proof and no-withdraw path are deployed and independently reviewed.
 
@@ -171,5 +172,6 @@ to a thinner price source only if the primary on-chain route fails, and says so 
 `RATCHET_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)
 
 No player-funds key exists in the site or backend; the game cannot custody or move player tokens. The
-program upgrade authority is retained offline only for the declared soak period and should move to a
-reviewed multisig or be revoked after the integrated path is proven. Read the code; that is the point.
+program upgrade authority is retained offline only for the declared soak period — which now has an end
+date: **revoked on 2026-09-08**, registered in advance in [docs/FREEZE.md](docs/FREEZE.md). Read the
+code; that is the point.
