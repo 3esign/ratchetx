@@ -11,15 +11,15 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 
 ## Is this repo actually the running code?
 
-This source tree declares `h68-2026-08-23`. A deployment is release-consistent only when
+This source tree declares `h69-2026-08-25`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h68-2026-08-23"
-https://ratchetx.xyz/api/proof               ->  "v": "h68-2026-08-23"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h69-2026-08-25"
+https://ratchetx.xyz/api/proof               ->  "v": "h69-2026-08-25"
 ```
 
-All public APIs in this repo declare `const VERSION = 'h68-2026-08-23'`.
+All public APIs in this repo declare `const VERSION = 'h69-2026-08-25'`.
 
 ## Balanced questions, fewer refunds
 
@@ -103,7 +103,7 @@ No key that can touch funds.
 | `scripts/restore.mjs` | verify a snapshot's hash chain and resurrect the machine into fresh storage |
 | `scripts/run-tests.mjs` | every suite, isolated per process — `npm test` |
 | `docs/` | the written record: audit, changelog, dataset schema, on-chain transcript |
-| `test/` | 25 suites. Not decoration — most exist because something was actually wrong |
+| `test/` | 36 suites. Not decoration — most exist because something was actually wrong |
 
 ## Layout
 
@@ -113,7 +113,7 @@ lib/        the parts worth reading: oracle decode, price record, settlement, ha
 agent/      a zero-dependency reference agent for the arena
 onchain/    the Solana settlement program
 scripts/    the test runner and the snapshot restorer
-test/       25 suites
+test/       36 suites
 docs/       audit, changelog, dataset schema, on-chain transcript
 ```
 
@@ -173,5 +173,3 @@ to a thinner price source only if the primary on-chain route fails, and says so 
 No player-funds key exists in the site or backend; the game cannot custody or move player tokens. The
 program upgrade authority is retained offline only for the declared soak period and should move to a
 reviewed multisig or be revoked after the integrated path is proven. Read the code; that is the point.
-   
- 

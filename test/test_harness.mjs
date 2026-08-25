@@ -387,7 +387,10 @@ PX[FLASH_FEED] = offlineSaved;
 
 // 10 ---- rate limiter
 let limited = false;
-for (let i = 0; i < 30; i++) {
+// The POST cap was raised 20 -> 60 per minute (96b643a) but this loop still
+// stopped at 30, so the limiter could never trip and the suite went red on a
+// green change. Probe safely past the current cap instead of hard-coding it.
+for (let i = 0; i < 90; i++) {
   const q = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-abc123' }, target: TARGET5, side: 'YES', stake: 100 }, ip: '9.9.9.9' });
   if (q.status === 429) { limited = true; break; }
 }

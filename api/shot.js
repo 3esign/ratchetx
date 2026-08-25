@@ -19,7 +19,7 @@ const { pathFor } = require('../lib/pxlog.js');
 const { isWalletShaped, isDemo } = require('../lib/verify.js');
 const { verifyCommit } = require('../lib/commit.js');
 
-const VERSION = 'h68-2026-08-23';
+const VERSION = 'h69-2026-08-25';
 const SITE = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
 const esc = s => String(s == null ? '' : s)
   .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')

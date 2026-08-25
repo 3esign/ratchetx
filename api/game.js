@@ -44,7 +44,7 @@ const crypto = require('node:crypto');
 const { hashCommit } = require('../lib/commit.js');
 const { getJSON, getCached, getJSONStrict, getManyJSON, setJSON, setManyJSONAtomic, setnxJSON,
   acquireLease, releaseLease, delKey, scanKeys, durable, backend, zincr, zmax, ztop, incrFloat,
-  takeNum, hincr, hincrMany, zincrManyOnce, applyOnce, hall, hseed} = require('../lib/kv.js');
+  takeNum, hincr, hincrMany, zincrManyOnce, applyOnce, hall, hseed, sweepExpired} = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped, b58decode } = require('../lib/verify.js');
 const { getPrices } = require('../lib/prices.js');
 const { priceAt, priceCrossing, pathFor, sample: samplePx,
@@ -57,7 +57,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h68-2026-08-23';
+const VERSION = 'h69-2026-08-25';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC || process.env.SOLANA_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -1865,8 +1865,14 @@ module.exports = async (req, res) => {
     // sample() is lease-gated and minute-throttled, so duplicate invocations
     // are harmless and cannot create duplicate settlement rows.
     if (action === 'heartbeat') {
+      // Housekeeping rides the minute heartbeat: one instance per hour wins a
+      // lease and deletes a bounded batch of expired KV rows (Postgres never
+      // removes them on its own). Guarded — a missing SQL function or a stub
+      // backend must never fail the heartbeat that keeps the sampler honest.
+      let swept = 0;
+      try { if (typeof sweepExpired === 'function') swept = await sweepExpired(); } catch {}
       return res.json({ ok:true, v:VERSION, t:Date.now(), src:prices.src,
-        sampled, durable, storage:backend });
+        sampled, swept, durable, storage:backend });
     }
 
     // Expiry moves credits, so it completes before the request continues.
