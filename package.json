@@ -15,7 +15,8 @@
     "test": "node scripts/run-tests.mjs"
   },
   "devDependencies": {
-    "playwright": "^1.62.1"
+    "playwright": "^1.62.1",
+    "pg": "^8.23.0"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.4"
