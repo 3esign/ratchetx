@@ -4,5 +4,10 @@ node_modules
 
 backups/
 
+# Signing material never enters this repository, from any path.
+*keypair*.json
+*.keys/
+id.json
+
 # Local Solana deployment authorities (never commit)
 onchain/ratchet-seal-v2/.keys/

@@ -1,0 +1,19 @@
+# Line-ending law (h69). The repo is edited from Windows and from Linux
+# agents; without this, whole-file CRLF flips bury real diffs (a 5,328-line
+# no-op diff on game.js prompted this). Code normalizes to LF; Windows batch
+# files MUST stay CRLF or cmd.exe silently misparses them.
+* text=auto
+*.js text eol=lf
+*.mjs text eol=lf
+*.cjs text eol=lf
+*.json text eol=lf
+*.md text eol=lf
+*.html text eol=lf
+*.sql text eol=lf
+*.rs text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.cmd text eol=crlf
+*.png binary
+*.jpg binary
+*.ico binary

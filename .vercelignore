@@ -5,3 +5,21 @@ node_modules/
 test/
 playwright-report/
 test-results/
+
+# The deploy is the site and its API — nothing else ships. onchain/ holds
+# programs, experiments, and (never again unguarded) local keypairs; docs/,
+# token/, agent/, ops/, supabase/ and the .cmd helpers are repository
+# material, not web content. h69, after keypair files were found one deploy
+# away from being publicly served.
+onchain/
+docs/
+token/
+agent/
+ops/
+supabase/
+scripts/
+*.cmd
+*.md
+*keypair*.json
+*.keys/
+deploy_check.txt
