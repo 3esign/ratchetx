@@ -86,6 +86,16 @@ const post = async body => (await fetch(BASE, {
   method: 'POST', headers: { 'content-type': 'application/json' },
   body: JSON.stringify(body),
 })).json();
+// Sessions live one hour; a long-running agent outlives its token. Any authed
+// call that comes back session-expired signs in again once and retries.
+const authedPost = async body => {
+  let r = await post({ ...body, auth: auth() });
+  if (!DEMO && r && r.ok === false && /session expired|missing session/i.test(String(r.reason || ''))) {
+    await login();
+    r = await post({ ...body, auth: auth() });
+  }
+  return r;
+};
 
 // ---------- strategy: replace this ----------
 // Everything above is protocol. Everything below is opinion, and this opinion
@@ -162,7 +172,7 @@ async function tick() {
   const call = decide(board);
   if (!call) return console.log('  no read this round, sitting out');
 
-  const r = await post({ action: 'shot', auth: auth(), target: call.target, side: call.side, stake: STAKE });
+  const r = await authedPost({ action: 'shot', target: call.target, side: call.side, stake: STAKE });
   if (!r.ok) return console.log('  refused:', r.reason);
   open.set(r.shot.id, { side: r.shot.side, salt: r.shot.salt,
     commit: r.shot.commit, commitV: r.shot.commitV || 1 });
@@ -173,7 +183,7 @@ async function tick() {
 console.log(`RATCHET agent · ${DEMO ? 'DEMO (unranked, free)' : NAME} · ${WALLET}`);
 try { await login(); } catch(e) { console.error(e.message); process.exit(1); }
 if (!DEMO) {
-  const reg = await post({ action: 'agent-register', auth: auth(), name: NAME,
+  const reg = await authedPost({ action: 'agent-register', name: NAME,
     blurb: 'follows recent drift — the reference agent, here to be beaten' });
   console.log(reg.ok ? `registered as ${reg.agent.name}` : `not registered: ${reg.reason}`);
 }

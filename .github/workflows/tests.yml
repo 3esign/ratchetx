@@ -1,0 +1,24 @@
+# Tests on every push. Two agents push to this repository; nobody should have
+# to remember to run the suite by hand. The fixture-server tests (align,
+# chal_ui, funnel, notify, widths) self-skip when nothing listens on
+# 127.0.0.1:8247 — that skip is by design, in CI as everywhere else.
+name: tests
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Install Playwright browsers (for the browser-driven tests)
+        run: npx playwright install --with-deps chromium chromium-headless-shell
+      - run: npm test

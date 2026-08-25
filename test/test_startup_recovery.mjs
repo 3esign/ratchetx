@@ -5,10 +5,20 @@ import { chromium } from 'playwright';
 import { installFixtureRoutes } from './browser_fixture.mjs';
 
 const html = readFileSync(new URL('../index.html', import.meta.url));
+// The client is modular now (app.js + style.css split out of index.html) —
+// the page under test is dead without them, so the fixture serves all three.
+const appJs = readFileSync(new URL('../app.js', import.meta.url));
+const styleCss = readFileSync(new URL('../style.css', import.meta.url));
 const server = http.createServer((req, res) => {
   if (req.url === '/' || req.url.startsWith('/?')) {
     res.writeHead(200, {'content-type':'text/html; charset=utf-8'});
     res.end(html);
+  } else if (req.url === '/app.js') {
+    res.writeHead(200, {'content-type':'text/javascript; charset=utf-8'});
+    res.end(appJs);
+  } else if (req.url === '/style.css') {
+    res.writeHead(200, {'content-type':'text/css; charset=utf-8'});
+    res.end(styleCss);
   } else {
     res.writeHead(404); res.end('not found');
   }
