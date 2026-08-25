@@ -32,7 +32,7 @@ const SEAL_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
 const MAINNET_SEAL_V2 = '23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX';
 const MAINNET_SOL_CLOCK = 'CE5m9Xag3wwgcfVkbSBnv5WFKPrY1ZhLwSSru9wu9gN';
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h69-2026-08-25';
+const VERSION = 'h70-2026-08-25';
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;

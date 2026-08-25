@@ -57,7 +57,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h69-2026-08-25';
+const VERSION = 'h70-2026-08-25';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC || process.env.SOLANA_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -155,6 +155,9 @@ const stakeYield = bal => (bal >= STAKE.minBal ? Math.floor(Math.min(bal, STAKE.
 // read one before. This is also Stage 2 of the on-chain path: the same
 // commitment can be anchored on-chain per shot.
 const sha256hex = s => crypto.createHash('sha256').update(s).digest('hex');
+// Shot ids go on-chain (seal v2 requires ^[a-z0-9]{1,32}$) and gate replay keys,
+// so they come from the CSPRNG, not Math.random(). 12 hex chars. (h70)
+const newShotId = () => crypto.randomBytes(6).toString('hex');
 // v2 binds a reveal to the wallet and shot id as well as the side and salt.
 // Legacy v1 (`side|salt`) remains verifiable in the public record, but a v1
 // commitment can be copied between shots without the hash itself proving
@@ -1836,6 +1839,17 @@ module.exports = async (req, res) => {
       return res.json(rep);
     }
 
+    // A blockhash is a pure RPC passthrough for the reload signer — it needs
+    // no oracle read, no sampling, no challenge sweep. It used to sit below
+    // all three, so the hottest wallet-flow request paid for a full price
+    // fetch it never looked at. (h70)
+    if (action === 'blockhash') {
+      const r = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
+      const bh = r && r.value && r.value.blockhash;
+      if (!bh) return res.status(502).json({ ok: false, reason: 'RPC unavailable - try again' });
+      return res.json({ ok: true, blockhash: bh });
+    }
+
     const prices = await getPrices();
 
     // AWAITED, DELIBERATELY, AND THIS WAS A BUG FOR A LONG TIME.
@@ -1879,13 +1893,6 @@ module.exports = async (req, res) => {
     // Fire-and-forget is unsafe on serverless (the function may freeze after
     // the response) and made a refund appear only nondeterministically.
     try { await sweepChallenges(); } catch {}
-
-    if (action === 'blockhash') {
-      const r = await rpcCall('getLatestBlockhash', [{ commitment: 'confirmed' }]);
-      const bh = r && r.value && r.value.blockhash;
-      if (!bh) return res.status(502).json({ ok: false, reason: 'RPC unavailable - try again' });
-      return res.json({ ok: true, blockhash: bh });
-    }
 
     if (action === 'state') {
       // The daily cron lands here at 00:05 UTC, which is exactly when the
@@ -1939,7 +1946,8 @@ module.exports = async (req, res) => {
                       p.xp += paidXp;
                       await bumpLadder(w, paidXp, p.qualified);
                     }
-                    await append({ k:'anchor', w, i: d.i, sig, xp: paidXp });
+                    // One log entry per signature, even across a crash-retry. (h70)
+                    await appendOnce(`anchor:${sig}`, { k:'anchor', w, i: d.i, sig, xp: paidXp });
                     await bumpFeed({ w: shortW(w), a: `ANCHORED the log via Blink · entry #${d.i}${paidXp ? ' · +25 XP' : ''}`, c:'hit', sig });
                     await savePlayer(p);
                   }
@@ -2163,7 +2171,7 @@ module.exports = async (req, res) => {
         const kind = t.kind || 'dir';
         const xpMult = b.side === 'YES' ? (t.yesMult != null ? t.yesMult : 1)
                                         : (t.noMult != null ? t.noMult : 1);
-        shot = { id: Math.random().toString(36).slice(2,10),
+        shot = { id: newShotId(),
           kind, feed:t.feed, side:b.side,
           entry: prices[t.feed], entryAge: (prices.ages || {})[t.feed], oracleSrc: prices.src,
           exp: Date.now()+t.mins*60e3, stake, settleRule:SETTLE_RULE,
@@ -2176,7 +2184,7 @@ module.exports = async (req, res) => {
       } else {
         const wl = duelLine;
         const withW = b.side === 'with';
-        shot = { id: Math.random().toString(36).slice(2,10), kind:'thr', feed:wl.feed, thresh:wl.thresh,
+        shot = { id: newShotId(), kind:'thr', feed:wl.feed, thresh:wl.thresh,
           side: withW ? (wl.p >= 50 ? 'YES':'NO') : (wl.p >= 50 ? 'NO':'YES'),
           entry: prices[wl.feed], oracleSrc: prices.src, exp: Date.now()+wl.mins*60e3, stake,
           settleRule:SETTLE_RULE, outcomeRule:OUTCOME_RULE,
@@ -2286,7 +2294,7 @@ module.exports = async (req, res) => {
         const label = kind === 'dir' ? `${feed} higher in ${winTxt(mins)}`
           : kind === 'thr' ? `${feed} up +${(pct*100).toFixed(2)}% after ${winTxt(mins)}`
           : `${feed} down -${(pct*100).toFixed(2)}% after ${winTxt(mins)}`;
-        const c = { id: 'c' + Math.random().toString(36).slice(2,9), by: w, kind, feed, mins,
+        const c = { id: 'c' + crypto.randomBytes(5).toString('hex'), by: w, kind, feed, mins,
           pct: kind === 'dir' ? null : pct, side, stake, label,
           createdAt: Date.now(), expiresAt: Date.now() + CHAL_OPEN_MS,
           allocationRule:'on-settle-v2', outcomeRule:OUTCOME_RULE };
@@ -2380,7 +2388,7 @@ module.exports = async (req, res) => {
       const exp = Date.now() + c.mins * 60e3;
       const xp = chalXp(c.kind, c.mins);
       const mk = (owner, side, srcTag) => {
-        const sh = { id: Math.random().toString(36).slice(2,10), kind: c.kind, feed: c.feed,
+        const sh = { id: newShotId(), kind: c.kind, feed: c.feed,
           side, entry: px, oracleSrc: prices.src, exp, stake: c.stake,
           xp: Math.max(1, Math.round(xp * stakeMult(c.stake))), label: c.label,
           chal: c.id, src: srcTag, settleRule:SETTLE_RULE,
@@ -3007,7 +3015,8 @@ module.exports = async (req, res) => {
         p.xp += paidXp; await bumpLadder(w, paidXp, p.qualified);
         await savePlayer(p);
       }
-      await append({ k:'anchor', w, i: d.i, sig, xp: paidXp });
+      // One log entry per signature, even across a crash-retry. (h70)
+      await appendOnce(`anchor:${sig}`, { k:'anchor', w, i: d.i, sig, xp: paidXp });
       await bumpFeed({ w: shortW(w), a: `ANCHORED the log on-chain · entry #${d.i}${paidXp ? ' · +25 XP' : ''}`, c:'hit', sig });
       return res.json({ ok:true, i: d.i, xp: paidXp, note: paidXp ? null : 'anchored - XP pays once per wallet per day' });
     }
