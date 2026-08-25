@@ -1,0 +1,34 @@
+{
+  "name": "RATCHET \u2014 prediction market arcade",
+  "short_name": "RATCHET",
+  "description": "Oracle-settled micro prediction markets on Solana. Sealed commit-reveal shots on live Pyth prices, 70% of every stake burned, 0% to the team \u2014 keyless, no custody, every claim on a public proof page.",
+  "id": "/",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#07080a",
+  "theme_color": "#07080a",
+  "categories": [
+    "games",
+    "finance"
+  ],
+  "icons": [
+    {
+      "src": "/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    },
+    {
+      "src": "/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}

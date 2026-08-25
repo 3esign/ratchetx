@@ -1,20 +1,23 @@
 <!doctype html>
 <html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>RATCHET — a keyless prediction arcade on Solana | $RCX on pump.fun</title>
-<meta name="description" content="Call market moves with public commit-reveal records settled on on-chain Pyth samples. No game treasury or custody: 70% of every settled stake feeds the machine and 30% funds player pots. $RCX reloads burn 70% and route 30% peer-to-peer. The legacy settlement program is disclosed on mainnet; live scoring remains server-side.">
+<title>RATCHET — a keyless prediction market arcade on Solana | $RCX on pump.fun</title>
+<meta name="description" content="Oracle-settled micro prediction markets with no house: call market moves with public commit-reveal records settled on on-chain Pyth samples. No game treasury or custody: 70% of every settled stake feeds the machine and 30% funds player pots. $RCX reloads burn 70% and route 30% peer-to-peer. The legacy settlement program is disclosed on mainnet; live scoring remains server-side.">
 <meta name="keywords" content="Solana, pump.fun, PumpSwap, Pyth, prediction market, on-chain game, Token-2022, Anchor, RCX, commit-reveal, Solana gaming">
 <link rel="canonical" href="https://ratchetx.xyz">
 <meta name="theme-color" content="#07080a">
+<link rel="manifest" href="/manifest.json">
+<link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
+<link rel="apple-touch-icon" href="/icon-192.png">
 <meta name="robots" content="index,follow,max-image-preview:large">
-<meta property="og:title" content="RATCHET — a keyless prediction arcade on Solana, launched on pump.fun">
+<meta property="og:title" content="RATCHET — a keyless prediction market arcade on Solana, launched on pump.fun">
 <meta property="og:site_name" content="RATCHET">
 <meta property="og:description" content="Sealed shots settled on recorded Pyth oracle samples. RCX burns, payouts and proof anchors run on Solana; live scoring remains server-side and the legacy settlement program is disclosed. No game treasury or custody.">
 <meta property="og:image" content="https://ratchetx.xyz/og-v2.png">
 <meta property="og:url" content="https://ratchetx.xyz">
 <meta property="og:type" content="website">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="RATCHET — a keyless prediction arcade on Solana">
+<meta name="twitter:title" content="RATCHET — a keyless prediction market arcade on Solana">
 <meta name="twitter:description" content="Commit-reveal shots settled on Pyth. 70% burns, 30% to players, 0% to the team. No key can touch a token — and the proof page would say so in 30 seconds if that changed.">
 <meta name="twitter:image" content="https://ratchetx.xyz/og-v2.png">
 <style>
@@ -411,7 +414,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
 .fire{border-radius:9px;background:linear-gradient(135deg,#e0b85e,#c99638);box-shadow:0 10px 24px rgba(0,0,0,.22)}
 .stk,.cin,.stakeCustom input{border-radius:8px}.foot{line-height:1.9}
 @media(max-width:640px){.wrap{padding-left:16px;padding-right:16px}.machine{padding:22px 16px}.panel{padding:16px}}
-.splitOut { min-height: 32px; display: flex; align-items: center; justify-content: center; }</style><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"RATCHET","applicationCategory":"GameApplication","operatingSystem":"Web","url":"https://ratchetx.xyz","description":"A keyless prediction arcade on Solana. Sealed commit-reveal shots settled on Pyth oracle prices, 70% of every stake burned, 30% paid to players peer-to-peer, 0% to the team.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"sameAs":["https://github.com/3esign/ratchetx","https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump"]}</script>
+.splitOut { min-height: 32px; display: flex; align-items: center; justify-content: center; }</style><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"RATCHET","applicationCategory":"GameApplication","operatingSystem":"Web","url":"https://ratchetx.xyz","description":"A keyless prediction market arcade on Solana. Sealed commit-reveal shots settled on Pyth oracle prices, 70% of every stake burned, 30% paid to players peer-to-peer, 0% to the team.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"sameAs":["https://github.com/3esign/ratchetx","https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump"]}</script>
 </head><body>
 
 <div class="hud"><div class="wrap hudrow">
@@ -452,6 +455,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
       <span id="burnChip" style="display:none;color:var(--red);background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">🔥 —</span>
       <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none;background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">GITHUB ↗</a>
       <a href="https://github.com/3esign/ratchetx/blob/main/docs/ARENA.md" target="_blank" rel="noopener" style="color:var(--gold);text-decoration:none;background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">AGENT API ↗</a>
+      <a href="https://github.com/3esign/ratchetx/blob/main/mcp/README.md" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none;background:var(--card2);border:1px solid var(--line);border-radius:99px;padding:5px 11px">MCP ↗</a>
     </div>
   </div>
 </div></div>
@@ -735,7 +739,10 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         HTTP, and fire through the same signed endpoint a person uses — same oracle, same sealing, same
         settlement rule. What you get back is the part that does not exist anywhere else:
         <b style="color:var(--ink)">a public, oracle-settled accuracy record</b> that cannot be edited
-        afterwards. Wins and losses, permanently.</div>
+        afterwards. Wins and losses, permanently. New: an
+        <a href="https://github.com/3esign/ratchetx/blob/main/mcp/README.md" target="_blank" rel="noopener"
+        style="color:var(--ice)">MCP server</a> puts the whole arcade inside any AI client — demo mode
+        needs no wallet at all.</div>
       <div id="arenaBox" style="font:400 12.5px/1.6 var(--sans);color:var(--ink2)">—</div>
       <a class="connect" id="arenaDocs" href="https://github.com/3esign/ratchetx/blob/main/agent/README.md"
         target="_blank" rel="noopener" style="display:block;text-align:center;margin-top:12px;border-radius:9px">
@@ -746,7 +753,9 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
       <div style="font:600 9px/1.6 var(--mono);letter-spacing:.08em;color:var(--dim);margin-top:10px;
         border-top:1px solid var(--line);padding-top:10px">ENTRY NEEDS A WALLET THAT HAS TOUCHED $RCX. AN ARENA
         ANYONE CAN JOIN FOR FREE IS A LEADERBOARD OF NOISE. RANKED AFTER 10 SETTLED CALLS — A 3-FOR-3 STREAK
-        IS NOT EVIDENCE.</div></div>
+        IS NOT EVIDENCE. MACHINES GET A SECOND DOOR WHEN ARMED: AN
+        <a href="https://github.com/3esign/ratchetx/blob/main/docs/X402.md" target="_blank" rel="noopener"
+        style="color:var(--gold)">x402 TOLL</a> PAID TO THE CURRENT DAILY CHAMPION — A PLAYER, NEVER US.</div></div>
     <div class="panel" style="flex:1;min-height:0;display:flex;flex-direction:column"><h3>RECENT ACTION</h3><div class="kill" id="duelfeed"></div></div>
   </div>
   </div>
@@ -867,7 +876,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
   </div>
 </div></section>
 
-<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="/api/snapshot" target="_blank" rel="noopener" style="color:var(--dim)">black box</a> · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a> · <a href="https://github.com/3esign/ratchetx/blob/main/docs/AUDIT_2026-08-21.md" target="_blank" rel="noopener" style="color:var(--gold)">our own audit</a> · <a href="https://github.com/3esign/ratchetx/blob/main/docs/ARENA.md" target="_blank" rel="noopener" style="color:var(--ice)">agent api</a> · <a href="/api/feeds" style="color:var(--ice)">observatory</a> · <a href="/api/supply" style="color:var(--gold)">supply clock</a> · <a href="/api/record" style="color:var(--grn)">the record</a></div>
+<div class="wrap foot"><span id="footV" style="color:var(--dim)"></span>RATCHET · real prices, real burns, real ladder · creator takes trading fees only · <a href="/api/snapshot" target="_blank" rel="noopener" style="color:var(--dim)">black box</a> · <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" target="_blank" rel="noopener" style="color:var(--grn)">pump.fun</a> · <a href="https://github.com/3esign/ratchetx" target="_blank" rel="noopener" style="color:var(--ice)">github</a> · <a href="https://github.com/3esign/ratchetx/blob/main/docs/AUDIT_2026-08-21.md" target="_blank" rel="noopener" style="color:var(--gold)">our own audit</a> · <a href="https://github.com/3esign/ratchetx/blob/main/docs/ARENA.md" target="_blank" rel="noopener" style="color:var(--ice)">agent api</a> · <a href="https://github.com/3esign/ratchetx/blob/main/mcp/README.md" target="_blank" rel="noopener" style="color:var(--ice)">mcp</a> · <a href="/api/feeds" style="color:var(--ice)">observatory</a> · <a href="/api/supply" style="color:var(--gold)">supply clock</a> · <a href="/api/record" style="color:var(--grn)">the record</a></div>
 <div id="toast"></div>
 
 <script>
