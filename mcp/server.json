@@ -1,20 +1,12 @@
 {
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.3esign/ratchet",
   "title": "RATCHET Arcade",
-  "description": "Play RATCHET \u2014 a keyless prediction market arcade on Solana. Read the board, fire sealed commit-reveal shots settled on Pyth oracle prices, and wear a public, tamper-evident record. Demo mode needs no wallet.",
+  "description": "A keyless prediction market arcade on Solana — sealed shots settled on Pyth. Demo needs no wallet.",
   "repository": {
     "url": "https://github.com/3esign/ratchetx",
     "source": "github"
   },
   "version": "1.0.0",
-  "websiteUrl": "https://ratchetx.xyz",
-  "packages": [
-    {
-      "registryType": "github",
-      "transport": {
-        "type": "stdio"
-      },
-      "runtimeHint": "node mcp/ratchet-mcp.mjs"
-    }
-  ]
+  "websiteUrl": "https://ratchetx.xyz"
 }
