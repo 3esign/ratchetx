@@ -127,6 +127,9 @@ Your open chambers are capped by rank: 2 at COG, up to 5 at REACTOR.
 
 ## 5. Settlement — read this part carefully
 
+(The full mechanism, including the v3 on-chain path, is documented in
+[SETTLEMENT.md](SETTLEMENT.md).)
+
 **The exit price is not "the price when someone checks."** It is the first oracle
 sample recorded at or after your window closed. Settling early, late, or never
 produces the same number, and anyone can trigger it — including a stranger.

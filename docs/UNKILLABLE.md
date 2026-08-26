@@ -32,7 +32,8 @@ model. Nobody can change it. Including us.
 
 The v3 program takes the full shot lifecycle on-chain: **seal → checkpoint →
 settle → reveal → void → close**, with settlement reading the Pyth print
-directly and **permissionless cranks** — anyone can settle anyone's expired
+directly ([SETTLEMENT.md](SETTLEMENT.md) documents the exact, Pyth-confirmed
+mechanism) and **permissionless cranks** — anyone can settle anyone's expired
 shot, and settling early, late, or by a stranger produces the same number.
 
 You do not have to wait for v3 to hold us to the principle: settlement is
