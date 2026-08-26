@@ -97,6 +97,15 @@ console.log('\n  by event shape:');
 for (const s of L.shapes.slice(0, 18))
   console.log(`   ${String(s.recovered).padStart(5)}/${String(s.n).padEnd(5)} ${(s.via || 'UNRECOVERED').padEnd(17)} ${s.keys.slice(0, 70)}`);
 
+if (L.misses && L.misses.length) {
+  console.log('\n  the entries that did not verify:');
+  for (const m of L.misses)
+    console.log(`   index ${String(m.i).padStart(5)}  ${m.kind.padEnd(10)} stored ${m.stored}…  prev ${m.prev}…  `
+      + `${m.hadOrder ? 'its shape HAS a known order (others with the same shape verified)' : 'no order known for this shape'}`);
+  console.log('\n  An entry whose shape verified for everyone else is the interesting kind:');
+  console.log('  the ordering is known to work, so something about THAT entry differs.');
+}
+
 console.log('\n' + (L.unrecovered === 0 && canonBad === 0
   ? 'RESULT: every entry verifies. The log is intact; only the missing index above is a real gap.'
   : `RESULT: ${L.unrecovered + canonBad} entries do not verify under any recovered ordering.`));
