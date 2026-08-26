@@ -83,17 +83,30 @@ const ok = (c, n) => { console.log((c ? 'PASS  ' : 'FAIL  ') + n); if (!c) fails
   for (const k of Object.keys(require.cache)) delete require.cache[k];
   globalThis.__ratchet_mem = new Map();
   globalThis.__ratchet_pxgate = { t: 0, x: 0 };
-  const px = require('../lib/pxlog.js');
+
+  // COUNT the store operations instead of timing them. This used to assert
+  // "51 calls in under 2000ms", which measures the machine, not the gate: on a
+  // loaded or thermally throttled box it fails while the behaviour is perfect.
+  // kv is patched BEFORE pxlog is required, because pxlog destructures these
+  // functions at require time and would otherwise capture the originals.
   const kv = require('../lib/kv.js');
-  let reads = 0;
-  const realGet = kv.getJSON;
-  const t0 = Date.now();
+  let ops = 0;
+  for (const fn of ['getJSON', 'getJSONStrict', 'getManyJSON', 'setJSON', 'setJSONEx', 'setManyJSONAtomic']) {
+    const real = kv[fn];
+    if (typeof real === 'function') kv[fn] = (...a) => { ops++; return real.apply(kv, a); };
+  }
+  const px = require('../lib/pxlog.js');
+
   const first = await px.sample({ src: 'x', SOL: 1, ages: {}, confs: {}, pubs: {} });
+  const afterFirst = ops;
   let hits = 0;
   for (let i = 0; i < 50; i++) if (await px.sample({ src: 'x', SOL: 1 })) hits++;
+  const gatedOps = ops - afterFirst;
+
   ok(first === true, 'the first call samples');
   ok(hits === 0, `fifty further calls inside the minute wrote nothing (${hits})`);
-  ok(Date.now() - t0 < 2000, 'and returned immediately rather than hitting the store each time');
+  ok(gatedOps === 0,
+    `and touched the store ZERO times while gated (${gatedOps} ops) — the claim is that the gate short-circuits, so count it, do not time it`);
 }
 
 console.log(fails ? `\n${fails} FAILED` : '\nSAMPLE DURABILITY OK');
