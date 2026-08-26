@@ -23,7 +23,15 @@ const MUST_STAY_FRESH = {
   'g:day':    'the daily rollover trigger — a stale read pays the pot late',
   'g:season': 'the season rollover trigger — same',
 };
-const BUDGET = 5;   // headroom over the current 3
+// MEASURED cost is 5 reads per state request. The comment here used to say
+// "headroom over the current 3" — the cost had drifted 3 -> 5 and nobody
+// noticed, because a budget sitting exactly ON the measurement is not a budget:
+// it passes on the machine that set it and fails on every slightly different
+// one, which teaches people to raise the number instead of asking why.
+// So: a real ceiling with one read of headroom, and the per-key tally printed
+// below on every run, so the next drift is visible the day it happens rather
+// than the day a build breaks.
+const BUDGET = 6;
 
 function boot() {
   for (const k of Object.keys(require.cache)) delete require.cache[k];
@@ -68,6 +76,14 @@ for (let i = 0; i < N; i++) await call({ action:'state', wallet:W }, '7.7.7.' + 
 const avg = n / N;
 
 console.log(`\nreads per state request: ${avg.toFixed(2)} (budget ${BUDGET})`);
+// Where the budget actually goes. Any future creep shows up here by name.
+{
+  const tally = Object.entries(hits).sort((a, b) => b[1] - a[1]);
+  console.log('  per-key reads across the run:');
+  for (const [k, n] of tally.slice(0, 12))
+    console.log(`    ${String(n).padStart(4)}  ${k}${MUST_STAY_FRESH[k] ? '   (must stay fresh)' : ''}`);
+  if (tally.length > 12) console.log(`    … and ${tally.length - 12} more keys`);
+}
 for (const [k,c] of Object.entries(hits).sort((a,b)=>b[1]-a[1])) console.log(`     ${c}  ${k}`);
 console.log();
 
