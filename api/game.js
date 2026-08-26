@@ -57,7 +57,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h71-2026-08-26';
+const VERSION = 'h72-2026-08-26';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC || process.env.SOLANA_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -1510,6 +1510,24 @@ function scoreStated(p, s, hit) {
   c.n++; if (hit) c.h++;
   p.calib[bin] = c;
 }
+// The Coinflip Ledger's own row. Only calls the player made INSIDE the same
+// difficulty band we hold Kalshi and Polymarket to — a stated probability
+// between 0.35 and 0.65 — so our number is produced by the same filter as
+// theirs. Scoring ourselves on our easy calls while scoring them on their
+// hard ones would make the whole board worthless, and ours is the one row we
+// control. Counters start empty and accumulate forward; the page says since
+// when. See lib/ledger.js and docs/LEDGER.md.
+const LDG_LO = 0.35, LDG_HI = 0.65;
+async function ledgerBand(s, hit) {
+  if (!Number.isFinite(s.sp) || s.sp < LDG_LO || s.sp > LDG_HI) return;
+  const e = s.sp - (hit ? 1 : 0);
+  try {
+    await hincrMany('ldg:rx', { n: 1, sum: +(e * e).toFixed(6), hits: hit ? 1 : 0,
+      [`b${Math.min(9, Math.floor(s.sp * 10))}n`]: 1,
+      ...(hit ? { [`b${Math.min(9, Math.floor(s.sp * 10))}h`]: 1 } : {}) });
+  } catch {}                    // the ledger is a scoreboard, never a blocker
+}
+
 function brierOf(p) {
   const bn = p.bn || 0;
   if (!bn) return { stated: 0, brier: null, brierIndex: null, calibration: null };
@@ -1607,6 +1625,7 @@ async function settle(p, prices) {
       s.xp = s.skillXp + s.settleXp;
       p.streak++; p.best = Math.max(p.best, p.streak);
       scoreStated(p, s, true);
+      await ledgerBand(s, true);
       p.xp += s.xp;
       await bumpLadderOnce(p.w, s.xp, p.qualified, s.id);
       s.back = Math.floor(s.stake * HIT_PAYOUT);
@@ -1623,6 +1642,7 @@ async function settle(p, prices) {
       await fundSettledStake(s, p.w);
       p.shots++; s.res = 'miss'; p.streak = 0;
       scoreStated(p, s, false);
+      await ledgerBand(s, false);
       s.skillXp = 0; s.settleXp = SETTLE_XP; s.xp = SETTLE_XP;
       p.xp += s.xp;
       await bumpLadderOnce(p.w, s.xp, p.qualified, s.id);

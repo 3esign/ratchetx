@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // RatchetX public settlement crank — anyone can run this. Zero dependencies.
 //
-//   node tools/crank.mjs                    # crank the live game, forever
+//   node tools/crank.mjs                    # crank the live game + ledger, forever
 //   node tools/crank.mjs --once             # one pass, then exit
 //   RATCHET_API=http://localhost:8301/api/game node tools/crank.mjs
 //
@@ -54,6 +54,18 @@ async function pass() {
     await sleep(TOUCH_GAP_MS);
   }
   console.log(`  pass done — touched ${touched}/${due.length}`);
+
+  // The Coinflip Ledger advances on the same permissionless crank. It is
+  // rate-guarded server-side, so calling it every pass is free and calling it
+  // from ten machines at once changes nothing. If we stop running this, the
+  // scoreboard that grades us alongside everyone else keeps advancing anyway —
+  // which is the only version of it worth publishing.
+  try {
+    const t = await getJSON(`${ORIGIN}/api/ledger?action=tick`);
+    const k = t && t.ticked;
+    if (k && !k.skipped)
+      console.log(`  ledger — +${k.added} observed, ${k.resolved} scored, ${k.voided} voided, ${k.pending} pending`);
+  } catch (e) { console.log(`  ledger skipped — ${e.message}`); }
 }
 
 (async () => {
