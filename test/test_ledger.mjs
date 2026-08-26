@@ -43,30 +43,60 @@ ok(L.summarise(L.emptyScore()) === null, 'an empty venue summarises to null, nev
 const realFetch = globalThis.fetch;
 const NOW = Date.now();
 const soon = NOW + 3600e3;
+let lastKalshiUrl = '', lastPolyUrl = '';
 globalThis.fetch = async (url) => {
   const u = String(url);
-  const body = u.includes('kalshi') ? { markets: [
-      { ticker:'KXBTC-A', title:'Will Bitcoin be above $95,000?', yes_bid:48, yes_ask:52, close_time:new Date(soon).toISOString() },
-      { ticker:'KXBTC-B', title:'Will Bitcoin be above $95,000?', yes_bid:94, yes_ask:96, close_time:new Date(soon).toISOString() },
-      { ticker:'KXFED-C', title:'Will the Fed cut in September?', yes_bid:48, yes_ask:52, close_time:new Date(soon).toISOString() },
-      { ticker:'KXBTC-D', title:'Will Bitcoin be above $95,000?', yes_bid:48, yes_ask:52, close_time:new Date(NOW + 40*24*3600e3).toISOString() },
-    ] }
-    : [
+  let body;
+  if (u.includes('kalshi')) {
+    lastKalshiUrl = u;
+    body = { markets: [
+      // structured strike: read from fields, no prose parsing at all
+      { ticker:'KXBTCD-A', yes_sub_title:'Bitcoin', rules_primary:'Bitcoin price', strike_type:'greater_or_equal',
+        floor_strike:95000, yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
+      // a below-question, struck on the cap
+      { ticker:'KXETHD-B', yes_sub_title:'Ethereum', strike_type:'less', cap_strike:3200,
+        yes_bid_dollars:0.44, yes_ask_dollars:0.46, close_time:new Date(soon).toISOString() },
+      // out of band
+      { ticker:'KXBTCD-C', yes_sub_title:'Bitcoin', strike_type:'greater', floor_strike:95000,
+        yes_bid_dollars:0.94, yes_ask_dollars:0.96, close_time:new Date(soon).toISOString() },
+      // an asset we do not carry
+      { ticker:'KXFED-D', yes_sub_title:'Fed cut', strike_type:'greater', floor_strike:1,
+        yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
+      // a strike shape we refuse to interpret
+      { ticker:'KXBTCD-E', yes_sub_title:'Bitcoin', strike_type:'between', floor_strike:90000, cap_strike:95000,
+        yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
+      // the old cent-denominated fields are gone: this must count as no-price
+      { ticker:'KXBTCD-F', yes_sub_title:'Bitcoin', strike_type:'greater', floor_strike:95000,
+        yes_bid:48, yes_ask:52, close_time:new Date(soon).toISOString() },
+    ] };
+  } else {
+    lastPolyUrl = u;
+    body = [
       { conditionId:'0xaa', question:'Will Ethereum close above $3,200 today?', outcomePrices:'["0.55","0.45"]', endDate:new Date(soon).toISOString() },
       { conditionId:'0xbb', question:'Will Ethereum touch $3,200 today?',       outcomePrices:'["0.55","0.45"]', endDate:new Date(soon).toISOString() },
       { conditionId:'0xcc', question:'Will Ethereum close above $3,200 today?', outcomePrices:'["0.02","0.98"]', endDate:new Date(soon).toISOString() },
     ];
+  }
   return { ok:true, json: async () => body };
 };
 
 const k = await L.fromKalshi(NOW);
-ok(k.obs.length === 1 && k.obs[0].id === 'KXBTC-A', `kalshi keeps only the in-band, readable, in-horizon market (${k.obs.length})`);
-ok(k.obs[0].feed === 'BTC' && k.obs[0].strike === 95000 && k.obs[0].dir === 'above', 'kalshi observation carries feed, strike, direction');
-ok(Math.abs(k.obs[0].p - 0.5) < 1e-9, 'kalshi implied probability is the mid of bid/ask in cents');
-ok(k.drops['outside-band'] === 1 && k.drops['outside-horizon'] === 1 && k.drops['asset-not-covered'] === 1,
-   `every kalshi exclusion is counted (${JSON.stringify(k.drops)})`);
+ok(/min_close_ts=\d+/.test(lastKalshiUrl) && /max_close_ts=\d+/.test(lastKalshiUrl),
+   'kalshi horizon is filtered server-side, not by discarding a full page');
+ok(k.obs.length === 2, `kalshi keeps both readable in-band markets (${k.obs.length})`);
+const kb = k.obs.find(o => o.id === 'KXBTCD-A'), ke = k.obs.find(o => o.id === 'KXETHD-B');
+ok(kb && kb.feed === 'BTC' && kb.strike === 95000 && kb.dir === 'above' && kb.src === 'fields',
+   'greater_or_equal reads the FLOOR strike out of the fields');
+ok(ke && ke.feed === 'ETH' && ke.strike === 3200 && ke.dir === 'below' && ke.src === 'fields',
+   'less reads the CAP strike out of the fields');
+ok(Math.abs(kb.p - 0.5) < 1e-9, 'kalshi price is the dollar-denominated mid, not cents');
+ok(k.drops['outside-band'] === 1 && k.drops['asset-not-covered'] === 1
+   && k.drops['strike-type-between'] === 1 && k.drops['no-price'] === 1,
+   `every kalshi exclusion is counted and named (${JSON.stringify(k.drops)})`);
 
 const pm = await L.fromPolymarket(NOW);
+ok(/end_date_min=/.test(lastPolyUrl) && /end_date_max=/.test(lastPolyUrl),
+   'polymarket horizon is filtered server-side too');
 ok(pm.obs.length === 1 && pm.obs[0].id === '0xaa', `polymarket keeps only the readable in-band market (${pm.obs.length})`);
 ok(pm.obs[0].p === 0.55 && pm.obs[0].feed === 'ETH', 'polymarket implied probability read from outcomePrices');
 ok(pm.drops['ambiguous-direction'] === 1 && pm.drops['outside-band'] === 1, 'every polymarket exclusion is counted');

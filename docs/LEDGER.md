@@ -96,7 +96,12 @@ That is expected, and it is on the page.
   the score.
 - **Three assets.** SOL, BTC, ETH — the feeds every venue quotes and our oracle
   carries.
-- **Title parsing is strict.** Anything ambiguous is dropped rather than
+- **Strikes are read from fields where a venue publishes them.** Kalshi exposes
+  `strike_type` with `floor_strike`/`cap_strike`, so its questions are read
+  structurally and never guessed from prose. A strike shape we will not
+  interpret (`between`, `functional`, `custom`) is dropped under its own name.
+  Polymarket has no structured strike, so its questions are read from the title
+  with a strict parser, and anything ambiguous is dropped rather than
   interpreted. Coverage is deliberately traded for correctness.
 - **Venue field names are probed, not assumed.** If a venue renames a field,
   coverage drops and the exclusion count rises. It cannot silently corrupt a
