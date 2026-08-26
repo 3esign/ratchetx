@@ -17,14 +17,45 @@ const require = createRequire(import.meta.url);
 const { verifyLegacy } = require('../lib/legacy_chain.js');
 const { canon } = require('../lib/canon.js');
 
-const URL_ = process.argv[2] || 'https://ratchetx.xyz/api/snapshot';
+// Accepts a URL or a LOCAL FILE. The snapshot grows with the log and can take
+// longer to generate than any client is willing to wait, so the tool must not
+// depend on that one connection: save the page in a browser and point this at
+// the file instead. Same measurement either way.
+//
+//   node tools/chain-diag.mjs
+//   node tools/chain-diag.mjs C:\path\to\snapshot.json
+//   node tools/chain-diag.mjs https://ratchetx.xyz/api/snapshot
+const fs = await import('node:fs/promises');
+const SRC = process.argv[2] || 'https://ratchetx.xyz/api/snapshot';
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const GENESIS = sha('ratchet-genesis');
 
-console.log(`downloading ${URL_} ...`);
-const res = await fetch(URL_, { signal: AbortSignal.timeout(180_000) });
-if (!res.ok) { console.log(`HTTP ${res.status}`); process.exit(1); }
-const snap = await res.json();
+let snap;
+if (/^https?:/i.test(SRC)) {
+  console.log(`downloading ${SRC} (up to 5 minutes) ...`);
+  let last = null;
+  for (let attempt = 1; attempt <= 3 && !snap; attempt++) {
+    try {
+      const res = await fetch(SRC, { signal: AbortSignal.timeout(300_000) });
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      snap = await res.json();
+    } catch (e) {
+      last = e;
+      console.log(`  attempt ${attempt} failed: ${String(e.message || e).slice(0, 80)}`);
+      if (attempt < 3) console.log('  retrying — the first call also warms the server cache ...');
+    }
+  }
+  if (!snap) {
+    console.log(`\ncould not download it: ${String(last && last.message || last)}`);
+    console.log('\nThe endpoint can take longer to build than a client will wait. Do this instead:');
+    console.log('  1. open https://ratchetx.xyz/api/snapshot in Chrome and save the page (Ctrl+S)');
+    console.log('  2. node tools/chain-diag.mjs "C:\\path\\to\\snapshot.json"');
+    process.exit(1);
+  }
+} else {
+  console.log(`reading ${SRC} ...`);
+  snap = JSON.parse(await fs.readFile(SRC, 'utf8'));
+}
 const state = snap.state || snap;
 const log = state.log || state.events || snap.log || [];
 const head = state.logHead || state.head || snap.logHead || null;
