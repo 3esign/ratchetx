@@ -95,7 +95,12 @@ That is expected, and it is on the page.
   seen in-band. Re-pricing later would let us choose the entry that flatters
   the score.
 - **Three assets.** SOL, BTC, ETH — the feeds every venue quotes and our oracle
-  carries.
+  carries. On Kalshi the asset is not inferred at all: the crypto series are
+  requested by name (`KXBTC`, `KXBTCD`, `KXBTC15M` and the ETH/SOL equivalents),
+  so the series says what the market is about. An empty or unreachable series is
+  named in the exclusion counts rather than silently skipped.
+- **A market nobody has quoted is not scored.** A two-sided price is what makes
+  it a crowd belief. Unquoted markets are counted as `no-quote`.
 - **Strikes are read from fields where a venue publishes them.** Kalshi exposes
   `strike_type` with `floor_strike`/`cap_strike`, so its questions are read
   structurally and never guessed from prose. A strike shape we will not

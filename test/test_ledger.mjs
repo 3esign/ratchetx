@@ -49,26 +49,26 @@ globalThis.fetch = async (url) => {
   let body;
   if (u.includes('kalshi')) {
     lastKalshiUrl = u;
-    body = { markets: [
-      // structured strike: read from fields, no prose parsing at all
-      { ticker:'KXBTCD-A', yes_sub_title:'Bitcoin', rules_primary:'Bitcoin price', strike_type:'greater_or_equal',
-        floor_strike:95000, yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
-      // a below-question, struck on the cap
-      { ticker:'KXETHD-B', yes_sub_title:'Ethereum', strike_type:'less', cap_strike:3200,
-        yes_bid_dollars:0.44, yes_ask_dollars:0.46, close_time:new Date(soon).toISOString() },
+    const series = (u.match(/series_ticker=([A-Z0-9]+)/) || [])[1];
+    if (series === 'KXBTC') body = { markets: [
+      // structured strike, read from fields — no prose parsing at all
+      { ticker:'KXBTC-A', strike_type:'greater_or_equal', floor_strike:95000,
+        yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
       // out of band
-      { ticker:'KXBTCD-C', yes_sub_title:'Bitcoin', strike_type:'greater', floor_strike:95000,
+      { ticker:'KXBTC-C', strike_type:'greater', floor_strike:95000,
         yes_bid_dollars:0.94, yes_ask_dollars:0.96, close_time:new Date(soon).toISOString() },
-      // an asset we do not carry
-      { ticker:'KXFED-D', yes_sub_title:'Fed cut', strike_type:'greater', floor_strike:1,
-        yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
       // a strike shape we refuse to interpret
-      { ticker:'KXBTCD-E', yes_sub_title:'Bitcoin', strike_type:'between', floor_strike:90000, cap_strike:95000,
+      { ticker:'KXBTC-E', strike_type:'between', floor_strike:90000, cap_strike:95000,
         yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
-      // the old cent-denominated fields are gone: this must count as no-price
-      { ticker:'KXBTCD-F', yes_sub_title:'Bitcoin', strike_type:'greater', floor_strike:95000,
-        yes_bid:48, yes_ask:52, close_time:new Date(soon).toISOString() },
+      // nobody has quoted it: no crowd to read
+      { ticker:'KXBTC-F', strike_type:'greater', floor_strike:95000,
+        yes_bid_dollars:0, yes_ask_dollars:0, last_price_dollars:0, close_time:new Date(soon).toISOString() },
     ] };
+    else if (series === 'KXETHD') body = { markets: [
+      { ticker:'KXETHD-B', strike_type:'less', cap_strike:3200,
+        yes_bid_dollars:0.44, yes_ask_dollars:0.46, close_time:new Date(soon).toISOString() },
+    ] };
+    else body = { markets: [] };
   } else {
     lastPolyUrl = u;
     body = [
@@ -81,18 +81,21 @@ globalThis.fetch = async (url) => {
 };
 
 const k = await L.fromKalshi(NOW);
+ok(/series_ticker=/.test(lastKalshiUrl) && /mve_filter=exclude/.test(lastKalshiUrl),
+   'kalshi is asked for the crypto series by name, not for every open market');
 ok(/min_close_ts=\d+/.test(lastKalshiUrl) && /max_close_ts=\d+/.test(lastKalshiUrl),
    'kalshi horizon is filtered server-side, not by discarding a full page');
 ok(k.obs.length === 2, `kalshi keeps both readable in-band markets (${k.obs.length})`);
-const kb = k.obs.find(o => o.id === 'KXBTCD-A'), ke = k.obs.find(o => o.id === 'KXETHD-B');
+const kb = k.obs.find(o => o.id === 'KXBTC-A'), ke = k.obs.find(o => o.id === 'KXETHD-B');
 ok(kb && kb.feed === 'BTC' && kb.strike === 95000 && kb.dir === 'above' && kb.src === 'fields',
    'greater_or_equal reads the FLOOR strike out of the fields');
 ok(ke && ke.feed === 'ETH' && ke.strike === 3200 && ke.dir === 'below' && ke.src === 'fields',
    'less reads the CAP strike out of the fields');
+ok(kb.feed === 'BTC' && !/bitcoin/i.test(JSON.stringify(kb)), 'the ASSET comes from the series, never guessed from a title');
 ok(Math.abs(kb.p - 0.5) < 1e-9, 'kalshi price is the dollar-denominated mid, not cents');
-ok(k.drops['outside-band'] === 1 && k.drops['asset-not-covered'] === 1
-   && k.drops['strike-type-between'] === 1 && k.drops['no-price'] === 1,
-   `every kalshi exclusion is counted and named (${JSON.stringify(k.drops)})`);
+ok(k.drops['outside-band'] === 1 && k.drops['strike-type-between'] === 1 && k.drops['no-quote'] === 1,
+   `kalshi exclusions are counted and named (${JSON.stringify(k.drops)})`);
+ok(Object.keys(k.drops).some(x => x.startsWith('series-empty:')), 'an empty series is named, not silently skipped');
 
 const pm = await L.fromPolymarket(NOW);
 ok(/end_date_min=/.test(lastPolyUrl) && /end_date_max=/.test(lastPolyUrl),
