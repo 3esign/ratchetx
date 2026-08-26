@@ -105,9 +105,13 @@ That is expected, and it is on the page.
 ## Who advances it
 
 The public crank — [`tools/crank.mjs`](../tools/crank.mjs), which anyone may
-run against this site or any mirror. If we stop running it, the scoreboard
-that grades us alongside everyone else keeps advancing anyway. That is the only
+run against this site or any mirror. If we stop running it, the scoreboard that
+grades us alongside everyone else keeps advancing anyway. That is the only
 version of it worth publishing.
+
+There is no platform scheduler behind it. A read that finds the board more than
+six hours stale advances it once as a floor, so it cannot silently rot — but the
+mechanism is the crank, and the crank belongs to whoever runs it.
 
 ---
 

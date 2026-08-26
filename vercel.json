@@ -10,10 +10,6 @@
     {
       "path": "/api/proof",
       "schedule": "20 0 * * *"
-    },
-    {
-      "path": "/api/ledger",
-      "schedule": "35 */6 * * *"
     }
   ],
   "headers": [

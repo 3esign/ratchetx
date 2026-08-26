@@ -86,10 +86,12 @@ module.exports = async (req, res) => {
     let ticked = null;
     if (action === 'tick') ticked = await tick(now);
     else {
-      // Safety net, not the mechanism. The ledger is normally advanced by
-      // whoever runs the public crank — tools/crank.mjs, which anyone may run
-      // against this or any mirror. This branch only exists so the board can
-      // never quietly rot if nobody does.
+      // Safety net AND the fallback mechanism. The ledger is normally advanced
+      // by whoever runs the public crank — tools/crank.mjs, which anyone may
+      // run against this or any mirror. There is deliberately no platform cron
+      // behind it: the hosting plan allows two, both already spent on the game
+      // and the proof page, and a scoreboard that only advances when WE pay a
+      // scheduler is not the kind of scoreboard this one claims to be.
       const last = num(await getJSON('ldg:tick'));
       if (now - last > 6 * 3600e3) ticked = await tick(now);
     }
