@@ -162,5 +162,12 @@ const arena = await get('action=arena');
 ok(arena.ok === true && Array.isArray(arena.agents), 'arena responds with the agents array');
 
 console.log(`\n${pass} passed, ${failn} failed`);
-srv.close();
-process.exit(failn ? 1 : 0);
+// Windows/libuv asserts (src\win\async.c, UV_HANDLE_CLOSING) if the process
+// tears down while a handle is still closing, which fails the run AFTER every
+// assertion has already passed. Drain the server, then let the loop end on its
+// own instead of calling process.exit() mid-close.
+process.exitCode = failn ? 1 : 0;
+srv.closeAllConnections?.();
+await new Promise(r => srv.close(() => r()));
+setTimeout(() => process.exit(process.exitCode || 0), 3000).unref();
+

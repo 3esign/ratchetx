@@ -116,7 +116,13 @@ ok(board.rows.every(r => 'brier' in r && 'n' in r), 'every row carries its sampl
 ok(board.rows.some(r => r.id === 'rx_crowd' && r.why), 'an unscored row says WHY rather than being omitted');
 ok('excluded' in board && /counted here rather than dropped silently/.test(board.excludedNote || ''), 'exclusions are part of the published board');
 ok(/github.com\/3esign\/ratchetx/.test(board.reproduce || ''), 'the board links the code that produced it');
-srv.close();
-
 console.log(`\n${pass} passed, ${failn} failed`);
-process.exit(failn ? 1 : 0);
+// Windows/libuv asserts (src\win\async.c, UV_HANDLE_CLOSING) if the process
+// tears down while a handle is still closing, which fails the run AFTER every
+// assertion has already passed. Drain the server, then let the loop end on its
+// own instead of calling process.exit() mid-close.
+process.exitCode = failn ? 1 : 0;
+srv.closeAllConnections?.();
+await new Promise(r => srv.close(() => r()));
+setTimeout(() => process.exit(process.exitCode || 0), 3000).unref();
+
