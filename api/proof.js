@@ -268,6 +268,18 @@ module.exports = async (req, res) => {
       bbDetail = 'snapshot export is available, but resurrection verification currently fails at entry '
         + chainVerdict.brokenAt + ': ' + chainVerdict.reason
         + '. The gap is disclosed and must not be described as a complete restorable log';
+    } else if (chainVerdict && chainVerdict.ok && !chainVerdict.intact) {
+      // Honest middle state: everything we hold verifies, but we do not hold
+      // everything. Never green — a resurrection from this export rebuilds the
+      // machine with a named hole in its history, and the operator does not get
+      // to round that up to "complete".
+      bbStatus = 'grey';
+      bbDetail = 'the whole state exports at /api/snapshot and every stored entry verifies, but the export is NOT complete: entry '
+        + chainVerdict.missing.join(', ') + ' was lost before it was ever stored and cannot be recovered. '
+        + 'A machine rebuilt from this export is faithful either side of that index and blind at it. '
+        + 'Cause, date and fix: docs/CHAIN_GAP.md'
+        + (lastRoot ? ' · daily balance root: ' + lastRoot.root.slice(0, 10) + '… ('
+            + lastRoot.day + ', ' + lastRoot.players + ' players)' : '');
     } else if (chainVerdict && chainVerdict.ok) {
       bbStatus = 'green';
       bbDetail = 'all ' + chainEntries.length.toLocaleString()
@@ -286,17 +298,32 @@ module.exports = async (req, res) => {
           + String(chainError && chainError.message || chainError).slice(0, 80));
     } else if (issued > 0) {
       const v = chainVerdict;
-      push('chain', v.ok ? 'green' : 'red',
-        v.ok ? 'Every hash in the log recomputes from genesis'
-             : 'The log does not verify — and this check is how you would know',
-        v.ok
+      // Three states, not two. An undisclosed break is red and must stay red.
+      // A disclosed, permanently documented loss is its own state: the stored
+      // entries verify in segments around it, and the hole is named every time
+      // this page loads. It is not a pass. Rounding it up to green would be the
+      // exact dishonesty this endpoint exists to prevent.
+      const chStatus = !v.ok ? 'red' : (v.intact ? 'green' : 'grey');
+      const segTxt = (v.segments || []).map(g => g.from + '–' + g.to).join(' and ');
+      push('chain', chStatus,
+        !v.ok  ? 'The log does not verify — and this check is how you would know'
+        : v.intact ? 'Every hash in the log recomputes from genesis'
+                   : 'The log verifies in segments around one disclosed, permanent gap',
+        !v.ok
+          ? 'broken at index ' + v.brokenAt + ' — ' + v.reason
+              + '. Nothing here is being hidden from you: the verifier reports the break '
+              + 'instead of papering over it'
+        : v.intact
           ? chainEntries.length.toLocaleString() + ' entries replayed hash-by-hash, '
               + issued.toLocaleString() + ' issued by the server and '
               + chainEntries.length.toLocaleString() + ' stored. Rewriting any past event '
               + 'changes every hash after it, so this line turns red and stays red'
-          : 'broken at index ' + v.brokenAt + ' — ' + v.reason
-              + '. Nothing here is being hidden from you: the verifier reports the break '
-              + 'instead of papering over it',
+          : 'entry ' + v.missing.join(', ') + ' was issued but never stored, and the hash before it '
+              + 'is gone — so it cannot be rebuilt without inventing it, and we will not invent it. '
+              + 'Segments ' + segTxt + ' each replay hash-by-hash (' + chainEntries.length.toLocaleString()
+              + ' of ' + issued.toLocaleString() + ' issued entries verify). The segment after the gap is '
+              + 'anchored on its own stored hash — declared, not proven — and every entry after that anchor '
+              + 'is proven against it. Tampering anywhere still turns this red. Full disclosure: docs/CHAIN_GAP.md',
         '/api/snapshot');
     }
     const logHead = await getJSON('g:log:head');
