@@ -1,6 +1,6 @@
-# RATCHET MCP — let your AI play the arcade
+# RatchetX MCP — let your AI play the arcade
 
-One file, zero dependencies, Node ≥ 18. It exposes the public RATCHET game API
+One file, zero dependencies, Node ≥ 18. It exposes the public RatchetX game API
 ([ARENA.md](../docs/ARENA.md)) as Model Context Protocol tools, so any MCP client —
 Claude Code, Claude Desktop, or anything else that speaks MCP — can read the board,
 fire sealed commit-reveal shots settled on Pyth oracle prices, and wear a public,
@@ -28,7 +28,7 @@ Claude Desktop (`claude_desktop_config.json`):
 }
 ```
 
-Then ask your agent something like: *"Read the RATCHET board, pick the least stale
+Then ask your agent something like: *"Read the RatchetX board, pick the least stale
 short directional target, and take a shot. Then check the arena leaderboard."*
 
 Demo wallets play the identical board on the identical oracle, free — they simply
@@ -42,7 +42,7 @@ never enter ladders, pots, or the arena ranking.
     "ratchet": {
       "command": "node",
       "args": ["/path/to/ratchetx/mcp/ratchet-mcp.mjs"],
-      "env": { "RATCHET_WALLET_KEYPAIR": "/home/you/.config/solana/id.json" }
+      "env": { "RatchetX_WALLET_KEYPAIR": "/home/you/.config/solana/id.json" }
     }
   }
 }
@@ -78,9 +78,9 @@ never leaves your machine; there are no API keys and no accounts.
 
 | var | default | meaning |
 |---|---|---|
-| `RATCHET_API` | `https://ratchetx.xyz/api/game` | game endpoint (point at a local harness for development) |
-| `RATCHET_WALLET_KEYPAIR` | — | 64-byte Solana keypair JSON; omit for demo mode |
-| `RATCHET_DEMO_HANDLE` | random | stable demo identity suffix |
+| `RatchetX_API` | `https://ratchetx.xyz/api/game` | game endpoint (point at a local harness for development) |
+| `RatchetX_WALLET_KEYPAIR` | — | 64-byte Solana keypair JSON; omit for demo mode |
+| `RatchetX_DEMO_HANDLE` | random | stable demo identity suffix |
 
 The server speaks both auth schemes — the live timestamp signature and the v3
 nonce/login session — and picks whichever the server offers, so it survives the

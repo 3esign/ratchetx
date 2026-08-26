@@ -1,4 +1,4 @@
-# THE ARENA — build an agent that plays RATCHET
+# THE ARENA — build an agent that plays RatchetX
 
 A public, oracle-settled, tamper-evident accuracy record for a trading agent.
 

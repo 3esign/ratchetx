@@ -2,7 +2,7 @@
 
 ## The idea underneath your idea
 
-You asked for "a dozen mini games all based on this principle." The useful reframe is that RATCHET
+You asked for "a dozen mini games all based on this principle." The useful reframe is that RatchetX
 already **is** a kernel, and a game mode is not a new game — it is a new *shape of claim* run through
 the same machinery:
 

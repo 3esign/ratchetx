@@ -19,7 +19,7 @@ calendar entry that can be checked against the chain.
 
 Why this program can afford immutability: it holds no player funds; it is an optional
 receipt path, not the canonical referee; the deployed binary is byte-verified against the
-repository artifact; and the site can always stop arming it (`RATCHET_SEAL_PROGRAM_ID` is
+repository artifact; and the site can always stop arming it (`RatchetX_SEAL_PROGRAM_ID` is
 an environment switch). The one thing we can never do again after 2026-09-08 is change
 what the deployed program does — which is the point.
 
@@ -69,7 +69,7 @@ Fourteen days exist to be used. Each item is checkable; an item still open on
 - [ ] **Final byte-verification.** Rebuild with the pinned toolchain, compare SHA-256
   against the deployed program data one last time, record both hashes here. That pair
   is the claim that stays true forever.
-- [ ] **Kill-switch drill.** Unset `RATCHET_SEAL_PROGRAM_ID` once in a preview deploy
+- [ ] **Kill-switch drill.** Unset `RatchetX_SEAL_PROGRAM_ID` once in a preview deploy
   and confirm the site cleanly stops arming sealing. It is the only lever that survives
   the freeze; prove it moves before relying on it.
 - [x] **v3 independence.** Confirmed 2026-08-25 against the v3 RFC and program
@@ -88,7 +88,7 @@ freezing the program neither fixes nor worsens it.
 If, before 2026-09-08, end-to-end integration surfaces a bug in the *program itself*
 (not in the site around it), we will not quietly upgrade and freeze later. We will
 publish the bug, ship the fixed program under a **new** id, point the site's
-`RATCHET_SEAL_PROGRAM_ID` at it, and restart the clock for the new id — in this file,
+`RatchetX_SEAL_PROGRAM_ID` at it, and restart the clock for the new id — in this file,
 with the old date left visible above the new one. A freeze that can be silently
 rescheduled is not a commitment.
 

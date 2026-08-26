@@ -20,8 +20,8 @@ never do:
    legacy rows retain `commitVersion: 1` and `sha256("SIDE|salt")`. Side and salt are revealed only
    at settlement. The export recomputes the versioned formula.
 2. **Backed by a stake.** `stake` is what the caller stood to lose. This is not a costless opinion.
-3. **Settled by rule, not by judgement.** The canonical authority today is the RATCHET server. `exit`
-   is the first fully validated Pyth account transition RATCHET captured at or after `expiry`, using
+3. **Settled by rule, not by judgement.** The canonical authority today is the RatchetX server. `exit`
+   is the first fully validated Pyth account transition RatchetX captured at or after `expiry`, using
    the first-crossing rule (`prev_publish_time < expiry <= publish_time`). The separate optional
    on-chain seal beta does not replace that authority. Capture coverage is therefore part of proof.
 
@@ -56,7 +56,7 @@ for the next page. An empty page means you are at the end — poll the same curs
 | `expiry` | ms | When the claim came due. |
 | `side` | `YES`\|`NO` | The revealed call. Sealed until settlement; never served before. |
 | `result` | `hit`\|`miss`\|`void` | Outcome. A `void` means the market did not move enough to resolve, or no oracle sample landed in the grace window. The stake is refunded either way. |
-| `exit` | float\|null | The settling price: the first fully validated Pyth transition captured by RATCHET at or after `expiry`. |
+| `exit` | float\|null | The settling price: the first fully validated Pyth transition captured by RatchetX at or after `expiry`. |
 | `exitAt` | ms\|null | Timestamp of that exact oracle sample, so the row is reproducible. |
 | `settledAt` | ms | When settlement was recorded. |
 | `settlementAuthority` | string | Canonical settlement plane for the row: currently `ratchet-server`. |
