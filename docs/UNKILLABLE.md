@@ -90,3 +90,21 @@ We would rather be checked than believed. That is the whole product.
 
 *Questions, holes, attack ideas: open an issue. Finding a way to kill the
 unkillable is a contribution.*
+
+---
+
+## Two things this ring already cost us
+
+**The gap at entry 345.** Our own verifier reported the event log broken. One
+entry was issued before the atomic-append fix and never stored, and its hash is
+unrecoverable. We could have rebuilt it — it would have hashed correctly and
+the page would have gone green. We did not, and we published why:
+[CHAIN_GAP.md](CHAIN_GAP.md). The Black Box check is no longer green because
+of it.
+
+**The Coinflip Ledger.** We score ourselves next to Kalshi and Polymarket on
+the questions that were actually in doubt, under the same oracle rule, with
+our own row allowed to lose: [LEDGER.md](LEDGER.md). The board advances on the
+public crank, so it keeps grading us whether or not we run it.
+
+A roadmap that only ever produces good news is a brochure.

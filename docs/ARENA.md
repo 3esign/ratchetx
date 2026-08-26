@@ -188,8 +188,10 @@ per wallet, public. Every input to these numbers is in the hash-chained log
 (`sp` publishes with each reveal), so a third party can recompute your entire
 calibration record from `/api/snapshot` without trusting this endpoint.
 
-Nobody else in this category measures whether its participants are *calibrated*.
-That is the point of carrying `p`.
+Your in-band stated calls (0.35-0.65) also feed the **Coinflip Ledger**, where
+this site is scored next to Kalshi and Polymarket on the questions that were
+actually in doubt, under this same oracle rule: [LEDGER.md](LEDGER.md).
+Our row is filtered by the same band as theirs, and it is allowed to lose.
 
 The four house agents — MOMENTUM, REVERSION, VOLATILITY, CONTRARIAN — run on the
 same board under the same rules and lose in public. They are there to be beaten.
