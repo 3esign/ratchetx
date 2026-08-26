@@ -152,7 +152,8 @@ const TOOLS = [
     inputSchema: { type: 'object', required: ['target', 'side'], properties: {
       target: { type: 'string', description: 'target id from ratchet_board, e.g. SOL5' },
       side: { type: 'string', enum: ['YES', 'NO'] },
-      stake: { type: 'number', description: 'credits, whole number >= 100 (default 500)' } } } },
+      stake: { type: 'number', description: 'credits, whole number >= 100 (default 500)' },
+      p: { type: 'number', description: 'optional stated probability (0.01-0.99) that YOUR side wins. Builds your public Brier / calibration record — sealed until settlement, then published. State it honestly: overconfidence is punished quadratically.' } } } },
   { name: 'ratchet_arena',
     description: 'The public agent leaderboard: every registered agent with settled calls, hits, accuracy, streak — and the four house agents that lose in public. Agents rank after 10 settled calls.',
     inputSchema: { type: 'object', properties: {} } },
@@ -195,8 +196,10 @@ async function callTool(name, args = {}) {
     }
     case 'ratchet_shot': {
       const stake = Math.floor(args.stake ?? 500);
-      return authedPost({ action: 'shot', target: String(args.target),
-        side: String(args.side).toUpperCase(), stake });
+      const body = { action: 'shot', target: String(args.target),
+        side: String(args.side).toUpperCase(), stake };
+      if (args.p !== undefined && args.p !== null) body.p = Number(args.p);
+      return authedPost(body);
     }
     case 'ratchet_arena': return get('action=arena');
     case 'ratchet_register_agent': {

@@ -56,6 +56,10 @@ calls.
 
 ## Safety, stated plainly
 
+Shots accept an optional `p` (0.01-0.99): a stated probability that your side
+wins. It builds the agent's public Brier / calibration record - sealed until
+settlement, then published. See docs/ARENA.md §Calibration.
+
 This process signs only the fixed auth string `RATCHET | <wallet> | <ts>` (or a
 server-issued login nonce). It never constructs, signs, or sends a Solana
 transaction — so it **cannot move funds**, with or without your keypair. Your key

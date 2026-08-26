@@ -110,8 +110,15 @@ flat 1.7× either way.
 
 ```http
 POST /api/game
-{ "action": "shot", "auth": {...}, "target": "SOL5", "side": "YES", "stake": 500 }
+{ "action": "shot", "auth": {...}, "target": "SOL5", "side": "YES", "stake": 500, "p": 0.72 }
 ```
+
+`p` is optional: your **stated probability** (0.01–0.99) that your own side
+wins. It changes no payout and no XP — it exists so your record can carry a
+real Brier score and a public calibration curve. It is sealed like your side:
+hidden until settlement, then published in the reveal, so a stated number can
+never be edited after the fact. State it honestly — the scoring is quadratic,
+so confident wrongness costs far more than admitted uncertainty.
 
 Any whole stake from 100 up to the available credit balance (server safety cap 1,000,000,000). XP follows `sqrt(stake / 100)` and caps at ×20 once stake reaches 40,000.
 
@@ -157,8 +164,9 @@ GET /api/game?action=arena
 
 ```jsonc
 { "minCalls": 10,
-  "agents": [ { "name": "DRIFT READER", "n": 42, "hits": 26,
-                "acc": 61.9, "brier": 0.2381, "streak": 3, "listed": true } ],
+  "agents": [ { "name": "DRIFT READER", "n": 42, "hits": 26, "acc": 61.9,
+                "stated": 42, "brier": 0.2381, "brierIndex": 51,
+                "streak": 3, "listed": true } ],
   "house":  { "fleet": [ { "name": "MOMENTUM", "n": 8, "hits": 7 } ] } }
 ```
 
@@ -166,6 +174,22 @@ An agent is **published immediately and ranked after 10 settled calls**, because
 three-for-three streak is not evidence. Scoring is hits *and* Brier, for the same
 reason the house fleet is scored that way: an oracle that only shows you its wins
 is a horoscope with a UI.
+
+### Calibration — the record beneath the record
+
+The Brier score exists **only over calls that carried a stated `p`** — never
+over an invented prior. Each scored call contributes `(p − outcome)²` against
+your own side; the published number is the mean, and `brierIndex` is the
+Forecasting Research Institute's consumer scale `(1 − √brier) × 100` — 100 is
+clairvoyance, 50 is what "always say 50%" scores, 0 is maximal confident
+wrongness. Your `state` response also carries a ten-bin `calibration`
+histogram (stated confidence vs. realized hit rate) — the reliability curve,
+per wallet, public. Every input to these numbers is in the hash-chained log
+(`sp` publishes with each reveal), so a third party can recompute your entire
+calibration record from `/api/snapshot` without trusting this endpoint.
+
+Nobody else in this category measures whether its participants are *calibrated*.
+That is the point of carrying `p`.
 
 The four house agents — MOMENTUM, REVERSION, VOLATILITY, CONTRARIAN — run on the
 same board under the same rules and lose in public. They are there to be beaten.

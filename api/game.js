@@ -1493,6 +1493,35 @@ async function repairReloadReceipt(sig, g) {
   return true;
 }
 
+// Brier bookkeeping for shots that carried a stated probability. The score is
+// (p - outcome)^2 against the player's OWN side, so 0 is clairvoyance, 0.25 is
+// coin-flip confidence, 1 is confident wrongness. Voids score nothing.
+// Aggregates live on the player (bsum/bn) plus a 10-bin reliability histogram
+// for the public calibration curve. Everything here is recomputable from the
+// hash-chained log, which publishes sp in every reveal.
+function scoreStated(p, s, hit) {
+  if (!Number.isFinite(s.sp)) return;
+  const e = s.sp - (hit ? 1 : 0);
+  p.bn = (p.bn || 0) + 1;
+  p.bsum = +(((p.bsum || 0) + e * e).toFixed(6));
+  const bin = Math.min(9, Math.floor(s.sp * 10));
+  p.calib = p.calib || {};
+  const c = p.calib[bin] || { n: 0, h: 0 };
+  c.n++; if (hit) c.h++;
+  p.calib[bin] = c;
+}
+function brierOf(p) {
+  const bn = p.bn || 0;
+  if (!bn) return { stated: 0, brier: null, brierIndex: null, calibration: null };
+  const b = p.bsum / bn;
+  return { stated: bn, brier: +b.toFixed(4),
+    brierIndex: Math.round((1 - Math.sqrt(b)) * 100),
+    calibration: Array.from({ length: 10 }, (_, i) => {
+      const c = (p.calib || {})[i];
+      return c ? { lo: i / 10, hi: (i + 1) / 10, n: c.n, hits: c.h } : null;
+    }) };
+}
+
 async function settle(p, prices) {
   if (!p.open.length) return false;
   const now = Date.now(); let changed = false;
@@ -1577,6 +1606,7 @@ async function settle(p, prices) {
       s.settleXp = SETTLE_XP;
       s.xp = s.skillXp + s.settleXp;
       p.streak++; p.best = Math.max(p.best, p.streak);
+      scoreStated(p, s, true);
       p.xp += s.xp;
       await bumpLadderOnce(p.w, s.xp, p.qualified, s.id);
       s.back = Math.floor(s.stake * HIT_PAYOUT);
@@ -1592,6 +1622,7 @@ async function settle(p, prices) {
     } else {
       await fundSettledStake(s, p.w);
       p.shots++; s.res = 'miss'; p.streak = 0;
+      scoreStated(p, s, false);
       s.skillXp = 0; s.settleXp = SETTLE_XP; s.xp = SETTLE_XP;
       p.xp += s.xp;
       await bumpLadderOnce(p.w, s.xp, p.qualified, s.id);
@@ -1614,14 +1645,14 @@ async function settle(p, prices) {
     if (at2) await noteSettle(s.feed2, 'set', eventId);
     await appendOnce(`settle:${eventId}`, { k:'settle', w:p.w, id:s.id,
       res:s.res, exitPx:px, exitAt:s.exitAt, exitPx2:s.exitPx2,
-      exitAt2:s.exitAt2, side:s.side, salt:s.salt, commit:s.commit,
+      exitAt2:s.exitAt2, side:s.side, salt:s.salt, sp:s.sp ?? null, commit:s.commit,
       commitV:s.commitV || 1, settleRule:s.settleRule || 'observed-sample-v1',
       settleRuleApplied:s.settleRuleApplied,
       outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1',
       allocationRule:s.allocationRule || 'upfront-v1', xp:s.xp || 0,
       settleXp:s.settleXp || 0, skillXp:s.skillXp || 0 });
     await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
-      res:s.res, xp:s.res === 'void' ? 0 : (s.xp || 0), back:s.back || 0,
+      sp:s.sp, res:s.res, xp:s.res === 'void' ? 0 : (s.xp || 0), back:s.back || 0,
       settleXp:s.settleXp || 0, skillXp:s.skillXp || 0,
       stake:s.stake, entry:s.entry, exit:px, kind:s.kind,
       thresh:s.thresh, pct:s.pct });
@@ -1963,8 +1994,12 @@ module.exports = async (req, res) => {
         // xp is computed from the side (yesMult vs noMult), so shipping it on
         // an open shot leaks the very thing the commit is meant to hide. The
         // owner already got it in the fire response.
-        player.open = (p.open || []).map(({ side, salt, xp, ...rest }) => rest);
+        player.open = (p.open || []).map(({ side, salt, xp, sp, ...rest }) => rest);
         delete player._existed; delete player._src;
+        // CALIBRATION IS PUBLIC, LIKE EVERYTHING ELSE THAT SETTLED.
+        // brierIndex is (1 - sqrt(brier)) * 100: 100 = clairvoyant, 50 = the
+        // score of always saying 50%, 0 = maximally confident and wrong.
+        Object.assign(player, brierOf(p));
         player.history = ((await getCached(`hist:${w}`, 3_000)) || []).slice(0, 200);
         player.qualified = !!p.qualified;
         // CHAMPION CONSOLE: live seat/share, separate RCX receipts and balance.
@@ -2150,6 +2185,22 @@ module.exports = async (req, res) => {
         }
       }
 
+      // STATED PROBABILITY (optional): the player's confidence that their OWN
+      // side wins, 0.01-0.99. It powers the Brier / calibration record and
+      // changes no payout, no XP, no rule. It is sealed with the shot — hidden
+      // like side and salt until settlement, then published in the reveal so a
+      // stated number can never be edited after the fact.
+      let sp = null;
+      if (b.p !== undefined && b.p !== null && b.p !== '') {
+        sp = Number(b.p);
+        if (!Number.isFinite(sp) || sp < 0.01 || sp > 0.99) {
+          await savePlayer(p);
+          return res.status(400).json({ ok:false,
+            reason:'stated probability p must be a number from 0.01 to 0.99 — your confidence that your own side wins' });
+        }
+        sp = Math.round(sp * 100) / 100;
+      }
+
       const requiredFeeds = action === 'shot'
         ? [spec.feed, spec.feed2].filter(Boolean) : [duelLine.feed];
       const crossingReady = prices.src === 'pyth-onchain' && requiredFeeds.every(f =>
@@ -2194,6 +2245,7 @@ module.exports = async (req, res) => {
       shot.salt = crypto.randomBytes(16).toString('hex');
       shot.commitV = 2;
       shot.commit = shotCommit(w, shot.id, shot.side, shot.salt);
+      if (sp != null) shot.sp = sp;
       shot.src = p._src || 'bal'; delete p._src;
       p.open.unshift(shot);
       await savePlayer(p);
@@ -2526,26 +2578,29 @@ module.exports = async (req, res) => {
         const scored = hist.filter(h => h.res === 'hit' || h.res === 'miss');
         const n = scored.length;
         const hits = scored.filter(h => h.res === 'hit').length;
-        // NO BRIER SCORE, AND THIS USED TO BE ONE.
+        // THE BRIER SCORE IS REAL NOW.
         //
-        // It was computed as mean((0.5 - outcome)^2) over a flat 50% prior,
-        // described in this very comment as "the honest floor until the API
-        // carries a probability". It is not a floor. (0.5-1)^2 and (0.5-0)^2
-        // are both exactly 0.25, so the mean is 0.25 for every agent, at
-        // every record, forever — a constant, published to four decimal
-        // places, on a CORS-open endpoint we advertise as a record that is
-        // "not self-reported". A number carrying no information while
-        // looking precise is worse than no number.
-        //
-        // A Brier score needs a stated probability, and the agent API does
-        // not carry one yet. So it is null, with the reason attached, until
-        // agents can say how sure they are. Accuracy is a real measurement
-        // and stays.
+        // Its predecessor was a constant-0.25 fake over a flat 50% prior and
+        // was removed for being decoration. The rule that replaced it: a
+        // Brier score exists ONLY over calls that carried a stated
+        // probability (the optional `p` on a shot), scored (p - outcome)^2
+        // against the agent's own side at settlement, published in the
+        // reveal, recomputable from the hash-chained log. No stated
+        // probability, no score — never a made-up prior. brierIndex is the
+        // Forecasting Research Institute's consumer scale:
+        // (1 - sqrt(brier)) * 100, where 50 is "always says 50%".
+        const bn = ap.bn || 0;
+        const bmean = bn ? (ap.bsum || 0) / bn : null;
+        const ranked = bn >= ARENA_MIN_CALLS;
         rows.push({ name: ap.agent.name, blurb: ap.agent.blurb || '',
           since: ap.agent.since, w: shortW(aw), n, hits,
           acc: n ? +(hits / n * 100).toFixed(1) : null,
-          brier: null,
-          brierWhy: 'a Brier score needs a stated probability; the agent API does not carry one yet',
+          stated: bn,
+          brier: ranked ? +bmean.toFixed(4) : null,
+          brierIndex: ranked ? Math.round((1 - Math.sqrt(bmean)) * 100) : null,
+          brierWhy: ranked ? undefined : (bn
+            ? `a Brier ranking needs ${ARENA_MIN_CALLS} stated-probability calls; this agent has ${bn}`
+            : 'no stated probabilities yet — pass p (0.01-0.99) on your shots to build a calibration record'),
           xp: ap.xp || 0, streak: ap.streak || 0,
           listed: n >= ARENA_MIN_CALLS });
       }

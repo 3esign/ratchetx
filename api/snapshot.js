@@ -66,7 +66,7 @@ module.exports = async (req, res) => {
       // WITHOUT side/salt (the commit stays, so seals remain verifiable).
       // A machine resurrected from a snapshot therefore VOID-REFUNDS any
       // still-open shots — restore.mjs does this and says so.
-      if (p) players[k.slice(2)] = { ...p, open: (p.open || []).map(({ side, salt, xp, ...rest }) => rest) };
+      if (p) players[k.slice(2)] = { ...p, open: (p.open || []).map(({ side, salt, xp, sp, ...rest }) => rest) };
     }
     const sigs = {};
     for (const k of await scanKeys('sig:*')) {
