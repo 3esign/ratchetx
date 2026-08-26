@@ -158,6 +158,11 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .tgt .tmkt b{color:var(--ink2);font-weight:800}
 .tgt.onchain{border-color:rgba(125,211,252,.42);box-shadow:inset 0 0 0 1px rgba(125,211,252,.06)}
 .chainTag{margin-top:9px;font:800 9px/1 var(--mono);letter-spacing:.12em;color:var(--ice)}
+.crowdTag{margin-top:7px;font:800 9px/1 var(--mono);letter-spacing:.12em;color:var(--goldD)}
+.confRow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
+.confRow .cf{flex:none;padding:8px 12px;font:700 11px var(--mono)}
+.conflab{font:700 9.5px var(--mono);letter-spacing:.1em;color:var(--dim)}
+.confnote{flex-basis:100%;font:600 8.5px var(--mono);letter-spacing:.1em;color:var(--dim)}
 .updown{display:flex;gap:7px;margin-top:11px}
 .ud{flex:1;border:1px solid var(--line);background:none;border-radius:8px;padding:8px 0;cursor:pointer;text-align:center;
   font:800 11px/1 var(--mono);letter-spacing:.12em;color:var(--dim);transition:.12s}
@@ -591,6 +596,8 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
       <span class="scm" id="stakeMultOut">×2.24 XP</span>
     </div>
     <div class="splitOut none" id="xpCapNote" style="margin:8px 0 0"></div>
+    <div class="confRow" id="confRow"><span class="conflab">HOW SURE ARE YOU?</span><span class="stk cf on" data-p="">SKIP</span><span class="stk cf" data-p="0.55">55%</span><span class="stk cf" data-p="0.65">65%</span><span class="stk cf" data-p="0.75">75%</span><span class="stk cf" data-p="0.85">85%</span><span class="stk cf" data-p="0.95">95%</span>
+      <span class="confnote">OPTIONAL — STATE IT AND YOUR RECORD GROWS A PUBLIC CALIBRATION SCORE. SEALED LIKE YOUR SIDE UNTIL SETTLEMENT. OVERCONFIDENCE COSTS QUADRATICALLY.</span></div>
     <div id="payLine" style="font:700 9.5px var(--mono);letter-spacing:.1em;color:var(--dim);margin-top:8px"></div>
     <button class="fire" id="fire" disabled>PICK A TARGET AND A SIDE</button>
     <div class="splitline">EVERY SHOT: <b>70%🔥 BURNED</b> · 30% POTS (15% DAILY / 15% WEEKLY) · <b>0% TO US</b> — THE CREATOR TAKES TRADING FEES ONLY</div>
@@ -882,7 +889,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
 <script>
 const $=id=>document.getElementById(id);
 const API='/api/game';
-let AUTH=null, DEMO=null, STATE=null, sel={t:null,side:null,stake:500}, dead=false;
+let AUTH=null, DEMO=null, STATE=null, sel={t:null,side:null,stake:500,p:null}, dead=false;
 // SEALED means sealed: the server no longer returns open shots' sides to
 // anyone — including this client. Your own sides live here, locally.
 let SIDES={};try{SIDES=JSON.parse(localStorage.getItem("ratchet_sides"))||{}}catch(e){if(e&&e.message&&e.message.includes("slow down")) { PB.slow = (PB.slow||0)+1; if(PB.slow>3) { toast("Reload paused due to rate limits. Click CREDIT manually."); setPB(null); paintBurnBtn(); } }}
@@ -1101,6 +1108,7 @@ function paint(){
       <div class="tq">${t.label}?</div>
       <div class="tmeta"><span>WINDOW <s>${t.mins>=60?(t.mins/60)+"H":t.mins+"M"}</s></span><span>BASE ${t.baseXp} XP</span></div>
       <div class="tmkt">${mkt(t)}</div>
+      ${t.crowd?`<div class="crowdTag">CROWD ${t.crowd.pctYes}% YES · ${t.crowd.n} SHOTS · 10M LAG</div>`:''}
       ${mirrorable(t)?'<div class="chainTag">⚓ ON-CHAIN SEAL BETA</div>':''}
       <div class="updown">
         <span class="ud up ${sel.t===k&&sel.side==='YES'?'on':''}" data-k="${k}" data-side="YES">YES</span>
@@ -1164,7 +1172,8 @@ function paint(){
     const curTh=[0,300,900,2200,5000][p.rankIdx]||0;
     $("hX").style.width=(p.next?Math.max(0,Math.min(100,(p.xp-curTh)/(p.next[1]-curTh)*100)):100)+"%";
     $("mR").textContent=p.rank+(DEMO?" · DEMO (UNRANKED)":"");
-    $("mN").textContent=p.next?`${p.next[1]-p.xp} XP to ${p.next[0]} · ${p.chambers} chambers`:"MAX RANK";
+    $("mN").textContent=(p.next?`${p.next[1]-p.xp} XP to ${p.next[0]} · ${p.chambers} chambers`:"MAX RANK")
+      +(p.stated?` · CAL ${p.brierIndex}${p.stated<10?" (EARLY)":""} · ${p.stated} STATED`:"");
     $("mXP").textContent=p.xp;$("mBest").textContent=p.best;
     // A BARE PERCENTAGE WITH NO DENOMINATOR NEXT TO IT.
     // One settled shot that landed used to render as "100%" under the word
@@ -1778,6 +1787,9 @@ function setStake(v,fromInput){
 // scoped: #burnPick uses the same .stk class, and an unscoped binding made
 // every reload click also call setStake(undefined) -> silently back to 100
 document.querySelectorAll(".stakes .stk").forEach(b=>b.onclick=()=>setStake(b.dataset.s,false));
+const setConf=(p)=>{sel.p=p||null;
+  document.querySelectorAll(".confRow .cf").forEach(x=>x.classList.toggle("on",(x.dataset.p||"")===(p?String(p):"")));};
+document.querySelectorAll(".confRow .cf").forEach(b=>b.onclick=()=>setConf(b.dataset.p?+b.dataset.p:null));
 (()=>{const inp=$("stakeIn"); if(!inp)return;
   inp.value=sel.stake;
   inp.oninput=()=>{const r=stakeRule();const raw=Math.floor(+inp.value||0);
@@ -1799,19 +1811,19 @@ async function post(body){
   return j;
 }
 $("fire").onclick=async()=>{
-  const j=await post({action:"shot",auth:AUTH||{wallet:DEMO},target:sel.t,side:sel.side,stake:sel.stake});
+  const j=await post({action:"shot",auth:AUTH||{wallet:DEMO},target:sel.t,side:sel.side,stake:sel.stake,...(sel.p?{p:sel.p}:{})});
   if(!j.ok){toast("⚠ "+j.reason);return}
   rememberSide(j.shot);
-  toast(`SHOT SEALED 🔒 — ${sel.stake.toLocaleString()} burned · the Machine got fed`);
-  sel.side=null;refresh();
+  toast(`SHOT SEALED 🔒 — ${sel.stake.toLocaleString()} burned${sel.p?` · stated ${Math.round(sel.p*100)}%`:""} · the Machine got fed`);
+  sel.side=null;setConf(null);refresh();
 };
 async function duel(side){
   if(!who()){toast("connect first");return}
-  const j=await post({action:"duel",auth:AUTH||{wallet:DEMO},side,stake:sel.stake});
+  const j=await post({action:"duel",auth:AUTH||{wallet:DEMO},side,stake:sel.stake,...(sel.p?{p:sel.p}:{})});
   if(!j.ok){toast("⚠ "+j.reason);return}
   rememberSide(j.shot);
-  toast(`SEALED ${side==="with"?"WITH":"AGAINST"} THE WARDEN 🔒 — ${sel.stake.toLocaleString()} burned`);
-  refresh();
+  toast(`SEALED ${side==="with"?"WITH":"AGAINST"} THE WARDEN 🔒 — ${sel.stake.toLocaleString()} burned${sel.p?` · stated ${Math.round(sel.p*100)}%`:""}`);
+  setConf(null);refresh();
 }
 $("dW").onclick=()=>duel("with");$("dA").onclick=()=>duel("against");
 $("stakeBtn").onclick=async()=>{

@@ -57,7 +57,7 @@ const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
-const VERSION = 'h70-2026-08-25';
+const VERSION = 'h71-2026-08-26';
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC || process.env.SOLANA_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
@@ -2250,6 +2250,13 @@ module.exports = async (req, res) => {
       p.open.unshift(shot);
       await savePlayer(p);
       await recordSealedShot(shot, w);
+      // Crowd odds: count the sealed SIDE per board target, aggregate only —
+      // bucketed by ten-minute window. A LIVE counter would leak: the public
+      // feed announces who just sealed, so a +1 on YES the same second would
+      // deanonymize that one commit. Buckets publish only after they close
+      // (see the board handler), so sealed means sealed even in aggregate.
+      if (action === 'shot') await hincr(`odds:${boardHour()}`,
+        `${Math.floor(Date.now() / 600e3)}:${b.target}:${shot.side}`, 1).catch(() => {});
       if (!isDemo(w)) await bumpFeed({ id:`seal:${w}:${shot.id}`,
         w: shortW(w), a: `sealed a shot - ${stake} credits`, c:'seal' });
       return res.json({ ok:true, shot, cr: p.cr });
@@ -2548,6 +2555,27 @@ module.exports = async (req, res) => {
     if (action === 'board') {
       const hour = boardHour();
       const board = targetBoard(hour);
+      // CROWD ODDS. How the sealed flow split on each target this hour.
+      // Information, not a payout curve: the 1.7x is flat either way — the
+      // split changes nothing about your shot, it only lets the board read
+      // like a market (a price of opinion). Privacy of the individual commit
+      // beats freshness of the aggregate, so: only CLOSED ten-minute buckets
+      // are summed (a live counter would pin a side on whoever the feed says
+      // just sealed), and a target shows nothing under five counted shots.
+      const crowdRaw = (await hall(`odds:${hour}`)) || {};
+      delKey(`odds:${hour - 2}`).catch(() => {});   // self-cleaning, two keys max
+      const nowBucket = Math.floor(Date.now() / 600e3);
+      const crowdFor = (id) => {
+        let yes = 0, no = 0;
+        for (const [f, v] of Object.entries(crowdRaw)) {
+          const [bkt, tid, side] = String(f).split(':');
+          if (tid !== id || Number(bkt) >= nowBucket) continue;
+          if (side === 'YES') yes += Number(v) || 0;
+          if (side === 'NO') no += Number(v) || 0;
+        }
+        const n = yes + no;
+        return n >= 5 ? { n, pctYes: Math.round(yes / n * 20) * 5, lagMin: 10 } : null;
+      };
       return res.json({ ok:true, v: VERSION, hour, generator:BOARD_MODEL,
         flipsAt: (hour + 1) * 3600e3,
         prices: { src: prices.src, ages: prices.ages || null,
@@ -2556,12 +2584,14 @@ module.exports = async (req, res) => {
         sealRule: 'entry price must be fresher than min(60, max(30, 0.15 * windowSeconds)) seconds',
         settleRule: 'the first fully validated Pyth account transition observed with publish_time >= expiry; no valid transition observed inside 15 minutes voids and refunds',
         tieRule: 'strict numerical comparison; only true equality voids and refunds — there is no economic dead zone',
+        crowdRule: 'aggregated sealed-side split per target, published only for closed 10-minute buckets and only from 5 shots up, percentage rounded to 5 — sealed means sealed even in aggregate; information only, the payout stays flat',
         targets: Object.entries(board).map(([id, t]) => ({
           id, kind: t.kind || 'dir', feed: t.feed, feed2: t.feed2 || null,
           mins: t.mins, pct: t.pct || null, baseXp: t.baseXp,
           yesMult: t.yesMult != null ? t.yesMult : 1,
           noMult: t.noMult != null ? t.noMult : 1,
           label: t.label,
+          crowd: crowdFor(id),
         })) });
     }
 

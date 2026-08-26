@@ -138,7 +138,26 @@ const logStr = JSON.stringify(snap.log || snap.events || snap);
 ok(logStr.includes('"sp":0.8') && logStr.includes('"sp":0.6'), 'settle entries in the export carry the revealed sp');
 ok(logStr.includes('"sp":null') || !logStr.includes('"k":"settle"') === false, 'p-less settles publish sp:null (never invented)');
 
-// 5. arena endpoint still healthy and speaks the new fields
+// 5. crowd odds: current-bucket seals stay hidden (10-minute lag), closed
+//    buckets aggregate, the 5-shot floor gates display
+const board2 = await get('action=board');
+const t2 = (board2.targets || []).find(t => t.id === dir.id) || {};
+ok(t2.crowd === null || t2.crowd === undefined, 'live bucket never shows — sealed means sealed even in aggregate');
+ok(/closed 10-minute buckets/.test(board2.crowdRule || ''), 'board states the crowd rule');
+const prevBucket = Math.floor(Date.now() / 600e3) - 1;
+const hour = board2.hour;
+await kv.hincr(`odds:${hour}`, `${prevBucket}:${dir.id}:YES`, 4);
+await kv.hincr(`odds:${hour}`, `${prevBucket}:${dir.id}:NO`, 2);
+const board3 = await get('action=board');
+const t3 = (board3.targets || []).find(t => t.id === dir.id) || {};
+ok(t3.crowd && t3.crowd.n === 6 && t3.crowd.pctYes === 65 && t3.crowd.lagMin === 10,
+  `closed bucket aggregates and rounds to 5 (got ${JSON.stringify(t3.crowd)})`);
+await kv.hincr(`odds:${hour}`, `${prevBucket}:${dir.id}:NO`, -3);   // down to n=3
+const board4 = await get('action=board');
+const t4 = (board4.targets || []).find(t => t.id === dir.id) || {};
+ok(t4.crowd === null || t4.crowd === undefined, 'under five counted shots the target shows nothing');
+
+// 6. arena endpoint still healthy and speaks the new fields
 const arena = await get('action=arena');
 ok(arena.ok === true && Array.isArray(arena.agents), 'arena responds with the agents array');
 
