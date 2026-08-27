@@ -161,3 +161,34 @@ mechanism is the crank, and the crank belongs to whoever runs it.
 *Everything above is recomputable from [`lib/ledger.js`](../lib/ledger.js) and
 the public endpoint. If a number here is wrong, it is checkable, and we would
 rather be checked than believed.*
+
+## Why the Polymarket lane is empty — measured 2026-08-27
+
+First real numbers: 4 resolved, 7 pending. Kalshi n=4. **Polymarket n=0.**
+
+The obvious reading is that Polymarket does not run questions comparable to ours. That
+reading is wrong, and it took one query to find out. Right now Polymarket has 26 crypto
+markets inside our 0.35–0.65 band, in our horizon, refreshing every five minutes:
+
+```
+Bitcoin Up or Down  - August 27, 5:25PM-5:30PM ET   p 0.505
+Ethereum Up or Down - August 27, 5:30PM-5:35PM ET   p 0.505
+Solana Up or Down   - August 27, 5:35PM-5:40PM ET   p 0.505
+```
+
+Run those titles through our own parser and every one comes back `{"drop":"no-strike"}`.
+
+`parseMarket` requires a strike, because it was written against Kalshi, where every
+question is "above X". Polymarket's short-horizon crypto markets are **direction**
+markets — and direction is exactly what a RatchetX `kind 0` shot is. The single closest
+like-for-like comparison available anywhere is the one we throw away.
+
+So the drop counter was honest and the conclusion drawn from it would not have been. The
+lane is empty because of our reader, not their market.
+
+**What supporting them requires, and why it is not a one-line change.** "Up or down" needs
+a reference: up from *what*. Their window opens at 5:25 and closes at 5:30, so settling it
+against Pyth needs the print at the open as well as the print at the close, and our
+predicate has to mean what theirs means. Get that subtly wrong and the comparison is not
+merely noisy, it is unfair — which is worse than having no Polymarket lane at all. Until
+it is right, the ledger's claim narrows honestly to the venues it can actually read.
