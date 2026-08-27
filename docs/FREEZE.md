@@ -113,24 +113,37 @@ Fourteen days exist to be used. Each item is checkable; an item still open on
   earlier note here, which called it an overstatement and claimed the deployed behavior
   was stricter, was itself the error. The source stays untouched, so the
   byte-verification claim remains trivially reproducible.
-- [ ] **Every instruction exercised on mainnet.** seal, checkpoint, settle, reveal,
-  void_shot, close_shot — each invoked at least once against `23k3…ZEEX` on
-  mainnet-beta, tx signature linked here. Any instruction still unexercised on
-  2026-09-08 is a named, accepted risk or a reason to wait. (Method: the program's
-  transaction list on an explorer, plus server records.)
-  Status 2026-08-25, read from the site's own public records: **seal** is exercised —
-  sealed shots with transaction signatures appear in the public log (optional-seal
-  mirror live, feeds: SOL) — and the SOL FeedClock account exists on mainnet, so
-  **checkpoint** has run at least once. **settle, reveal, void_shot and close_shot
-  appear never to have been exercised on mainnet** — the end-to-end automation was
-  never armed. Those four are the real pre-freeze work: drive one sealed shot through
-  the full on-chain lifecycle, or accept each here as a named risk.
-  Tooling written 2026-08-27: `node tools/mainnet-exercise.mjs --keypair <player.json>`
-  drives two shots — one down the settle path (checkpoint, settle, reveal, close) and one
-  down the void path (deadline, void_shot, close) — because settle and void are disjoint
-  and no single shot can exercise both. It simulates every transaction before sending one,
-  signs with a throwaway player wallet, and refuses outright if it is handed the upgrade
-  authority. `--dry` simulates the whole run and sends nothing. The signatures land here.
+- [x] **Every instruction exercised on mainnet — done 2026-08-27.** seal, checkpoint,
+  settle, reveal, void_shot and close_shot have each now been invoked against
+  `23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX` on mainnet-beta. It took two shots, not
+  one, because settle and void are disjoint paths: no single shot can take both.
+
+  | step | instruction | signature |
+  |---|---|---|
+  | 1 | `checkpoint` | `5HTLyoyDhhK9eC6rFNAuEzG2WJZNVdA5Nbf5Lh69MBziuXFWnK1bFURbB3zXBzweXTyUqeMgKHJm3DuA5CdfrmCB` |
+  | 2 | `seal` (shot A) | `368ksiTTiDYehMjUUmdo9zYYnV8mrffc1hCUoYfmSrY6JDE4LT2y1XBqhCwtqYShtFQPjNuS1maUr3mbDoaU7e5g` |
+  | 3 | `seal` (shot B) | `4Eh7uXA1AyuxfQj2T7szkbGHJ5fh6GiyrF2Uvw2wLUPvWbxhueajUn8hdDxsSBtTHbgE7fYNd9U9FzAHLLLMNkdt` |
+  | 4 | `checkpoint` (the crossing) | `5rVuP7T8UcQ8hk8MAC6t8DauiEEp4XtYPdZfcaxt3YfdbTV1mFTZtFs5PAqyu5xe7XsZZGHVwQ3aDYkvyMYA28by` |
+  | 5 | `settle` | `3WacTiDDEbSayhboozMsHnxHEa3qXJvNTti16RnvWjtNU1Lt8Utj5fc5A9Ay4D1caVXJgrHxEfUazkrbHiFxuKXW` |
+  | 6 | `reveal` | `3jqmxZ5GgLywXHhB8qGp4z793qu3tpTjMXAj6QdyhFQrBG2dhb91yBYD5kcEPxB8xhUbT5BRBpA8Yfzrqx1WXARU` |
+  | 7 | `close_shot` (A, Revealed) | `wRTZ34zp5vwonz3EwFhSjL2MCftJrETtLfPEwiEWx1dmMAqofZp3MfdRYjphP5EbFDrPJ6WgUtzoZ7rik5qWavY` |
+  | 8 | `void_shot` (B, deadline) | `41b5akB3oRhAtJjHAt4Gq8jQRLvnYBrkanaP9aUQVMkhin9YDNoFMFRmrdrMhw6tzEVuboS4RnaKNWAJZTYw1gdi` |
+  | 9 | `close_shot` (B, Voided) | `4WmgLRUAmFbvFXySETPFWnyAnbVnNAJoNws6K8yN275GhxmhUfY7ahLd4swZteh4Vef3CW8yA5iSwb2yDKXh484e` |
+
+  Shot A was sealed, its expiry crossing checkpointed, settled strictly (`strict = 1`),
+  revealed against its wallet-bound commitment, and closed. Shot B was sealed and then
+  deliberately abandoned past `expiry + 900`, voided with reason `Deadline`, and closed.
+
+  Step 9 is the one worth pausing on. This page used to claim that a shot nobody returns
+  for is stranded forever. Both Shot PDAs were read back after the run and **neither
+  exists**: `close_shot` accepts a Voided shot exactly as it accepts a Revealed one, and
+  the rent went to the recorded player. The correction two items above is not an argument
+  about the source — it is now a transaction.
+
+  The whole exercise cost **0.001326 SOL**, of which the shot rent came back on close.
+  Reproduce it with `node tools/mainnet-exercise.mjs --keypair <player.json>`; add `--dry`
+  to simulate every instruction and send nothing. It signs with a throwaway wallet and
+  refuses outright if handed the upgrade authority.
 - [ ] **Final byte-verification.** Rebuild with the pinned toolchain, compare SHA-256
   against the deployed program data one last time, record both hashes here. That pair
   is the claim that stays true forever.
