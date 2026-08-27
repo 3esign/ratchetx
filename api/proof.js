@@ -16,6 +16,7 @@
 //  Claiming the big number would be literally true and causally
 //  false, and this page exists to never do that.
 // ============================================================
+const { verifyLegacy } = require('../lib/legacy_chain.js');
 const { getJSON, setJSON, hall} = require('../lib/kv.js');
 const { rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { snap: snapSupply } = require('../lib/supplylog.js');
@@ -250,12 +251,20 @@ module.exports = async (req, res) => {
     // exported event log is complete and verifies.
     const bbHead = await getJSON('g:log:head');
     const lastRoot = await getJSON('g:lastRoot');
-    let chainVerdict = null, chainEntries = [], chainError = null, issued = 0;
+    let chainVerdict = null, chainEntries = [], chainError = null, issued = 0, legacy = null;
     try {
       issued = await logCount();
       if (issued > 0) {
         chainEntries = await readEntries(issued);
         chainVerdict = verifyChain(chainEntries, bbHead, issued);
+        // Entries written before canonical hashing were hashed over their keys
+        // in INSERTION order, and the storage layer re-sorted them at every
+        // depth. verifyChain therefore cannot replay them and never could; the
+        // recovery walks both rules in one pass and reports what it can prove.
+        // An entry whose predecessor is missing is counted as unverifiable
+        // rather than failed — its prev hash died with that entry, which is
+        // arithmetic, not a discrepancy. See docs/CHAIN_GAP.md.
+        legacy = verifyLegacy(chainEntries);
       }
     } catch (e) { chainError = e; }
 
@@ -268,6 +277,19 @@ module.exports = async (req, res) => {
       bbDetail = 'snapshot export is available, but resurrection verification currently fails at entry '
         + chainVerdict.brokenAt + ': ' + chainVerdict.reason
         + '. The gap is disclosed and must not be described as a complete restorable log';
+    } else if (legacy && legacy.unrecovered === 0 && legacy.total > 0) {
+      // Everything we hold reproduces its own hash. What is missing is missing,
+      // and is named rather than rounded away.
+      bbStatus = legacy.orphaned || (chainVerdict && !chainVerdict.intact) ? 'grey' : 'green';
+      bbDetail = 'the whole state exports at /api/snapshot and all '
+        + legacy.verified.toLocaleString() + ' retained entries reproduce their own hash'
+        + (legacy.orphaned
+            ? ', but the export is NOT complete: entry ' + (chainVerdict && chainVerdict.missing || []).join(', ')
+              + ' was lost before it was ever stored, so a machine rebuilt from this export is faithful either '
+              + 'side of that index and blind at it. Cause, date and fix: docs/CHAIN_GAP.md'
+            : '; code public, heads anchored on Solana, RESURRECTION.md in the repo')
+        + (lastRoot ? ' · daily balance root: ' + lastRoot.root.slice(0, 10) + '… ('
+            + lastRoot.day + ', ' + lastRoot.players + ' players)' : '');
     } else if (chainVerdict && chainVerdict.ok && !chainVerdict.intact) {
       // Honest middle state: everything we hold verifies, but we do not hold
       // everything. Never green — a resurrection from this export rebuilds the
@@ -303,13 +325,29 @@ module.exports = async (req, res) => {
       // entries verify in segments around it, and the hole is named every time
       // this page loads. It is not a pass. Rounding it up to green would be the
       // exact dishonesty this endpoint exists to prevent.
-      const chStatus = !v.ok ? 'red' : (v.intact ? 'green' : 'grey');
+      // The legacy recovery is the authority on whether an entry reproduces:
+      // verifyChain can only replay canonically-hashed entries, and most of the
+      // log predates that rule.
+      const recovered = legacy && legacy.unrecovered === 0 && legacy.total > 0;
+      const chStatus = !recovered ? (!v.ok ? 'red' : (v.intact ? 'green' : 'grey'))
+                     : (v.intact && !legacy.orphaned ? 'green' : 'grey');
       const segTxt = (v.segments || []).map(g => g.from + '–' + g.to).join(' and ');
       push('chain', chStatus,
-        !v.ok  ? 'The log does not verify — and this check is how you would know'
+        recovered
+          ? (v.intact && !legacy.orphaned
+              ? 'Every entry in the log reproduces its own hash'
+              : 'Every entry we hold reproduces its own hash; one entry is permanently lost and disclosed')
+        : !v.ok  ? 'The log does not verify — and this check is how you would know'
         : v.intact ? 'Every hash in the log recomputes from genesis'
                    : 'The log verifies in segments around one disclosed, permanent gap',
-        !v.ok
+        recovered
+          ? legacy.verified.toLocaleString() + ' of ' + issued.toLocaleString()
+            + ' issued entries replayed hash-by-hash'
+            + (legacy.canonical ? ' (' + legacy.canonical.toLocaleString() + ' under the canonical rule, the rest replayed in the key order they were written in)' : '')
+            + (legacy.orphaned
+                ? '. Entry ' + (v.missing || []).join(', ') + ' was issued but never stored, so the single link across it cannot be proven — the hash before it died with it. That is one entry and one link, and both are named here every time this page loads: docs/CHAIN_GAP.md'
+                : '. Rewriting any past event changes its hash, so this line turns red and stays red')
+        : !v.ok
           ? 'broken at index ' + v.brokenAt + ' — ' + v.reason
               + '. Nothing here is being hidden from you: the verifier reports the break '
               + 'instead of papering over it'
