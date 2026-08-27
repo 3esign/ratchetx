@@ -272,11 +272,10 @@ module.exports = async (req, res) => {
     if (chainError) {
       bbDetail = 'snapshot export is available, but log completeness could not be checked right now: '
         + String(chainError.message || chainError).slice(0, 90);
-    } else if (chainVerdict && !chainVerdict.ok) {
-      bbStatus = 'red';
-      bbDetail = 'snapshot export is available, but resurrection verification currently fails at entry '
-        + chainVerdict.brokenAt + ': ' + chainVerdict.reason
-        + '. The gap is disclosed and must not be described as a complete restorable log';
+    // ORDER MATTERS. verifyChain can only replay canonically-hashed entries, so
+    // on a log that predates that rule it always reports failure. Letting it
+    // answer first is what kept this line red after the recovery already
+    // proved every retained entry reproduces.
     } else if (legacy && legacy.unrecovered === 0 && legacy.total > 0) {
       // Everything we hold reproduces its own hash. What is missing is missing,
       // and is named rather than rounded away.
@@ -290,6 +289,11 @@ module.exports = async (req, res) => {
             : '; code public, heads anchored on Solana, RESURRECTION.md in the repo')
         + (lastRoot ? ' · daily balance root: ' + lastRoot.root.slice(0, 10) + '… ('
             + lastRoot.day + ', ' + lastRoot.players + ' players)' : '');
+    } else if (chainVerdict && !chainVerdict.ok) {
+      bbStatus = 'red';
+      bbDetail = 'snapshot export is available, but resurrection verification currently fails at entry '
+        + chainVerdict.brokenAt + ': ' + chainVerdict.reason
+        + '. The gap is disclosed and must not be described as a complete restorable log';
     } else if (chainVerdict && chainVerdict.ok && !chainVerdict.intact) {
       // Honest middle state: everything we hold verifies, but we do not hold
       // everything. Never green — a resurrection from this export rebuilds the
