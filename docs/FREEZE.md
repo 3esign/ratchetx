@@ -23,6 +23,33 @@ repository artifact; and the site can always stop arming it (`RatchetX_SEAL_PROG
 an environment switch). The one thing we can never do again after 2026-09-08 is change
 what the deployed program does — which is the point.
 
+## Rehearsed first
+
+There is no undo, no second attempt and no support ticket, so the ceremony is
+rehearsed before the day:
+
+```bash
+node tools/freeze-drill.mjs                 # default keypair
+node tools/freeze-drill.mjs <KEYPAIR_PATH>  # or the real one
+```
+
+It answers the four questions that can ruin 2026-09-08:
+
+1. does the program still have an authority to revoke?
+2. **does the key we intend to use actually match that authority?**
+3. can that key pay the fee?
+4. what, exactly, is the command?
+
+The second is the one that bites. A keypair that looks right and is not the
+authority produces a confident failure on the day, in public, with an audience.
+
+**The drill signs nothing and sends nothing, and it never reads the secret
+key** — only `solana-keygen pubkey` touches the file, and that emits the public
+key alone. The signature on the day is made by a person, deliberately, once.
+That is not a limitation of the tooling. It is the point of the exercise: the
+value of this ceremony is that a human being permanently destroys their own
+power over the program, on purpose, in the open.
+
 ## Check it yourself, before and after, without a key
 
 The upgrade authority is a public fact on a public ledger, so verifying it
