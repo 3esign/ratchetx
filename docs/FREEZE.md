@@ -23,6 +23,30 @@ repository artifact; and the site can always stop arming it (`RatchetX_SEAL_PROG
 an environment switch). The one thing we can never do again after 2026-09-08 is change
 what the deployed program does — which is the point.
 
+## Check it yourself, before and after, without a key
+
+The upgrade authority is a public fact on a public ledger, so verifying it
+should not require holding a key. `solana program show` disagrees — it refuses
+to run without a configured signer — which is a poor state of affairs for the
+one claim this whole ceremony rests on.
+
+So there is a tool that asks the chain directly:
+
+```bash
+node tools/authority-check.mjs
+node tools/authority-check.mjs <PROGRAM_ID> <ANY_RPC_URL>
+```
+
+It derives the ProgramData account, reads it, and decodes the authority field.
+Reads only — it signs nothing and sends nothing, and it takes any RPC you
+prefer, including none of ours.
+
+**Before 2026-09-08** it names a key. **After**, it should print that the
+program is immutable. Same command, both sides of the ceremony, run by anyone.
+
+If it still names a key after that date, the promise on this page was not kept,
+and you will not need us to tell you.
+
 ## What this does and does not mean
 
 - **Does:** the on-chain sealing rules — wallet-bound v2 commitments, first verified
