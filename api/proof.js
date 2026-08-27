@@ -30,6 +30,10 @@ const LP_BURN_TX = process.env.RATCHET_LP_BURN_TX || '';   // set after LP burn 
 const SEAL_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
 const SEAL_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC || process.env.SOLANA_RPC_URL || '';
 const SEAL_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
+// ProgramData for the v2 program, and the upgrade authority docs/FREEZE.md commits to.
+// Both are public and derivable; they are pinned here so a swap shows up as a red line.
+const SEAL_PROGRAMDATA = 'BiMrv5BAjxCPzH2sFFARbDnrXmn4FRTULfnKgeAVL4CF';
+const DECLARED_AUTHORITY_HEX = '882d4009755008375f987920392173e2f7876ce08712ba137d6f6eee000bcd1c';
 const MAINNET_SEAL_V2 = '23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX';
 const MAINNET_SOL_CLOCK = 'CE5m9Xag3wwgcfVkbSBnv5WFKPrY1ZhLwSSru9wu9gN';
 const SOLSCAN = 'https://solscan.io';
@@ -134,13 +138,13 @@ module.exports = async (req, res) => {
       } else {
         const cur = +info.supply / 10 ** info.decimals;
         push('mintauth', info.mintAuthority == null ? 'green' : 'red',
-          'Mint authority revoked',
+          'Token mint authority revoked',
           info.mintAuthority == null ? 'nobody can ever print more supply — read it yourself'
                                      : `STILL SET: ${info.mintAuthority} — supply can be printed. This line stays red until it is revoked`,
           `${SOLSCAN}/token/${MINT}`);
         push('freeze', info.freezeAuthority == null ? 'green' : 'red',
-          'Freeze authority revoked',
-          info.freezeAuthority == null ? 'no account can ever be frozen'
+          'Token account-freeze authority revoked',
+          info.freezeAuthority == null ? 'no RCX account can ever be frozen by anyone — this is the SPL freeze authority on the mint, and it is not the 2026-09-08 program freeze, which is the line below'
                                        : `STILL SET: ${info.freezeAuthority}`,
           `${SOLSCAN}/token/${MINT}`);
 
@@ -238,6 +242,39 @@ module.exports = async (req, res) => {
         ? 'program 23k3…ZEEX is executable and owns the SOL FeedClock checked now · a player may seal a SOL shot on-chain without changing game XP · server settlement remains canonical during the soak period · upgrade authority is retained during that period · this program is not the floor vault'
         : 'program 23k3…ZEEX was deployed from the reproducible v2 binary with first-checkpoint crossing, confidence and disjoint void-deadline rules; the feature stays optional until the configured program, cluster, RPC and clock all verify',
       'https://solscan.io/account/' + MAINNET_SEAL_V2);
+    // The freeze promised for 2026-09-08 is a fact on the chain, so it belongs on this
+    // page as a line that flips by itself rather than as a sentence we update by hand.
+    // ProgramData is findProgramAddress([programId], BPFLoaderUpgradeab1e11111111111111111111111);
+    // its layout is u32 enum(3) · u64 slot · Option<Pubkey>, so byte 12 says whether an
+    // authority exists and bytes 13..45 are that key. Compared as raw bytes on purpose —
+    // no base58 decoder has to be trusted for the one claim the whole ceremony rests on.
+    if (SEAL_PROGRAM_ID === MAINNET_SEAL_V2 && SEAL_CLUSTER === 'mainnet-beta' && SEAL_RPC_URL) {
+      try {
+        const pr = await fetch(SEAL_RPC_URL, { method:'POST', headers:{'content-type':'application/json'},
+          body:JSON.stringify({ jsonrpc:'2.0', id:1, method:'getAccountInfo',
+            params:[SEAL_PROGRAMDATA, { encoding:'base64', commitment:'confirmed' }] }),
+          signal:AbortSignal.timeout(4500) });
+        const pj = await pr.json();
+        const b64 = pj && pj.result && pj.result.value && pj.result.value.data && pj.result.value.data[0];
+        if (b64) {
+          const raw = Buffer.from(b64, 'base64');
+          const link = 'https://solscan.io/account/' + SEAL_PROGRAMDATA;
+          if (raw[12] === 0) {
+            push('progauth', 'green', 'Program upgrade authority revoked — v2 is immutable',
+              'the deployed bytes of 23k3…ZEEX can never be changed again, by anyone, including us · revocation was announced in writing on 2026-08-25 for 2026-09-08 and this line turned itself green',
+              link);
+          } else if (raw.subarray(13, 45).toString('hex') === DECLARED_AUTHORITY_HEX) {
+            push('progauth', 'grey', 'Program upgrade authority retained until 2026-09-08',
+              'AAaU3oyrcmy6GDGxcSUEgg4uUag4pF9jwL2rThB49gks still holds it, which is exactly what docs/FREEZE.md says it should during the soak · this line turns green by itself when the authority is revoked, and stays grey if the promise is not kept',
+              link);
+          } else {
+            push('progauth', 'red', 'Program upgrade authority is NOT the declared key',
+              'the authority on chain is not the key named in docs/FREEZE.md — it was moved without announcement, and nothing on this page should be trusted until that is explained',
+              link);
+          }
+        }
+      } catch {}
+    }
     push('vault', 'grey', 'Redeemable floor vault is not deployed',
       'the Machine floor shown by the site is a labeled model only. No vault PDA, funded SOL balance, liability proof or no-withdraw program is being claimed');
     push('stake', 'green', 'Staking with no deposit',

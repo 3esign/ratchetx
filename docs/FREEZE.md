@@ -74,6 +74,16 @@ program is immutable. Same command, both sides of the ceremony, run by anyone.
 If it still names a key after that date, the promise on this page was not kept,
 and you will not need us to tell you.
 
+The same fact is a line on `/api/proof`, added 2026-08-27, so you do not have to run
+anything at all: **Program upgrade authority retained until 2026-09-08** is grey today,
+turns green by itself when the authority is revoked, and goes red if the authority is ever
+some key other than the one named above. It compares raw bytes from the ProgramData
+account rather than a decoded string, so no base58 implementation has to be trusted for
+the one claim this ceremony rests on. Note that the two long-standing green lines about
+mint and account-freeze authority are about the RCX **token**, not this program — they
+were relabelled the same day, because on a page counting down to a freeze the word was
+doing work it should not have been doing.
+
 ## What this does and does not mean
 
 - **Does:** the on-chain sealing rules — wallet-bound v2 commitments, first verified
