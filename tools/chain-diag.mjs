@@ -89,7 +89,8 @@ console.log('\nrecovering legacy entry order (this is a read, nothing is written
 const L = verifyLegacy(rows, { genesis: GENESIS });
 
 console.log(`\n  canonical (c:1)   : ${L.canonical}   verified ${canonOk}, failed ${canonBad}`);
-console.log(`  legacy            : ${L.total - L.canonical}   verified ${L.verified}, unrecovered ${L.unrecovered}`);
+console.log(`  legacy            : ${L.total - L.canonical}   verified ${L.verified}, unrecovered ${L.unrecovered}`
+  + (L.orphaned ? `, unverifiable ${L.orphaned} (predecessor lost)` : ''));
 const pct = L.total ? Math.round(((L.verified + canonOk) / L.total) * 1000) / 10 : 0;
 console.log(`  TOTAL VERIFIED    : ${L.verified + canonOk} / ${L.total}  (${pct}%)`);
 
@@ -100,14 +101,16 @@ for (const s of L.shapes.slice(0, 18))
 if (L.misses && L.misses.length) {
   console.log('\n  the entries that did not verify:');
   for (const m of L.misses)
-    console.log(`   index ${String(m.i).padStart(5)}  ${m.kind.padEnd(10)} stored ${m.stored}…  prev ${m.prev}…  `
-      + `${m.hadOrder ? 'its shape HAS a known order (others with the same shape verified)' : 'no order known for this shape'}`);
+    console.log(`   index ${String(m.i).padStart(5)}  ${m.kind.padEnd(10)} stored ${m.stored}…  prev ${m.prev}`
+      + (m.orphan
+          ? '  UNVERIFIABLE: the hash before it died with the lost entry. Arithmetic, not a discrepancy.'
+          : `  ${m.hadOrder ? 'its shape HAS a known order (others with the same shape verified)' : 'no order known for this shape'}`));
   console.log('\n  An entry whose shape verified for everyone else is the interesting kind:');
   console.log('  the ordering is known to work, so something about THAT entry differs.');
 }
 
 console.log('\n' + (L.unrecovered === 0 && canonBad === 0
-  ? 'RESULT: every entry verifies. The log is intact; only the missing index above is a real gap.'
+  ? `RESULT: every entry we hold verifies.${L.orphaned ? ` One link (${missing.join(', ')} -> next) cannot be proven because that entry is gone — the loss is one entry and one link, nothing more.` : ''}`
   : `RESULT: ${L.unrecovered + canonBad} entries do not verify under any recovered ordering.`));
 console.log('\nNote: a changed VALUE cannot be rescued by any ordering, so anything');
 console.log('unrecovered above is either an event shape not in this repo\'s history');

@@ -61,4 +61,19 @@ ok(recoverDeep(dayTampered, GEN) === null,
    'a changed amount INSIDE a nested list is still unrecoverable — exhaustive search proves it, it does not excuse it');
 
 console.log(`\n${p} passed, ${f} failed`);
+
+// ---- an entry whose PREDECESSOR is missing is unverifiable, not wrong.
+// Its prev hash died with the lost entry; reporting it as a failure would
+// turn one real gap into two problems.
+const e1 = { i:1, t:1, ev:{ k:'a', z:1 } };
+e1.h = sha(GEN + JSON.stringify(e1));
+const e3 = { i:3, t:3, ev:{ k:'c', z:3 } };
+e3.h = sha('deadbeef' + JSON.stringify(e3));            // chains off the lost entry 2
+const gapped = verifyLegacy([jsonbOrder(e1), jsonbOrder(e3)]);
+ok(gapped.verified === 1, 'the entry before the gap still verifies');
+ok(gapped.orphaned === 1 && gapped.unrecovered === 0,
+   'the entry AFTER the gap is counted as unverifiable, not as unrecovered');
+ok(gapped.misses.some(m => m.i === 3 && m.orphan), 'and it is named as an orphan with the reason');
+
+console.log(`\n${p} passed, ${f} failed`);
 process.exit(f ? 1 : 0);
