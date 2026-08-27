@@ -19,7 +19,7 @@ calendar entry that can be checked against the chain.
 
 Why this program can afford immutability: it holds no player funds; it is an optional
 receipt path, not the canonical referee; the deployed binary is byte-verified against the
-repository artifact; and the site can always stop arming it (`RatchetX_SEAL_PROGRAM_ID` is
+repository artifact; and the site can always stop arming it (`RATCHET_SEAL_PROGRAM_ID` is
 an environment switch). The one thing we can never do again after 2026-09-08 is change
 what the deployed program does — which is the point.
 
@@ -147,9 +147,23 @@ Fourteen days exist to be used. Each item is checkable; an item still open on
 - [ ] **Final byte-verification.** Rebuild with the pinned toolchain, compare SHA-256
   against the deployed program data one last time, record both hashes here. That pair
   is the claim that stays true forever.
-- [ ] **Kill-switch drill.** Unset `RatchetX_SEAL_PROGRAM_ID` once in a preview deploy
-  and confirm the site cleanly stops arming sealing. It is the only lever that survives
-  the freeze; prove it moves before relying on it.
+- [x] **Kill-switch drill — done 2026-08-27, and it found something.** The lever is one
+  variable: `MIRROR_ENABLED = !!(MIRROR_PROGRAM_ID && MIRROR_RPC_URL)`, so clearing
+  `RATCHET_SEAL_PROGRAM_ID` alone disarms sealing, and a disarmed site makes no RPC call
+  at all rather than merely refusing at the edge. Its blast radius is bounded: every
+  reference to the switch in `api/game.js` is the definition, the RPC guard, a status
+  field, or one of the two `503` guards on `mirror_build` and `mirror_confirm`. No credit,
+  settlement or shot path touches it, so pulling the lever cannot take the game down with
+  the mirror — which matters, because an escape hatch that breaks the house is not one.
+
+  The finding: **this page named a variable that does not exist.** A rebrand had rewritten
+  `RATCHET_` to `RatchetX_` in prose — ten names across `README.md`, this file and
+  `docs/ONCHAIN.md`, `RATCHET_MINT` among them — while the code kept reading `RATCHET_`.
+  An operator following these instructions in an emergency would have unset a variable
+  nothing reads and watched sealing stay armed. Production configuration was never
+  affected; it has always used the real names. The prose is corrected, and
+  `test/test_kill_switch.mjs` now fails if any document names an environment variable no
+  code reads, or if the switch ever starts gating something it should not. 59 checks.
 - [x] **v3 independence.** Confirmed 2026-08-25 against the v3 RFC and program
   source: v3 references v2 only as motivation — no CPI into v2, no shared accounts,
   no migration instruction; it ships as a new program id with fresh PDAs. Freezing
@@ -177,7 +191,7 @@ freezing the program neither fixes nor worsens it.
 If, before 2026-09-08, end-to-end integration surfaces a bug in the *program itself*
 (not in the site around it), we will not quietly upgrade and freeze later. We will
 publish the bug, ship the fixed program under a **new** id, point the site's
-`RatchetX_SEAL_PROGRAM_ID` at it, and restart the clock for the new id — in this file,
+`RATCHET_SEAL_PROGRAM_ID` at it, and restart the clock for the new id — in this file,
 with the old date left visible above the new one. A freeze that can be silently
 rescheduled is not a commitment.
 

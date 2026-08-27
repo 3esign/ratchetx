@@ -1,6 +1,6 @@
 # RatchetX on-chain — the settlement program, and what it proves
 
-**Stage 3 of `RatchetX_ONCHAIN_PATH.md` is done.** The part of RatchetX that decides whether you
+**Stage 3 of `RATCHET_ONCHAIN_PATH.md` is done.** The part of RatchetX that decides whether you
 were right now exists as a Solana program: no custody, no admin key, no funds, no server.
 
 **Program:** [`4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2`](https://explorer.solana.com/address/4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2?cluster=devnet) (Solana **devnet**)

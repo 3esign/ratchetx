@@ -161,15 +161,15 @@ program ships. A checklist that can only be green is decoration; every line here
 Deploy this folder to Vercel as-is. It works with no configuration (ephemeral demo mode,
 and the page says so). Environment variables, all optional except the mint:
 
-`RatchetX_MINT` (arms real burns) · `PUBLIC_ORIGIN` (production default: `https://ratchetx.xyz`) ·
+`RATCHET_MINT` (arms real burns) · `PUBLIC_ORIGIN` (production default: `https://ratchetx.xyz`) ·
 `SOLANA_RPC_URL` or `SOLANA_RPC` (fast RPC lane; public RPCs are the
 fallback) · `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (preferred free durable state; server-only) · `KV_REST_API_URL` + `KV_REST_API_TOKEN` (rollback/fallback durable state) · `CREDIT_PER_TOKEN`
-(default 1) · `RatchetX_LP_BURN_TX` (optional override for the LP proof line) · **`PYTH_API_KEY`** (required for
+(default 1) · `RATCHET_LP_BURN_TX` (optional override for the LP proof line) · **`PYTH_API_KEY`** (required for
 direct Hermes calls since 2026-08-18; without it the game falls back
 to a thinner price source only if the primary on-chain route fails, and says so on the page) ·
-`PYTH_HERMES_URL` (override the Hermes host) · `RatchetX_SEAL_PROGRAM_ID` +
-`RatchetX_SEAL_CLUSTER` (arms optional sealing; it reuses `SOLANA_RPC_URL` unless `RatchetX_SEAL_RPC_URL` is set) ·
-`RatchetX_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)
+`PYTH_HERMES_URL` (override the Hermes host) · `RATCHET_SEAL_PROGRAM_ID` +
+`RATCHET_SEAL_CLUSTER` (arms optional sealing; it reuses `SOLANA_RPC_URL` unless `RATCHET_SEAL_RPC_URL` is set) ·
+`RATCHET_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)
 
 No player-funds key exists in the site or backend; the game cannot custody or move player tokens. The
 program upgrade authority is retained offline only for the declared soak period — which now has an end
