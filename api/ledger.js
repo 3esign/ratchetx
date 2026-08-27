@@ -17,7 +17,7 @@
 const { getJSON, setJSON, hall, hincrMany } = require('../lib/kv.js');
 const L = require('../lib/ledger.js');
 
-const VERSION = 'ldg1-2026-08-26';
+const VERSION = 'ldg2-2026-08-27';
 const TICK_MIN_MS = 4 * 60e3;
 
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
@@ -70,7 +70,8 @@ async function tick(now) {
     const sc = scores[o.venue] || L.emptyScore();
     L.addScore(sc, o.p, r.hit);
     scores[o.venue] = sc;
-    recent.unshift({ v: o.venue, feed: o.feed, strike: o.strike, dir: o.dir,
+    recent.unshift({ v: o.venue, feed: o.feed, strike: o.strike,
+      ...(o.strike2 ? { strike2: o.strike2 } : {}), dir: o.dir,
       p: o.p, hit: r.hit, price: r.price, exp: o.exp, at: o.at });
     resolved++;
   }
@@ -142,6 +143,7 @@ module.exports = async (req, res) => {
       groundTruth: 'Pyth read off Solana: the first recorded sample published at or after expiry, inside a 15-minute grace window — the identical predicate that settles a shot on this site',
       horizon: { maxHours: L.MAX_HORIZON_MS / 3600e3,
         note: 'oracle samples are retained four days, so the ledger is a short-horizon instrument and says so' },
+      kinds: 'a question may be one threshold (above / below) or a RANGE (between two strikes). Both resolve on the same oracle sample; a range is inclusive of both ends.',
       sampling: `one observation per EVENT, not per strike: a venue listing a ladder of strikes for one event is asking one question, and the rung kept is the one closest to a coin flip. A market without a live two-sided book is not scored at all — a last-traded print is not a crowd belief — and a bid/ask spread wider than ${L.MAX_SPREAD} is refused for the same reason.`,
       caveat: 'these venues are NOT asked identical questions — their strikes and expiries never line up. Each is scored on its own questions, restricted to the same difficulty band. The band is the control.',
       scale: 'brier is the mean squared error (lower is better). brierIndex is (1 - sqrt(brier)) * 100 on the Forecasting Research Institute scale: 100 clairvoyant, 50 is what "always say 50%" scores, 0 is confidently wrong.',

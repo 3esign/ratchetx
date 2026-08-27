@@ -62,8 +62,14 @@ globalThis.fetch = async (url) => {
       // out of band entirely
       { ticker:'KXBTC-C', event_ticker:'KXBTC-OTHER', strike_type:'greater', floor_strike:95000,
         yes_bid_dollars:0.94, yes_ask_dollars:0.96, close_time:new Date(soon).toISOString() },
-      // a strike shape we refuse to interpret
+      // a RANGE bucket — two thresholds, and now resolvable
       { ticker:'KXBTC-E', event_ticker:'KXBTC-BETWEEN', strike_type:'between', floor_strike:90000, cap_strike:95000,
+        yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
+      // a shape we still refuse, because we cannot read it
+      { ticker:'KXBTC-X', event_ticker:'KXBTC-FUNC', strike_type:'functional',
+        yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
+      // a malformed range is refused rather than guessed at
+      { ticker:'KXBTC-BAD', event_ticker:'KXBTC-BADRANGE', strike_type:'between', floor_strike:95000, cap_strike:90000,
         yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
       // NO LIVE BOOK — this is the shape that produced twelve identical 0.395s
       { ticker:'KXBTC-F', event_ticker:'KXBTC-NOBOOK', strike_type:'greater', floor_strike:95000,
@@ -93,12 +99,17 @@ ok(/series_ticker=/.test(lastKalshiUrl) && /mve_filter=exclude/.test(lastKalshiU
    'kalshi is asked for the crypto series by name, not for every open market');
 ok(/min_close_ts=\d+/.test(lastKalshiUrl) && /max_close_ts=\d+/.test(lastKalshiUrl),
    'kalshi horizon is filtered server-side, not by discarding a full page');
-ok(k.obs.length === 4, `kalshi returns each in-band rung before collapsing (${k.obs.length})`);
+ok(k.obs.length === 5, `kalshi returns each in-band rung before collapsing (${k.obs.length})`);
+const rng = k.obs.find(o => o.id === 'KXBTC-E');
+ok(rng && rng.dir === 'between' && rng.strike === 90000 && rng.strike2 === 95000,
+   'a range bucket is read as two thresholds, not thrown away');
+ok(k.drops['bad-range'] === 1, 'a malformed range is refused rather than guessed at');
+ok(k.drops['strike-type-functional'] === 1, 'a shape we genuinely cannot read is still refused, by name');
 ok(k.drops['no-two-sided-book'] === 1,
    'a market with no live bid/ask is refused — a last-traded print is not a crowd belief');
 ok(k.drops['spread-too-wide'] === 1, 'and a mid from an absurdly wide book is refused too');
 const collapsed = L.collapseLadders(k.obs);
-ok(collapsed.kept.length === 2 && collapsed.dropped === 2,
+ok(collapsed.kept.length === 3 && collapsed.dropped === 2,
    `the ladder collapses to one observation per event (${collapsed.kept.length} kept, ${collapsed.dropped} dropped)`);
 const rung = collapsed.kept.find(o => o.event === 'KXBTC-26AUG27');
 ok(rung && rung.id === 'KXBTC-A' && Math.abs(rung.p - 0.5) < 1e-9,
@@ -110,8 +121,8 @@ ok(ke && ke.feed === 'ETH' && ke.strike === 3200 && ke.dir === 'below' && ke.src
    'less reads the CAP strike out of the fields');
 ok(kb.feed === 'BTC' && !/bitcoin/i.test(JSON.stringify(kb)), 'the ASSET comes from the series, never guessed from a title');
 ok(Math.abs(kb.p - 0.5) < 1e-9, 'kalshi price is the dollar-denominated mid, not cents');
-ok(k.drops['outside-band'] === 1 && k.drops['strike-type-between'] === 1,
-   `kalshi exclusions are counted and named (${JSON.stringify(k.drops)})`);
+ok(k.drops['outside-band'] === 1 && !k.drops['strike-type-between'],
+   `kalshi exclusions are counted and named, and 'between' is no longer among them (${JSON.stringify(k.drops)})`);
 ok(Object.keys(k.drops).some(x => x.startsWith('series-empty:')), 'an empty series is named, not silently skipped');
 
 const pm = await L.fromPolymarket(NOW);
@@ -142,6 +153,12 @@ const miss = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:97000, dir:'above' 
 ok(miss.status === 'ok' && miss.hit === 0, 'below-strike resolves NO');
 const below = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:97000, dir:'below' }, NOW);
 ok(below.status === 'ok' && below.hit === 1, 'a below-question resolves on its own terms');
+const inRange = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:95000, strike2:97000, dir:'between' }, NOW);
+ok(inRange.status === 'ok' && inRange.hit === 1, 'a price inside the range resolves YES');
+const outRange = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:90000, strike2:94000, dir:'between' }, NOW);
+ok(outRange.status === 'ok' && outRange.hit === 0, 'a price outside the range resolves NO');
+const edge = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:96000, strike2:99000, dir:'between' }, NOW);
+ok(edge.status === 'ok' && edge.hit === 1, 'the lower bound is inclusive, as documented');
 px.priceCrossing = orig;
 
 // ---- 6. the endpoint speaks its own limits

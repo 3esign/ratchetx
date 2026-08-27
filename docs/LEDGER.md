@@ -43,8 +43,9 @@ An observation enters the ledger only if, at the moment we looked:
 
 1. the venue's own crowd priced it between **0.35 and 0.65** — the band where a
    market is admitting it does not know;
-2. it is a price question on **SOL, BTC or ETH**, with a strike and a direction
-   we can read without guessing;
+2. it is a price question on **SOL, BTC or ETH** whose terms we can read
+   without guessing — either a single threshold (*above* / *below* a strike) or
+   a **range** (*between* two strikes, inclusive of both ends);
 3. it expires between **5 minutes and 72 hours** from that moment.
 
 The band is the entire point. It is the control that makes four different
@@ -126,6 +127,13 @@ That is expected, and it is on the page.
   named in the exclusion counts rather than silently skipped.
 - **A market nobody has quoted is not scored.** A two-sided price is what makes
   it a crowd belief. Unquoted markets are counted as `no-quote`.
+- **Ranges are questions too.** "ETH between 2,650 and 2,700" was once the
+  single largest exclusion on this board — larger than every other reason
+  combined — and it was refused because the resolver only knew one threshold,
+  not because the question is any less decidable. A range is two thresholds, and
+  the oracle answers it exactly as deterministically as it answers one. Refusing
+  it was laziness wearing the costume of rigour, and the fix was to implement
+  what we were dropping rather than to loosen anything we were enforcing.
 - **Strikes are read from fields where a venue publishes them.** Kalshi exposes
   `strike_type` with `floor_strike`/`cap_strike`, so its questions are read
   structurally and never guessed from prose. A strike shape we will not
