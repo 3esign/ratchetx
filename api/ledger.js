@@ -150,7 +150,7 @@ module.exports = async (req, res) => {
       rows,
       pending: (open || []).length,
       excluded: drops || {},
-      excludedNote: 'every observation we could not read or could not settle is counted here rather than dropped silently',
+      excludedNote: `every observation we could not read or could not settle is counted here rather than dropped silently. Cumulative since ${L.DROP_SINCE} — these counters are reset whenever the sampling rules change, because a count collected under older rules describes an older instrument.`,
       recent: (recent || []).slice(0, 40),
       reproduce: 'https://github.com/3esign/ratchetx/blob/main/lib/ledger.js',
       ...(ticked ? { ticked } : {}),
