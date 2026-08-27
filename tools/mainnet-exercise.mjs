@@ -18,17 +18,28 @@
 
 import fs from 'node:fs';
 import crypto from 'node:crypto';
+import { createRequire } from 'node:module';
 import {
   Connection, Keypair, PublicKey, Transaction, TransactionInstruction,
   SystemProgram, sendAndConfirmTransaction,
 } from '@solana/web3.js';
 
-const PROGRAM_ID   = new PublicKey('23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX');
-const PUSH_ORACLE  = new PublicKey('pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT');
-const PYTH_RECEIVER= new PublicKey('rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ');
-const FEED_ID_HEX  = 'ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d'; // SOL/USD
-const AUTHORITY    = 'AAaU3oyrcmy6GDGxcSUEgg4uUag4pF9jwL2rThB49gks';                    // never sign with this
+const PROGRAM_ID = new PublicKey('23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX');
+const AUTHORITY  = 'AAaU3oyrcmy6GDGxcSUEgg4uUag4pF9jwL2rThB49gks';   // never sign with this
 const SETTLE_DEADLINE_SECS = 900;
+
+// The price account is READ FROM lib/onchain_px.js, not derived here.
+//
+// Deriving it looked cleaner and was wrong. `[u16le(0), feed_id]` under the
+// push oracle `pythWSnsw…` gives 7UVimffx…, which mainnet simulation rejects
+// with BadPriceAccount at lib.rs:352 — the owner check. The deployed program
+// is pinned to Pyth's UPGRADED receiver `rec2HHDD…`, and its sponsored SOL/USD
+// account is 7AviUf9n…, the one the site has been reading and checkpointing all
+// along. Two addresses, both real, both SOL/USD; only one the program accepts.
+// So this file uses the site's map — the same account the program already
+// validated on 2026-08-23 — rather than a second opinion about how to find it.
+const require_ = createRequire(import.meta.url);
+const { ACCOUNTS, PYTH_OWNERS } = require_('../lib/onchain_px.js');
 
 // Anchor discriminators: sha256("global:<name>")[..8].
 // The seal value is cross-checked against api/game.js, which has already
@@ -48,6 +59,7 @@ const DRY  = args.includes('--dry');
 const RPC  = arg('--rpc', 'https://api.mainnet-beta.solana.com');
 const KP   = arg('--keypair');
 const STATE_PATH = arg('--state', 'RATCHET_EXERCISE_STATE.json');
+const SYMBOL = String(arg('--feed', 'SOL')).toUpperCase();
 
 const log = [];
 const say = (...m) => { const line = m.join(' '); console.log(line); log.push(line); };
@@ -99,20 +111,41 @@ async function main() {
 
   const bal = await conn.getBalance(player.publicKey);
   say('balance  ', (bal / 1e9).toFixed(6), 'SOL');
-  if (!DRY && bal < 0.02e9) die('fund this wallet with at least 0.02 SOL first (most of it comes back when the shots close)');
+  if (bal < 0.01e9) {
+    say('');
+    say('NOT ENOUGH SOL YET. Send about 0.02 SOL to:');
+    say('    ' + player.publicKey.toBase58());
+    say('then run this again.');
+    say('');
+    say('The dry run needs it too, and that is not a quirk of this script: Solana simulates a');
+    say('transaction against real chain state, and a fee payer with no lamports is an account');
+    say('that does not exist — which is the "AccountNotFound" a zero balance produces.');
+    say('Roughly 0.0041 SOL is shot rent that comes back on close, about 0.0013 stays behind');
+    say('for the PlayerRecord, and the fees are a rounding error.');
+    flush();
+    return;
+  }
 
+  const mapped = ACCOUNTS[SYMBOL];
+  if (!mapped) die('lib/onchain_px.js has no account mapped for ' + SYMBOL);
+  const FEED_ID_HEX = mapped[1];
   const feedId = Buffer.from(FEED_ID_HEX, 'hex');
-  const shard = Buffer.alloc(2); shard.writeUInt16LE(0, 0);
-  const [priceAccount] = PublicKey.findProgramAddressSync([shard, feedId], PUSH_ORACLE);
-  const [feedClock]    = PublicKey.findProgramAddressSync([Buffer.from('clock'), feedId], PROGRAM_ID);
-  const [record]       = PublicKey.findProgramAddressSync([Buffer.from('record'), player.publicKey.toBuffer()], PROGRAM_ID);
+  const priceAccount = new PublicKey(arg('--price-account', mapped[0]));
+  const [feedClock] = PublicKey.findProgramAddressSync([Buffer.from('clock'), feedId], PROGRAM_ID);
+  const [record]    = PublicKey.findProgramAddressSync([Buffer.from('record'), player.publicKey.toBuffer()], PROGRAM_ID);
+  say('feed     ', SYMBOL, FEED_ID_HEX);
   say('feed acct', priceAccount.toBase58());
   say('feedClock', feedClock.toBase58());
 
   const px = await conn.getAccountInfo(priceAccount);
-  if (!px) die('the sponsored Pyth push account for SOL/USD does not exist at the derived address');
-  if (!px.owner.equals(PYTH_RECEIVER)) die('the derived price account is not owned by the Pyth receiver');
-  say('pyth acct owner ok, publish_time', String(readPublishTime(px.data)));
+  if (!px) die('the sponsored Pyth push account for ' + SYMBOL + ' does not exist');
+  if (!PYTH_OWNERS.has(px.owner.toBase58()))
+    die('price account owner ' + px.owner.toBase58() + ' is not a known Pyth program');
+  const pubTime0 = readPublishTime(px.data, feedId);
+  if (!pubTime0) die('could not find the requested feed id inside that price account');
+  say('pyth ok  ', 'owner ' + px.owner.toBase58() + ', publish_time ' + pubTime0
+      + ' (' + (nowSec() - pubTime0) + 's old)');
+  if (nowSec() - pubTime0 > 55) say('  NOTE: seal rejects a price older than 60s. If this keeps growing, wait for a tick.');
 
   // ---- instruction builders -------------------------------------------------
   const ix = {
@@ -226,7 +259,7 @@ async function main() {
   while (nowSec() <= A.expiry) await sleep(5000);
   for (let attempt = 1; attempt <= 30; attempt++) {
     const fresh = await conn.getAccountInfo(priceAccount);
-    const pubTime = readPublishTime(fresh.data);
+    const pubTime = readPublishTime(fresh.data, feedId);
     if (pubTime >= A.expiry) { say('  pyth publish_time ' + pubTime + ' >= expiry ' + A.expiry); break; }
     await sleep(4000);
   }
@@ -272,16 +305,15 @@ async function main() {
   flush();
 }
 
-function readPublishTime(data) {
-  // PriceUpdateV2: 8 disc + write_authority(32) + verification_level(1..2) + PriceFeedMessage.
-  // publish_time sits after feed_id(32) + price(8) + conf(8) + exponent(4) inside the message.
-  // The message start shifts by one byte when verification_level is Partial, so read both and
-  // take the one that looks like a plausible unix time.
-  for (const base of [42, 43]) {
-    const off = base + 32 + 8 + 8 + 4;
-    if (off + 8 > data.length) continue;
-    const t = Number(data.readBigInt64LE(off));
-    if (t > 1600000000 && t < 4000000000) return t;
+function readPublishTime(data, feedId) {
+  // PriceUpdateV2: 8 discriminator + write_authority(32) + verification_level + PriceFeedMessage.
+  // VerificationLevel is `Partial { num_signatures: u8 }` (2 bytes) or `Full` (1 byte), so the
+  // message begins at 41 or 42. Do not guess which: the message opens with feed_id, so the base
+  // that matches the feed we asked for is the right one, provably.
+  for (const base of [41, 42]) {
+    if (base + 60 > data.length) continue;
+    if (!data.subarray(base, base + 32).equals(feedId)) continue;
+    return Number(data.readBigInt64LE(base + 32 + 8 + 8 + 4));
   }
   return 0;
 }
