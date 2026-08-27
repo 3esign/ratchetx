@@ -67,7 +67,10 @@ const die = (m) => { say('STOP: ' + m); flush(); process.exit(1); };
 const flush = () => { try { fs.writeFileSync('RATCHET_EXERCISE_REPORT.txt', log.join('\n') + '\n'); } catch {} };
 
 const state = fs.existsSync(STATE_PATH) ? JSON.parse(fs.readFileSync(STATE_PATH, 'utf8')) : { sigs: {}, shots: {} };
-const saveState = () => fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2));
+// A dry run must leave no trace. It used to persist the two shots it planned,
+// expiry timestamps and all, so the live run minutes later would try to seal a
+// shot whose expiry had already passed and be refused with ExpiryInPast.
+const saveState = () => { if (DRY) return; fs.writeFileSync(STATE_PATH, JSON.stringify(state, null, 2)); };
 
 const anchorString = (v) => {
   const b = Buffer.from(String(v), 'utf8');
@@ -244,6 +247,13 @@ async function main() {
       [Buffer.from('shot'), player.publicKey.toBuffer(), nonceBuf], PROGRAM_ID);
     return { shotId, salt, nonce: nonce.toString(), commit: commit.toString('hex'), pda: pda.toBase58(), expiry: nowSec() + secondsAhead };
   };
+  // Regenerate a planned shot whose expiry has gone stale — a leftover from an
+  // earlier run, or a long pause between planning and sealing. Only ever for a
+  // shot that was never actually sealed; a sealed shot is a fact on the chain
+  // and is never rewritten here.
+  const stale = (k, sigKey) => state.shots[k] && !state.sigs[sigKey] && state.shots[k].expiry <= nowSec() + 30;
+  if (stale('A', 'seal'))   { say('  (replanning shot A — its expiry had passed)'); delete state.shots.A; }
+  if (stale('B', 'seal_b')) { say('  (replanning shot B — its expiry had passed)'); delete state.shots.B; }
   if (!state.shots.A) { state.shots.A = mk('a', 300); saveState(); }   // settles
   if (!state.shots.B) { state.shots.B = mk('b',  60); saveState(); }   // voids on the deadline
   const A = state.shots.A, B = state.shots.B;
