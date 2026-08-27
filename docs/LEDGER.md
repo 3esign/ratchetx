@@ -12,6 +12,31 @@ scores every venue — **including this one** — on the same ones.
 
 ---
 
+## One event, one observation
+
+A venue may list a single event as a **ladder of strikes** — ETH above 2,650,
+above 2,655, above 2,660 — and those are not independent questions. They share
+an event, a moment, and a settlement price. Scoring every rung counts one event
+a dozen times and destroys the sample while making it look larger.
+
+The first version of this ledger did exactly that. It scored twelve rungs of one
+ETH ladder, every one of them carrying an identical implied probability of
+0.395 — a number no ladder can honestly have, since being above 2,650 and above
+2,705 are not the same bet. That identical number was the tell: those markets
+had no live book, and a last-traded print was being read as if it were a belief.
+
+Both are now refused:
+
+- **One observation per event.** The rung kept is the one closest to a coin
+  flip — the hardest question in the ladder, which is what the band exists to
+  find. An event already observed is never observed again at a different rung.
+- **A live two-sided book or nothing.** No bid and ask, no score. A stale print
+  is not a crowd. A spread wider than 0.20 is refused for the same reason: a mid
+  drawn from a 40-cent-wide book is not a belief either.
+
+Those counters were versioned rather than reused. Wrong numbers do not get
+quietly folded into right ones.
+
 ## The rule
 
 An observation enters the ledger only if, at the moment we looked:

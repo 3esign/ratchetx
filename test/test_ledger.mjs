@@ -51,18 +51,26 @@ globalThis.fetch = async (url) => {
     lastKalshiUrl = u;
     const series = (u.match(/series_ticker=([A-Z0-9]+)/) || [])[1];
     if (series === 'KXBTC') body = { markets: [
-      // structured strike, read from fields — no prose parsing at all
-      { ticker:'KXBTC-A', strike_type:'greater_or_equal', floor_strike:95000,
+      // A LADDER: one event, five rungs. Only the rung nearest a coin flip may
+      // survive, and it must survive on its own two-sided book.
+      { ticker:'KXBTC-A', event_ticker:'KXBTC-26AUG27', strike_type:'greater_or_equal', floor_strike:95000,
         yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
-      // out of band
-      { ticker:'KXBTC-C', strike_type:'greater', floor_strike:95000,
+      { ticker:'KXBTC-A2', event_ticker:'KXBTC-26AUG27', strike_type:'greater_or_equal', floor_strike:96000,
+        yes_bid_dollars:0.38, yes_ask_dollars:0.42, close_time:new Date(soon).toISOString() },
+      { ticker:'KXBTC-A3', event_ticker:'KXBTC-26AUG27', strike_type:'greater_or_equal', floor_strike:97000,
+        yes_bid_dollars:0.36, yes_ask_dollars:0.40, close_time:new Date(soon).toISOString() },
+      // out of band entirely
+      { ticker:'KXBTC-C', event_ticker:'KXBTC-OTHER', strike_type:'greater', floor_strike:95000,
         yes_bid_dollars:0.94, yes_ask_dollars:0.96, close_time:new Date(soon).toISOString() },
       // a strike shape we refuse to interpret
-      { ticker:'KXBTC-E', strike_type:'between', floor_strike:90000, cap_strike:95000,
+      { ticker:'KXBTC-E', event_ticker:'KXBTC-BETWEEN', strike_type:'between', floor_strike:90000, cap_strike:95000,
         yes_bid_dollars:0.48, yes_ask_dollars:0.52, close_time:new Date(soon).toISOString() },
-      // nobody has quoted it: no crowd to read
-      { ticker:'KXBTC-F', strike_type:'greater', floor_strike:95000,
-        yes_bid_dollars:0, yes_ask_dollars:0, last_price_dollars:0, close_time:new Date(soon).toISOString() },
+      // NO LIVE BOOK — this is the shape that produced twelve identical 0.395s
+      { ticker:'KXBTC-F', event_ticker:'KXBTC-NOBOOK', strike_type:'greater', floor_strike:95000,
+        yes_bid_dollars:0, yes_ask_dollars:0, last_price_dollars:0.395, close_time:new Date(soon).toISOString() },
+      // a book so wide the mid is not a belief
+      { ticker:'KXBTC-W', event_ticker:'KXBTC-WIDE', strike_type:'greater', floor_strike:95000,
+        yes_bid_dollars:0.25, yes_ask_dollars:0.62, close_time:new Date(soon).toISOString() },
     ] };
     else if (series === 'KXETHD') body = { markets: [
       { ticker:'KXETHD-B', strike_type:'less', cap_strike:3200,
@@ -85,7 +93,16 @@ ok(/series_ticker=/.test(lastKalshiUrl) && /mve_filter=exclude/.test(lastKalshiU
    'kalshi is asked for the crypto series by name, not for every open market');
 ok(/min_close_ts=\d+/.test(lastKalshiUrl) && /max_close_ts=\d+/.test(lastKalshiUrl),
    'kalshi horizon is filtered server-side, not by discarding a full page');
-ok(k.obs.length === 2, `kalshi keeps both readable in-band markets (${k.obs.length})`);
+ok(k.obs.length === 4, `kalshi returns each in-band rung before collapsing (${k.obs.length})`);
+ok(k.drops['no-two-sided-book'] === 1,
+   'a market with no live bid/ask is refused — a last-traded print is not a crowd belief');
+ok(k.drops['spread-too-wide'] === 1, 'and a mid from an absurdly wide book is refused too');
+const collapsed = L.collapseLadders(k.obs);
+ok(collapsed.kept.length === 2 && collapsed.dropped === 2,
+   `the ladder collapses to one observation per event (${collapsed.kept.length} kept, ${collapsed.dropped} dropped)`);
+const rung = collapsed.kept.find(o => o.event === 'KXBTC-26AUG27');
+ok(rung && rung.id === 'KXBTC-A' && Math.abs(rung.p - 0.5) < 1e-9,
+   'and the rung kept is the one closest to a coin flip, not the first seen');
 const kb = k.obs.find(o => o.id === 'KXBTC-A'), ke = k.obs.find(o => o.id === 'KXETHD-B');
 ok(kb && kb.feed === 'BTC' && kb.strike === 95000 && kb.dir === 'above' && kb.src === 'fields',
    'greater_or_equal reads the FLOOR strike out of the fields');
@@ -93,7 +110,7 @@ ok(ke && ke.feed === 'ETH' && ke.strike === 3200 && ke.dir === 'below' && ke.src
    'less reads the CAP strike out of the fields');
 ok(kb.feed === 'BTC' && !/bitcoin/i.test(JSON.stringify(kb)), 'the ASSET comes from the series, never guessed from a title');
 ok(Math.abs(kb.p - 0.5) < 1e-9, 'kalshi price is the dollar-denominated mid, not cents');
-ok(k.drops['outside-band'] === 1 && k.drops['strike-type-between'] === 1 && k.drops['no-quote'] === 1,
+ok(k.drops['outside-band'] === 1 && k.drops['strike-type-between'] === 1,
    `kalshi exclusions are counted and named (${JSON.stringify(k.drops)})`);
 ok(Object.keys(k.drops).some(x => x.startsWith('series-empty:')), 'an empty series is named, not silently skipped');
 

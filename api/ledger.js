@@ -30,13 +30,22 @@ async function tick(now) {
   // ---- observe
   const [k, pm] = await Promise.all([L.fromKalshi(now), L.fromPolymarket(now)]);
   const open = (await getJSON(L.K_OPEN)) || [];
+  // Collapse strike ladders BEFORE anything else: one event, one observation.
+  const collapsed = L.collapseLadders([...k.obs, ...pm.obs]);
   const seen = new Set(open.map(o => `${o.venue}:${o.id}:${o.exp}`));
-  let added = 0;
-  for (const o of [...k.obs, ...pm.obs]) {
+  // An event already observed must not be observed again at a different rung —
+  // that would smuggle the ladder back in one tick at a time.
+  const seenEvents = new Set(open.map(o => o.event
+    ? `${o.venue}:${o.event}` : `${o.venue}:${o.feed}:${o.dir}:${o.exp}`));
+  let added = 0, ladder = collapsed.dropped;
+  for (const o of collapsed.kept) {
     const key = `${o.venue}:${o.id}:${o.exp}`;
-    if (seen.has(key)) continue;         // one observation per market, ever:
-    seen.add(key); open.push(o); added++; // re-pricing later would let us pick
+    const ev = o.event ? `${o.venue}:${o.event}` : `${o.venue}:${o.feed}:${o.dir}:${o.exp}`;
+    if (seen.has(key) || seenEvents.has(ev)) { ladder++; continue; }
+    seen.add(key); seenEvents.add(ev);    // one observation per market, ever:
+    open.push(o); added++;                // re-pricing later would let us pick
   }                                       // the entry that flatters the score
+  if (ladder) await hincrMany(L.K_DROP, { 'ladder-sibling': ladder });
 
   const drops = (await hall(L.K_DROP)) || {};
   const dd = {};
@@ -69,7 +78,7 @@ async function tick(now) {
   await setJSON(L.K_RECENT, recent.slice(0, 120));
   await setJSON(L.K_OPEN, still.slice(-L.MAX_OPEN));
 
-  return { added, resolved, voided, pending: still.length,
+  return { added, resolved, voided, ladder, pending: still.length,
     errors: { kalshi: k.error, polymarket: pm.error },
     drops: Object.keys(dd).length ? dd : null, prevDrops: Object.keys(drops).length };
 }
@@ -133,6 +142,7 @@ module.exports = async (req, res) => {
       groundTruth: 'Pyth read off Solana: the first recorded sample published at or after expiry, inside a 15-minute grace window — the identical predicate that settles a shot on this site',
       horizon: { maxHours: L.MAX_HORIZON_MS / 3600e3,
         note: 'oracle samples are retained four days, so the ledger is a short-horizon instrument and says so' },
+      sampling: `one observation per EVENT, not per strike: a venue listing a ladder of strikes for one event is asking one question, and the rung kept is the one closest to a coin flip. A market without a live two-sided book is not scored at all — a last-traded print is not a crowd belief — and a bid/ask spread wider than ${L.MAX_SPREAD} is refused for the same reason.`,
       caveat: 'these venues are NOT asked identical questions — their strikes and expiries never line up. Each is scored on its own questions, restricted to the same difficulty band. The band is the control.',
       scale: 'brier is the mean squared error (lower is better). brierIndex is (1 - sqrt(brier)) * 100 on the Forecasting Research Institute scale: 100 clairvoyant, 50 is what "always say 50%" scores, 0 is confidently wrong.',
       rows,
