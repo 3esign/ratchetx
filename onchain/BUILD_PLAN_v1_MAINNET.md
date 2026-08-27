@@ -20,6 +20,16 @@ successfully on devnet — `7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE` — is
 mainnet. The single biggest mainnet risk is therefore closed: the program does not need one line
 changed to point at real prices.
 
+> **Correction, 2026-08-27.** The table above is stale, and the deployed program is the thing
+> that was right. `ratchet_seal` as deployed pins Pyth's *upgraded* receiver
+> `rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp`, not `rec5EKMGg6...`, and its sponsored SOL/USD
+> account is **`7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE`** - the one `lib/onchain_px.js`
+> has been reading and checkpointing since launch. The address this page names,
+> `7UVimffxr9ow...`, is a real SOL/USD push account under the older push oracle, and mainnet
+> simulation of `checkpoint` against it fails with `BadPriceAccount` at the owner check
+> (`lib.rs:352`). Two live accounts, same feed, only one the program accepts. Caught by
+> simulating before spending, which is the entire argument for simulating before spending.
+
 ---
 
 ## 1 · v1 of the program (`ratchet_seal_lib_v1.rs`, drafted)
