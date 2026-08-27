@@ -1816,13 +1816,27 @@ async function oracleIngest(req, res) {
 
 module.exports = async (req, res) => {
   const heldPlayerLocks = [];
+  // WAIT FOR IT, do not refuse it.
+  // This used to be a single attempt: one acquireLease, and a 409 to the user
+  // if anyone else held the lock. But the site polls `state` in the background
+  // and `state` takes this same lock (it settles lazily, so it can write). A
+  // player clicking ANCHOR while their own poll was in flight collided with
+  // themselves and got told to retry — for a button that is supposed to always
+  // work. lib/log.js already had the right shape; the handler did not use it.
+  //
+  // ~2.4s of bounded backoff turns a collision into a short wait. A 409 now
+  // means genuinely stuck, not merely busy.
+  const LOCK_TRIES = 24, LOCK_GAP_MS = 100;
   const acquirePlayerLock = async w => {
     if (!(isWalletShaped(w) || isDemo(w))) return false;
     const key = `lock:u:${w}`;
     if (heldPlayerLocks.some(x => x.key === key)) return true;
-    const token = await acquireLease(key, 30);
-    if (!token) return false;
-    heldPlayerLocks.push({ key, token }); return true;
+    for (let a = 0; a < LOCK_TRIES; a++) {
+      const token = await acquireLease(key, 30);
+      if (token) { heldPlayerLocks.push({ key, token }); return true; }
+      await new Promise(r => setTimeout(r, LOCK_GAP_MS));
+    }
+    return false;
   };
   try {
     const action = (req.method === 'GET' ? req.query.action : (req.body||{}).action) || 'state';
@@ -1843,7 +1857,7 @@ module.exports = async (req, res) => {
       : req.body && req.body.auth && req.body.auth.wallet;
     if (playerActions.has(action) && (isWalletShaped(lockWallet) || isDemo(lockWallet))) {
       if (!(await acquirePlayerLock(lockWallet)))
-        return res.status(409).json({ ok:false, reason:'that player already has an update in flight — retry' });
+        return res.status(409).json({ ok:false, reason:'that player already has an update in flight — retry in a moment' });
     }
 
     // ============================================================

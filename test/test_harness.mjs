@@ -262,8 +262,17 @@ ok(!(await call('POST', { body: { action: 'shot', auth: { ...authFor(), sig: 'AA
     call('POST',{ip:'20.0.0.1',body:{action:'shot',auth:au(),target:TARGET5,side:'YES',stake:1000}}),
     call('POST',{ip:'20.0.0.2',body:{action:'shot',auth:au(),target:TARGET5,side:'NO', stake:1000}}),
   ]);
-  ok([a,b].filter(x=>x.body.ok).length===1 && [a,b].some(x=>x.status===409),
-     'concurrent spends from one wallet admit exactly one');
+  // THE INVARIANT is that exactly one spend lands. It used to be asserted via a
+  // 409, because the per-wallet lock refused on first contention. It now waits
+  // and retries, so the loser re-reads a balance of 0 and is told the truth —
+  // "not enough credits" — instead of "retry", which would never have helped.
+  // Assert the money, not the mechanism: a 409 here would be a WORSE product
+  // and an equally passing test.
+  const winners = [a,b].filter(x=>x.body.ok);
+  ok(winners.length===1, 'concurrent spends from one wallet admit exactly one');
+  const loser = [a,b].find(x=>!x.body.ok);
+  ok(loser && typeof loser.body.reason==='string' && !/update in flight/.test(loser.body.reason),
+     'and the loser is refused by the BALANCE, not by the lock');
   ok(getMem(`u:${w}`).cr===0 && getMem(`u:${w}`).open.length===1,
      'one stake deducted and one shot stored — no double-spend side effects');
 }
