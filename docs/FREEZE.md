@@ -130,6 +130,17 @@ Fourteen days exist to be used. Each item is checkable; an item still open on
 - [ ] **Ceremony logistics — done by 2026-09-05, not on the day.** Solana CLI installed
   locally; the offline authority keypair located; `solana program show` dry-run passes;
   the on-chain authority address matches the held key; the fee payer holds a little SOL.
+  Status 2026-08-27, three of the five settled and the interesting one settled the right
+  way round — against the chain, not against memory. The ProgramData account
+  `BiMrv5BAjxCPzH2sFFARbDnrXmn4FRTULfnKgeAVL4CF` (last deploy slot 441,092,765) names
+  `AAaU3oyrcmy6GDGxcSUEgg4uUag4pF9jwL2rThB49gks` as upgrade authority, read straight from
+  mainnet-beta; the keypair held offline derives to exactly that address. It is a
+  single-purpose deployer — twenty transactions, all inside one 100-second window on
+  2026-08-23, nothing before, nothing since — and it holds 0.0432 SOL, roughly eight
+  thousand revokes' worth of fee. It was never committed: it does not appear anywhere in
+  this repository's history, and the deploy tree has never contained it. What is left on
+  this line is the `solana program show` dry-run, run from the machine that will sign, on
+  the network path it will use on the day.
 
 Out of scope, on purpose: the permanent log-#345 red pair is an off-chain log matter —
 freezing the program neither fixes nor worsens it.
