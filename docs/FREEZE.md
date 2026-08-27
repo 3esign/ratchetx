@@ -144,9 +144,30 @@ Fourteen days exist to be used. Each item is checkable; an item still open on
   Reproduce it with `node tools/mainnet-exercise.mjs --keypair <player.json>`; add `--dry`
   to simulate every instruction and send nothing. It signs with a throwaway wallet and
   refuses outright if handed the upgrade authority.
-- [ ] **Final byte-verification.** Rebuild with the pinned toolchain, compare SHA-256
-  against the deployed program data one last time, record both hashes here. That pair
-  is the claim that stays true forever.
+- [ ] **Final byte-verification — half of it is done, and the half that is done is recorded
+  here.** Measured 2026-08-27, without a rebuild, because this half never needed one.
+
+  The ProgramData account `BiMrv5BAjxCPzH2sFFARbDnrXmn4FRTULfnKgeAVL4CF` holds 252,589
+  bytes. Strip the 45-byte upgradeable-loader header — `u32` enum, `u64` slot,
+  `Option<Pubkey>` — and 252,544 bytes remain, opening `7f 45 4c 46`. That is an ELF, and
+  it is exactly the size of `mainnet-c37fa32.so` in the build tree, with no deploy padding
+  at all. Both hash to:
+
+  ```
+  SHA-256  4947daeba64711b3e21b681870c3e6c61db510ee19922e925221fc28f9b486a8
+  ```
+
+  So **the program running on mainnet is byte-for-byte the artifact we hold**, read
+  straight off the chain by anyone with an RPC and thirty lines of script — no key, no
+  privileged access, no trust in this page.
+
+  What is still open is the other half, and it is the harder one: proving that artifact is
+  what the *source* in this repository compiles to. That needs a reproducible build with
+  the pinned toolchain (`anchor 1.0.2`, `solana 3.1.10`, per `Anchor.toml`) under
+  `solana-verify`, which needs Docker. Until that runs, the honest claim is narrow and
+  worth stating exactly: we can prove the deployed bytes match our artifact, not yet that
+  our artifact matches our source. Source snapshot for the attempt:
+  `ratchet-seal-v2-build-c37fa32.zip`.
 - [x] **Kill-switch drill — done 2026-08-27, and it found something.** The lever is one
   variable: `MIRROR_ENABLED = !!(MIRROR_PROGRAM_ID && MIRROR_RPC_URL)`, so clearing
   `RATCHET_SEAL_PROGRAM_ID` alone disarms sealing, and a disarmed site makes no RPC call
