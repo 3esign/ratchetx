@@ -94,6 +94,64 @@ We could write a plausible entry 345. It would hash correctly, the page would
 go green, and nobody would ever know. That is precisely the forgery this log
 exists to make impossible, so the hole stays.
 
+## 3b. What was in the gap — recovered, proven, and left where it was
+
+On 27 August we worked out what entry 345 actually said. Not by finding a copy
+of it: there is no copy. By deriving it from the chain, and letting the chain
+confirm it.
+
+**Why that is possible at all.** Entry 346 is stored, and its hash was computed
+over `h345`. That makes the stored `h346` a checksum over the missing entry. So
+a candidate is never asserted — it is tested:
+
+```
+h345      = sha256( stored_h344 + json(candidate_345) )
+h346_test = sha256( h345 + json(stored_346) )
+accept only if h346_test === stored_h346
+```
+
+A 256-bit target is not reached by chance. A candidate that passes is not a
+plausible stand-in; it is the entry.
+
+**The search was small because the log bounds it.** `t` must lie strictly
+between the timestamps of 344 and 346 — ninety-eight milliseconds. The warden
+emits one seal and then a settle loop, so the shape was known, and the exit
+price was the same oracle sample 346 settled against. 318,134 candidates. One
+passed.
+
+```json
+{"i":345,"t":1787277604359,
+ "ev":{"k":"wsettle","id":"w496454","outcome":true,"hit":false,"exitPx":2358.55559871},
+ "h":"b2637f799c7cc65b4db3c308e2a8b785b505e81d5f63b0ce79dd5ec3a9101d3c"}
+```
+
+**And it says something better than we expected.** Entries 345 and 346 are the
+*same event* — a warden settle of line `w496454`, written nineteen milliseconds
+apart. The counter advanced to 345, the entry was never stored, the operation
+retried, and it landed as 346.
+
+Nothing was lost from the world. What was lost was a failed *attempt* to record
+something that was recorded successfully a moment later. The gap is the ghost of
+a retry.
+
+**We did not write it back.** The content is proven, so restoring it would not
+be forgery in the ordinary sense. But this log's whole value rests on a rule
+with no exceptions in it: nothing is ever written into the past. A rule that
+holds until the one time you are certain is not a rule, it is a habit. The
+entry stays missing, the proof page stays grey, and the verifier still reports
+the 345/346 link as unprovable — because from the stored data alone, it is.
+
+**Check it yourself.** The tool re-derives it from the live log every time it
+runs, and writes nothing:
+
+```bash
+node tools/recover-345.mjs
+```
+
+It refuses to search at all unless it can first reproduce the 343 → 344 link,
+whose ends are both stored. An instrument that cannot answer a question you
+already know the answer to has no business answering one you do not.
+
 ## 4. The fix
 
 **Canonical hashing.** New entries are hashed over deterministically sorted
