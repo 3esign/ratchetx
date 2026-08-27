@@ -17,7 +17,7 @@
 const { getJSON, setJSON, hall, hincrMany } = require('../lib/kv.js');
 const L = require('../lib/ledger.js');
 
-const VERSION = 'ldg2-2026-08-27';
+const VERSION = 'ldg3-2026-08-27';
 const TICK_MIN_MS = 4 * 60e3;
 
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
