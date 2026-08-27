@@ -23,26 +23,57 @@
 //    limit defaults to 500, capped at 2000
 // ============================================================
 const { getManyJSON, getJSON } = require('../lib/kv.js');
-const { logCount } = require('../lib/log.js');
+const { logCount, CHUNK } = require('../lib/log.js');
 
-const VERSION = 'log1-2026-08-27';
+const VERSION = 'log2-2026-08-27';
 const DEFAULT_LIMIT = 500;
 const MAX_LIMIT = 2000;
 const SITE = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
 
-/** Read a contiguous window of entries by their immutable per-index keys.
+/** Read a contiguous window of entries.
+ *
+ *  TWO STORES, and reading only one of them is a lie about the log. Entries
+ *  written before the single-writer scheme live ONLY in the legacy 500-entry
+ *  chunk blobs; newer ones live under immutable per-index keys. The snapshot
+ *  has always merged both. The first version of this endpoint read only the
+ *  per-index keys and therefore reported the entire early history as missing —
+ *  343 through 348 all absent, when only 345 is genuinely gone.
+ *
+ *  An endpoint whose job is to make gaps visible must not invent them. The
+ *  per-index key wins where both exist, because it is the authoritative
+ *  single-writer copy; the chunk is the migration source and read accelerator.
+ *
  *  Missing indices are simply absent from the result — the caller compares
- *  against `issued` to see that, which is exactly how the gap at 345 is
- *  discoverable rather than hidden. */
+ *  against `issued` and reads `missingInRange`, which is how the gap at 345 is
+ *  discoverable rather than described. */
 async function window_(from, to) {
-  const out = [];
+  const byIndex = new Map();
+
+  // 1. legacy chunks covering the range (chunk n holds indices n*500+1 .. n*500+500)
+  const firstChunk = Math.floor((from - 1) / CHUNK);
+  const lastChunk = Math.floor((to - 1) / CHUNK);
+  const chunkKeys = [];
+  for (let c = firstChunk; c <= lastChunk; c++) chunkKeys.push(`g:log:c:${c}`);
+  if (chunkKeys.length) {
+    const chunks = await getManyJSON(chunkKeys);
+    for (const part of chunks) {
+      if (!Array.isArray(part)) continue;
+      for (const e of part) {
+        const i = Number(e && e.i);
+        if (Number.isFinite(i) && i >= from && i <= to) byIndex.set(i, e);
+      }
+    }
+  }
+
+  // 2. authoritative per-index entries overwrite whatever the chunk held
   for (let start = from; start <= to; start += 500) {
     const stop = Math.min(to, start + 499);
     const keys = Array.from({ length: stop - start + 1 }, (_, n) => `g:log:e:${start + n}`);
     const rows = await getManyJSON(keys);
-    rows.forEach(e => { if (e) out.push(e); });
+    rows.forEach((e, n) => { if (e) byIndex.set(start + n, e); });
   }
-  return out;
+
+  return [...byIndex.keys()].sort((a, b) => a - b).map(i => byIndex.get(i));
 }
 
 module.exports = async (req, res) => {
@@ -57,7 +88,7 @@ module.exports = async (req, res) => {
     // single-entry lookup — the cheapest way to check one claim
     const one = Number(q.i);
     if (Number.isFinite(one) && one > 0) {
-      const [entry] = await getManyJSON([`g:log:e:${Math.floor(one)}`]);
+      const [entry] = await window_(Math.floor(one), Math.floor(one)).then(a => [a[0] || null]);
       return res.status(200).json({
         ok: true, v: VERSION, issued, head,
         i: Math.floor(one), entry: entry || null,

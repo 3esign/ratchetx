@@ -63,14 +63,30 @@ const gone = await get('i=999');
 ok(gone.ok === true && gone.entry === null && /issued/.test(gone.note || ''),
    'an index with nothing stored answers null and says to compare with issued');
 
-// 5. a gap inside a window is REPORTED, not smoothed over
+// 5. LEGACY CHUNKS COUNT. Old entries live only in the 500-entry chunk blobs;
+// reading just the per-index keys reported the whole early history as missing.
+// An endpoint whose job is to make gaps visible must not invent them.
+{
+  const legacy = { i: 20, t: 5, ev: { k: 'old', n: 20 }, h: 'f'.repeat(64) };
+  await kv.setJSON('g:log:c:0', [legacy]);          // chunk 0 holds 1..500
+  await kv.setJSON('g:log:n', 20);
+  const page = await get('after=19&limit=1');
+  ok(page.count === 1 && page.entries[0] && page.entries[0].i === 20,
+     'an entry that exists ONLY in a legacy chunk is returned, not reported missing');
+  const byIndex = await get('i=20');
+  ok(byIndex.entry && byIndex.entry.i === 20, 'and the same entry is reachable by index');
+  await kv.setJSON('g:log:c:0', []);
+  await kv.setJSON('g:log:n', 12);
+}
+
+// 6. a gap inside a window is REPORTED, not smoothed over
 await kv.delKey('g:log:e:4');
 const holed = await get('after=0&limit=12');
 ok(holed.count === 11 && holed.missingInRange === 1,
    `a missing index inside the window is counted, not hidden (count=${holed.count}, missing=${holed.missingInRange})`);
 ok(!holed.entries.some(e => e.i === 4), 'and the absent entry is simply absent, never fabricated');
 
-// 6. limits are bounded so one caller cannot ask for everything again
+// 7. limits are bounded so one caller cannot ask for everything again
 const huge = await get('after=0&limit=99999');
 ok(huge.range.to - huge.range.from + 1 <= 2000, 'an oversized limit is capped rather than honoured');
 
