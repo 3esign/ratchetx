@@ -141,6 +141,16 @@ module.exports = async (req, res) => {
       band: { lo: L.BAND_LO, hi: L.BAND_HI },
       rule: `only questions the venue's own crowd priced between ${L.BAND_LO} and ${L.BAND_HI} at observation — the ones actually in doubt`,
       groundTruth: 'Pyth read off Solana: the first recorded sample published at or after expiry, inside a 15-minute grace window — the identical predicate that settles a shot on this site',
+      referee: {
+        note: 'none of these venues settles on Pyth, and this page does not pretend otherwise. One referee applied identically to all three, us included, is the only way venues asking different questions can be compared at all — but it means a verdict here is not the venue\u2019s own resolution, and near a strike the two can disagree.',
+        theirs: {
+          kalshi: 'CF Benchmarks Real Time Index — the final value is the average of 60 RTI prices collected in the last minute before expiration',
+          polymarket: 'Chainlink, per market; the short-horizon Up/Down series resolves on a 60-second TWAP data stream and states it is not according to any other source or spot market',
+        },
+        ours: 'a single Pyth print at expiry',
+        ambiguityRule: `an observation whose strike falls inside the interval a 60-second average could have produced is VOIDED, not scored — the union of Pyth's own published confidence around the settling print and the realised range of our samples over the final ${L.REFEREE_WINDOW_MS / 1000} seconds. Inside that interval the answer is decided by which oracle was asked, and scoring it would publish our choice of referee as somebody else's mistake. Counted as inside-referee-band.`,
+        checked: '2026-08-27, against each venue\u2019s own API',
+      },
       horizon: { maxHours: L.MAX_HORIZON_MS / 3600e3,
         note: 'oracle samples are retained four days, so the ledger is a short-horizon instrument and says so' },
       kinds: 'a question may be one threshold (above / below) or a RANGE (between two strikes). Both resolve on the same oracle sample; a range is inclusive of both ends.',

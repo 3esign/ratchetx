@@ -157,9 +157,60 @@ const inRange = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:95000, strike2:9
 ok(inRange.status === 'ok' && inRange.hit === 1, 'a price inside the range resolves YES');
 const outRange = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:90000, strike2:94000, dir:'between' }, NOW);
 ok(outRange.status === 'ok' && outRange.hit === 0, 'a price outside the range resolves NO');
+// Inclusivity used to decide this case: an exact boundary print counted as a hit.
+// The referee band supersedes it. A strike the settling print lands exactly on is the
+// most ambiguous case there is, so it now voids — the same answer the on-chain program
+// gives an exact tie, and for the same reason.
 const edge = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:96000, strike2:99000, dir:'between' }, NOW);
-ok(edge.status === 'ok' && edge.hit === 1, 'the lower bound is inclusive, as documented');
+ok(edge.status === 'void' && edge.reason === 'inside-referee-band',
+  'a print landing exactly on a bound voids rather than resolving it by convention');
 px.priceCrossing = orig;
+
+// ---- the referee band: we do not score what our own referee cannot separate
+// Kalshi settles on a 60-price average of CF Benchmarks' RTI; Polymarket's Up/Down
+// series on a Chainlink 60s TWAP; this ledger on a single Pyth print. Inside the
+// interval a 60-second average could have landed in, the verdict belongs to the
+// choice of oracle rather than to the forecast.
+{
+  const origPath = px.pathFor;
+  const iv = async (price, confBps, path) => {
+    px.pathFor = async () => path;
+    return L.refereeInterval('BTC', 1_000_000, { price, confBps });
+  };
+
+  const flat = await iv(80_000, 2, [[1, 80_000], [2, 80_000]]);
+  ok(Math.abs(flat.lo - 79_984) < 0.01 && Math.abs(flat.hi - 80_016) < 0.01,
+    'a flat minute leaves only Pyth confidence: 2bps of 80k is +/-16');
+
+  const moved = await iv(80_000, 2, [[1, 79_900], [2, 80_120]]);
+  ok(moved.lo === 79_900 && moved.hi === 80_120,
+    'a minute that moved widens the interval to the realised range');
+
+  const noPath = await iv(80_000, 5, null);
+  ok(Math.abs(noPath.lo - 79_960) < 0.01 && Math.abs(noPath.hi - 80_040) < 0.01,
+    'no samples is not a licence to narrow: confidence alone stands');
+
+  const noConf = await iv(80_000, undefined, [[1, 80_000]]);
+  ok(noConf.lo === 80_000 && noConf.hi === 80_000,
+    'a missing confidence contributes nothing rather than a guessed default');
+
+  px.pathFor = async () => [[1, 79_990], [2, 80_010]];
+  px.priceCrossing = async () => ({ price: 80_005, confBps: 2, publishTime: NOW });
+  const inside = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:80_000, dir:'above' }, NOW);
+  ok(inside.status === 'void' && inside.reason === 'inside-referee-band',
+    'a strike inside the interval is voided, never scored as a hit');
+
+  const outside = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:79_000, dir:'above' }, NOW);
+  ok(outside.status === 'ok' && outside.hit === 1,
+    'a strike clear of the interval still scores normally');
+
+  const between = await L.outcomeOf({ feed:'BTC', exp:NOW, strike:70_000, strike2:80_000, dir:'between' }, NOW);
+  ok(between.status === 'void' && between.reason === 'inside-referee-band',
+    'a range is ambiguous if EITHER of its ends sits inside the interval');
+
+  px.pathFor = origPath;
+  px.priceCrossing = orig;
+}
 
 // ---- 6. the endpoint speaks its own limits
 globalThis.fetch = realFetch;
