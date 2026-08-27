@@ -86,9 +86,11 @@ transaction rather than ours.
 
 **If it stops.** The page is down. Nothing is lost: the event log is
 hash-chained, the whole state exports at
-[/api/snapshot](https://ratchetx.xyz/api/snapshot), and anyone may already have
-anchored its head into Solana from their own wallet. Killing the hosting pauses
-the game. It can no longer end it.
+[/api/snapshot](https://ratchetx.xyz/api/snapshot) — or in pages at
+[/api/log](https://ratchetx.xyz/api/log?limit=200), which is how you export it
+once the log is large enough that one response stops arriving — and anyone may
+already have anchored its head into Solana from their own wallet. Killing the
+hosting pauses the game. It can no longer end it.
 
 ---
 

@@ -115,6 +115,17 @@ node tools/chain-diag.mjs                       # reads the public snapshot
 node tools/chain-diag.mjs ./snapshot.json       # or a copy you saved
 ```
 
+Or walk the log in pages, which does not require downloading the whole state
+and is how the gap is visible without trusting any summary of it:
+
+```bash
+curl -s 'https://ratchetx.xyz/api/log?i=345'          # nothing stored there
+curl -s 'https://ratchetx.xyz/api/log?after=340&limit=10' | grep -o '"i":3[45][0-9]'
+```
+
+The second call returns indices 341-344 and 346-350. 345 is simply not there,
+and `missingInRange` says so in the same response.
+
 ## 5. What this cost, honestly
 
 For several days the proof page told anyone who looked that the event log did
