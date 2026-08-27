@@ -39,4 +39,26 @@ ok(v2.unrecovered === 1 && v2.verified === 0, 'and it is reported unrecovered, n
 // canonical entries are left alone
 ok(verifyLegacy([{ i:1, t:1, ev:{a:1}, c:1, h:'x' }]).canonical === 1, 'c:1 entries are not this file’s business');
 
-console.log(`\n${p} passed, ${f} failed`); process.exit(f?1:0);
+// ---- nested objects: jsonb reorders at every depth, so recovery must too.
+// This is the daypot shape: a payout list of objects inside the event.
+const { recoverDeep } = require('../lib/legacy_chain.js');
+const dayEvOriginal = { k:'daypot', period:'2026-08-21', pot:12000, paid:9000,
+  winners:[ { rank:1, w:'AAA', xp:900, paid:5000 }, { rank:2, w:'BBB', xp:400, paid:4000 } ] };
+const dayH = sha(GEN + JSON.stringify({ i:1, t:7, ev:dayEvOriginal }));
+const dayStored = jsonbOrder({ i:1, t:7, ev:dayEvOriginal, h:dayH });   // i=1 so verifyLegacy chains off genesis
+
+ok(recoverOrder(dayStored, GEN) === null,
+   'the flat recovery cannot verify an event whose nested objects were reordered');
+const deep = recoverDeep(dayStored, GEN);
+ok(!!deep && deep.via === 'deep', 'the deep recovery does — nested orders searched as well');
+const vDeep = verifyLegacy([dayStored]);
+ok(vDeep.verified === 1 && vDeep.unrecovered === 0, 'and verifyLegacy reaches for it automatically');
+
+// tamper-evidence survives the deeper search too
+const dayTampered = jsonbOrder({ i:1, t:7, h:dayH,
+  ev:{ ...dayEvOriginal, winners:[ { rank:1, w:'AAA', xp:900, paid:99999 }, { rank:2, w:'BBB', xp:400, paid:4000 } ] } });
+ok(recoverDeep(dayTampered, GEN) === null,
+   'a changed amount INSIDE a nested list is still unrecoverable — exhaustive search proves it, it does not excuse it');
+
+console.log(`\n${p} passed, ${f} failed`);
+process.exit(f ? 1 : 0);
