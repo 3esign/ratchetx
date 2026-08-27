@@ -90,20 +90,28 @@ and you will not need us to tell you.
 Fourteen days exist to be used. Each item is checkable; an item still open on
 2026-09-08 is a reason to hold the ceremony, not to hope. Status as of 2026-08-25:
 
-- [x] **No permissionless-closure MEV in v2.** The class of bug fixed in the v3 draft
-  (`close_abandoned_shot` gated on a `settled_ts` that MissedCrossing voids forgot to
-  set) does not exist here: v2 has no permissionless close at all — `close_shot`
-  requires the player's own signature and rent returns only to the player. Verified
-  against source 2026-08-25. Consequence to accept: a shot whose player never returns
-  can never be closed by anyone, so its rent (~0.002 SOL per account) is stranded
-  forever. Count the open Shot PDAs before the ceremony and write the number here: ____.
+- [x] **No permissionless-closure MEV in v2 — for a different reason than this page
+  first gave.** Re-read against source 2026-08-27, and the entry that stood here was
+  wrong. `close_shot` is not player-gated. Its accounts are `shot`, `player` and
+  `cranker: Signer`, with `close = player, has_one = player` and the constraint
+  `state == Revealed || state == Voided`. **Anyone** may crank the close — exactly what
+  the source comment says — and the rent returns to the recorded player no matter who
+  signs, which is what removes the MEV: a stranger who closes your shot pays a fee and
+  receives nothing. The v3 class of bug (`close_abandoned_shot` gated on a `settled_ts`
+  that MissedCrossing voids forgot to set) is absent here for the same reason read the
+  right way round: *both* terminal states are closable, so a voided shot is not stranded
+  either. What the old entry got backwards, in full — it claimed the player's signature
+  was required, and derived from that a permanent rent-stranding consequence that does
+  not exist. The program did not change and the deployed bytes did not change. Only this
+  page was wrong, and this page is the thing the freeze is meant to make checkable.
 - [x] **Oracle input strictness.** settle/checkpoint accept only accounts owned by the
   Pyth receiver program, with `VerificationLevel::Full` required — `gte(Full)` is
   already exactly as strict as the v3 tightening (`== Full`) for this enum. Verified
   against source 2026-08-25.
-- [x] **Comment-vs-code note.** The source comment "Anyone may clean up" overstates:
-  closure requires the player's signature. Deployed behavior is the *stricter* one.
-  Recorded here so nobody relies on the comment; the source stays untouched so the
+- [x] **Comment-vs-code note, corrected 2026-08-27.** The source comment "Anyone may
+  clean up, but rent always returns to the recorded player" is accurate as written; the
+  earlier note here, which called it an overstatement and claimed the deployed behavior
+  was stricter, was itself the error. The source stays untouched, so the
   byte-verification claim remains trivially reproducible.
 - [ ] **Every instruction exercised on mainnet.** seal, checkpoint, settle, reveal,
   void_shot, close_shot — each invoked at least once against `23k3…ZEEX` on
@@ -117,6 +125,12 @@ Fourteen days exist to be used. Each item is checkable; an item still open on
   appear never to have been exercised on mainnet** — the end-to-end automation was
   never armed. Those four are the real pre-freeze work: drive one sealed shot through
   the full on-chain lifecycle, or accept each here as a named risk.
+  Tooling written 2026-08-27: `node tools/mainnet-exercise.mjs --keypair <player.json>`
+  drives two shots — one down the settle path (checkpoint, settle, reveal, close) and one
+  down the void path (deadline, void_shot, close) — because settle and void are disjoint
+  and no single shot can exercise both. It simulates every transaction before sending one,
+  signs with a throwaway player wallet, and refuses outright if it is handed the upgrade
+  authority. `--dry` simulates the whole run and sends nothing. The signatures land here.
 - [ ] **Final byte-verification.** Rebuild with the pinned toolchain, compare SHA-256
   against the deployed program data one last time, record both hashes here. That pair
   is the claim that stays true forever.
