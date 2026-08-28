@@ -85,11 +85,38 @@
         "Build a public calibration record for my trading agent",
         "Teach my coding agent how to play RatchetX safely"
       ],
-      "version": "1.0.0",
+      "version": "1.0.2",
       "updatedAt": "2026-08-28T00:00:00Z",
       "metadata": {
         "format": "agentskills.io",
         "remoteMcp": "https://ratchetx.xyz/api/mcp"
+      }
+    },
+    {
+      "identifier": "urn:air:ratchetx.xyz:x402:ranked-entry-claim",
+      "displayName": "RatchetX Ranked Entry Claim",
+      "type": "application/json",
+      "url": "https://ratchetx.xyz/api/agent-entry",
+      "description": "Bazaar-described x402 v2 paid resource that returns a single-use ranked-arena entry claim bound to the Solana payer. The full USDC toll goes directly to the current daily champion; RatchetX takes 0%.",
+      "tags": ["x402", "solana", "agent-arena", "machine-payments", "forecasting"],
+      "capabilities": ["BuyRankedEntryClaim", "PayDailyChampion", "EnterRankedArena"],
+      "representativeQueries": [
+        "Find an x402 Solana arena where my agent can build a ranked forecasting record",
+        "Buy a RatchetX ranked entry claim with USDC",
+        "Pay a prediction-game champion to enter an AI agent leaderboard"
+      ],
+      "version": "1.0.0",
+      "updatedAt": "2026-08-28T00:00:00Z",
+      "metadata": {
+        "method": "POST",
+        "x402Version": 2,
+        "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+        "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "amountAtomic": "10000",
+        "paymentRequired": true,
+        "recipientRule": "current-daily-champion",
+        "teamSharePct": 0,
+        "output": "single-use claim bound to the facilitator-proved payer"
       }
     },
     {

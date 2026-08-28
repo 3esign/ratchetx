@@ -2555,6 +2555,7 @@ module.exports = async (req, res) => {
       const x402lib = require('../lib/x402.js');
       let x402Entry = null;
       let settleInsideArenaLease = false;
+      let claimInsideArenaLease = false;
       const denyUnqualified = () => res.status(403).json({ ok:false,
           reason:'this wallet has not touched RCX yet. Hold or burn some first — an arena anyone can enter for free is a leaderboard of noise',
           // A refusal an autonomous caller cannot act on is a dead end. The
@@ -2565,8 +2566,9 @@ module.exports = async (req, res) => {
             { id:'rcx', open:true,
               how:'acquire or burn any amount of $RCX with this wallet, then retry' },
             { id:'x402', open:x402lib.enabled(),
+              resource:x402lib.enabled() ? '/api/agent-entry' : null,
               how:x402lib.enabled()
-                ? 'retry without PAYMENT-SIGNATURE to receive a standard x402 v2 quote naming the current champion'
+                ? 'POST /api/agent-entry for a payer-bound claim, then retry this signed registration with entryClaim; a direct retry without PAYMENT-SIGNATURE also returns a wallet/name-bound quote'
                 : 'not armed on this deployment' },
             { id:'demo', open:true, ranked:false,
               how:'play unranked immediately with a demo wallet — no token, no payment' },
@@ -2577,12 +2579,19 @@ module.exports = async (req, res) => {
         // move. A paid retry is deferred until the global arena lease has
         // proved the requested name is free. This prevents the worst possible
         // registration outcome: facilitator settlement followed by "name taken".
-        if (!x402lib.enabled()) return denyUnqualified();
-        if (x402lib.paymentHeader(req)) settleInsideArenaLease = true;
-        else {
-          const gate = await x402lib.entryGate(req, res, { wallet:w, name });
-          if (gate === 'responded') return;
-          return denyUnqualified();
+        if (b.entryClaim) {
+          // A canonical Bazaar payment does not choose an arena name. Consume
+          // its payer-bound capability only after the global arena lease has
+          // proved this signed wallet's requested name is available.
+          claimInsideArenaLease = true;
+        } else {
+          if (!x402lib.enabled()) return denyUnqualified();
+          if (x402lib.paymentHeader(req)) settleInsideArenaLease = true;
+          else {
+            const gate = await x402lib.entryGate(req, res, { wallet:w, name });
+            if (gate === 'responded') return;
+            return denyUnqualified();
+          }
         }
       }
       // Optional public provenance: if this operational wallet is already
@@ -2608,7 +2617,16 @@ module.exports = async (req, res) => {
       try {
         let taken = await getJSONStrict(`agentname:${name}`);
         if (taken && taken.w !== w) return res.status(409).json({ ok:false, reason:'that name is taken' });
-        if (settleInsideArenaLease) {
+        if (claimInsideArenaLease) {
+          const claim = await x402lib.consumeEntryClaim(b.entryClaim, { wallet:w, name });
+          if (!claim || !claim.granted)
+            return res.status(claim && claim.status || 403).json({ ok:false,
+              reason: claim && claim.reason || 'entryClaim was not accepted',
+              doors: [{ id:'rcx', open:true },
+                { id:'x402', open:x402lib.enabled(), resource:'/api/agent-entry' }],
+              see:'/api/game?action=board → arena' });
+          x402Entry = claim;
+        } else if (settleInsideArenaLease) {
           const gate = await x402lib.entryGate(req, res, { wallet:w, name });
           if (gate === 'responded') return;
           if (gate && gate.granted) x402Entry = gate;
@@ -2680,9 +2698,10 @@ module.exports = async (req, res) => {
       const arena = {
         what: 'a ranked leaderboard scored by Brier, not by profit — a sealed probability, '
           + 'settled by an oracle, recomputable from the public hash-chained log',
-        register: { http: 'POST /api/game { action:"agent-register", auth, name }',
+        register: { http: 'POST /api/game { action:"agent-register", auth, name, entryClaim? }',
           remoteDemoMcp: 'https://ratchetx.xyz/api/mcp',
-          rankedLocalMcpTool: 'ratchet_register_agent', reference: 'agent/ratchet-agent.mjs' },
+          rankedLocalMcpTool: 'ratchet_register_agent', reference: 'agent/ratchet-agent.mjs',
+          paidEntryResource: '/api/agent-entry' },
         doors: [
           { id: 'rcx', requires: 'the wallet has held or burned $RCX at least once',
             cost: 'whatever you paid for the token; nothing is paid to us' },
@@ -2701,7 +2720,7 @@ module.exports = async (req, res) => {
               + '0% to the team, resolved and fixed for the lifetime of each durable quote',
             armingBlocker: x402On ? null : 'funded mainnet facilitator smoke and explicit production configuration',
             unavailableReason: x402On && !champion ? 'no daily champion exists; no recipient can be quoted' : null,
-            howTo: 'POST agent-register unqualified and read the 402 quote' },
+            howTo: 'POST /api/agent-entry for a Bazaar-compatible payer-bound claim, then include entryClaim in the normal signed agent-register request; the direct wallet/name-bound 402 flow also remains supported' },
         ],
         scoring: { metric: 'Brier over calls that carried a stated probability p',
           index: '(1 - sqrt(brier)) * 100 — 100 clairvoyant, 50 is "always says 50%"',

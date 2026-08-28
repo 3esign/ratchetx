@@ -57,19 +57,27 @@ const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 assert.ok(frontmatter, 'the Agent Skill needs YAML frontmatter');
 assert.match(frontmatter[1], /^description:\s*[>|]/m,
   'description must use a YAML block scalar so colon-space cannot break installation');
-assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.1"$/m);
+assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.2"$/m);
 
 const board = catalog.entries.find(e => e.identifier.endsWith(':live-board'));
 const corpus = catalog.entries.find(e => e.identifier.endsWith(':forecast-corpus'));
+const paidEntry = catalog.entries.find(e => e.identifier.endsWith(':x402:ranked-entry-claim'));
 assert.equal(board.metadata.paymentRequired, false, 'the live board is free');
 assert.equal(corpus.metadata.paymentRequired, false, 'the public corpus is free');
+assert.equal(paidEntry.url, 'https://ratchetx.xyz/api/agent-entry');
+assert.equal(paidEntry.metadata.paymentRequired, true);
+assert.equal(paidEntry.metadata.method, 'POST');
+assert.equal(paidEntry.metadata.amountAtomic, '10000');
+assert.equal(paidEntry.metadata.teamSharePct, 0);
 assert.match(llms, /\.well-known\/ai-catalog\.json/);
 assert.match(llms, /canonical arbiter for credits and XP/);
 assert.match(llms, /https:\/\/ratchetx\.xyz\/api\/mcp/);
 assert.match(llms, /Standard x402 v2 USDC door \(LIVE\)/);
 assert.match(llms, /funded mainnet payment and[\s\S]*idempotent replay test passed/);
+assert.match(llms, /POST \/api\/agent-entry/);
 assert.doesNotMatch(llms, /shipped dark|production flag is still OFF/i);
 for (const path of [
+  '/api/agent-entry',
   '/llms.txt',
   '/skills/ratchetx/SKILL.md',
   '/.well-known/agent-skills/index.json',

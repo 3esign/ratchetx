@@ -8,6 +8,7 @@ const require = createRequire(import.meta.url);
 
 const { encodePaymentSignatureHeader, decodePaymentRequiredHeader,
   decodePaymentResponseHeader } = require('@x402/core/http');
+const { extractDiscoveryInfo, validateDiscoveryExtension } = require('@x402/extensions/bazaar');
 let pass = 0, failn = 0;
 const ok = (c, label) => { if (c) { pass++; console.log('PASS  ' + label); }
   else { failn++; console.log('FAIL  ' + label); } };
@@ -41,6 +42,7 @@ require.cache[agentRegistryPath] = { id: agentRegistryPath, filename: agentRegis
     : ({ status:registryMode }) } };
 
 let facilitatorMode = 'valid';
+let facilitatorPayer = 'FixturePayer111111111111111111111111111111';
 let supportedCalls = 0;
 const verifyCalls = [], settleCalls = [];
 const facilitator = {
@@ -56,7 +58,7 @@ const facilitator = {
     if (facilitatorMode === 'verify-throws') throw new Error('verify transport failure');
     if (facilitatorMode === 'invalid') return { isValid:false, invalidReason:'insufficient_funds',
       invalidMessage:'fixture payment is not valid' };
-    return { isValid:true, payer:'FixturePayer111111111111111111111111111111' };
+    return { isValid:true, payer:facilitatorPayer };
   },
   async settle(payload, requirements) {
     settleCalls.push({ payload, requirements });
@@ -64,7 +66,7 @@ const facilitator = {
     if (facilitatorMode === 'settle-fails') return { success:false,
       errorReason:'transaction_failed', errorMessage:'fixture settlement failed',
       transaction:'', network:MAINNET };
-    return { success:true, payer:'FixturePayer111111111111111111111111111111',
+    return { success:true, payer:facilitatorPayer,
       transaction:'SettledTx' + String(settleCalls.length).padStart(4,'0'), network:MAINNET };
   },
 };
@@ -72,6 +74,7 @@ const facilitator = {
 const x402 = require('../lib/x402.js');
 x402.setFacilitatorForTest(facilitator);
 const game = require('../api/game.js');
+const agentEntry = require('../api/agent-entry.js');
 const srv = http.createServer(async (req, res) => {
   const u = new URL(req.url, 'http://x');
   let body = null;
@@ -85,7 +88,8 @@ const srv = http.createServer(async (req, res) => {
     setHeader(k,v){this._h[k]=v;return this;},
     end(){ res.writeHead(this._s,this._h); res.end(); },
     json(o){ res.writeHead(this._s, {'content-type':'application/json', ...this._h}); res.end(JSON.stringify(o)); } };
-  try { await game(fake, out); } catch (e) { out.status(500).json({ok:false,reason:String(e)}); }
+  const handler = u.pathname === '/api/agent-entry' ? agentEntry : game;
+  try { await handler(fake, out); } catch (e) { out.status(500).json({ok:false,reason:String(e)}); }
 });
 await new Promise(r => srv.listen(8303, r));
 
@@ -93,6 +97,10 @@ let callNo = 0;
 const call = (body, headers = {}) => fetch('http://127.0.0.1:8303', {
   method:'POST', headers:{ 'content-type':'application/json', 'x-test-ip':`7.7.7.${++callNo}`, ...headers },
   body:JSON.stringify(body),
+}).then(async r => ({ status:r.status, body:await r.json(), headers:r.headers }));
+const entryCall = (headers = {}) => fetch('http://127.0.0.1:8303/api/agent-entry', {
+  method:'POST', headers:{ 'content-type':'application/json',
+    'x-test-ip':`8.8.8.${++callNo}`, ...headers }, body:'{}',
 }).then(async r => ({ status:r.status, body:await r.json(), headers:r.headers }));
 const board = () => fetch('http://127.0.0.1:8303?action=board').then(r => r.json());
 
@@ -123,13 +131,17 @@ ok(preflight.status===204
 await call({action:'state'});
 setMem('g:podium',{period:new Date().toISOString().slice(0,10),v:'live-1',
   list:[{w:CHAMP,pct:0.5},{w:'Second1111',pct:0.3}]});
-const A=mkWallet(), B=mkWallet(), C=mkWallet(), D=mkWallet(), Q=mkWallet();
-for (const w of [A,B,C,D]) seedPlayer(w.w,false);
+const A=mkWallet(), B=mkWallet(), C=mkWallet(), D=mkWallet(), E=mkWallet(),
+  F=mkWallet(), Q=mkWallet();
+for (const w of [A,B,C,D,E,F]) seedPlayer(w.w,false);
 seedPlayer(Q.w,true);
 
-const register = (who,name,headers={}) => call({action:'agent-register',auth:authFor(who),name},headers);
+const register = (who,name,headers={},extra={}) =>
+  call({action:'agent-register',auth:authFor(who),name,...extra},headers);
 const payloadFor = (required, marker='signed-fixture') => ({ x402Version:2,
-  resource:required.resource, accepted:required.accepts[0], payload:{ transaction:marker } });
+  resource:required.resource, accepted:required.accepts[0],
+  ...(required.extensions ? { extensions: required.extensions } : {}),
+  payload:{ transaction:marker } });
 const headerFor = (required, marker) => encodePaymentSignatureHeader(payloadFor(required,marker));
 
 // 1 — dark means dark: core RCX behavior and machine-readable fallback survive.
@@ -226,9 +238,13 @@ ok(r.body.agent.identity?.globalId==='sol:'+REGISTRY_ASSET,
 // 7 — settlement survives a hypothetical player-write loss; no second charge.
 const paidPlayer=getMem(`u:${A.w}`), settledCount=settleCalls.length;
 delete paidPlayer.x402Entry; setMem(`u:${A.w}`,paidPlayer);
+const paidQuoteId=new URL(quote.resource.url).searchParams.get('x402Quote');
+const paidQuote=getMem(`x402:q:${paidQuoteId}`);
+paidQuote.expiresAt=Date.now()-1;
+setMem(`x402:q:${paidQuoteId}`,paidQuote);
 r=await register(A,'TOLL BOT',{'payment-signature':originalHeader});
 ok(r.status===200 && settleCalls.length===settledCount && r.body.x402?.sig===decodedResponse.transaction,
-  'same settled quote repairs a lost player write without settling or charging twice');
+  'settled quote remains recoverable after its unpaid-signing window expires');
 r=await register(A,'TOLL BOT');
 ok(r.status===200 && settleCalls.length===settledCount && r.body.entry==='x402-toll-to-champion',
   'a persisted x402 entrant can re-register without paying the toll again');
@@ -246,7 +262,60 @@ ok(r.status===402 && /fixture settlement failed/.test(r.body.error),
   'failed settlement never becomes an arena admission');
 ok(!getMem(`u:${D.w}`).agent,'verification and settlement failures leave the player unregistered');
 
-// 9 — RCX-native behavior and registry fail-open semantics remain untouched.
+// 9 — the canonical Bazaar resource is generic, discoverable and payer-bound.
+facilitatorMode='valid';
+r=await entryCall();
+const bazaarQuote=r.body;
+const bazaarHeader=r.headers.get('payment-required');
+const bazaarDecoded=bazaarHeader && decodePaymentRequiredHeader(bazaarHeader);
+const bazaarExt=bazaarQuote.extensions?.bazaar;
+ok(r.status===402 && bazaarQuote.resource?.url==='https://ratchetx.xyz/api/agent-entry'
+  && !bazaarQuote.resource.url.includes('?')
+  && bazaarDecoded && JSON.stringify(bazaarDecoded)===JSON.stringify(bazaarQuote),
+  'canonical entry resource returns a fixed standard 402 in both body and header');
+ok(bazaarExt?.info?.input?.method==='POST'
+  && bazaarExt.routeTemplate==='/api/agent-entry'
+  && validateDiscoveryExtension(bazaarExt).valid===true,
+  'official x402 extension package validates the Bazaar declaration');
+const discovered=extractDiscoveryInfo(payloadFor(bazaarQuote,'discovery-probe'),
+  bazaarQuote.accepts[0]);
+ok(discovered?.resourceUrl==='https://ratchetx.xyz/api/agent-entry'
+  && discovered.routeTemplate==='/api/agent-entry' && discovered.method==='POST',
+  'official Bazaar extractor derives the exact canonical POST resource');
+const noExtension=payloadFor(bazaarQuote,'missing-extension');
+delete noExtension.extensions;
+before=verifyCalls.length;
+r=await entryCall({'payment-signature':encodePaymentSignatureHeader(noExtension)});
+ok(r.status===402 && /extensions do not match/.test(r.body.error)
+  && verifyCalls.length===before,
+  'a paid discovery request must echo the Bazaar declaration before verify');
+
+facilitatorPayer=E.w;
+const bazaarPayment=headerFor(bazaarQuote,'bazaar-payment');
+r=await entryCall({'payment-signature':bazaarPayment});
+const entryClaim=r.body.claim;
+const bazaarSettlementCount=settleCalls.length;
+ok(r.status===200 && r.body.ok===true && r.body.payer===E.w
+  && /^[A-Za-z0-9_-]{43}$/.test(entryClaim || '')
+  && r.body.use?.bodyField==='entryClaim',
+  'settlement returns a bounded capability tied to the facilitator-proved payer');
+r=await register(F,'CLAIM THIEF',{}, {entryClaim});
+ok(r.status===403 && /different Solana payer/.test(r.body.reason)
+  && !getMem(`u:${F.w}`).agent,
+  'another signed wallet cannot steal a paid entry claim');
+r=await register(E,'BAZAAR BOT',{}, {entryClaim});
+ok(r.status===200 && r.body.entry==='x402-toll-to-champion'
+  && getMem(`u:${E.w}`).x402Entry?.payer===E.w,
+  'the payer can consume the claim through the ordinary signed registration path');
+const bazaarPlayer=getMem(`u:${E.w}`);
+delete bazaarPlayer.x402Entry;
+setMem(`u:${E.w}`,bazaarPlayer);
+r=await register(E,'BAZAAR BOT',{}, {entryClaim});
+ok(r.status===200 && settleCalls.length===bazaarSettlementCount,
+  'same-wallet same-name retry repairs a failed player write without another charge');
+facilitatorPayer='FixturePayer111111111111111111111111111111';
+
+// 10 — RCX-native behavior and registry fail-open semantics remain untouched.
 facilitatorMode='valid';
 r=await register(Q,'RCX NATIVE');
 ok(r.status===200 && r.body.entry==='rcx' && r.body.qualified===true,

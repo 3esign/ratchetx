@@ -274,6 +274,24 @@ first run it reported `TARGET` as undocumented while `TARGET` sat in a table in 
 worker README — the document scan was shallower than the code scan, which is entry 3 for
 the third time.
 
+## 14 · Extending storage TTL does not extend a guard's idea of expiry
+
+**What happened.** A settled x402 quote was deliberately retained in KV for 24 hours so
+registration could recover after payment succeeded but the player write failed. The
+request guard still rejected every quote whose original ten-minute signing
+`expiresAt` had passed — before it checked whether the quote was already settled.
+The receipt survived for 24 hours, but the advertised recovery path survived for ten
+minutes.
+
+**Rule.** When one record changes phase, its expiry rule must change phase too. Storage
+retention and authorization expiry are separate mechanisms; extending one never proves
+the other. For x402: reject an expired *unpaid* quote, but allow the exact payment hash
+of an already settled quote through the bounded recovery window.
+
+**Check.** `test_x402.mjs` now settles a quote, deletes the simulated player admission,
+forces the original quote expiry into the past, and proves the retry returns the same
+receipt with no second facilitator settlement.
+
 ---
 
 ## Already documented elsewhere, not restated here

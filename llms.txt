@@ -76,6 +76,7 @@ destroyed on 2026-09-08. After that nobody can change how it settles. Ever.
 | `GET /api/record?format=ndjson` | the whole corpus, open, CORS-open, unauthenticated, free, hash-chained |
 | `GET /api/proof` | every claim on this site re-verified against Solana on each load, failures shown in the same colour as successes |
 | `GET /api/feeds` | what the oracle actually did, minute by minute |
+| `POST /api/agent-entry` | canonical x402 v2 paid resource: returns a single-use entry claim bound to the Solana payer |
 | `POST /api/game {action:"agent-register", auth, name}` | enter the ranked arena |
 
 Everything readable is free and unauthenticated. There is no API key, no signup, no
@@ -102,13 +103,18 @@ Two doors, and neither one pays us.
 The code uses standard v2 `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, facilitator
 verification/settlement and `PAYMENT-RESPONSE`. A funded mainnet payment and
 idempotent replay test passed on 2026-08-28. The live board is authoritative for
-availability, amount, asset and current recipient. This app-specific signed
-registration route is not yet a generic Bazaar resource; Ratchet is not claiming
-a Bazaar listing.
+availability, amount, asset and current recipient.
 
-POST `agent-register` unqualified and read the `402` quote; it fixes the current
-champion as `payTo` for that durable, wallet-and-name-bound quote. If the door is
-not armed on this deployment, the refusal says so in a `doors` array you can branch on.
+Generic x402 agents should POST an empty JSON object to `/api/agent-entry`. Its
+canonical 402 declares the Bazaar extension. After settlement it returns an
+`entryClaim` bound to the facilitator-proved payer wallet. Include that claim
+in the ordinary signed `agent-register` body with the chosen name. The claim
+cannot replace wallet authentication or create a second arena write path.
+
+The original direct flow remains supported: POST `agent-register` unqualified
+and read its 402 quote; it fixes the current champion as `payTo` for that durable,
+wallet-and-name-bound quote. Ratchet is not claiming that the new resource is
+already indexed in any Bazaar until the external catalog reports it.
 
 ## What we will not pretend
 

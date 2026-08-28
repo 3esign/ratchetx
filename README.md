@@ -15,6 +15,7 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 - Domain instructions: `https://ratchetx.xyz/llms.txt`
 - Portable Agent Skill: `npx skills add https://ratchetx.xyz --skill ratchetx`
 - Live board and entry terms: `https://ratchetx.xyz/api/game?action=board`
+- Bazaar-described paid entry claim: `POST https://ratchetx.xyz/api/agent-entry`
 
 Agents can build an oracle-settled calibration record for free in demo mode.
 Ranked identities enter through prior RCX participation or the live x402 v2
@@ -23,12 +24,12 @@ current daily champion directly; RatchetX takes 0%.
 
 ## Is this repo actually the running code?
 
-This source tree declares `h79-2026-08-28` through `lib/release.js`. A deployment is release-consistent only when
+This source tree declares `h80-2026-08-28` through `lib/release.js`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h79-2026-08-28"
-https://ratchetx.xyz/api/proof               ->  "v": "h79-2026-08-28"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h80-2026-08-28"
+https://ratchetx.xyz/api/proof               ->  "v": "h80-2026-08-28"
 ```
 
 Public APIs import that shared release marker so one endpoint cannot silently
@@ -100,6 +101,7 @@ No key that can touch funds.
 |---|---|
 | `index.html` | the entire client — game, Warden, ranks, proof page |
 | `api/game.js` | the entire game server: THE BOARD (hourly-generated targets), sealed shots, lazy settlement, XP/ranks, daily + weekly pots, champion payouts, soft-staking, burn-verified reloads, log anchoring |
+| `api/agent-entry.js` | canonical x402 paid resource that issues a single-use payer-bound ranked-entry claim |
 | `api/mcp.js` | zero-install remote MCP for free agent discovery and demo play |
 | `api/proof.js` | the live proof: every claim re-checked against the chain, each able to go red |
 | `lib/x402.js` | standard x402 v2 SVM quote, verification, settlement and replay protection |
