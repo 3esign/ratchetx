@@ -1,0 +1,60 @@
+name: Publish remote MCP
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - server.json
+      - .github/workflows/publish-mcp.yml
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install the current official publisher
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --silent --show-error \
+            "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" \
+            | tar xz mcp-publisher
+          ./mcp-publisher --help >/dev/null
+
+      - name: Validate server metadata
+        run: ./mcp-publisher validate server.json
+
+      - name: Authenticate with repository-bound GitHub OIDC
+        run: ./mcp-publisher login github-oidc
+
+      - name: Publish the remote server
+        run: ./mcp-publisher publish server.json
+
+      - name: Verify the official listing
+        shell: bash
+        run: |
+          set -euo pipefail
+          name="io.github.3esign/ratchetx"
+          url="https://registry.modelcontextprotocol.io/v0.1/servers?search=$name"
+          for attempt in {1..12}; do
+            response="$(curl --fail --location --silent --show-error "$url")"
+            if jq -e --arg name "$name" \
+              '.servers | any((.server.name // .name) == $name)' \
+              <<<"$response" >/dev/null; then
+              echo "Verified $name in the official MCP Registry"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "Published server did not become discoverable within 60 seconds" >&2
+          exit 1
