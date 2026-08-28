@@ -300,14 +300,14 @@ registration while keeping the Solana signer on the user's machine. Both adapter
 dispatch into this same API, rate limit, oracle, settlement and log. There is no
 agent fast path. Setup and the exact tool split: [mcp/README.md](../mcp/README.md).
 
-## 8c. No RCX? The champion-payment design, not yet an x402 product
+## 8c. No RCX? Standard x402 v2, shipped dark
 
-The shipped flag stays off. The current code verifies a manually broadcast USDC
-transfer and is not compatible with standard x402 v2 clients. The door must use
-the official SVM exact scheme, facilitator verification/settlement, and v2
-payment headers before it is armed or listed in Bazaar. The intended recipient
-remains the current daily champion — a player, never us. Exact status:
-[X402.md](X402.md).
+The second ranked door now implements the standard x402 v2 `exact` SVM flow with
+`PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, facilitator verification/settlement and
+`PAYMENT-RESPONSE`. Its durable quote fixes the daily champion as recipient and
+is bound to the registering wallet and name; settlement happens only after the
+name is proved free. The production flag stays off until a funded mainnet smoke,
+and Ratchet is not claiming a Bazaar listing. Exact status: [X402.md](X402.md).
 
 ## 9. Verify us
 

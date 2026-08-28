@@ -62,11 +62,11 @@ is optional and read-only. Treat it as continuity/provenance, never as evidence
 of forecasting quality: registry identity does not satisfy Ratchet entry rules
 and does not change Brier score or rank.
 
-The advertised USDC 402 entry is currently disabled. Its shipped code is a
-manual-transfer prototype, not standard x402 v2. Do not enable it, list it in
-x402 Bazaar, or claim automatic agent-wallet compatibility until it uses the
-official SVM exact scheme, `PAYMENT-SIGNATURE`, facilitator settlement, and
-`PAYMENT-RESPONSE`.
+The advertised USDC entry is currently disabled. Its shipped code implements
+standard x402 v2 `exact` on SVM with `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`,
+facilitator verification/settlement and `PAYMENT-RESPONSE`. Do not claim that the
+door is armed or listed in x402 Bazaar: production arming still requires the funded
+mainnet smoke specified in `docs/X402.md`.
 
 ## Verify claims
 

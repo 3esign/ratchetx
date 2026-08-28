@@ -1815,6 +1815,20 @@ async function oracleIngest(req, res) {
 }
 
 module.exports = async (req, res) => {
+  // Public agent wallets may call the signed JSON API from a browser origin.
+  // There are no cookie credentials to expose: every state-changing player
+  // action verifies its own wallet signature. Keep x402's custom headers both
+  // allowed on preflight and visible to the client.
+  if (typeof res.setHeader === 'function') {
+    res.setHeader('access-control-allow-origin', '*');
+    res.setHeader('access-control-allow-methods', 'GET, POST, OPTIONS');
+    res.setHeader('access-control-allow-headers', 'Content-Type, PAYMENT-SIGNATURE');
+    res.setHeader('access-control-expose-headers', 'PAYMENT-REQUIRED, PAYMENT-RESPONSE');
+  }
+  if (req.method === 'OPTIONS') {
+    res.status(204);
+    return typeof res.end === 'function' ? res.end() : res.json({});
+  }
   const heldPlayerLocks = [];
   // WAIT FOR IT, do not refuse it.
   // This used to be a single attempt: one acquireLease, and a 409 to the user
@@ -2538,16 +2552,10 @@ module.exports = async (req, res) => {
         return res.status(400).json({ ok:false, reason:'name must be 2-23 characters: letters, digits, space, hyphen or underscore' });
       const blurb = String(b.blurb || '').trim().slice(0, 120);
       const p = await loadPlayer(w);
+      const x402lib = require('../lib/x402.js');
       let x402Entry = null;
-      if (!p.qualified) {
-        // Second door, flag-gated (X402_ENABLED): an x402 toll paid straight
-        // to the CURRENT DAILY CHAMPION — a player, never us (lib/x402.js).
-        // Flag off, or no champion on the podium yet → the old rule stands.
-        const x402lib = require('../lib/x402.js');
-        const gate = await x402lib.entryGate(req, res);
-        if (gate === 'responded') return;
-        if (gate && gate.granted) x402Entry = gate;
-        else return res.status(403).json({ ok:false,
+      let settleInsideArenaLease = false;
+      const denyUnqualified = () => res.status(403).json({ ok:false,
           reason:'this wallet has not touched RCX yet. Hold or burn some first — an arena anyone can enter for free is a leaderboard of noise',
           // A refusal an autonomous caller cannot act on is a dead end. The
           // sentence above is for a human reading a log; `doors` is the same
@@ -2558,12 +2566,24 @@ module.exports = async (req, res) => {
               how:'acquire or burn any amount of $RCX with this wallet, then retry' },
             { id:'x402', open:x402lib.enabled(),
               how:x402lib.enabled()
-                ? 'retry without X-PAYMENT to receive a 402 quote naming the current champion'
+                ? 'retry without PAYMENT-SIGNATURE to receive a standard x402 v2 quote naming the current champion'
                 : 'not armed on this deployment' },
             { id:'demo', open:true, ranked:false,
               how:'play unranked immediately with a demo wallet — no token, no payment' },
           ],
           see:'/api/game?action=board → arena' });
+      if (!p.qualified && !p.x402Entry) {
+        // A missing payment header only creates a durable quote; no money can
+        // move. A paid retry is deferred until the global arena lease has
+        // proved the requested name is free. This prevents the worst possible
+        // registration outcome: facilitator settlement followed by "name taken".
+        if (!x402lib.enabled()) return denyUnqualified();
+        if (x402lib.paymentHeader(req)) settleInsideArenaLease = true;
+        else {
+          const gate = await x402lib.entryGate(req, res, { wallet:w, name });
+          if (gate === 'responded') return;
+          return denyUnqualified();
+        }
       }
       // Optional public provenance: if this operational wallet is already
       // linked in Solana Agent Registry / ERC-8004, carry that identity onto
@@ -2588,6 +2608,12 @@ module.exports = async (req, res) => {
       try {
         let taken = await getJSONStrict(`agentname:${name}`);
         if (taken && taken.w !== w) return res.status(409).json({ ok:false, reason:'that name is taken' });
+        if (settleInsideArenaLease) {
+          const gate = await x402lib.entryGate(req, res, { wallet:w, name });
+          if (gate === 'responded') return;
+          if (gate && gate.granted) x402Entry = gate;
+          else return denyUnqualified();
+        }
         if (!taken) {
           const won = await setnxJSON(`agentname:${name}`, { w, t: Date.now() });
           if (!won) {
@@ -2599,7 +2625,8 @@ module.exports = async (req, res) => {
         p.agent = { name, blurb, since: (p.agent && p.agent.since) || Date.now(),
           ...(linkedIdentity ? { identity: linkedIdentity } : {}) };
         if (x402Entry) p.x402Entry = { sig: x402Entry.sig, paidTo: x402Entry.payTo,
-          amount: x402Entry.amountAtomic, t: Date.now() };
+          amount: x402Entry.amountAtomic, payer: x402Entry.payer,
+          network: x402Entry.network, t: Date.now() };
         await savePlayer(p);
         const reg = (await getJSONStrict('g:arena')) || [];
         if (!reg.includes(w)) { reg.push(w); await setJSON('g:arena', reg.slice(0, 500)); }
@@ -2607,9 +2634,10 @@ module.exports = async (req, res) => {
           await append({ k:'agentjoin', w, name });
           await bumpFeed({ w: name, a: 'entered THE ARENA', c: 'seal' });
         }
-        return res.json({ ok:true, agent: p.agent, qualified: true,
-          entry: x402Entry ? 'x402-toll-to-champion' : 'rcx',
-          x402: x402Entry ? { paidTo: x402Entry.payTo, sig: x402Entry.sig } : undefined,
+        return res.json({ ok:true, agent: p.agent, admitted: true, qualified: !!p.qualified,
+          entry: p.x402Entry ? 'x402-toll-to-champion' : 'rcx',
+          x402: p.x402Entry ? { paidTo: p.x402Entry.paidTo, sig: p.x402Entry.sig,
+            network: p.x402Entry.network || x402lib.SOLANA_MAINNET } : undefined,
           howToPlay: '/api/game?action=board  then  POST {action:"shot", auth, target, side, stake}' });
       } finally {
         try { await releaseLease('lock:g:arena', arenaLease); } catch {}
@@ -2659,13 +2687,18 @@ module.exports = async (req, res) => {
           { id: 'rcx', requires: 'the wallet has held or burned $RCX at least once',
             cost: 'whatever you paid for the token; nothing is paid to us' },
           { id: 'x402', enabled: x402On,
-            requires: 'a future standard x402 v2 SVM USDC toll, for a wallet that has never touched $RCX',
-            protocolStatus: 'manual-transfer prototype; standard x402 v2 clients are not supported yet',
+            available: x402On && !!champion,
+            requires: 'a standard x402 v2 exact SVM USDC toll, for a wallet that has never touched $RCX',
+            protocolStatus: 'standard v2 facilitator flow shipped dark; production arming waits on a funded mainnet smoke',
+            protocolVersion: 2,
+            requestHeader: 'PAYMENT-SIGNATURE', responseHeaders: ['PAYMENT-REQUIRED','PAYMENT-RESPONSE'],
             amountAtomic: x402On ? String(x402lib.entryAmountAtomic()) : null,
-            asset: x402lib.USDC_MINT, network: 'solana',
+            asset: x402lib.USDC_MINT, network: x402lib.SOLANA_MAINNET,
             payTo: champion,
             payToIs: 'the wallet currently on top of the daily podium — a player, never us; '
-              + '0% to the team, resolved from public state at quote time',
+              + '0% to the team, resolved and fixed for the lifetime of each durable quote',
+            armingBlocker: x402On ? null : 'funded mainnet facilitator smoke and explicit production configuration',
+            unavailableReason: x402On && !champion ? 'no daily champion exists; no recipient can be quoted' : null,
             howTo: 'POST agent-register unqualified and read the 402 quote' },
         ],
         scoring: { metric: 'Brier over calls that carried a stated probability p',

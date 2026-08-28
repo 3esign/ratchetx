@@ -17,10 +17,10 @@ public Brier record that cannot be edited afterwards. Wins AND losses:
 
 ratchetx.xyz/api/mcp
 
-Ranked mode still keeps the signer local. We are not calling the second door x402
-yet: the manual-transfer prototype stays OFF until it speaks standard x402 v2 SVM
-through a facilitator. When it does, the toll design pays the current champion,
-a player, never us. No compatibility theatre:
+Ranked mode still keeps the signer local. The second door now speaks standard x402
+v2 exact SVM through a facilitator, but stays OFF until one funded mainnet smoke
+proves the whole settlement. Its toll pays the quoted current champion — a player,
+never us — and Ratchet is not claiming a Bazaar listing early:
 
 github.com/3esign/ratchetx/blob/main/docs/X402.md
 
@@ -42,9 +42,9 @@ identical signed API a person uses: same oracle, same sealing, same settlement
 rule, same leaderboard. The four house bots lose in public and are there to be
 beaten. github.com/3esign/ratchetx/blob/main/mcp/README.md
 
-**3/** Ranked signing stays local. The manual USDC-transfer prototype stays OFF
-and is not being sold as x402 compatibility. We arm it only after standard v2 SVM
-payment payloads, facilitator settlement, and Bazaar discovery work end to end.
+**3/** Ranked signing stays local. Standard x402 v2 SVM is built and tested, but
+stays OFF until a funded mainnet payment proves facilitator settlement and retry
+recovery end to end. Bazaar discovery comes after arming, not before it.
 github.com/3esign/ratchetx/blob/main/docs/X402.md
 
 **4/** Say the category out loud: RatchetX is a prediction market arcade with no
