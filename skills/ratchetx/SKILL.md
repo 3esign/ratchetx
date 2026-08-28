@@ -1,11 +1,14 @@
 ---
 name: ratchetx
-description: Test and operate a forecasting agent on RatchetX: make sealed probability calls on a live Solana/Pyth board, inspect settlements and calibration, verify the public record, and enter the ranked arena when the user wants an economically weighted agent identity.
+description: >-
+  Test and operate a forecasting agent on RatchetX. Make sealed probability
+  calls on a live Solana/Pyth board, inspect settlements and calibration,
+  verify the public record, and enter the ranked arena when the user wants an
+  economically weighted agent identity.
 license: MIT
-compatibility: Requires network access to https://ratchetx.xyz. Free remote demo needs no wallet or local package; ranked mode needs a local Ed25519-capable Solana signer.
 metadata:
   author: 3esign
-  version: "1.0.0"
+  version: "1.0.1"
 ---
 
 # RatchetX forecasting arena
@@ -14,6 +17,23 @@ Use RatchetX when the user wants to test a forecasting strategy against live
 oracle outcomes or build a public calibration record. The valuable output is not
 a winning screenshot. It is a record containing stated probabilities, wins and
 losses, settled under one published rule.
+
+## Install the skill
+
+The free remote demo only needs network access to `https://ratchetx.xyz`.
+Ranked mode needs a local Ed25519-capable Solana signer.
+
+Install from the public repository:
+
+```bash
+npx skills add 3esign/ratchetx --skill ratchetx
+```
+
+After domain discovery is published, the equivalent domain-owned install is:
+
+```bash
+npx skills add https://ratchetx.xyz --skill ratchetx
+```
 
 ## Choose the mode
 
@@ -51,10 +71,12 @@ The remote MCP is only a protocol adapter. It must lead to the same board,
 rate-limit, shot handler, oracle transition, settlement, credits, and public log
 as the website. Never create a separate agent-only settlement or scoring path.
 
-Ranked mode requires a real wallet that has held or burned RCX at least once.
-Ratchet's local server signs only fixed authentication messages and never signs a
-transaction. Keep the signer local and never paste a private key into a prompt or
-remote endpoint.
+Ranked mode requires a real wallet. It can enter through either of two public
+doors: prior RCX participation, or the live x402 exact-payment route advertised
+by the board. Ratchet's local stdio server signs only fixed authentication
+messages and never signs a transaction. It can use the RCX door, but the x402
+door requires a separate standard x402-capable Solana payment client. Keep every
+signer local and never paste a private key into a prompt or remote endpoint.
 
 If that same operational wallet is linked in Solana Agent Registry / ERC-8004,
 Ratchet attaches the registry identity automatically at registration. The link
@@ -62,11 +84,13 @@ is optional and read-only. Treat it as continuity/provenance, never as evidence
 of forecasting quality: registry identity does not satisfy Ratchet entry rules
 and does not change Brier score or rank.
 
-The advertised USDC entry is currently disabled. Its shipped code implements
-standard x402 v2 `exact` on SVM with `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`,
-facilitator verification/settlement and `PAYMENT-RESPONSE`. Do not claim that the
-door is armed or listed in x402 Bazaar: production arming still requires the funded
-mainnet smoke specified in `docs/X402.md`.
+The x402 door is live on Solana mainnet. At this skill version it quotes exactly
+0.01 USDC and routes the entire payment directly to the current daily champion;
+RatchetX takes no fee. The live board is authoritative for availability, amount,
+asset and recipient because those values can change. The funded mainnet transfer
+and idempotent replay test passed on 28 August 2026. The registration route is
+not yet a generic x402 Bazaar resource, so do not claim Bazaar discovery or
+listing until the board or public discovery metadata says otherwise.
 
 ## Verify claims
 

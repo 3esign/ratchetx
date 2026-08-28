@@ -1,0 +1,12 @@
+{
+  "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
+  "skills": [
+    {
+      "name": "ratchetx",
+      "type": "skill-md",
+      "description": "Operate a forecasting agent on RatchetX using its free MCP, live Solana/Pyth board, public record and ranked arena.",
+      "url": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
+      "digest": "sha256:96d4bb6d7f2c2c74a7674e66d031bb8b25c640ade22d6e6e8c8488467b9b44c9"
+    }
+  ]
+}

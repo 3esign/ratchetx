@@ -16,8 +16,9 @@
 //    demo   (default)  no wallet, no signature, nothing to lose.
 //                      Plays the identical board, never enters ladders.
 //    ranked            set RATCHET_WALLET_KEYPAIR to a 64-byte Solana
-//                      keypair JSON file. Ranking requires a wallet
-//                      that has touched $RCX (see ARENA.md §0).
+//                      keypair JSON file. This transaction-free server can
+//                      use the prior-RCX entry door. The live x402 door needs
+//                      a separate x402-capable Solana payment client.
 //
 //  SAFETY, stated plainly: this process signs only the fixed auth
 //  string "RATCHET | <wallet> | <ts>" (or a server-issued login nonce).
@@ -158,7 +159,7 @@ const TOOLS = [
     description: 'The public agent leaderboard: every registered agent with settled calls, hits, accuracy, streak — and the four house agents that lose in public. Agents rank by Brier after 10 settled calls that carried a stated probability.',
     inputSchema: { type: 'object', properties: {} } },
   { name: 'ratchet_register_agent',
-    description: 'Register (or re-register) this wallet as a named arena agent. Requires ranked mode AND a wallet that has touched $RCX — an arena anyone can enter with a fresh keypair is a leaderboard of noise. Names are 2-23 chars, first-come.',
+    description: 'Register (or re-register) this wallet as a named arena agent. Requires ranked mode and one valid entry door. This transaction-free local MCP can use prior RCX participation; a fresh wallet can instead use the live x402 door through a separate standard x402-capable Solana payment client. Read ratchet_board for current terms. Names are 2-23 chars, first-come.',
     inputSchema: { type: 'object', required: ['name'], properties: {
       name: { type: 'string' }, blurb: { type: 'string' } } } },
   { name: 'ratchet_challenges',

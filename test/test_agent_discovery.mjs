@@ -2,12 +2,17 @@
 // machine-readable, internally linked, and honest about what is free, ranked,
 // canonical and merely optional.
 import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
 import fs from 'node:fs';
 
 const read = p => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
 const catalog = JSON.parse(read('../.well-known/ai-catalog.json'));
 const mcp = JSON.parse(read('../.well-known/mcp.json'));
+const skillIndex = JSON.parse(read('../.well-known/agent-skills/index.json'));
+const skillBytes = fs.readFileSync(new URL('../skills/ratchetx/SKILL.md', import.meta.url));
+const skill = skillBytes.toString('utf8');
 const llms = read('../llms.txt');
+const sitemap = read('../sitemap.xml');
 const vercel = JSON.parse(read('../vercel.json'));
 const vercelIgnore = read('../.vercelignore');
 
@@ -35,6 +40,25 @@ assert.ok(catalog.entries.some(e => e.identifier.endsWith(':skill:forecast-arena
   && e.url === 'https://ratchetx.xyz/skills/ratchetx/SKILL.md'),
   'the portable Agent Skill is part of domain-anchored discovery');
 
+assert.equal(skillIndex.$schema, 'https://schemas.agentskills.io/discovery/0.2.0/schema.json');
+assert.equal(skillIndex.skills.length, 1);
+assert.deepEqual(
+  { name: skillIndex.skills[0].name, type: skillIndex.skills[0].type, url: skillIndex.skills[0].url },
+  {
+    name: 'ratchetx',
+    type: 'skill-md',
+    url: 'https://ratchetx.xyz/skills/ratchetx/SKILL.md',
+  },
+);
+const skillDigest = crypto.createHash('sha256').update(skillBytes).digest('hex');
+assert.equal(skillIndex.skills[0].digest, `sha256:${skillDigest}`,
+  'the domain index digest must match the exact deployed Skill bytes');
+const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
+assert.ok(frontmatter, 'the Agent Skill needs YAML frontmatter');
+assert.match(frontmatter[1], /^description:\s*[>|]/m,
+  'description must use a YAML block scalar so colon-space cannot break installation');
+assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.1"$/m);
+
 const board = catalog.entries.find(e => e.identifier.endsWith(':live-board'));
 const corpus = catalog.entries.find(e => e.identifier.endsWith(':forecast-corpus'));
 assert.equal(board.metadata.paymentRequired, false, 'the live board is free');
@@ -42,6 +66,18 @@ assert.equal(corpus.metadata.paymentRequired, false, 'the public corpus is free'
 assert.match(llms, /\.well-known\/ai-catalog\.json/);
 assert.match(llms, /canonical arbiter for credits and XP/);
 assert.match(llms, /https:\/\/ratchetx\.xyz\/api\/mcp/);
+assert.match(llms, /Standard x402 v2 USDC door \(LIVE\)/);
+assert.match(llms, /funded mainnet payment and[\s\S]*idempotent replay test passed/);
+assert.doesNotMatch(llms, /shipped dark|production flag is still OFF/i);
+for (const path of [
+  '/llms.txt',
+  '/skills/ratchetx/SKILL.md',
+  '/.well-known/agent-skills/index.json',
+  '/.well-known/ai-catalog.json',
+  '/.well-known/mcp.json',
+]) {
+  assert.ok(sitemap.includes(path), `sitemap is missing agent discovery path: ${path}`);
+}
 
 const wellKnownHeaders = vercel.headers.find(h => h.source === '/.well-known/(.*)');
 assert.ok(wellKnownHeaders, 'Vercel must serve well-known discovery files with explicit headers');
@@ -53,4 +89,4 @@ assert.ok(skillHeaders && skillHeaders.headers.some(h =>
 assert.match(vercelIgnore, /^!skills\/ratchetx\/SKILL\.md$/m,
   'the exact public Agent Skill must be re-included after the global Markdown deploy exclusion');
 
-console.log('PASS  ARD catalog is schema-shaped, linked, CORS-visible, and honest');
+console.log('PASS  agent discovery is installable, digest-bound, linked, CORS-visible, and honest');

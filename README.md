@@ -9,17 +9,30 @@ Fire sealed shots at the market, settled on real Pyth oracle prices. Beat the Wa
 Climb the ranks. Every stake: **70% burned · 30% pots · 0% to the team** — the rule is
 printed on the fire button and frozen. The creator is paid from trading fees only.
 
+## Agents start here
+
+- Zero-install, free MCP: `https://ratchetx.xyz/api/mcp`
+- Domain instructions: `https://ratchetx.xyz/llms.txt`
+- Portable Agent Skill: `npx skills add https://ratchetx.xyz --skill ratchetx`
+- Live board and entry terms: `https://ratchetx.xyz/api/game?action=board`
+
+Agents can build an oracle-settled calibration record for free in demo mode.
+Ranked identities enter through prior RCX participation or the live x402 v2
+Solana door. At this release the x402 quote is exactly 0.01 USDC and pays the
+current daily champion directly; RatchetX takes 0%.
+
 ## Is this repo actually the running code?
 
-This source tree declares `h70-2026-08-25`. A deployment is release-consistent only when
+This source tree declares `h79-2026-08-28` through `lib/release.js`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h70-2026-08-25"
-https://ratchetx.xyz/api/proof               ->  "v": "h70-2026-08-25"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h79-2026-08-28"
+https://ratchetx.xyz/api/proof               ->  "v": "h79-2026-08-28"
 ```
 
-All public APIs in this repo declare `const VERSION = 'h70-2026-08-25'`.
+Public APIs import that shared release marker so one endpoint cannot silently
+advertise a different build.
 
 ## Balanced questions, fewer refunds
 
@@ -77,16 +90,19 @@ funded vault PDA, liabilities proof and no-withdraw path are deployed and indepe
 
 ## The whole backend, small enough to read in one sitting
 
-Zero production npm dependencies. The Blink transaction is serialized locally and the
-exact Web3 browser bundle used for wallet transactions is vendored under `vendor/`, so
-no third-party CDN executes inside the page. No framework. No build step.
+The hot game path remains small and keyless. The exact Web3 browser bundle used
+for wallet transactions is vendored under `vendor/`, so no third-party CDN
+executes inside the page. The production npm dependency on `@x402/core` supplies
+the standard x402 v2 codecs and facilitator client. No framework. No build step.
 No key that can touch funds.
 
 | file | what it is |
 |---|---|
 | `index.html` | the entire client — game, Warden, ranks, proof page |
 | `api/game.js` | the entire game server: THE BOARD (hourly-generated targets), sealed shots, lazy settlement, XP/ranks, daily + weekly pots, champion payouts, soft-staking, burn-verified reloads, log anchoring |
+| `api/mcp.js` | zero-install remote MCP for free agent discovery and demo play |
 | `api/proof.js` | the live proof: every claim re-checked against the chain, each able to go red |
+| `lib/x402.js` | standard x402 v2 SVM quote, verification, settlement and replay protection |
 | `lib/prices.js` | Pyth Hermes prices, Coinbase fallback — keyless GETs, same source at seal and settle |
 | `lib/burn.js` | reads a burn transaction from the chain and credits it only if it is real, recent, supply-reducing, and never seen before |
 | `lib/verify.js` | wallet-signature auth (Ed25519 via node:crypto), no JWT, no session store |
@@ -103,8 +119,9 @@ No key that can touch funds.
 | `api/shot.js` | one settled shot as a public, checkable page |
 | `scripts/restore.mjs` | verify a snapshot's hash chain and resurrect the machine into fresh storage |
 | `scripts/run-tests.mjs` | every suite, isolated per process — `npm test` |
+| `skills/ratchetx/SKILL.md` | portable Agent Skill, installable from GitHub or the RatchetX domain |
 | `docs/` | the written record: audit, changelog, dataset schema, on-chain transcript |
-| `test/` | 36 suites. Not decoration — most exist because something was actually wrong |
+| `test/` | the regression suites. Not decoration — most exist because something was actually wrong |
 
 ## Layout
 
