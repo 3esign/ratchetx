@@ -76,6 +76,12 @@ assert.deepEqual(registration.supportedTrust, ['reputation', 'crypto-economic'])
 assert.ok(registration.services.some(s => s.name === 'MCP'
   && s.endpoint === 'https://ratchetx.xyz/api/mcp'
   && s.version === '2025-11-25'));
+assert.deepEqual(registration.services.find(s => s.name === 'MCP').tools, [
+  'ratchet_new_demo', 'ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state',
+  'ratchet_arena', 'ratchet_challenges', 'ratchet_proof',
+]);
+assert.ok(registration.services.some(s => s.name === 'x402'
+  && s.endpoint === 'https://ratchetx.xyz/api/agent-entry' && s.version === '2'));
 const oasf = registration.services.find(s => s.name === 'OASF');
 assert.ok(oasf && oasf.skills.length >= 3 && oasf.domains.includes('technology/blockchain/blockchain'));
 

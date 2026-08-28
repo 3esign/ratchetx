@@ -17,7 +17,13 @@ for (const value of [
 }
 assert.equal(registration.name, 'RatchetX');
 assert.equal(registration.x402Support, true);
-assert.ok(registration.services.some(service => service.name === 'MCP'));
+const mcp = registration.services.find(service => service.name === 'MCP');
+assert.deepEqual(mcp.tools, [
+  'ratchet_new_demo', 'ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state',
+  'ratchet_arena', 'ratchet_challenges', 'ratchet_proof',
+]);
+assert.ok(registration.services.some(service => service.name === 'x402'
+  && service.endpoint === 'https://ratchetx.xyz/api/agent-entry'));
 assert.equal(registration.registrations[0].agentId,
   'Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu');
 assert.equal(registration.registrations[0].agentRegistry,

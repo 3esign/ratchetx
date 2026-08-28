@@ -11,6 +11,7 @@ RatchetX has one live ERC-8004-compatible identity on Solana mainnet.
 | Registration URI | https://ratchetx.xyz/agent-registration.json |
 | Domain proof | https://ratchetx.xyz/.well-known/agent-registration.json |
 | 8004market | https://8004market.io/agent/solana/mainnet-beta/1475 |
+| Official MCP Registry | io.github.3esign/ratchet |
 
 The canonical identity is the agent asset pubkey. Agent ID 1475 is the
 indexer's sequential display identifier, not a replacement for that asset.
@@ -30,7 +31,9 @@ The URI correction transaction is:
 Both were finalized on Solana mainnet. The correction changed only the existing
 asset's URI. It did not mint, transfer, enable ATOM, join a collection, or make a
 payment. The official indexer then resolved the live URL as RatchetX with the
-expected description, image, MCP endpoint, OASF skills and x402 support.
+expected description, image, MCP endpoint, seven public MCP tools, OASF skills
+and x402 support. The same remote is independently discoverable in the official
+MCP Registry as `io.github.3esign/ratchet`.
 
 ## Studio form pitfall
 

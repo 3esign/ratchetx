@@ -11,7 +11,16 @@
     {
       "name": "MCP",
       "endpoint": "https://ratchetx.xyz/api/mcp",
-      "version": "2025-11-25"
+      "version": "2025-11-25",
+      "tools": [
+        "ratchet_new_demo",
+        "ratchet_board",
+        "ratchet_demo_shot",
+        "ratchet_demo_state",
+        "ratchet_arena",
+        "ratchet_challenges",
+        "ratchet_proof"
+      ]
     },
     {
       "name": "OASF",
@@ -37,6 +46,11 @@
       "name": "OpenAPI",
       "endpoint": "https://ratchetx.xyz/openapi.json",
       "version": "3.1.0"
+    },
+    {
+      "name": "x402",
+      "endpoint": "https://ratchetx.xyz/api/agent-entry",
+      "version": "2"
     }
   ],
   "registrations": [

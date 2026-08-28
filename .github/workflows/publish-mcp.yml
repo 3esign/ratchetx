@@ -56,14 +56,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          name="io.github.3esign/ratchetx"
-          url="https://registry.modelcontextprotocol.io/v0.1/servers?search=$name"
+          name="io.github.3esign/ratchet"
+          version="$(jq -r '.version' server.json)"
+          url="https://registry.modelcontextprotocol.io/v0.1/servers/io.github.3esign%2Fratchet/versions/latest"
           for attempt in {1..12}; do
             response="$(curl --fail --location --silent --show-error "$url")"
-            if jq -e --arg name "$name" \
-              '.servers | any((.server.name // .name) == $name)' \
+            if jq -e --arg name "$name" --arg version "$version" \
+              '.server.name == $name and .server.version == $version and
+               ._meta["io.modelcontextprotocol.registry/official"].isLatest == true' \
               <<<"$response" >/dev/null; then
-              echo "Verified $name in the official MCP Registry"
+              echo "Verified $name@$version as latest in the official MCP Registry"
               exit 0
             fi
             sleep 5

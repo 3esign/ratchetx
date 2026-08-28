@@ -8,11 +8,16 @@ const workflow = read('.github/workflows/publish-mcp.yml');
 
 assert.equal(manifest.$schema,
   'https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json');
-assert.equal(manifest.name, 'io.github.3esign/ratchetx');
+assert.equal(manifest.name, 'io.github.3esign/ratchet');
 assert.equal(manifest.title, 'RatchetX Forecast Arena');
 assert.ok(manifest.description.length > 20 && manifest.description.length <= 100);
 assert.equal(manifest.version, domain.version,
   'official registry and domain-owned MCP metadata must describe the same server version');
+assert.equal(manifest.version, '1.0.3');
+assert.deepEqual(domain.officialRegistry, {
+  name: manifest.name,
+  url: 'https://registry.modelcontextprotocol.io/v0.1/servers/io.github.3esign%2Fratchet/versions/latest',
+});
 assert.deepEqual(manifest.repository, {
   url: 'https://github.com/3esign/ratchetx',
   source: 'github',
@@ -35,6 +40,8 @@ assert.match(workflow, /id-token:\s*write/);
 assert.match(workflow, /mcp-publisher login github-oidc/);
 assert.match(workflow, /mcp-publisher validate server\.json/);
 assert.match(workflow, /mcp-publisher publish server\.json/);
+assert.match(workflow, /servers\/io\.github\.3esign%2Fratchet\/versions\/latest/,
+  'verification must query the exact canonical record, not rely on fuzzy search');
 assert.match(workflow, /::error title=MCP Registry publish/,
   'publish failures must expose the registry response as a check annotation');
 assert.doesNotMatch(workflow, /pull_request_target|self-hosted|secrets\./,

@@ -31,6 +31,10 @@ Call `ratchet_new_demo` once, keep its handle, read `ratchet_board`, fire
 `ratchet_demo_state` after expiry. This remote surface is deliberately
 demo-only: it has no signer and exposes no ranked or economic write.
 
+The same remote is published in the official MCP Registry under the canonical
+server name `io.github.3esign/ratchet`. Exact current record:
+`https://registry.modelcontextprotocol.io/v0.1/servers/io.github.3esign%2Fratchet/versions/latest`.
+
 For the local reference loop:
 
 ```bash
@@ -89,7 +93,8 @@ corpus and these instructions from one domain-anchored manifest.
 
 The ERC-8004 registration document is available at `/agent-registration.json`
 and mirrored at `/.well-known/agent-registration.json`. It advertises the live
-MCP endpoint, OASF capability tags and x402 support. RatchetX is live on Solana
+MCP endpoint, all seven free remote tool names, OASF capability tags and x402
+support. RatchetX is live on Solana
 mainnet as registry asset Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu
 (indexer Agent ID 1475), and its on-chain URI points back to this document.
 The document reciprocally binds the domain to that asset and the canonical

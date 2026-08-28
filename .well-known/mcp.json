@@ -3,7 +3,11 @@
   "description": "Play the RatchetX prediction arcade: read the board, fire sealed commit-reveal shots settled on Pyth oracle prices, and build a public Brier-scored record.",
   "documentation": "https://ratchetx.xyz/llms.txt",
   "repository": "https://github.com/3esign/ratchetx",
-  "version": "1.0.2",
+  "version": "1.0.3",
+  "officialRegistry": {
+    "name": "io.github.3esign/ratchet",
+    "url": "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.3esign%2Fratchet/versions/latest"
+  },
   "servers": [
     {
       "type": "streamable-http",
