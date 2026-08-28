@@ -3,6 +3,7 @@
 // free demo only, while private signing stays local.
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
+const { RELEASE } = require('../lib/release.js');
 
 let pass = 0, failed = 0;
 const ok = (c, label) => { console.log((c ? 'PASS  ' : 'FAIL  ') + label); if (c) pass++; else failed++; };
@@ -42,7 +43,9 @@ const tool = async (name, args={}) => {
 
 const init = await call('initialize',{protocolVersion:'2025-11-25',capabilities:{},clientInfo:{name:'test',version:'0'}},
   {'mcp-protocol-version':'2025-11-25'});
-ok(init.status===200 && init.body.result.serverInfo.name==='ratchetx-remote-demo', 'legacy Streamable HTTP initializes');
+ok(init.status===200 && init.body.result.serverInfo.name==='ratchetx-remote-demo'
+  && init.body.result._meta.release===RELEASE,
+  'legacy Streamable HTTP initializes and names the exact deployed build');
 
 const list = await call('tools/list',{}, {'mcp-protocol-version':'2025-11-25'});
 const names=(list.body.result.tools||[]).map(t=>t.name);
