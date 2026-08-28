@@ -154,30 +154,63 @@ Fourteen days exist to be used. Each item is checkable; an item still open on
   Reproduce it with `node tools/mainnet-exercise.mjs --keypair <player.json>`; add `--dry`
   to simulate every instruction and send nothing. It signs with a throwaway wallet and
   refuses outright if handed the upgrade authority.
-- [ ] **Final byte-verification — half of it is done, and the half that is done is recorded
-  here.** Measured 2026-08-27, without a rebuild, because this half never needed one.
+- [x] **Final byte-verification — done 2026-08-28, and it caught something the other half
+  could not have.** Both halves now close, and they close differently.
 
-  The ProgramData account `BiMrv5BAjxCPzH2sFFARbDnrXmn4FRTULfnKgeAVL4CF` holds 252,589
-  bytes. Strip the 45-byte upgradeable-loader header — `u32` enum, `u64` slot,
-  `Option<Pubkey>` — and 252,544 bytes remain, opening `7f 45 4c 46`. That is an ELF, and
-  it is exactly the size of `mainnet-c37fa32.so` in the build tree, with no deploy padding
-  at all. Both hash to:
+  *Half one, measured without a rebuild.* ProgramData
+  `BiMrv5BAjxCPzH2sFFARbDnrXmn4FRTULfnKgeAVL4CF` holds 252,589 bytes. Strip the 45-byte
+  upgradeable-loader header and 252,544 remain, opening `7f 45 4c 46`.
+
+  *Half two, the reproducible build.* Rebuilt from source with the toolchain the program
+  pins, and all three agree:
 
   ```
-  SHA-256  4947daeba64711b3e21b681870c3e6c61db510ee19922e925221fc28f9b486a8
+  fresh build from source   22ba4d21ee0f81610c8cf11bcf2d1913ac79ab7224f537f633c80b8491485f13
+  artifact in the tree      22ba4d21…
+  bytes running on mainnet  22ba4d21…
   ```
 
-  So **the program running on mainnet is byte-for-byte the artifact we hold**, read
-  straight off the chain by anyone with an RPC and thirty lines of script — no key, no
-  privileged access, no trust in this page.
+  242,369 executable bytes are byte-identical; the file lengths differ only by trailing zero
+  padding (15 bytes against 10,160), which is deployment padding and not program.
 
-  What is still open is the other half, and it is the harder one: proving that artifact is
-  what the *source* in this repository compiles to. That needs a reproducible build with
-  the pinned toolchain (`anchor 1.0.2`, `solana 3.1.10`, per `Anchor.toml`) under
-  `solana-verify`, which needs Docker. Until that runs, the honest claim is narrow and
-  worth stating exactly: we can prove the deployed bytes match our artifact, not yet that
-  our artifact matches our source. Source snapshot for the attempt:
-  `ratchet-seal-v2-build-c37fa32.zip`.
+  **The recipe, and it does not need Docker.** `solana-verify build` exists to pin an
+  environment, and pinning it another way reproduces the same bytes — which matters, because
+  a verification anyone can repeat should not depend on a container registry:
+
+  ```
+  platform-tools  v1.52        (DEFAULT_PLATFORM_TOOLS_VERSION in agave v3.1.10,
+                                fetched from the anza-xyz/platform-tools GitHub release)
+  cargo-build-sbf 3.1.10       (built from agave at tag v3.1.10)
+  sbf rustc       1.89.0-dev   (shipped inside platform-tools)
+  anchor-lang     1.0.2        pyth-solana-receiver-sdk 2.0.0
+  Cargo.lock                   the one this build used, now committed beside the program
+
+  cargo-build-sbf --tools-version v1.52 \
+      --manifest-path programs/ratchet-seal/Cargo.toml -- --locked
+  ```
+
+  **What it caught.** The source published in this repository did not build to the deployed
+  bytes. It produced `b12406592488389e208e6a6818b065d1b1cf3846929edfb95145dd2b121cca9d`, and
+  the difference was three lines in `CloseShot`:
+
+  ```rust
+  // what this repository published        // what is actually deployed
+  pub player: Signer<'info>,               pub player: UncheckedAccount<'info>,
+  ```
+
+  So the repository was publishing a program in which `close_shot` requires the player's own
+  signature, while the program on mainnet lets anyone crank it. **That also explains the
+  correction made on 2026-08-27.** This page's claim that closure required the player's
+  signature was not carelessness — it was accurate *about the source in the repository*. Two
+  sources disagreed and the public one was not the deployed one, which no amount of reading
+  either file alone could have revealed. It is the precise failure a reproducible build
+  exists to find, found on the first run.
+
+  The deployed behaviour is unchanged and was already proven on-chain: a voided shot was
+  closed by a cranker and both Shot PDAs read back as gone. What changed is the repository,
+  which now carries the source that actually built the deployed bytes, and the `Cargo.lock`
+  that pins them — without which the recipe above is not reproducible by anyone else.
+
 - [x] **Kill-switch drill — done 2026-08-27, and it found something.** The lever is one
   variable: `MIRROR_ENABLED = !!(MIRROR_PROGRAM_ID && MIRROR_RPC_URL)`, so clearing
   `RATCHET_SEAL_PROGRAM_ID` alone disarms sealing, and a disarmed site makes no RPC call

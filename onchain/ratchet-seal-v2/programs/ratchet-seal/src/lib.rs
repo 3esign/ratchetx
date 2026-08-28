@@ -451,8 +451,9 @@ pub struct CloseShot<'info> {
             || shot.state == ShotState::Voided as u8 @ RatchetError::WrongState
     )]
     pub shot: Account<'info, Shot>,
+    /// CHECK: has_one pins this rent recipient to the player stored in the shot.
     #[account(mut)]
-    pub player: Signer<'info>,
+    pub player: UncheckedAccount<'info>,
     pub cranker: Signer<'info>,
 }
 

@@ -13,10 +13,13 @@ gets made twice.
 
 ## The pattern worth naming first
 
-On 2026-08-27 this project found and fixed six defects in one day. In **five of them the code
-was correct and the writing about the code was wrong.**
+On 2026-08-27 this project found and fixed six defects in one day, and it looked like the code
+was right and the writing about it was wrong in five of them. A reproducible build the next
+morning showed that conclusion was itself drawn too early — see entry 8 — but the pattern
+survives for the rest:
 
-- `close_shot` was documented as requiring the player's signature. It is permissionless.
+- `close_shot` was documented as requiring the player's signature — accurately, for the source
+  in the repository. The deployed program is permissionless. Entry 8.
 - The build plan named the wrong Pyth receiver. The deployed program pinned the right one.
 - Fourteen environment variables were renamed in prose by a rebrand and never in code.
 - Five of nine endpoints reported a release they were not part of.
@@ -124,19 +127,36 @@ rolling it would discard the only thing that was never in doubt.
 **Check.** None automated. The enforcement is the namespace convention and this entry.
 Naming that gap is the honest version.
 
-## 8 · Read the source for who may call what — not the IDL, and never the prose
+## 8 · Which source? A build is the only thing that answers that
 
-**What happened.** `docs/FREEZE.md` claimed v2 had no permissionless close and that a shot
-whose player never returns has its rent stranded forever. The IDL showed `cranker: Signer`;
-the source showed `close = player, has_one = player, state == Revealed || Voided`. Anyone may
-close, the rent always returns to the recorded player, and both terminal states are closable.
+**What happened.** `docs/FREEZE.md` claimed v2 had no permissionless close. Reading
+`ratchet_phase_a_work` showed `cranker: Signer` with `player: UncheckedAccount` — anyone may
+close — so on 2026-08-27 the page was corrected and the correction was proven on-chain: a
+voided shot was cranked closed and both Shot PDAs read back as gone.
 
-**Rule.** Authority questions are answered by account constraints in the source. An IDL omits
-constraints; prose omits whatever the writer forgot.
+The next morning the reproducible build showed why that had been confusing. The source
+**published in this repository** builds to `b1240659…`, not to the deployed `22ba4d21…`, and
+the difference is three lines:
 
-**Check.** `19743cc`, and then the stronger one: the claim was not merely corrected in
-writing but refuted on-chain. Both Shot PDAs were read back after the mainnet exercise and
-neither exists — `57a2100`.
+```rust
+// what the repository published          // what is actually deployed
+pub player: Signer<'info>,                pub player: UncheckedAccount<'info>,
+```
+
+The document was not careless. It was accurate about the source in the repository. Two
+sources disagreed, the public one was never deployed, and **reading either file alone could
+never have revealed that** — the earlier entry here confidently blamed the prose because the
+prose was the only thing it had checked.
+
+**Rule.** "The source says X" is incomplete until you say *which* source, and only a build
+that reproduces the deployed hash settles it. A repository that publishes source it never
+deployed is worse than one that publishes none, because the difference is invisible and the
+claim is louder.
+
+**Check.** `2026-08-28` — the repository now carries the source that built the deployed
+bytes and the `Cargo.lock` that pins them, and `docs/FREEZE.md` records the recipe and the
+three matching hashes. The permanent check is the rebuild itself: it is the only test in this
+codebase that can fail for this reason, and it did, on its first run.
 
 ## 9 · Split a claim until each half is separately provable
 
