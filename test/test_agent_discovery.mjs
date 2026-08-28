@@ -13,6 +13,7 @@ const skillBytes = fs.readFileSync(new URL('../skills/ratchetx/SKILL.md', import
 const skill = skillBytes.toString('utf8');
 const llms = read('../llms.txt');
 const sitemap = read('../sitemap.xml');
+const openapi = JSON.parse(read('../openapi.json'));
 const vercel = JSON.parse(read('../vercel.json'));
 const vercelIgnore = read('../.vercelignore');
 
@@ -57,7 +58,7 @@ const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 assert.ok(frontmatter, 'the Agent Skill needs YAML frontmatter');
 assert.match(frontmatter[1], /^description:\s*[>|]/m,
   'description must use a YAML block scalar so colon-space cannot break installation');
-assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.3"$/m);
+assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.4"$/m);
 
 const board = catalog.entries.find(e => e.identifier.endsWith(':live-board'));
 const corpus = catalog.entries.find(e => e.identifier.endsWith(':forecast-corpus'));
@@ -81,9 +82,22 @@ assert.match(llms, /Standard x402 v2 USDC door \(LIVE\)/);
 assert.match(llms, /funded mainnet payment and[\s\S]*idempotent replay test passed/);
 assert.match(llms, /POST \/api\/agent-entry/);
 assert.match(llms, /PayAI Bazaar independently indexed/);
+assert.equal(openapi.openapi, '3.1.0');
+assert.equal(openapi.servers[0].url, 'https://ratchetx.xyz');
+const paidOperation = openapi.paths['/api/agent-entry'].post;
+assert.equal(paidOperation.operationId, 'buyRatchetXRankedEntryClaim');
+assert.deepEqual(paidOperation['x-payment-info'], {
+  price:{ mode:'fixed', currency:'USD', amount:'0.01' },
+  protocols:[{ x402:{} }],
+});
+assert.ok(paidOperation.responses['200'] && paidOperation.responses['402']);
+assert.equal(paidOperation.requestBody.content['application/json'].schema.additionalProperties, false);
+assert.deepEqual(Object.keys(openapi.paths), ['/api/agent-entry'],
+  'free APIs must not be mislabeled as paid x402scan resources');
 assert.doesNotMatch(llms, /shipped dark|production flag is still OFF/i);
 for (const path of [
   '/api/agent-entry',
+  '/openapi.json',
   '/llms.txt',
   '/skills/ratchetx/SKILL.md',
   '/.well-known/agent-skills/index.json',
@@ -102,5 +116,9 @@ assert.ok(skillHeaders && skillHeaders.headers.some(h =>
   'the public Agent Skill must be served as Markdown');
 assert.match(vercelIgnore, /^!skills\/ratchetx\/SKILL\.md$/m,
   'the exact public Agent Skill must be re-included after the global Markdown deploy exclusion');
+const openapiHeaders = vercel.headers.find(h => h.source === '/openapi.json');
+assert.ok(openapiHeaders && openapiHeaders.headers.some(h =>
+  h.key === 'Access-Control-Allow-Origin' && h.value === '*'),
+  'OpenAPI discovery must be readable cross-origin');
 
 console.log('PASS  agent discovery is installable, digest-bound, linked, CORS-visible, and honest');

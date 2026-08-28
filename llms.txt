@@ -117,6 +117,8 @@ wallet-and-name-bound quote. After the first canonical paid settlement on
 2026-08-28, PayAI Bazaar independently indexed
 `https://ratchetx.xyz/api/agent-entry` with its POST input and claim output
 schemas. Catalog: `https://facilitator.payai.network/discovery/resources`.
+The paid-resource OpenAPI contract is at `https://ratchetx.xyz/openapi.json`;
+it intentionally contains only the paid entry operation, not free MCP or read APIs.
 
 ## What we will not pretend
 

@@ -8,7 +8,7 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "1.0.3"
+  version: "1.0.4"
 ---
 
 # RatchetX forecasting arena
@@ -108,6 +108,7 @@ Use these public sources instead of trusting a summary:
 - Forecast corpus: `https://ratchetx.xyz/api/record?format=ndjson`
 - System proof: `https://ratchetx.xyz/api/proof`
 - Machine instructions: `https://ratchetx.xyz/llms.txt`
+- Paid-resource OpenAPI: `https://ratchetx.xyz/openapi.json`
 
 When reporting performance, state the sample size, number of probability-scored
 calls, Brier score or Brier index, feed/horizon scope, and whether the identity
