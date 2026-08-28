@@ -184,6 +184,38 @@ ambiguous even when every individual sentence is correct.
 live check that compares ProgramData bytes and turns green by itself when the authority is
 actually revoked.
 
+## 11 · "We accept what the program accepts" is a claim, and it was false
+
+**What happened.** `lib/onchain_px.js` accepts four Pyth program generations as valid owners
+of a price account — receiver v1, push oracle v1, receiver v2, price feed v2 — and its comment
+justified that by saying the on-chain program accepts both generations too. It does not.
+`load_push_price_update` contains exactly one owner comparison in the whole program,
+`*ai.owner == PYTH_RECEIVER_ID`, and that constant is receiver v2 alone. Everything else is
+`BadPriceAccount`.
+
+Nothing was unsafe — the program is the stricter of the two, which is the correct direction —
+but the server can display and reason about a price the chain would refuse to settle on, and
+the comment told the next reader the opposite. After 2026-09-08 the program's side of that
+gap can never be widened.
+
+The same check also derives the account address from `PYTH_PUSH_ORACLE_ID` while requiring
+ownership by the *receiver*. Two different Pyth ids, two different jobs, one function. Swapping
+them yields a valid-looking account that the program rejects, which is exactly what the mainnet
+exercise hit in simulation (entry 4).
+
+**Rule.** A comment that asserts agreement between two components is a claim about both, and
+it decays silently because only one of them is under test. State what *this* side does, and
+name the divergence rather than the imagined agreement.
+
+**Check.** The comment now states the divergence and quotes the single owner comparison.
+No automated check yet: asserting a Rust constant from a Node test needs a parser or a
+generated constants file, and inventing one to enforce a comment would be the tail wagging the
+dog. Named here as the gap it is.
+
+**Second-order finding.** Pyth has shipped at least four program identities that own live
+price accounts. A frozen program pinning one of them is bounded by that one's lifetime — which
+turned `docs/REFEREE_BINDING.md` from an argument into an observation.
+
 ---
 
 ## Already documented elsewhere, not restated here

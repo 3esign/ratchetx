@@ -11,7 +11,14 @@ program. The client can be hosted by anyone.
 And all of it stops the day Pyth stops.
 
 That is not a hypothetical: Pythnet's sunset is already the first entry on this project's own
-risk list. A machine that dies when one company turns something off is not autonomous. It is
+risk list. And the milder version of the same event has already happened to us
+twice without anyone calling it a failure: `lib/onchain_px.js` accepts **four** Pyth program
+identities as valid owners of a price account — receiver v1, push oracle v1, receiver v2,
+price feed v2 — because accounts posted under each are still out there and still readable.
+
+The frozen program pins exactly one of the four. That is the whole argument in one fact: the
+referee we depend on has changed its own program identity at least twice inside the lifetime of
+accounts we read, and Seal v2 will be unable to follow it a third time. A machine that dies when one company turns something off is not autonomous. It is
 decentralised until the first outage, which is a different and much smaller claim.
 
 ## What this does not propose
