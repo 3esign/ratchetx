@@ -20,7 +20,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install the current official publisher
         shell: bash
@@ -38,7 +38,19 @@ jobs:
         run: ./mcp-publisher login github-oidc
 
       - name: Publish the remote server
-        run: ./mcp-publisher publish server.json
+        shell: bash
+        run: |
+          set +e
+          output="$(./mcp-publisher publish server.json 2>&1)"
+          code=$?
+          printf '%s\n' "$output"
+          if [ "$code" -ne 0 ]; then
+            escaped="${output//'%'/'%25'}"
+            escaped="${escaped//$'\r'/'%0D'}"
+            escaped="${escaped//$'\n'/'%0A'}"
+            echo "::error title=MCP Registry publish::$escaped"
+          fi
+          exit "$code"
 
       - name: Verify the official listing
         shell: bash

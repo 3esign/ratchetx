@@ -35,6 +35,8 @@ assert.match(workflow, /id-token:\s*write/);
 assert.match(workflow, /mcp-publisher login github-oidc/);
 assert.match(workflow, /mcp-publisher validate server\.json/);
 assert.match(workflow, /mcp-publisher publish server\.json/);
+assert.match(workflow, /::error title=MCP Registry publish/,
+  'publish failures must expose the registry response as a check annotation');
 assert.doesNotMatch(workflow, /pull_request_target|self-hosted|secrets\./,
   'registry publishing must not expose a persistent namespace credential');
 
