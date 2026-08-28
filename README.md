@@ -27,12 +27,12 @@ canonical paid settlement on 28 August 2026.
 
 ## Is this repo actually the running code?
 
-This source tree declares `h82-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
+This source tree declares `h83-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h82-2026-08-29"
-https://ratchetx.xyz/api/proof               ->  "v": "h82-2026-08-29"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h83-2026-08-29"
+https://ratchetx.xyz/api/proof               ->  "v": "h83-2026-08-29"
 ```
 
 Public APIs import that shared release marker so one endpoint cannot silently

@@ -84,6 +84,7 @@ assert.match(llms, /POST \/api\/agent-entry/);
 assert.match(llms, /PayAI Bazaar independently indexed/);
 assert.equal(openapi.openapi, '3.1.0');
 assert.equal(openapi.servers[0].url, 'https://ratchetx.xyz');
+assert.equal(openapi.info.contact.url, 'https://github.com/3esign/ratchetx/issues');
 const paidOperation = openapi.paths['/api/agent-entry'].post;
 assert.equal(paidOperation.operationId, 'buyRatchetXRankedEntryClaim');
 assert.deepEqual(paidOperation['x-payment-info'], {
