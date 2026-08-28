@@ -51,6 +51,45 @@ const health = await px.streamHealth(transition.receivedAt + 1000);
 assert.equal(health.feeds.SOL.active, true);
 assert.equal(health.feeds.BTC.active, false);
 
+// A feed behind in the capture stream is not a degraded oracle.
+//
+// Grading every feed against the 120s bound made "partially live" the routine
+// state of the proof page. Measured 2026-08-28: JUP was 323s behind in the
+// stream while its account had been written 80s earlier, so the accounts were
+// fine and we were dropping notifications. Freshness and usability are now
+// separate questions and only the second one raises a banner.
+{
+  // Give every feed a row, so the tiers are tested rather than the fixture's
+  // gaps. A feed with no row at all is a real alarm and is asserted below.
+  for (const feed of px.FEEDS) {
+    await px.ingestUpdate(feed, { ...transition, price:41.5 + px.FEEDS.indexOf(feed),
+      prevPublishTime:transition.publishTime - 1 });
+  }
+  const all = await px.streamHealth(transition.receivedAt + 1000);
+  assert.equal(all.ok, true, 'every feed fresh');
+  assert.equal(all.degraded, false);
+
+  // 200s: past FRESH, far inside the settle window.
+  const late = await px.streamHealth(transition.receivedAt + 200_000);
+  assert.equal(late.feeds.SOL.active, false, '200s is past the freshness bound');
+  assert.equal(late.feeds.SOL.usable, true, '200s is well inside the settle window');
+  assert.ok(late.lagging.includes('SOL'), 'a feed behind in the stream is named, not hidden');
+  assert.ok(!late.beyond.includes('SOL'));
+  assert.equal(late.ok, false, 'ok still means every feed is fresh');
+  assert.equal(late.usable, px.FEEDS.length, 'every feed is still usable at 200s');
+  assert.equal(late.usableS, px.SETTLE_GRACE_MS / 1000,
+    'usability is defined by the rule that voids a shot, not by a magic number');
+  assert.equal(late.degraded, false,
+    'a feed inside the settle window must never raise the banner: an amber that ' +
+    'is always on teaches people to ignore it');
+
+  // Past the settle window is the state that actually deserves a banner.
+  const dead = await px.streamHealth(transition.receivedAt + px.SETTLE_GRACE_MS + 60_000);
+  assert.equal(dead.feeds.SOL.usable, false, 'past SETTLE_GRACE a gap can change an outcome');
+  assert.ok(dead.beyond.includes('SOL'));
+  assert.equal(dead.degraded, true, 'only a feed past the settle window degrades the check');
+}
+
 // Byte-exact PriceUpdateV2 fixture: the API must revalidate what the Worker saw.
 const { ACCOUNTS } = require('../lib/onchain_px.js');
 const DISC = crypto.createHash('sha256').update('account:PriceUpdateV2').digest().subarray(0,8);

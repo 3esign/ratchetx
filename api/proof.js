@@ -22,6 +22,7 @@ const { rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { snap: snapSupply } = require('../lib/supplylog.js');
 const { getPrices } = require('../lib/prices.js');
 const { pathFor, streamHealth: pxStreamHealth } = require('../lib/pxlog.js');
+const STREAM_FRESH_LABEL = '120s';
 const { verifyChain, logCount, readEntries } = require('../lib/log.js');
 const { anchorFreshness } = require('../lib/anchor-health.js');
 
@@ -84,11 +85,15 @@ module.exports = async (req, res) => {
     let supply = null;
     // A live RPC read proves the oracle answers now; it does not prove that
     // first-crossing evidence was sampled continuously while nobody watched.
+    // Hoisted: the stream check below needs it. One sample row carries every
+    // feed, so SOL's sample age is the polling path's age for all of them.
+    let pollAgeSec = null;
     try {
       const now = Date.now(), windowMs = 60 * 60_000;
       const samples = await pathFor('SOL', now - windowMs, now, 'pyth-onchain');
       const last = samples.length ? samples[samples.length - 1][0] : 0;
       const ageSec = last ? Math.max(0, Math.floor((now - last) / 1000)) : null;
+      pollAgeSec = ageSec;
       const duty = +(samples.length / 60 * 100).toFixed(1);
       const fresh = ageSec != null && ageSec <= 120;
       const complete = duty >= 90;
@@ -112,14 +117,37 @@ module.exports = async (req, res) => {
       const sh = await pxStreamHealth();
       const ages = Object.values(sh.feeds).map(f => f.ageS).filter(Number.isFinite);
       const oldest = ages.length ? Math.max(...ages) : null;
-      push('oracle-stream', sh.ok ? 'green' : (sh.active ? 'grey' : 'red'),
-        sh.ok ? 'Exact Pyth account-transition stream is live'
-          : (sh.active ? 'Pyth transition stream is partially live'
-                       : 'Pyth transition stream has no current feeds'),
-        sh.active + '/' + sh.total + ' sponsored accounts current'
+      // This check measures OUR capture stream, not Pyth. Saying "sponsored
+      // accounts current" blamed the oracle for gaps that measurement on
+      // 2026-08-28 traced to dropped notifications on our side -- JUP was 323s
+      // behind in the stream while its account had been written 80s earlier.
+      //
+      // Amber means "a player could notice". A feed inside the settle window
+      // cannot change an outcome, because minute polling writes the same log by
+      // an independent path, so it is named rather than graded. But it is not
+      // called healthy either: losing events on one of two settlement paths is
+      // fine only until the other one hiccups.
+      const lag = (sh.lagging || []).join(', ');
+      const gone = (sh.beyond || []).join(', ');
+      const pollFresh = pollAgeSec != null && pollAgeSec <= 120;
+      const dropped = lag && pollFresh;   // polling sees them; we missed the push
+      push('oracle-stream', sh.degraded ? (sh.usable ? 'grey' : 'red') : 'green',
+        sh.degraded
+          ? (sh.usable ? 'Our capture stream has feeds past the settlement window'
+                       : 'Our capture stream has no current feeds')
+          : (sh.ok ? 'Exact Pyth account-transition stream is live'
+                   : 'Capture stream is missing updates that minute polling is receiving'),
+        sh.active + '/' + sh.total + ' accounts received within ' + STREAM_FRESH_LABEL
+          + (lag ? ' · behind in the stream but inside the settle window: ' + lag : '')
+          + (gone ? ' · PAST the settle window: ' + gone : '')
           + (oldest == null ? '' : ' · oldest received event ' + oldest + 's ago')
-          + ' · account bytes are revalidated server-side and duplicate publishes are idempotent'
-          + ' · minute polling remains an independent fallback',
+          + (dropped
+              ? ' · minute polling is current at ' + pollAgeSec + 's, so these are'
+                + ' notifications this service did not receive — a defect on our side,'
+                + ' not the oracle, and settlement is unaffected because polling'
+                + ' writes the same evidence log'
+              : ' · minute polling remains an independent fallback')
+          + ' · account bytes are revalidated server-side and duplicate publishes are idempotent',
         '/api/game?action=stream-health');
     } catch (e) {
       push('oracle-stream', 'grey', 'Pyth transition stream health unavailable',
