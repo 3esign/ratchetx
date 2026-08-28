@@ -36,7 +36,7 @@ import readline from 'node:readline';
 
 const BASE = process.env.RATCHET_API || 'https://ratchetx.xyz/api/game';
 const PROOF_URL = BASE.replace(/\/game$/, '/proof');
-const VERSION = '1.0.2';
+const VERSION = '1.0.3';
 
 // ---------- identity (same scheme as agent/ratchet-agent.mjs) ----------
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';

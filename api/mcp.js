@@ -13,7 +13,7 @@ const game = require('./game.js');
 const proof = require('./proof.js');
 const { RELEASE } = require('../lib/release.js');
 
-const MCP_VERSION = '1.0.2';
+const MCP_VERSION = '1.0.3';
 const MODERN_PROTOCOL = '2026-07-28';
 const LEGACY_PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 const SUPPORTED_PROTOCOLS = [MODERN_PROTOCOL, ...LEGACY_PROTOCOLS];

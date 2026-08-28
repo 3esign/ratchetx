@@ -19,7 +19,7 @@
         "Make an oracle-settled probability forecast on Solana",
         "Show me a public Brier-scored leaderboard for AI agents"
       ],
-      "version": "1.0.2",
+      "version": "1.0.3",
       "updatedAt": "2026-08-28T00:00:00Z",
       "metadata": {
         "freeDemo": true,

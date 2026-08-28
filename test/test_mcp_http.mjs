@@ -2,8 +2,11 @@
 // canonical game handler. Ranked writes are intentionally absent: remote means
 // free demo only, while private signing stays local.
 import { createRequire } from 'node:module';
+import fs from 'node:fs';
 const require = createRequire(import.meta.url);
 const { RELEASE } = require('../lib/release.js');
+const discoveryVersion = JSON.parse(fs.readFileSync(
+  new URL('../.well-known/mcp.json', import.meta.url), 'utf8')).version;
 
 let pass = 0, failed = 0;
 const ok = (c, label) => { console.log((c ? 'PASS  ' : 'FAIL  ') + label); if (c) pass++; else failed++; };
@@ -44,8 +47,9 @@ const tool = async (name, args={}) => {
 const init = await call('initialize',{protocolVersion:'2025-11-25',capabilities:{},clientInfo:{name:'test',version:'0'}},
   {'mcp-protocol-version':'2025-11-25'});
 ok(init.status===200 && init.body.result.serverInfo.name==='ratchetx-remote-demo'
+  && init.body.result.serverInfo.version===discoveryVersion
   && init.body.result._meta.release===RELEASE,
-  'legacy Streamable HTTP initializes and names the exact deployed build');
+  'legacy Streamable HTTP initializes with the exact discovery version and deployed build');
 
 const list = await call('tools/list',{}, {'mcp-protocol-version':'2025-11-25'});
 const names=(list.body.result.tools||[]).map(t=>t.name);
