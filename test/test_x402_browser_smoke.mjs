@@ -24,6 +24,21 @@ const required = {
 const quote = core.validatePaymentRequired(required);
 ok(() => assert.equal(quote.quoteId, id), 'accepts the exact Ratchet x402 v2 smoke quote');
 
+const agentEntryRequired = structuredClone(required);
+agentEntryRequired.resource = { url:'https://ratchetx.xyz/api/agent-entry', description:'fixture',
+  mimeType:'application/json', serviceName:'RatchetX', tags:['ai-agents','x402'] };
+agentEntryRequired.extensions = { bazaar:{
+  info:{ input:{ type:'http', method:'POST', bodyType:'json', body:{} },
+    output:{ type:'json', example:{ ok:true } } },
+  schema:{ $schema:'https://json-schema.org/draft/2020-12/schema' },
+  routeTemplate:'/api/agent-entry',
+} };
+ok(() => assert.equal(core.validateAgentEntryPaymentRequired(agentEntryRequired).quoteId, id),
+  'accepts the fixed Bazaar entry resource and derives its quote id from the memo');
+const noBazaar = structuredClone(agentEntryRequired); delete noBazaar.extensions;
+rejects(() => core.validateAgentEntryPaymentRequired(noBazaar), /Bazaar route template/,
+  'rejects an entry quote without Bazaar discovery metadata');
+
 for (const [mutate, pattern, label] of [
   [q => { q.accepts[0].amount = '1000000'; }, /quote amount/, 'rejects an amount above the 0.01 USDC smoke cap'],
   [q => { q.accepts[0].network = 'solana:devnet'; }, /mainnet/, 'rejects a non-mainnet quote'],

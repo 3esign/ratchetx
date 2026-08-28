@@ -11,8 +11,10 @@ const rpcMethods = new Set(['getTokenSupply', 'getTokenAccountsByOwner', 'getLat
   'getSignatureStatuses', 'getTransaction']);
 const files = new Map([
   ['/', [join(here, 'index.html'), 'text/html; charset=utf-8']],
+  ['/direct', [join(here, 'direct.html'), 'text/html; charset=utf-8']],
   ['/smoke-core.js', [join(here, 'smoke-core.js'), 'text/javascript; charset=utf-8']],
   ['/smoke-app.js', [join(here, 'smoke-app.js'), 'text/javascript; charset=utf-8']],
+  ['/bazaar-app.js', [join(here, 'bazaar-app.js'), 'text/javascript; charset=utf-8']],
   ['/rpc-bridge.js', [join(here, 'rpc-bridge.js'), 'text/javascript; charset=utf-8']],
   ['/solana-web3.js', [join(root, 'vendor', 'solana-web3-1.98.4.min.js'), 'text/javascript; charset=utf-8']],
 ]);

@@ -43,6 +43,8 @@
   function validatePaymentRequired(required, options = {}) {
     const expectedAmount = String(options.expectedAmount || SMOKE_AMOUNT_ATOMIC);
     const expectedOrigin = String(options.expectedOrigin || EXPECTED_ORIGIN);
+    const expectedPath = String(options.expectedPath || '/api/game');
+    const expectedAction = options.expectedAction === undefined ? 'agent-register' : options.expectedAction;
     invariant(required && required.x402Version === 2, 'server did not issue x402 v2');
     invariant(required.resource && typeof required.resource === 'object', 'quote has no canonical resource');
     invariant(Array.isArray(required.accepts) && required.accepts.length === 1,
@@ -65,9 +67,14 @@
     catch { throw new Error('quote resource URL is invalid'); }
     const expected = new URL(expectedOrigin);
     invariant(resourceUrl.origin === expected.origin, 'quote resource points away from Ratchet');
-    invariant(resourceUrl.pathname === '/api/game', 'quote resource path is not /api/game');
-    invariant(resourceUrl.searchParams.get('action') === 'agent-register', 'quote resource action is not agent-register');
-    const quoteId = resourceUrl.searchParams.get('x402Quote');
+    invariant(resourceUrl.pathname === expectedPath, `quote resource path is not ${expectedPath}`);
+    if (expectedAction !== null)
+      invariant(resourceUrl.searchParams.get('action') === expectedAction,
+        `quote resource action is not ${expectedAction}`);
+    if (options.requireQueryless)
+      invariant(resourceUrl.search === '', 'canonical resource URL must not contain a query');
+    const memoMatch = /^ratchetx:([a-f0-9]{32})$/.exec(String(accepted.extra.memo || ''));
+    const quoteId = resourceUrl.searchParams.get('x402Quote') || memoMatch && memoMatch[1];
     invariant(/^[a-f0-9]{32}$/.test(String(quoteId || '')), 'quote resource has no valid quote id');
     invariant(accepted.extra.memo === `ratchetx:${quoteId}`, 'quote memo is not bound to its resource id');
     invariant(required.resource.mimeType === 'application/json', 'quote resource MIME type changed');
@@ -82,6 +89,22 @@
       feePayer: accepted.extra.feePayer,
       memo: accepted.extra.memo,
     };
+  }
+
+  function validateAgentEntryPaymentRequired(required, options = {}) {
+    const quote = validatePaymentRequired(required, {
+      ...options, expectedPath:'/api/agent-entry', expectedAction:null, requireQueryless:true,
+    });
+    const bazaar = required && required.extensions && required.extensions.bazaar;
+    invariant(bazaar && bazaar.routeTemplate === '/api/agent-entry',
+      'quote has no canonical Bazaar route template');
+    const input = bazaar.info && bazaar.info.input;
+    invariant(input && input.type === 'http' && input.method === 'POST'
+      && input.bodyType === 'json' && input.body && typeof input.body === 'object',
+      'quote has no executable Bazaar POST input declaration');
+    invariant(bazaar.schema && bazaar.schema.$schema === 'https://json-schema.org/draft/2020-12/schema',
+      'quote has no Bazaar Draft 2020-12 schema');
+    return quote;
   }
 
   function deriveAta(web3, owner, mint = USDC_MINT) {
@@ -268,7 +291,7 @@
     USDC_MINT, SOLANA_MAINNET, TOKEN_PROGRAM, ASSOCIATED_TOKEN_PROGRAM,
     MEMO_PROGRAM, COMPUTE_BUDGET_PROGRAM, LIGHTHOUSE_PROGRAM,
     SMOKE_AMOUNT_ATOMIC, EXPECTED_ORIGIN,
-    validatePaymentRequired, deriveAta, transferCheckedInstruction,
+    validatePaymentRequired, validateAgentEntryPaymentRequired, deriveAta, transferCheckedInstruction,
     buildPaymentTransaction, validateSignedPaymentTransaction,
     validateChainTransaction, decodeHeader, encodePaymentPayload, bytesToBase64,
   };
