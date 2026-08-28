@@ -86,7 +86,13 @@ ok(/onchainSeal:SEAL_PROGRAM_ID \? `optional-\$\{SEAL_CLUSTER\}` : 'disabled'/.t
 // this suite scanned those two and passed, while mcp/README.md quietly told external
 // agent developers to set RatchetX_WALLET_KEYPAIR -- a variable nothing reads, in the
 // one document whose whole job is onboarding the players we do not have.
-const MD_DIRS = ['.', 'docs', 'mcp', 'token', 'agent', 'ops'];
+// ops/heartbeat-worker/ is listed explicitly: readdirSync('ops') returns the
+// directory entry, not the README inside it, so the worker's documentation was
+// outside every scan this suite ran. The reverse check added below caught that
+// on its first run, by reporting TARGET as undocumented while it sat in a table
+// in ops/heartbeat-worker/README.md. Same lesson as entry 3, third time: a
+// scan shallower than the thing it scans reports confident nonsense.
+const MD_DIRS = ['.', 'docs', 'mcp', 'token', 'agent', 'ops', 'ops/heartbeat-worker'];
 const DOCS = MD_DIRS.flatMap(d => {
   let names = [];
   try { names = readdirSync(at(d)); } catch { return []; }
@@ -121,4 +127,57 @@ for (const name of [...named].sort()) {
     `the docs tell an operator to set ${name}, but no code reads it`);
 }
 
-console.log(`KILL SWITCH OK — ${checks} checks, ${named.size} documented env vars verified against the code`);
+// --------------------------------------------- 4. the code names no secret var
+// The scan above runs docs -> code: every variable a document tells you to set
+// must exist in the code. It was one-directional, and on 2026-08-28 the missing
+// direction cost something real.
+//
+// `ops/heartbeat-worker/worker.js` reads `env.SOLANA_WS` to choose the websocket
+// it subscribes on. Unset, it falls back to three PUBLIC Solana RPCs. No
+// document mentioned the variable, so nobody could know the knob existed --
+// and measurement that day found the capture stream silently missing
+// account notifications while minute polling saw the same accounts fresh
+// (JUP: 323s behind in the stream, account written 80s earlier).
+//
+// A configuration switch nobody wrote down is a switch nobody can check. So the
+// scan now runs both ways.
+const CODE_DIRS = ['api', 'lib', 'tools', 'mcp', 'agent', 'ops/heartbeat-worker'];
+// HOME is the operating system's, not ours: nothing to document and nothing to
+// set. It is the only exemption, and it is named rather than pattern-matched so
+// that adding a second one has to be a deliberate act.
+const NOT_OURS = new Set(['HOME']);
+
+const readVars = text => {
+  const out = new Set();
+  for (const m of text.matchAll(/process\.env\.([A-Z][A-Z0-9_]{2,})/g)) out.add(m[1]);
+  return out;
+};
+const codeVars = new Map();
+for (const d of CODE_DIRS) {
+  let names = [];
+  try { names = readdirSync(at(d)); } catch { continue; }
+  for (const f of names.filter(n => /\.(js|mjs)$/.test(n))) {
+    const rel = d + '/' + f, text = read(rel);
+    const found = readVars(text);
+    // Cloudflare Workers take configuration off the `env` argument, not
+    // process.env, so the worker's whole config surface is invisible to the
+    // pattern above -- which is exactly where SOLANA_WS was hiding.
+    if (d.startsWith('ops/'))
+      for (const m of text.matchAll(/\benv\.([A-Z][A-Z0-9_]{2,})/g)) found.add(m[1]);
+    for (const v of found) {
+      if (NOT_OURS.has(v)) continue;
+      if (!codeVars.has(v)) codeVars.set(v, []);
+      codeVars.get(v).push(rel);
+    }
+  }
+}
+const allDocs = DOCS.map(read).join('\n');
+ok(codeVars.size >= 10, `the code reads a real config surface (found ${codeVars.size})`);
+for (const [name, where] of [...codeVars].sort()) {
+  ok(allDocs.includes(name),
+    `${where.join(', ')} reads ${name}, but no document names it — a switch ` +
+    `nobody wrote down is a switch nobody can check, and an unset one fails silently`);
+}
+
+console.log(`KILL SWITCH OK — ${checks} checks, ${named.size} documented env vars verified `
+  + `against the code, ${codeVars.size} code-read env vars verified against the docs`);

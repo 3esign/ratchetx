@@ -216,6 +216,64 @@ dog. Named here as the gap it is.
 price accounts. A frozen program pinning one of them is bounded by that one's lifetime — which
 turned `docs/REFEREE_BINDING.md` from an argument into an observation.
 
+## 12 · A check that is amber in normal operation is worse than no check
+
+**What happened.** `/api/proof` had been reporting *"Pyth transition stream is
+partially live · 5/7 sponsored accounts current"*. Sampled five times, the laggards
+rotated — WIF+PUMP, then PUMP alone, then BONK+JUP — while SOL and BTC were never
+behind. The first read was "thin feeds are slow, harmless"; the second sample killed
+it, because their `publishTime` had not moved at all while their age climbed by
+exactly the elapsed time.
+
+Then sampling `stream-health` and `/api/feeds` together, at the same moment:
+
+```
+feed   stream gap   account's own last publish (minute polling)
+JUP        323s                 80s
+WIF        197s                120s
+```
+
+The accounts were being written throughout. **Our capture stream was missing the
+notifications**, and the check had spent that whole time saying "sponsored accounts",
+pointing at the oracle for a defect of ours.
+
+**Rule.** Grade a check against the bound that would change an outcome, not against
+what the fastest case happens to do. Amber must mean *a player could notice*; an
+amber that is always on gets ignored, and then it is not a check. And a check names
+the component it actually measures.
+
+**Check.** `streamHealth` now reports two tiers — freshness, and usability defined as
+`SETTLE_GRACE` itself rather than a second hand-tuned constant — the page names the
+feeds it is missing, and when minute polling is current while the stream is not it
+says outright that these are notifications this service did not receive.
+
+## 13 · Scan both directions, or the switch nobody wrote down stays invisible
+
+**What happened.** Entry 2 built a scan for documents naming variables the code does
+not read. The reverse was never checked. `ops/heartbeat-worker/worker.js` reads
+`env.SOLANA_WS` to pick the websocket it subscribes on, and unset it falls back to
+three **public** Solana RPCs — which throttle and silently drop `accountSubscribe`
+notifications, the mechanism behind entry 12. No document mentioned the variable, so
+nobody could know the knob existed. Seven other variables were in the same state,
+including the production store credentials.
+
+Two structural reasons it hid so well: Cloudflare Workers take configuration off an
+`env` argument rather than `process.env`, so the worker's entire config surface was
+invisible to a `process.env` pattern; and `ops/heartbeat-worker/README.md` sits one
+directory deeper than any scan reached.
+
+**Rule.** Configuration is a claim in both directions. Every variable a document names
+must exist in code, *and* every variable code reads must appear in a document — because
+an unset one fails silently and a switch nobody wrote down is a switch nobody can check.
+
+**Check.** `test_kill_switch.mjs` now runs both scans, reads `env.NAME` inside `ops/`,
+and reaches `ops/heartbeat-worker/`. 106 checks, 29 code-read variables verified against
+the docs. `HOME` is the single exemption and is named rather than pattern-matched, so a
+second one has to be deliberate. The reverse scan earned its keep immediately: on its
+first run it reported `TARGET` as undocumented while `TARGET` sat in a table in the
+worker README — the document scan was shallower than the code scan, which is entry 3 for
+the third time.
+
 ---
 
 ## Already documented elsewhere, not restated here

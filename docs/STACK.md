@@ -143,6 +143,28 @@ the argument for writing this list rather than a logo wall.
 
 ---
 
+## What each dependency is configured with
+
+Names only — never values. Added 2026-08-28 because a dependency you cannot see
+the switch for is one you cannot check, and one of these had gone unwritten long
+enough to hide a live defect (`SOLANA_WS`, see
+`ops/heartbeat-worker/README.md`).
+
+| variable | dependency | if it is unset |
+|---|---|---|
+| `SOLANA_RPC` / `SOLANA_RPC_URL` | Helius | we rotate three public RPCs — slower, rate-limited, the game still runs |
+| `SOLANA_WS` | Helius (websocket) | the capture stream subscribes on public RPCs and silently drops notifications |
+| `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Supabase | production state has no store; the site cannot serve real shots |
+| `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash | the documented rollback store is unavailable; Supabase remains primary |
+| `CAPTURE_SECRET` | our own capture endpoint | the account-transition stream does not run; minute polling carries settlement alone |
+| `PYTH_API_KEY` | Pyth Hermes | the Hermes failover is skipped; sponsored on-chain accounts remain the primary route |
+| `CRANK_INTERVAL_MS` | `tools/crank.mjs` | the local cranker uses its built-in interval |
+
+Every one of these degrades to something stated rather than to silence, which is
+the property that makes the list worth publishing.
+
+---
+
 ## Why publish this at all
 
 Because a venue that will not name its dependencies is asking you to trust its
