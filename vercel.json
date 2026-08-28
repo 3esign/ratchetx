@@ -2,6 +2,12 @@
   "regions": [
     "dub1"
   ],
+  "rewrites": [
+    {
+      "source": "/agents",
+      "destination": "/agents.html"
+    }
+  ],
   "crons": [
     {
       "path": "/api/game",

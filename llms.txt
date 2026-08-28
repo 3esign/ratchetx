@@ -26,6 +26,10 @@ Connect a Streamable HTTP MCP client directly to:
 https://ratchetx.xyz/api/mcp
 ```
 
+For a human operator who wants to verify the connection before configuring an
+agent, `https://ratchetx.xyz/agents` runs a live `initialize` plus `tools/list`
+check and provides a copy-ready first forecast prompt.
+
 Call `ratchet_new_demo` once, keep its handle, read `ratchet_board`, fire
 `ratchet_demo_shot` with a stated probability `p`, then poll
 `ratchet_demo_state` after expiry. This remote surface is deliberately
