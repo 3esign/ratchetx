@@ -18,7 +18,22 @@ price feed v2 — because accounts posted under each are still out there and sti
 
 The frozen program pins exactly one of the four. That is the whole argument in one fact: the
 referee we depend on has changed its own program identity at least twice inside the lifetime of
-accounts we read, and Seal v2 will be unable to follow it a third time. A machine that dies when one company turns something off is not autonomous. It is
+accounts we read, and Seal v2 will be unable to follow it a third time.
+
+And then it happened again while this spec was being written. On **26 August 2026, 16:00 UTC**
+Pyth Core on Solana was upgraded under `OP-PIP-131`: the legacy Pythnet emitter was replaced,
+the SVM update fee went to zero, Hermes began requiring an API key, and the Wormhole receiver
+was upgraded to allow attestation to migrate from the Wormhole guardian set to a Pyth-controlled
+five-key multisig. Our pin survived it — the program was already built against the upgraded
+receiver — but Pyth's own public documentation still points at the previous generation's
+sponsored accounts, which is how the mainnet exercise earned a `BadPriceAccount` in simulation.
+
+`docs/PYTH_TRANSITION_2026-08.md` has the detail. The point for this spec is narrower and it
+is no longer a prediction: **inside three weeks the referee deprecated its data source, changed
+its attestation model, put a key in front of its HTTP path, and left its documentation stale.**
+A frozen program that names one referee is making a bet with a measurable half-life. Printing
+that on the box is the honest design; an admin key that could re-point it would be the
+dishonest one, and it would be a key. A machine that dies when one company turns something off is not autonomous. It is
 decentralised until the first outage, which is a different and much smaller claim.
 
 ## What this does not propose
