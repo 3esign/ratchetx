@@ -125,6 +125,44 @@ wrong in different ways, and the curve is what shows it. It is also the full Mur
 decomposition — reliability, resolution, uncertainty — recoverable by anyone, from the
 chain, without us.
 
+## The account is permanent, and that is a decision
+
+`Calibration` has **no close instruction**, and it never gets one.
+
+`Shot` accounts are closable on purpose: they are receipts, the rent comes back, and the
+events survive in transaction history. A calibration record is the opposite thing. It *is*
+the history, and a history that can be deleted is a history somebody controls.
+
+On Solana an account can only be closed by the program that owns it. So a program that ships
+without a close instruction and is then frozen produces records that cannot be destroyed by
+anyone — not by us, not by the player, not by a future authority, because after the freeze
+there is no authority and no instruction that could do it. That is the part of immutability
+nobody advertises: it is not only the cost of never fixing a bug, it is also the only way a
+record on a computer becomes permanent.
+
+Two costs, printed here rather than discovered later:
+
+- **The rent is locked forever.** The account is 161 bytes of data, and Solana's rent
+  exemption is `(128 + data_len) x 3480 lamports/byte-year x 2`, so:
+
+  ```
+  (128 + 161) x 3480 x 2 = 2,011,440 lamports = 0.00201144 SOL per player, permanently
+  ```
+
+  At ten thousand players that is 20.1 SOL locked in accounts nobody can ever close. The
+  number is computed from the formula rather than measured against a live node -- the
+  rent parameters are protocol constants, but the figure should still be confirmed with
+  `getMinimumBalanceForRentExemption` before the layout is final, because if the layout
+  moves so does this.
+- **A mistake in the layout is permanent too.** A successor can read around a bad field; it
+  can never repair one. Which is the real argument for studying this layout hard before the
+  program freezes, rather than keeping an authority around to fix it afterwards.
+
+The layout above is therefore **protocol, not implementation detail** — see `SUCCESSION.md`.
+A successor program reads it by owner plus Anchor discriminator
+(`sha256("account:Calibration")[..8]`), which also makes an old record impossible to forge:
+an attacker would have to get the frozen program itself to write it.
+
 ## Reveal, in full
 
 1. verify `state == Settled` and the commitment (v3 preimage, including `p_bps`)
@@ -141,8 +179,9 @@ and gains nothing, which is the same shape as `close_shot`.
 
 ## How another program uses it
 
-`Calibration` is an ordinary account. Any Solana program can read it with a standard
-deserialize and gate on it — a lending market weighting a liquidation oracle, a DAO
+`Calibration` is an ordinary account, and ownership on Solana gates writes, not reads. Any
+Solana program — including a future version of this one, deployed under a different id after
+this one is frozen — can read it with a standard deserialize and gate on it — a lending market weighting a liquidation oracle, a DAO
 weighting a vote, an agent marketplace pricing a subscription by the seller's track record.
 The read costs nothing and needs no permission from us, which is the property that makes
 this infrastructure rather than a leaderboard.

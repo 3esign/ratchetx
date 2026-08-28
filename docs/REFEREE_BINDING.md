@@ -100,6 +100,14 @@ In practice there will be one referee for a long time and this changes nothing v
 cheap to decide now and impossible to fix afterwards, which is the whole reason to decide it
 now.
 
+**And a successor inherits the dimension.** A v4 program, deployed under its own id after this
+one is frozen, can read every `Calibration` account v3 wrote — ownership gates writes, not
+reads, and the layout is published as protocol (`SUCCESSION.md`). What it must not do is add
+them up. A record seeded `["calib", player, referee_id]` carries its instrument in its own
+address, so flattening two referees into one lifetime score is not a rounding decision, it is
+the same error one layer up: a number that looks like more information while being less. A
+reader that combines them says which ones it combined, or it is not a reader worth trusting.
+
 ## What stays exactly as it is
 
 - `EPOCH_CHAMBERS.md`: the schedule, the entry price as `crossing(opens_at)`, sealing one
