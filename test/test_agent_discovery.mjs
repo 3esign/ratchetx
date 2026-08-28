@@ -14,6 +14,8 @@ const skill = skillBytes.toString('utf8');
 const llms = read('../llms.txt');
 const sitemap = read('../sitemap.xml');
 const openapi = JSON.parse(read('../openapi.json'));
+const registration = JSON.parse(read('../agent-registration.json'));
+const domainRegistration = JSON.parse(read('../.well-known/agent-registration.json'));
 const vercel = JSON.parse(read('../vercel.json'));
 const vercelIgnore = read('../.vercelignore');
 
@@ -60,6 +62,19 @@ assert.match(frontmatter[1], /^description:\s*[>|]/m,
   'description must use a YAML block scalar so colon-space cannot break installation');
 assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.4"$/m);
 
+assert.deepEqual(domainRegistration, registration,
+  'the well-known domain proof must mirror the primary ERC-8004 registration file');
+assert.equal(registration.type, 'https://eips.ethereum.org/EIPS/eip-8004#registration-v1');
+assert.equal(registration.name, 'RatchetX');
+assert.equal(registration.active, true);
+assert.equal(registration.x402Support, true);
+assert.deepEqual(registration.supportedTrust, ['reputation', 'crypto-economic']);
+assert.ok(registration.services.some(s => s.name === 'MCP'
+  && s.endpoint === 'https://ratchetx.xyz/api/mcp'
+  && s.version === '2025-11-25'));
+const oasf = registration.services.find(s => s.name === 'OASF');
+assert.ok(oasf && oasf.skills.length >= 3 && oasf.domains.includes('technology/blockchain/blockchain'));
+
 const board = catalog.entries.find(e => e.identifier.endsWith(':live-board'));
 const corpus = catalog.entries.find(e => e.identifier.endsWith(':forecast-corpus'));
 const paidEntry = catalog.entries.find(e => e.identifier.endsWith(':x402:ranked-entry-claim'));
@@ -99,11 +114,13 @@ assert.doesNotMatch(llms, /shipped dark|production flag is still OFF/i);
 for (const path of [
   '/api/agent-entry',
   '/openapi.json',
+  '/agent-registration.json',
   '/llms.txt',
   '/skills/ratchetx/SKILL.md',
   '/.well-known/agent-skills/index.json',
   '/.well-known/ai-catalog.json',
   '/.well-known/mcp.json',
+  '/.well-known/agent-registration.json',
 ]) {
   assert.ok(sitemap.includes(path), `sitemap is missing agent discovery path: ${path}`);
 }
@@ -121,5 +138,9 @@ const openapiHeaders = vercel.headers.find(h => h.source === '/openapi.json');
 assert.ok(openapiHeaders && openapiHeaders.headers.some(h =>
   h.key === 'Access-Control-Allow-Origin' && h.value === '*'),
   'OpenAPI discovery must be readable cross-origin');
+const registrationHeaders = vercel.headers.find(h => h.source === '/agent-registration.json');
+assert.ok(registrationHeaders && registrationHeaders.headers.some(h =>
+  h.key === 'Access-Control-Allow-Origin' && h.value === '*'),
+  'ERC-8004 registration metadata must be readable cross-origin');
 
 console.log('PASS  agent discovery is installable, digest-bound, linked, CORS-visible, and honest');

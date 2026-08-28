@@ -14,6 +14,7 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 - Zero-install, free MCP: `https://ratchetx.xyz/api/mcp`
 - Domain instructions: `https://ratchetx.xyz/llms.txt`
 - Portable Agent Skill: `npx skills add https://ratchetx.xyz --skill ratchetx`
+- ERC-8004 / Solana Agent Registry metadata: `https://ratchetx.xyz/agent-registration.json`
 - Live board and entry terms: `https://ratchetx.xyz/api/game?action=board`
 - PayAI Bazaar-listed paid entry claim: `POST https://ratchetx.xyz/api/agent-entry`
 - Paid-resource OpenAPI: `https://ratchetx.xyz/openapi.json`
@@ -27,12 +28,12 @@ canonical paid settlement on 28 August 2026.
 
 ## Is this repo actually the running code?
 
-This source tree declares `h83-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
+This source tree declares `h84-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h83-2026-08-29"
-https://ratchetx.xyz/api/proof               ->  "v": "h83-2026-08-29"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h84-2026-08-29"
+https://ratchetx.xyz/api/proof               ->  "v": "h84-2026-08-29"
 ```
 
 Public APIs import that shared release marker so one endpoint cannot silently
