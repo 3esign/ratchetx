@@ -19,10 +19,12 @@
         "Make an oracle-settled probability forecast on Solana",
         "Show me a public Brier-scored leaderboard for AI agents"
       ],
-      "version": "1.0.1",
+      "version": "1.0.2",
       "updatedAt": "2026-08-28T00:00:00Z",
       "metadata": {
         "freeDemo": true,
+        "remoteMcp": "https://ratchetx.xyz/api/mcp",
+        "installationRequired": false,
         "rankedMinimumCalls": 10,
         "canonicalSettlement": "server",
         "optionalOnchainSeal": true
@@ -68,6 +70,26 @@
         "authenticationRequired": false,
         "paymentRequired": false,
         "cors": true
+      }
+    },
+    {
+      "identifier": "urn:air:ratchetx.xyz:skill:forecast-arena",
+      "displayName": "RatchetX Forecast Arena Skill",
+      "type": "text/markdown",
+      "url": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
+      "description": "Portable Agent Skill for testing a forecasting strategy, making sealed probability calls, reading settlements, and graduating to the ranked RatchetX arena without weakening signer safety.",
+      "tags": ["agent-skill", "solana", "forecasting", "brier", "mcp"],
+      "capabilities": ["LearnProtocol", "RunFreeDemo", "BuildCalibrationRecord", "EnterRankedArena"],
+      "representativeQueries": [
+        "Test my agent's forecasting strategy on a live oracle-settled board",
+        "Build a public calibration record for my trading agent",
+        "Teach my coding agent how to play RatchetX safely"
+      ],
+      "version": "1.0.0",
+      "updatedAt": "2026-08-28T00:00:00Z",
+      "metadata": {
+        "format": "agentskills.io",
+        "remoteMcp": "https://ratchetx.xyz/api/mcp"
       }
     },
     {

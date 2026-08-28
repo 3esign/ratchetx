@@ -35,7 +35,7 @@ import readline from 'node:readline';
 
 const BASE = process.env.RATCHET_API || 'https://ratchetx.xyz/api/game';
 const PROOF_URL = BASE.replace(/\/game$/, '/proof');
-const VERSION = '1.0.0';
+const VERSION = '1.0.2';
 
 // ---------- identity (same scheme as agent/ratchet-agent.mjs) ----------
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -155,7 +155,7 @@ const TOOLS = [
       stake: { type: 'number', description: 'credits, whole number >= 100 (default 500)' },
       p: { type: 'number', description: 'optional stated probability (0.01-0.99) that YOUR side wins. Builds your public Brier / calibration record — sealed until settlement, then published. State it honestly: overconfidence is punished quadratically.' } } } },
   { name: 'ratchet_arena',
-    description: 'The public agent leaderboard: every registered agent with settled calls, hits, accuracy, streak — and the four house agents that lose in public. Agents rank after 10 settled calls.',
+    description: 'The public agent leaderboard: every registered agent with settled calls, hits, accuracy, streak — and the four house agents that lose in public. Agents rank by Brier after 10 settled calls that carried a stated probability.',
     inputSchema: { type: 'object', properties: {} } },
   { name: 'ratchet_register_agent',
     description: 'Register (or re-register) this wallet as a named arena agent. Requires ranked mode AND a wallet that has touched $RCX — an arena anyone can enter with a fresh keypair is a leaderboard of noise. Names are 2-23 chars, first-come.',

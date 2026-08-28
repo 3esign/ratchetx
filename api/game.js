@@ -2565,6 +2565,21 @@ module.exports = async (req, res) => {
           ],
           see:'/api/game?action=board → arena' });
       }
+      // Optional public provenance: if this operational wallet is already
+      // linked in Solana Agent Registry / ERC-8004, carry that identity onto
+      // the Ratchet record.  This is read-only and deliberately fail-open:
+      // indexer availability must never become game availability.  A registry
+      // identity proves continuity, not forecasting quality, so it does not
+      // qualify entry or affect Brier ranking.
+      const priorIdentity = p.agent && p.agent.identity;
+      let linkedIdentity = null;
+      try {
+        const found = await require('../lib/agent_registry.js').lookupAgentByWallet(w);
+        if (found.status === 'verified') linkedIdentity = found.identity;
+        else if (found.status === 'unavailable') linkedIdentity = priorIdentity || null;
+      } catch {
+        linkedIdentity = priorIdentity || null;
+      }
       // Names and the bounded registry are shared state.  Serialize them so
       // two simultaneous registrations cannot both claim one name or erase
       // one another from the arena list.
@@ -2581,7 +2596,8 @@ module.exports = async (req, res) => {
           }
         }
         const first = !p.agent;
-        p.agent = { name, blurb, since: (p.agent && p.agent.since) || Date.now() };
+        p.agent = { name, blurb, since: (p.agent && p.agent.since) || Date.now(),
+          ...(linkedIdentity ? { identity: linkedIdentity } : {}) };
         if (x402Entry) p.x402Entry = { sig: x402Entry.sig, paidTo: x402Entry.payTo,
           amount: x402Entry.amountAtomic, t: Date.now() };
         await savePlayer(p);
@@ -2637,12 +2653,13 @@ module.exports = async (req, res) => {
         what: 'a ranked leaderboard scored by Brier, not by profit — a sealed probability, '
           + 'settled by an oracle, recomputable from the public hash-chained log',
         register: { http: 'POST /api/game { action:"agent-register", auth, name }',
-          mcp: 'ratchet_register_agent', reference: 'agent/ratchet-agent.mjs' },
+          remoteDemoMcp: 'https://ratchetx.xyz/api/mcp',
+          rankedLocalMcpTool: 'ratchet_register_agent', reference: 'agent/ratchet-agent.mjs' },
         doors: [
           { id: 'rcx', requires: 'the wallet has held or burned $RCX at least once',
             cost: 'whatever you paid for the token; nothing is paid to us' },
           { id: 'x402', enabled: x402On,
-            requires: 'a USDC toll over the x402 protocol, for a wallet that has never touched $RCX',
+            requires: 'a future standard x402 v2 SVM USDC toll, for a wallet that has never touched $RCX',
             protocolStatus: 'manual-transfer prototype; standard x402 v2 clients are not supported yet',
             amountAtomic: x402On ? String(x402lib.entryAmountAtomic()) : null,
             asset: x402lib.USDC_MINT, network: 'solana',
@@ -2655,8 +2672,12 @@ module.exports = async (req, res) => {
           index: '(1 - sqrt(brier)) * 100 — 100 clairvoyant, 50 is "always says 50%"',
           minCallsToRank: ARENA_MIN_CALLS,
           note: 'no stated probability, no score — a prior is never invented for you' },
+        identity: { optional: true, standard: 'Solana Agent Registry / ERC-8004',
+          lookup: 'automatic read-only match on the same operational wallet at registration',
+          effect: 'public provenance only — it does not qualify entry or affect Ratchet score or rank',
+          registry: 'https://solana.com/agent-registry' },
         free: { mode: 'demo', ranked: false,
-          how: 'play unranked with a demo wallet, no token and no payment, to test a strategy first' },
+          how: 'connect https://ratchetx.xyz/api/mcp and play unranked with no install, token or payment' },
         read: { leaderboard: '/api/game?action=arena', corpus: '/api/record?format=ndjson',
           proof: '/api/proof' },
       };
@@ -2713,6 +2734,7 @@ module.exports = async (req, res) => {
         const bmean = bn ? (ap.bsum || 0) / bn : null;
         const ranked = bn >= ARENA_MIN_CALLS;
         rows.push({ name: ap.agent.name, blurb: ap.agent.blurb || '',
+          identity: ap.agent.identity || null,
           since: ap.agent.since, w: shortW(aw), n, hits,
           acc: n ? +(hits / n * 100).toFixed(1) : null,
           stated: bn,
@@ -2722,11 +2744,17 @@ module.exports = async (req, res) => {
             ? `a Brier ranking needs ${ARENA_MIN_CALLS} stated-probability calls; this agent has ${bn}`
             : 'no stated probabilities yet — pass p (0.01-0.99) on your shots to build a calibration record'),
           xp: ap.xp || 0, streak: ap.streak || 0,
-          listed: n >= ARENA_MIN_CALLS });
+          // The public contract says this is a Brier leaderboard. A settled
+          // side with no stated probability is still part of the accuracy
+          // record, but it is not a Brier observation and cannot qualify an
+          // agent for this ranking.
+          listed: ranked });
       }
-      rows.sort((a, b) => (b.listed - a.listed) || ((b.acc || 0) - (a.acc || 0)) || (b.n - a.n));
+      rows.sort((a, b) => (b.listed - a.listed)
+        || ((a.brier ?? Infinity) - (b.brier ?? Infinity))
+        || ((b.acc || 0) - (a.acc || 0)) || (b.n - a.n));
       return res.json({ ok:true, v: VERSION, minCalls: ARENA_MIN_CALLS,
-        note: `an agent is ranked after ${ARENA_MIN_CALLS} settled calls — before that its record is published but unranked, because a 3-for-3 streak is not evidence`,
+        note: `an agent is ranked after ${ARENA_MIN_CALLS} settled calls with a stated probability — before that its record is published but unranked, because a 3-for-3 streak is not evidence`,
         house: await agentsTick(prices),
         agents: rows });
     }
@@ -3221,4 +3249,3 @@ module.exports = async (req, res) => {
 module.exports.champWindowSum = champWindowSum;   // pure, for the test harness
 module.exports.refreshLivePodium = refreshLivePodium;
 module.exports.parseMirrorSeal = parseMirrorSeal;
-

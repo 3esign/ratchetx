@@ -1068,7 +1068,7 @@ const kvmod = require('../lib/kv.js');
     granted:true, burned:0, day:new Date().toISOString().slice(0,10), closed:[],
     open:[{ id:'s'+streak, kind:'dir', feed:'SOL', side:'YES', entry:90, exp:Date.now()-1000,
             stake:500, xp:100, label:'t', src:'cr' }] });
-  const run = async (streak) => { seed(streak); tickPx();
+  const run = async (streak) => { seed(streak); seedStubPx(Date.now()); tickPx();
     await call('GET', { query:{ action:'state', wallet:W } });
     return getMem(`u:${W}`).closed[0]; };
 
@@ -1081,7 +1081,7 @@ const kvmod = require('../lib/kv.js');
   setMem(`u:${W}`, { ...getMem(`u:${W}`), streak: 5, closed: [],
     open:[{ id:'sm', kind:'dir', feed:'SOL', side:'NO', entry:90, exp:Date.now()-1000,
             stake:500, xp:100, label:'t', src:'cr' }] });
-  tickPx(); await call('GET', { query:{ action:'state', wallet:W } });
+  seedStubPx(Date.now()); tickPx(); await call('GET', { query:{ action:'state', wallet:W } });
   ok(getMem(`u:${W}`).streak === 0, 'one miss resets the run — which is what makes it worth protecting');
   ok(getMem(`u:${W}`).closed[0].xp === 1, 'the same miss still earns fixed settlement XP');
 }

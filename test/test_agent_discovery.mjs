@@ -28,6 +28,11 @@ for (const entry of catalog.entries) {
 const mcpEntry = catalog.entries.find(e => e.type === 'application/mcp-server-card+json');
 assert.equal(mcpEntry.url, 'https://ratchetx.xyz/.well-known/mcp.json');
 assert.equal(mcp.apiBase, 'https://ratchetx.xyz/api/game');
+assert.ok(mcp.servers.some(s => s.type === 'streamable-http' && s.url === 'https://ratchetx.xyz/api/mcp'),
+  'discovery must offer a zero-install remote, not only a clone-and-run stdio server');
+assert.ok(catalog.entries.some(e => e.identifier.endsWith(':skill:forecast-arena')
+  && e.url === 'https://ratchetx.xyz/skills/ratchetx/SKILL.md'),
+  'the portable Agent Skill is part of domain-anchored discovery');
 
 const board = catalog.entries.find(e => e.identifier.endsWith(':live-board'));
 const corpus = catalog.entries.find(e => e.identifier.endsWith(':forecast-corpus'));
@@ -35,6 +40,7 @@ assert.equal(board.metadata.paymentRequired, false, 'the live board is free');
 assert.equal(corpus.metadata.paymentRequired, false, 'the public corpus is free');
 assert.match(llms, /\.well-known\/ai-catalog\.json/);
 assert.match(llms, /canonical arbiter for credits and XP/);
+assert.match(llms, /https:\/\/ratchetx\.xyz\/api\/mcp/);
 
 const wellKnownHeaders = vercel.headers.find(h => h.source === '/.well-known/(.*)');
 assert.ok(wellKnownHeaders, 'Vercel must serve well-known discovery files with explicit headers');

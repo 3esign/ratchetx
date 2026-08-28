@@ -17,6 +17,9 @@ const CHAMP = 'Champ1onWa11etxxxxxxxxxxxxxxxxxxxxxxxxxxxxx';
 // stub the oracle and the chain; TXS is the fixture ledger getTx reads from
 const pricesPath = require.resolve('../lib/prices.js');
 const burnPath = require.resolve('../lib/burn.js');
+const agentRegistryPath = require.resolve('../lib/agent_registry.js');
+const REGISTRY_ASSET = '7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE';
+let registryMode = 'verified';
 const FEEDS = ['SOL','BTC','ETH','BONK','WIF','JUP','PUMP'];
 let T = 100;
 require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true,
@@ -29,6 +32,14 @@ require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
   exports: { INCINERATOR:'1nc1nerator11111111111111111111111111111111',
     rpcCall: async()=>null, getTx: async sig => TXS.get(sig) || null,
     decideBurn: ()=>({ok:false,reason:'stub'}) } };
+require.cache[agentRegistryPath] = { id: agentRegistryPath, filename: agentRegistryPath, loaded: true,
+  exports: { lookupAgentByWallet: async wallet => registryMode === 'verified'
+    ? ({ status:'verified', identity: {
+    standard:'solana-agent-registry-erc8004', globalId:'sol:' + REGISTRY_ASSET,
+    asset:REGISTRY_ASSET, agentWallet:wallet, owner:null, name:'FIXTURE AGENT',
+    uri:null, trustTier:'verified', qualityScore:null, confidence:null,
+    riskScore:null, feedbackCount:0, verifiedAt:'2026-08-28T00:00:00.000Z',
+    source:'fixture' } }) : ({ status:registryMode }) } };
 
 const game = require('../api/game.js');
 const srv = http.createServer(async (req, res) => {
@@ -145,10 +156,13 @@ ok(r.status === 402 && /older than/.test(r.body.error), 'a stale payment is refu
 r = await call({ action: 'agent-register', auth: authFor(A), name: 'TOLL BOT' },
   { 'x-payment': paySig });
 ok(r.status === 200 && r.body.ok === true && r.body.entry === 'x402-toll-to-champion'
-  && r.body.x402 && r.body.x402.paidTo === CHAMP,
-  'a verified toll to the champion registers the agent and says how it entered');
+  && r.body.x402 && r.body.x402.paidTo === CHAMP
+  && r.body.agent.identity?.globalId === 'sol:' + REGISTRY_ASSET,
+  'a verified toll registers the agent and links its independent registry identity');
 const arena = await fetch('http://127.0.0.1:8303?action=arena').then(x => x.json());
-ok(arena.agents.some(a => a.name === 'TOLL BOT'), 'the x402 entrant appears in the arena');
+ok(arena.agents.some(a => a.name === 'TOLL BOT'
+  && a.identity?.standard === 'solana-agent-registry-erc8004'),
+  'the x402 entrant and its registry provenance appear in the arena');
 
 // 8 ---- replay: the same payment cannot admit a second wallet
 r = await call({ action: 'agent-register', auth: authFor(B), name: 'FREERIDER' },
@@ -159,6 +173,18 @@ ok(r.status === 402 && /already used/.test(r.body.error), 'a spent signature adm
 r = await call({ action: 'agent-register', auth: authFor(Q), name: 'RCX NATIVE' });
 ok(r.status === 200 && r.body.ok === true && r.body.entry === 'rcx',
   'RCX-qualified wallets register exactly as before');
+ok(r.body.agent.identity?.agentWallet === Q.w,
+  'registry matching uses the same wallet that signed Ratchet registration');
+registryMode = 'unavailable';
+r = await call({ action: 'agent-register', auth: authFor(Q), name: 'RCX NATIVE',
+  blurb: 'registry is temporarily unreachable' });
+ok(r.status === 200 && r.body.agent.identity?.globalId === 'sol:' + REGISTRY_ASSET,
+  'a registry outage cannot block registration or erase prior verified provenance');
+registryMode = 'not-found';
+r = await call({ action: 'agent-register', auth: authFor(Q), name: 'RCX NATIVE',
+  blurb: 'wallet link was removed from registry' });
+ok(r.status === 200 && !r.body.agent.identity,
+  'a later clean exact miss removes a stale external identity link');
 
 delete process.env.X402_ENABLED;
 console.log(failn === 0 ? '\nALL PASS' : `\n${failn} FAILED`);

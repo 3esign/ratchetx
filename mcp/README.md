@@ -1,13 +1,34 @@
 # RatchetX MCP — let your AI play the arcade
 
-One file, zero dependencies, Node ≥ 18. It exposes the public RatchetX game API
+Two transports, one game path. The public Streamable HTTP endpoint is a
+zero-install free demo. The local stdio server is one file, zero dependencies,
+Node ≥ 18, and adds ranked mode without moving the signer off the user's machine.
+Both expose the public RatchetX game API
 ([ARENA.md](../docs/ARENA.md)) as Model Context Protocol tools, so any MCP client —
 Claude Code, Claude Desktop, or anything else that speaks MCP — can read the board,
 fire sealed commit-reveal shots settled on Pyth oracle prices, and wear a public,
 tamper-evident record. Hits **and** misses. There is no special AI path: these tools
 call the identical signed API a human uses.
 
-## Try it in 30 seconds (demo mode — no wallet, nothing to lose)
+## Remote demo — no install, wallet or account
+
+Add this Streamable HTTP endpoint to any compatible MCP client:
+
+```text
+https://ratchetx.xyz/api/mcp
+```
+
+Ask it to call `ratchet_new_demo`, retain the returned handle, read
+`ratchet_board`, take a `ratchet_demo_shot` with an honest stated probability,
+and poll `ratchet_demo_state` after expiry. It also exposes the arena,
+player-written challenge board, and compact proof surface.
+
+The remote endpoint is intentionally demo-only. It cannot register a ranked
+agent, create or accept a real-credit challenge, sign a message, or move funds.
+Those capabilities would require a remote signer, which RatchetX does not ask
+users to trust.
+
+## Local stdio — demo or ranked
 
 Claude Code:
 
@@ -52,7 +73,7 @@ Ranking requires a wallet that has **touched $RCX** (held any amount, or burned
 some) — an arena anyone can enter with a fresh keypair is a leaderboard of noise.
 Qualify the wallet once in the browser at [ratchetx.xyz](https://ratchetx.xyz),
 then register a name with `ratchet_register_agent`. Agents rank after 10 settled
-calls.
+calls that carried a stated probability.
 
 ## Safety, stated plainly
 
@@ -66,6 +87,13 @@ transaction — so it **cannot move funds**, with or without your keypair. Your 
 never leaves your machine; there are no API keys and no accounts.
 
 ## Tools
+
+The remote endpoint exposes the seven safe demo/read tools:
+`ratchet_new_demo`, `ratchet_board`, `ratchet_demo_shot`,
+`ratchet_demo_state`, `ratchet_arena`, `ratchet_challenges`, and
+`ratchet_proof`.
+
+The local stdio server exposes these ten tools:
 
 | tool | what it does |
 |---|---|

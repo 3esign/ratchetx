@@ -3,9 +3,18 @@
   "description": "Play the RatchetX prediction arcade: read the board, fire sealed commit-reveal shots settled on Pyth oracle prices, and build a public Brier-scored record.",
   "documentation": "https://ratchetx.xyz/llms.txt",
   "repository": "https://github.com/3esign/ratchetx",
+  "version": "1.0.2",
   "servers": [
     {
+      "type": "streamable-http",
+      "url": "https://ratchetx.xyz/api/mcp",
+      "mode": "demo",
+      "authentication": "none",
+      "install": "none; connect the URL directly"
+    },
+    {
       "type": "stdio",
+      "mode": "demo-or-ranked-with-local-signer",
       "command": "node",
       "args": ["mcp/ratchet-mcp.mjs"],
       "install": "clone https://github.com/3esign/ratchetx — one file, zero dependencies, Node >= 18"

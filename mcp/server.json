@@ -7,6 +7,12 @@
     "url": "https://github.com/3esign/ratchetx",
     "source": "github"
   },
-  "version": "1.0.1",
-  "websiteUrl": "https://ratchetx.xyz"
+  "version": "1.0.2",
+  "websiteUrl": "https://ratchetx.xyz",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://ratchetx.xyz/api/mcp"
+    }
+  ]
 }
