@@ -82,8 +82,21 @@ ok(/onchainSeal:SEAL_PROGRAM_ID \? `optional-\$\{SEAL_CLUSTER\}` : 'disabled'/.t
   'the proof page reports the mirror as disabled rather than omitting it');
 
 // ------------------------------------------- 3. the docs name the real variable
-const DOCS = ['README.md', ...readdirSync(at('docs')).filter(f => f.endsWith('.md')).map(f => 'docs/' + f)];
-const code = ['api', 'lib', 'tools']
+// Every markdown file in the repo, not just README and docs/. The first version of
+// this suite scanned those two and passed, while mcp/README.md quietly told external
+// agent developers to set RatchetX_WALLET_KEYPAIR -- a variable nothing reads, in the
+// one document whose whole job is onboarding the players we do not have.
+const MD_DIRS = ['.', 'docs', 'mcp', 'token', 'agent', 'ops'];
+const DOCS = MD_DIRS.flatMap(d => {
+  let names = [];
+  try { names = readdirSync(at(d)); } catch { return []; }
+  return names.filter(f => f.endsWith('.md')).map(f => (d === '.' ? '' : d + '/') + f);
+});
+// mcp/ belongs here too: widening the DOCS scan without widening the CODE scan made
+// this suite report RATCHET_DEMO_HANDLE as undocumented-by-code when mcp/ratchet-mcp.mjs
+// reads it on line 61. A checker with a narrower view than the thing it checks produces
+// confident false findings, which is worse than not checking.
+const code = ['api', 'lib', 'tools', 'mcp']
   .flatMap(d => readdirSync(at(d)).filter(f => /\.(js|mjs)$/.test(f)).map(f => d + '/' + f))
   .map(read).join('\n');
 

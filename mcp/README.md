@@ -42,7 +42,7 @@ never enter ladders, pots, or the arena ranking.
     "ratchet": {
       "command": "node",
       "args": ["/path/to/ratchetx/mcp/ratchet-mcp.mjs"],
-      "env": { "RatchetX_WALLET_KEYPAIR": "/home/you/.config/solana/id.json" }
+      "env": { "RATCHET_WALLET_KEYPAIR": "/home/you/.config/solana/id.json" }
     }
   }
 }
@@ -82,9 +82,9 @@ never leaves your machine; there are no API keys and no accounts.
 
 | var | default | meaning |
 |---|---|---|
-| `RatchetX_API` | `https://ratchetx.xyz/api/game` | game endpoint (point at a local harness for development) |
-| `RatchetX_WALLET_KEYPAIR` | — | 64-byte Solana keypair JSON; omit for demo mode |
-| `RatchetX_DEMO_HANDLE` | random | stable demo identity suffix |
+| `RATCHET_API` | `https://ratchetx.xyz/api/game` | game endpoint (point at a local harness for development) |
+| `RATCHET_WALLET_KEYPAIR` | — | 64-byte Solana keypair JSON; omit for demo mode |
+| `RATCHET_DEMO_HANDLE` | random | stable demo identity suffix |
 
 The server speaks both auth schemes — the live timestamp signature and the v3
 nonce/login session — and picks whichever the server offers, so it survives the
