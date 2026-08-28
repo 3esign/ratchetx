@@ -9,6 +9,7 @@ const catalog = JSON.parse(read('../.well-known/ai-catalog.json'));
 const mcp = JSON.parse(read('../.well-known/mcp.json'));
 const llms = read('../llms.txt');
 const vercel = JSON.parse(read('../vercel.json'));
+const vercelIgnore = read('../.vercelignore');
 
 assert.equal(catalog.specVersion, '1.0');
 assert.equal(catalog.host.displayName, 'RatchetX');
@@ -45,5 +46,11 @@ assert.match(llms, /https:\/\/ratchetx\.xyz\/api\/mcp/);
 const wellKnownHeaders = vercel.headers.find(h => h.source === '/.well-known/(.*)');
 assert.ok(wellKnownHeaders, 'Vercel must serve well-known discovery files with explicit headers');
 assert.ok(wellKnownHeaders.headers.some(h => h.key === 'Access-Control-Allow-Origin' && h.value === '*'));
+const skillHeaders = vercel.headers.find(h => h.source === '/skills/ratchetx/SKILL.md');
+assert.ok(skillHeaders && skillHeaders.headers.some(h =>
+  h.key === 'Content-Type' && h.value.startsWith('text/markdown')),
+  'the public Agent Skill must be served as Markdown');
+assert.match(vercelIgnore, /^!skills\/ratchetx\/SKILL\.md$/m,
+  'the exact public Agent Skill must be re-included after the global Markdown deploy exclusion');
 
 console.log('PASS  ARD catalog is schema-shaped, linked, CORS-visible, and honest');

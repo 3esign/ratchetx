@@ -20,6 +20,10 @@ supabase/
 scripts/
 *.cmd
 *.md
+# The public Agent Skill is executable discovery content, not repository docs.
+# Keep this one exact Markdown file in the deployment while every other *.md
+# remains excluded by the safety boundary above.
+!skills/ratchetx/SKILL.md
 *keypair*.json
 *.keys/
 deploy_check.txt

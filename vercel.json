@@ -46,6 +46,13 @@
       ]
     },
     {
+      "source": "/skills/ratchetx/SKILL.md",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Content-Type", "value": "text/markdown; charset=utf-8" }
+      ]
+    },
+    {
       "source": "/.well-known/(.*)",
       "headers": [
         { "key": "Access-Control-Allow-Origin", "value": "*" }
