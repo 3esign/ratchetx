@@ -48,7 +48,7 @@ production. Environment:
 | `RATCHET_SEAL_PROGRAM_ID`, `RATCHET_SEAL_RPC_URL`, `RATCHET_SEAL_CLUSTER`, `RATCHET_SEAL_FEEDS` | on-chain sealing config |
 | `PUBLIC_ORIGIN` | your deployment's public URL |
 | `PYTH_API_KEY`, `PYTH_HERMES_URL` | optional Hermes failover only — not required |
-| `X402_ENABLED`, `X402_ENTRY_USDC_ATOMIC`, `X402_FACILITATOR_URL`, `X402_FACILITATOR_BEARER` | optional standard x402 v2 agent door; keep disabled until a funded mainnet smoke |
+| `X402_ENABLED`, `X402_ENTRY_USDC_ATOMIC`, `X402_FACILITATOR_URL`, `X402_FACILITATOR_BEARER` | optional standard x402 v2 agent door; prove your own configured recipient, amount, settlement and replay with a funded smoke before enabling |
 | `KV_REST_API_URL/TOKEN`, `UPSTASH_REDIS_*` | legacy KV fallbacks — not needed on Supabase |
 | `RATCHET_CAPTURE_SECRET`, `RATCHET_LP_BURN_TX`, `CREDIT_PER_TOKEN` | ops extras; safe to omit |
 

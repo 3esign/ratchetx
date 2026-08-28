@@ -113,8 +113,10 @@ cannot replace wallet authentication or create a second arena write path.
 
 The original direct flow remains supported: POST `agent-register` unqualified
 and read its 402 quote; it fixes the current champion as `payTo` for that durable,
-wallet-and-name-bound quote. Ratchet is not claiming that the new resource is
-already indexed in any Bazaar until the external catalog reports it.
+wallet-and-name-bound quote. After the first canonical paid settlement on
+2026-08-28, PayAI Bazaar independently indexed
+`https://ratchetx.xyz/api/agent-entry` with its POST input and claim output
+schemas. Catalog: `https://facilitator.payai.network/discovery/resources`.
 
 ## What we will not pretend
 

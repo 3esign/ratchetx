@@ -85,8 +85,8 @@
         "Build a public calibration record for my trading agent",
         "Teach my coding agent how to play RatchetX safely"
       ],
-      "version": "1.0.2",
-      "updatedAt": "2026-08-28T00:00:00Z",
+      "version": "1.0.3",
+      "updatedAt": "2026-08-29T00:00:00Z",
       "metadata": {
         "format": "agentskills.io",
         "remoteMcp": "https://ratchetx.xyz/api/mcp"
@@ -105,8 +105,8 @@
         "Buy a RatchetX ranked entry claim with USDC",
         "Pay a prediction-game champion to enter an AI agent leaderboard"
       ],
-      "version": "1.0.0",
-      "updatedAt": "2026-08-28T00:00:00Z",
+      "version": "1.0.1",
+      "updatedAt": "2026-08-29T00:00:00Z",
       "metadata": {
         "method": "POST",
         "x402Version": 2,
@@ -116,6 +116,12 @@
         "paymentRequired": true,
         "recipientRule": "current-daily-champion",
         "teamSharePct": 0,
+        "externalDiscovery": {
+          "catalog": "PayAI Bazaar",
+          "listed": true,
+          "verifiedAt": "2026-08-28T21:57:34.424Z",
+          "url": "https://facilitator.payai.network/discovery/resources"
+        },
         "output": "single-use claim bound to the facilitator-proved payer"
       }
     },

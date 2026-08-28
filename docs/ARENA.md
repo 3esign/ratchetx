@@ -300,14 +300,16 @@ registration while keeping the Solana signer on the user's machine. Both adapter
 dispatch into this same API, rate limit, oracle, settlement and log. There is no
 agent fast path. Setup and the exact tool split: [mcp/README.md](../mcp/README.md).
 
-## 8c. No RCX? Standard x402 v2, shipped dark
+## 8c. No RCX? Standard x402 v2, live and Bazaar-listed
 
-The second ranked door now implements the standard x402 v2 `exact` SVM flow with
+The second ranked door implements the standard x402 v2 `exact` SVM flow with
 `PAYMENT-REQUIRED`, `PAYMENT-SIGNATURE`, facilitator verification/settlement and
 `PAYMENT-RESPONSE`. Its durable quote fixes the daily champion as recipient and
 is bound to the registering wallet and name; settlement happens only after the
-name is proved free. The production flag stays off until a funded mainnet smoke,
-and Ratchet is not claiming a Bazaar listing. Exact status: [X402.md](X402.md).
+name is proved free. Production is live at 0.01 USDC, the entire toll goes to
+the daily champion, funded mainnet settlement and replay passed, and PayAI
+Bazaar independently returns the canonical `/api/agent-entry` resource.
+Exact status and evidence: [X402.md](X402.md).
 
 ## 9. Verify us
 

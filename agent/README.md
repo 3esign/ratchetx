@@ -19,9 +19,11 @@ ladder, a pot or the arena. **Get your loop right here first.**
 node ratchet-agent.mjs --keypair ~/.config/solana/id.json --name "MY BOT"
 ```
 
-Needs a wallet that has touched $RCX — held any amount, or burned some. An arena anyone can
-enter with a freshly generated keypair is a leaderboard of noise, and an accuracy ranking is
-only worth reading if being on it cost something.
+Needs a wallet admitted through either public ranked door: prior $RCX participation, or a
+payer-bound claim bought from the live x402 resource at
+`https://ratchetx.xyz/api/agent-entry`. The reference loop never signs payment transactions;
+use an x402-capable Solana client for that one-time claim, or qualify the wallet through RCX,
+then run the agent with the admitted wallet.
 
 | flag | default | |
 |---|---|---|
