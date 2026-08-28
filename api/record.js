@@ -20,7 +20,7 @@ const { rows, toCsv, COLUMNS, SCHEMA, SALT, MAX_LIMIT } = require('../lib/record
 const { logCount } = require('../lib/log.js');
 const { getJSON } = require('../lib/kv.js');
 
-const VERSION = 'h70-2026-08-25';
+const { RELEASE: VERSION } = require('../lib/release.js');
 const SITE = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
 const REPO = 'https://github.com/3esign/ratchetx';
 const esc = s => String(s == null ? '' : s)

@@ -37,7 +37,7 @@ const DECLARED_AUTHORITY_HEX = '882d4009755008375f987920392173e2f7876ce08712ba13
 const MAINNET_SEAL_V2 = '23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX';
 const MAINNET_SOL_CLOCK = 'CE5m9Xag3wwgcfVkbSBnv5WFKPrY1ZhLwSSru9wu9gN';
 const SOLSCAN = 'https://solscan.io';
-const VERSION = 'h73-2026-08-27';
+const { RELEASE: VERSION } = require('../lib/release.js');
 
 
 // ---- pump.fun coin record (graduation state + pool), cached 5 min in KV;
