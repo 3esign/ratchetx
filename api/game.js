@@ -2689,7 +2689,9 @@ module.exports = async (req, res) => {
           { id: 'x402', enabled: x402On,
             available: x402On && !!champion,
             requires: 'a standard x402 v2 exact SVM USDC toll, for a wallet that has never touched $RCX',
-            protocolStatus: 'standard v2 facilitator flow shipped dark; production arming waits on a funded mainnet smoke',
+            protocolStatus: x402On
+              ? 'live: funded mainnet settlement and idempotent replay proved; standard v2 facilitator flow'
+              : 'standard v2 facilitator flow shipped dark; production arming waits on a funded mainnet smoke',
             protocolVersion: 2,
             requestHeader: 'PAYMENT-SIGNATURE', responseHeaders: ['PAYMENT-REQUIRED','PAYMENT-RESPONSE'],
             amountAtomic: x402On ? String(x402lib.entryAmountAtomic()) : null,

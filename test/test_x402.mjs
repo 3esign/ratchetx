@@ -170,7 +170,8 @@ ok(supportedCalls===1,'facilitator capability is proved before any quote is issu
 
 boardOut=await board(); boardDoor=boardOut.arena?.doors.find(d=>d.id==='x402');
 ok(boardDoor?.enabled===true && boardDoor.payTo===CHAMP && boardDoor.network===MAINNET
-  && /standard v2 facilitator/.test(boardDoor.protocolStatus),
+  && /standard v2 facilitator/.test(boardDoor.protocolStatus)
+  && /funded mainnet settlement/.test(boardDoor.protocolStatus) && !/shipped dark/.test(boardDoor.protocolStatus),
   'board advertises the armed protocol and live recipient without claiming Bazaar listing');
 
 // 3 — legacy/manual and malformed headers never reach the facilitator.

@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RatchetX — funded x402 smoke</title>
+  <style>
+    :root { color-scheme:dark; --ink:#edf1e8; --muted:#9ea89b; --line:#2a332c; --green:#8dffb0; --red:#ff8585; --amber:#ffd27a }
+    * { box-sizing:border-box }
+    body { margin:0; min-height:100vh; background:#0a0d0b; color:var(--ink); font:15px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace }
+    main { width:min(850px,calc(100% - 32px)); margin:44px auto }
+    h1 { font:700 clamp(24px,5vw,44px)/1.05 system-ui,sans-serif; letter-spacing:-.035em; margin:0 0 14px }
+    p { color:var(--muted); max-width:72ch }
+    .box { border:1px solid var(--line); background:#101512; border-radius:14px; padding:18px; margin:22px 0 }
+    .facts { display:grid; grid-template-columns:max-content 1fr; gap:7px 18px; margin:0 }
+    .facts dt { color:var(--muted) } .facts dd { margin:0; overflow-wrap:anywhere }
+    button { border:0; border-radius:10px; background:var(--green); color:#071009; font:800 15px/1 system-ui,sans-serif; padding:15px 20px; cursor:pointer }
+    button:disabled { opacity:.4; cursor:wait }
+    #status { color:var(--amber); margin-left:12px }
+    #log { min-height:220px; white-space:pre-wrap; overflow-wrap:anywhere; color:#ccd4c9 }
+    .ok { color:var(--green) } .bad { color:var(--red) }
+    a { color:var(--green) }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Funded x402 mainnet smoke</h1>
+    <p>This local page never receives or stores a private key. It asks the injected wallet to sign Ratchet authentication, validates the live 0.01 USDC quote, then asks it to sign one bounded USDC transfer to the quoted daily champion.</p>
+    <section class="box">
+      <dl class="facts">
+        <dt>API</dt><dd>https://ratchetx.xyz/api/game</dd>
+        <dt>network</dt><dd>Solana mainnet</dd>
+        <dt>maximum</dt><dd>0.01 USDC exactly</dd>
+        <dt>recipient</dt><dd>resolved from the signed server quote; verified on chain before signing</dd>
+        <dt>prompts</dt><dd>one authentication signature, one transaction signature</dd>
+      </dl>
+    </section>
+    <button id="run" type="button">RUN FUNDED SMOKE</button><span id="status">idle</span>
+    <section class="box"><div id="log">No wallet action has been requested.</div></section>
+  </main>
+  <script src="/solana-web3.js"></script>
+  <script src="/smoke-core.js"></script>
+  <script src="/rpc-bridge.js"></script>
+  <script src="/smoke-app.js"></script>
+</body>
+</html>
