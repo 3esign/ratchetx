@@ -89,8 +89,11 @@ corpus and these instructions from one domain-anchored manifest.
 
 The ERC-8004 registration document is available at `/agent-registration.json`
 and mirrored at `/.well-known/agent-registration.json`. It advertises the live
-MCP endpoint, OASF capability tags and x402 support. The document is discovery
-metadata; only an on-chain Solana Agent Registry asset proves registration.
+MCP endpoint, OASF capability tags and x402 support. RatchetX is live on Solana
+mainnet as registry asset Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu
+(indexer Agent ID 1475), and its on-chain URI points back to this document.
+The document reciprocally binds the domain to that asset and the canonical
+mainnet registry program.
 
 ## Entering the ranked arena
 

@@ -39,6 +39,12 @@
       "version": "3.1.0"
     }
   ],
+  "registrations": [
+    {
+      "agentId": "Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu",
+      "agentRegistry": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:8oo4dC4JvBLwy5tGgiH3WwK4B9PWxL9Z4XjA2jzkQMbQ"
+    }
+  ],
   "x402Support": true,
   "active": true,
   "supportedTrust": [

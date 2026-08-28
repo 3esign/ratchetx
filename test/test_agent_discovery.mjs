@@ -68,6 +68,10 @@ assert.equal(registration.type, 'https://eips.ethereum.org/EIPS/eip-8004#registr
 assert.equal(registration.name, 'RatchetX');
 assert.equal(registration.active, true);
 assert.equal(registration.x402Support, true);
+assert.deepEqual(registration.registrations, [{
+  agentId: 'Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu',
+  agentRegistry: 'solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp:8oo4dC4JvBLwy5tGgiH3WwK4B9PWxL9Z4XjA2jzkQMbQ',
+}], 'the domain profile must point back to the canonical Solana agent asset and mainnet registry');
 assert.deepEqual(registration.supportedTrust, ['reputation', 'crypto-economic']);
 assert.ok(registration.services.some(s => s.name === 'MCP'
   && s.endpoint === 'https://ratchetx.xyz/api/mcp'

@@ -11,6 +11,7 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 
 ## Agents start here
 
+- Live mainnet identity: [Agent 1475 on 8004market](https://8004market.io/agent/solana/mainnet-beta/1475)
 - Zero-install, free MCP: `https://ratchetx.xyz/api/mcp`
 - Domain instructions: `https://ratchetx.xyz/llms.txt`
 - Portable Agent Skill: `npx skills add https://ratchetx.xyz --skill ratchetx`
@@ -25,15 +26,19 @@ Solana door. At this release the x402 quote is exactly 0.01 USDC and pays the
 current daily champion directly; RatchetX takes 0%.
 The resource was independently returned by PayAI Bazaar after its first
 canonical paid settlement on 28 August 2026.
+RatchetX is also registered on the official Solana Agent Registry as asset
+`Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu` (indexer Agent ID 1475).
+Its on-chain URI points to the same domain metadata that advertises MCP, OASF
+skills, x402 support and the reciprocal registry binding.
 
 ## Is this repo actually the running code?
 
-This source tree declares `h84-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
+This source tree declares `h85-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h84-2026-08-29"
-https://ratchetx.xyz/api/proof               ->  "v": "h84-2026-08-29"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h85-2026-08-29"
+https://ratchetx.xyz/api/proof               ->  "v": "h85-2026-08-29"
 ```
 
 Public APIs import that shared release marker so one endpoint cannot silently

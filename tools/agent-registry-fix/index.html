@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>RatchetX — correct Agent Registry URI</title>
+  <style>
+    :root { color-scheme:dark; --ink:#edf1e8; --muted:#9ea89b; --line:#2a332c; --green:#8dffb0; --red:#ff8585; --amber:#ffd27a }
+    * { box-sizing:border-box }
+    body { margin:0; min-height:100vh; background:#0a0d0b; color:var(--ink); font:15px/1.55 ui-monospace,SFMono-Regular,Consolas,monospace }
+    main { width:min(900px,calc(100% - 32px)); margin:44px auto }
+    h1 { font:700 clamp(24px,5vw,44px)/1.05 system-ui,sans-serif; letter-spacing:-.035em; margin:0 0 14px }
+    p { color:var(--muted); max-width:76ch }
+    .box { border:1px solid var(--line); background:#101512; border-radius:14px; padding:18px; margin:22px 0 }
+    .facts { display:grid; grid-template-columns:max-content 1fr; gap:7px 18px; margin:0 }
+    .facts dt { color:var(--muted) } .facts dd { margin:0; overflow-wrap:anywhere }
+    button { border:0; border-radius:10px; background:var(--green); color:#071009; font:800 15px/1 system-ui,sans-serif; padding:15px 20px; cursor:pointer }
+    button:disabled { opacity:.4; cursor:wait }
+    #status { color:var(--amber); margin-left:12px }
+    #log { min-height:180px; white-space:pre-wrap; overflow-wrap:anywhere; color:#ccd4c9 }
+    .ok, a { color:var(--green) } .bad { color:var(--red) }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Correct RatchetX Agent URI</h1>
+    <p>This local page can only update the already-minted RatchetX Agent Registry asset to the fixed public metadata URI below. It never receives or stores a private key. Phantom signs one bounded registry transaction; no new agent is minted.</p>
+    <section class="box">
+      <dl class="facts">
+        <dt>network</dt><dd>Solana mainnet</dd>
+        <dt>agent</dt><dd>1475</dd>
+        <dt>asset</dt><dd>Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu</dd>
+        <dt>owner</dt><dd>HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM</dd>
+        <dt>program</dt><dd>8oo4dC4JvBLwy5tGgiH3WwK4B9PWxL9Z4XjA2jzkQMbQ</dd>
+        <dt>new URI</dt><dd>https://ratchetx.xyz/agent-registration.json</dd>
+        <dt>effect</dt><dd>update URI only; no mint, transfer, ATOM, collection, or payment</dd>
+      </dl>
+    </section>
+    <button id="run" type="button">VERIFY + CORRECT URI</button><span id="status">idle</span>
+    <section class="box"><div id="log">No wallet action has been requested.</div></section>
+  </main>
+  <script src="/solana-web3.js"></script>
+  <script src="/app.js"></script>
+</body>
+</html>
