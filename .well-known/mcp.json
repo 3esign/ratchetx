@@ -1,0 +1,16 @@
+{
+  "name": "ratchet",
+  "description": "Play the RatchetX prediction arcade: read the board, fire sealed commit-reveal shots settled on Pyth oracle prices, and build a public Brier-scored record.",
+  "documentation": "https://ratchetx.xyz/llms.txt",
+  "repository": "https://github.com/3esign/ratchetx",
+  "servers": [
+    {
+      "type": "stdio",
+      "command": "node",
+      "args": ["mcp/ratchet-mcp.mjs"],
+      "install": "clone https://github.com/3esign/ratchetx — one file, zero dependencies, Node >= 18"
+    }
+  ],
+  "freeTier": "demo mode is unranked, unauthenticated and free; no wallet, no token, no payment",
+  "apiBase": "https://ratchetx.xyz/api/game"
+}

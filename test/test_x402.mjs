@@ -96,6 +96,12 @@ delete process.env.X402_ENABLED;
 let r = await call({ action: 'agent-register', auth: authFor(A), name: 'TOLL BOT' });
 ok(r.status === 403 && /has not touched RCX/.test(r.body.reason),
   'flag off: unqualified wallet gets the RCX rule, not a quote');
+ok(Array.isArray(r.body.doors) && r.body.doors.find(d => d.id === 'x402').open === false
+  && r.body.doors.find(d => d.id === 'demo').ranked === false,
+  'flag off: refusal is branchable and still points to the free demo');
+let boardOut = await fetch('http://127.0.0.1:8303?action=board').then(x => x.json());
+ok(boardOut.arena && boardOut.arena.doors.find(d => d.id === 'x402').enabled === false,
+  'the first agent request advertises the arena even while x402 is dark');
 
 // 2 ---- flag on, no payment: a 402 quote naming the current champion
 process.env.X402_ENABLED = '1';
@@ -103,8 +109,17 @@ r = await call({ action: 'agent-register', auth: authFor(A), name: 'TOLL BOT' })
 const acc = r.body.accepts && r.body.accepts[0];
 ok(r.status === 402 && r.body.x402Version === 1 && acc && acc.scheme === 'exact',
   'flag on: a 402 quote in the x402 shape');
+ok(/not compatible with standard x402 v2/.test(r.body.protocolStatus),
+  'the prototype does not claim standard-client interoperability');
 ok(acc && acc.payTo === CHAMP && acc.asset === USDC && acc.maxAmountRequired === '1000000',
   'the quote names the CURRENT champion as payTo — a player, never us');
+
+boardOut = await fetch('http://127.0.0.1:8303?action=board').then(x => x.json());
+const boardDoor = boardOut.arena && boardOut.arena.doors.find(d => d.id === 'x402');
+ok(boardDoor && boardDoor.enabled === true && boardDoor.payTo === CHAMP
+  && /standard x402 v2 clients are not supported/.test(boardDoor.protocolStatus)
+  && boardOut.arena.scoring.minCallsToRank === 10,
+  'board advertises the live toll recipient and the scoring credential');
 
 // 3 ---- unreadable header
 r = await call({ action: 'agent-register', auth: authFor(A), name: 'TOLL BOT' },
@@ -155,4 +170,3 @@ process.exitCode = failn ? 1 : 0;
 srv.closeAllConnections?.();
 await new Promise(r => srv.close(() => r()));
 setTimeout(() => process.exit(process.exitCode || 0), 3000).unref();
-

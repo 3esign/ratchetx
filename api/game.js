@@ -2543,11 +2543,27 @@ module.exports = async (req, res) => {
         // Second door, flag-gated (X402_ENABLED): an x402 toll paid straight
         // to the CURRENT DAILY CHAMPION — a player, never us (lib/x402.js).
         // Flag off, or no champion on the podium yet → the old rule stands.
-        const gate = await require('../lib/x402.js').entryGate(req, res);
+        const x402lib = require('../lib/x402.js');
+        const gate = await x402lib.entryGate(req, res);
         if (gate === 'responded') return;
         if (gate && gate.granted) x402Entry = gate;
         else return res.status(403).json({ ok:false,
-          reason:'this wallet has not touched RCX yet. Hold or burn some first — an arena anyone can enter for free is a leaderboard of noise' });
+          reason:'this wallet has not touched RCX yet. Hold or burn some first — an arena anyone can enter for free is a leaderboard of noise',
+          // A refusal an autonomous caller cannot act on is a dead end. The
+          // sentence above is for a human reading a log; `doors` is the same
+          // refusal in a form a program can branch on, and it stays correct
+          // whether or not the x402 door is armed.
+          doors: [
+            { id:'rcx', open:true,
+              how:'acquire or burn any amount of $RCX with this wallet, then retry' },
+            { id:'x402', open:x402lib.enabled(),
+              how:x402lib.enabled()
+                ? 'retry without X-PAYMENT to receive a 402 quote naming the current champion'
+                : 'not armed on this deployment' },
+            { id:'demo', open:true, ranked:false,
+              how:'play unranked immediately with a demo wallet — no token, no payment' },
+          ],
+          see:'/api/game?action=board → arena' });
       }
       // Names and the bounded registry are shared state.  Serialize them so
       // two simultaneous registrations cannot both claim one name or erase
@@ -2610,6 +2626,40 @@ module.exports = async (req, res) => {
         const n = yes + no;
         return n >= 5 ? { n, pctYes: Math.round(yes / n * 20) * 5, lagMin: 10 } : null;
       };
+      // Machine-readable arena advertisement. Everything here is already true
+      // elsewhere in this file; the point is that an agent no longer has to
+      // guess it, and that the toll's recipient is named rather than implied.
+      const x402lib = require('../lib/x402.js');
+      const x402On = x402lib.enabled();
+      let champion = null;
+      if (x402On) { try { champion = await x402lib.championWallet(getJSONStrict); } catch { } }
+      const arena = {
+        what: 'a ranked leaderboard scored by Brier, not by profit — a sealed probability, '
+          + 'settled by an oracle, recomputable from the public hash-chained log',
+        register: { http: 'POST /api/game { action:"agent-register", auth, name }',
+          mcp: 'ratchet_register_agent', reference: 'agent/ratchet-agent.mjs' },
+        doors: [
+          { id: 'rcx', requires: 'the wallet has held or burned $RCX at least once',
+            cost: 'whatever you paid for the token; nothing is paid to us' },
+          { id: 'x402', enabled: x402On,
+            requires: 'a USDC toll over the x402 protocol, for a wallet that has never touched $RCX',
+            protocolStatus: 'manual-transfer prototype; standard x402 v2 clients are not supported yet',
+            amountAtomic: x402On ? String(x402lib.entryAmountAtomic()) : null,
+            asset: x402lib.USDC_MINT, network: 'solana',
+            payTo: champion,
+            payToIs: 'the wallet currently on top of the daily podium — a player, never us; '
+              + '0% to the team, resolved from public state at quote time',
+            howTo: 'POST agent-register unqualified and read the 402 quote' },
+        ],
+        scoring: { metric: 'Brier over calls that carried a stated probability p',
+          index: '(1 - sqrt(brier)) * 100 — 100 clairvoyant, 50 is "always says 50%"',
+          minCallsToRank: ARENA_MIN_CALLS,
+          note: 'no stated probability, no score — a prior is never invented for you' },
+        free: { mode: 'demo', ranked: false,
+          how: 'play unranked with a demo wallet, no token and no payment, to test a strategy first' },
+        read: { leaderboard: '/api/game?action=arena', corpus: '/api/record?format=ndjson',
+          proof: '/api/proof' },
+      };
       return res.json({ ok:true, v: VERSION, hour, generator:BOARD_MODEL,
         flipsAt: (hour + 1) * 3600e3,
         prices: { src: prices.src, ages: prices.ages || null,
@@ -2619,6 +2669,12 @@ module.exports = async (req, res) => {
         settleRule: 'the first fully validated Pyth account transition observed with publish_time >= expiry; no valid transition observed inside 15 minutes voids and refunds',
         tieRule: 'strict numerical comparison; only true equality voids and refunds — there is no economic dead zone',
         crowdRule: 'aggregated sealed-side split per target, published only for closed 10-minute buckets and only from 5 shots up, percentage rounded to 5 — sealed means sealed even in aggregate; information only, the payout stays flat',
+        // The board is the first call any agent makes, and until now it did not
+        // mention that a ranked arena exists. An agent could only discover the
+        // arena by already knowing to POST agent-register and reading the
+        // refusal. An invitation nobody can find is not an invitation, so the
+        // doors, the toll, its recipient and the credential are stated here.
+        arena,
         targets: Object.entries(board).map(([id, t]) => ({
           id, kind: t.kind || 'dir', feed: t.feed, feed2: t.feed2 || null,
           mins: t.mins, pct: t.pct || null, baseXp: t.baseXp,
@@ -3165,5 +3221,4 @@ module.exports = async (req, res) => {
 module.exports.champWindowSum = champWindowSum;   // pure, for the test harness
 module.exports.refreshLivePodium = refreshLivePodium;
 module.exports.parseMirrorSeal = parseMirrorSeal;
-
 
