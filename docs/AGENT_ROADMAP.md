@@ -27,7 +27,7 @@ evidence and settlement code as every other player.
 
 ## Verified local baseline
 
-- Release marker: `h92-2026-08-29` until the next deliberate release bump.
+- Release marker: `h93-2026-08-29` until the next deliberate release bump.
 - MCP/Agent Skill/ERC-8004 surfaces: `1.1.0`, checked bidirectionally.
 - Solana Agent Registry: asset `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`,
   indexer Agent ID 1475.

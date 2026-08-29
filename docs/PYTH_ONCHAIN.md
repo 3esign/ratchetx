@@ -91,6 +91,7 @@ Rather than hide this, the page shows each price's publish age. A number that sa
 SOLANA_RPC=<your mainnet RPC>     # optional but recommended (SOLANA_RPC_URL also accepted)
 PYTH_API_KEY=<key>                # configured failover credential
 PYTH_HERMES_URL=https://pyth.dourolabs.app/hermes
+PYTH_BENCHMARKS_URL=https://benchmarks.pyth.network/v1  # optional proof-verifier override
 ```
 
 Unset, `SOLANA_RPC` rotates three public endpoints

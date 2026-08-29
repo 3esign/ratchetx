@@ -158,6 +158,7 @@ enough to hide a live defect (`SOLANA_WS`, see
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash | the documented rollback store is unavailable; Supabase remains primary |
 | `CAPTURE_SECRET` | our own capture endpoint | the account-transition stream does not run; minute polling carries settlement alone |
 | `PYTH_API_KEY` | Pyth Hermes | the Hermes failover is skipped; sponsored on-chain accounts remain the primary route |
+| `PYTH_BENCHMARKS_URL` | Pyth Benchmarks verifier | the verifier uses `https://benchmarks.pyth.network/v1` |
 | `CRANK_INTERVAL_MS` | `tools/crank.mjs` | the local cranker uses its built-in interval |
 
 Every one of these degrades to something stated rather than to silence, which is

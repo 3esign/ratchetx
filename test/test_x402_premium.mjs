@@ -57,6 +57,8 @@ globalThis.fetch = async url => {
 };
 
 const handler = require('../lib/proof_bundle.js');
+assert.doesNotMatch(require.resolve('../lib/verifier.js'), /[\\/]scripts[\\/]/,
+  'production proof handler must statically depend on deployable lib/verifier.js');
 const srv = http.createServer(async (req, res) => {
   const chunks = []; for await (const c of req) chunks.push(c);
   req.body = Buffer.concat(chunks).toString();

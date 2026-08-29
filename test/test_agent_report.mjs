@@ -30,4 +30,8 @@ const demo = await buildAgentReport('demo-clean1');
 assert.equal(demo.body.reportCard.identityProof.walletAuthenticatedRegistration, false);
 assert.equal(demo.body.reportCard.identityProof.demo, true);
 assert.equal(demo.body.reportCard.ranking.listed, false);
+const bareDemo = await buildAgentReport('clean1');
+assert.equal(bareDemo.status, 200);
+assert.equal(bareDemo.body.reportCard.identity, 'demo-clean1');
+assert.equal(bareDemo.body.reportCard.identityProof.demo, true);
 console.log('PASS report-card numbers, identity labels and durable receipt provenance');

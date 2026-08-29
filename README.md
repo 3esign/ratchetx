@@ -40,12 +40,12 @@ skills, x402 support and the reciprocal registry binding.
 
 ## Is this repo actually the running code?
 
-This source tree declares `h92-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
+This source tree declares `h93-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h92-2026-08-29"
-https://ratchetx.xyz/api/proof               ->  "v": "h92-2026-08-29"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h93-2026-08-29"
+https://ratchetx.xyz/api/proof               ->  "v": "h93-2026-08-29"
 ```
 
 Public APIs import that shared release marker so one endpoint cannot silently
@@ -207,6 +207,7 @@ fallback) · `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (preferred free durable sta
 direct Hermes calls since 2026-08-18; without it the game falls back
 to a thinner price source only if the primary on-chain route fails, and says so on the page) ·
 `PYTH_HERMES_URL` (override the Hermes host) · `RATCHET_SEAL_PROGRAM_ID` + `RATCHET_SEAL_VERSION` +
+`PYTH_BENCHMARKS_URL` (optional premium-verifier endpoint override; defaults to Pyth Benchmarks v1) ·
 `RATCHET_SEAL_CLUSTER` (arms optional sealing; it reuses `SOLANA_RPC_URL` unless `RATCHET_SEAL_RPC_URL` is set) ·
 `RATCHET_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)
 

@@ -5,7 +5,7 @@ production verification and deployment are still pending.
 
 ## Live identity and external proofs
 
-- Declared release: `h92-2026-08-29`.
+- Declared release: `h93-2026-08-29`.
 - MCP, Agent Skill and ERC-8004 profile: `1.1.0` locally.
 - Solana registry: agent 1475, asset
   `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`.
@@ -40,6 +40,11 @@ production verification and deployment are still pending.
   the game function while preserving `/api/agent` and `/api/agent-proof-bundle`.
   Current deployable API function count is 12.
 - Added release safety, invite, ranked, funded premium and report provenance tests.
+- Production smoke of h92 caught two deployment-boundary regressions before any
+  premium payment: Vercel omitted a runtime imported from `scripts/`, and a bare
+  Gauntlet handle did not canonicalize to its `demo-<handle>` player key. h93 moves
+  the runtime to statically required `lib/verifier.js` and tests both accepted demo
+  ID forms. Invalid premium IDs still fail before any payment quote.
 
 ## Truth boundary
 
@@ -51,8 +56,9 @@ transition. No v3 program or Calibration PDA is deployed.
 ## Required environment names
 
 Existing deployment docs remain authoritative. New/important names are
-`PYTH_API_KEY` for current Benchmarks access and `X402_PROOF_RECEIVER` for the
-separate premium service. Never place values in this repository.
+`PYTH_API_KEY` for current Benchmarks access, optional `PYTH_BENCHMARKS_URL` for
+its endpoint override, and `X402_PROOF_RECEIVER` for the separate premium service.
+Never place values in this repository.
 
 ## Verification already completed locally
 
