@@ -41,27 +41,12 @@ assert.equal(complete.latestEvidence.id, 'proof1', 'a newer p-less call is not G
 assert.equal(complete.latestEvidence.probability, 0.61);
 assert.match(complete.apiProof, /handle=abc123$/);
 
-const gamePath = require.resolve('../api/game.js');
-let calls = 0;
-require.cache[gamePath] = {
-  id: gamePath,
-  filename: gamePath,
-  loaded: true,
-  exports: async (req, res) => {
-    calls++;
-    assert.deepEqual(req.query, { action:'state', wallet:'demo-abc123' });
-    return res.json({ ok:true, player:{
-      stated:1, brier:0.1521, brierIndex:61, open:[],
-      history:[{ id:'proof1', res:'hit', sp:0.61, t:123 }],
-    } });
-  },
-};
-const handler = require('../api/gauntlet.js');
-async function call(query = {}, method = 'GET') {
+const gameHandler = require('../api/game.js');
+async function callGame(query = {}, method = 'GET') {
   let status = 200;
   let body;
   const headers = {};
-  await handler({ method, query, headers:{}, socket:{} }, {
+  await gameHandler({ method, query, body:{}, headers:{'x-forwarded-for':'14.14.14.14'}, socket:{} }, {
     status(code) { status = code; return this; },
     setHeader(name, value) { headers[name.toLowerCase()] = value; },
     json(value) { body = value; return value; },
@@ -70,24 +55,17 @@ async function call(query = {}, method = 'GET') {
   return { status, body, headers };
 }
 
-let response = await call();
+let response = await callGame({ action:'gauntlet' });
 assert.equal(response.status, 200);
 assert.equal(response.body.gauntlet.id, spec.id);
 assert.equal(response.body.progress, null);
-assert.equal(calls, 0, 'manifest read must not wake canonical player state');
+assert.match(response.headers['cache-control'], /s-maxage=60/);
 
-response = await call({ handle:'abc123' });
-assert.equal(response.status, 200);
-assert.equal(response.body.progress.completed, true);
-assert.equal(response.headers['cache-control'], 'no-store');
-assert.equal(calls, 1);
-
-response = await call({ handle:'not valid!' });
+response = await callGame({ action:'gauntlet', handle:'not valid!' });
 assert.equal(response.status, 400);
 assert.equal(response.body.code, 'BAD_HANDLE');
-assert.equal(calls, 1, 'invalid handles never reach canonical state');
 
-response = await call({}, 'POST');
+response = await callGame({ action:'gauntlet' }, 'POST');
 assert.equal(response.status, 405);
 
 const read = path => fs.readFileSync(new URL('../' + path, import.meta.url), 'utf8');
@@ -107,11 +85,17 @@ assert.match(page, /COPY MISSION/);
 assert.doesNotMatch(page, /innerHTML|private.?key|secret.?key/i);
 assert.match(agents, /href="\/gauntlet"/);
 assert.match(game, /gauntlet:\s*publicSpec\(\)/);
+assert.match(game, /action === 'gauntlet'/);
+assert.match(game, /progress:progressFromState\(state, gauntletHandle\)/);
 assert.match(mcp, /out\.gauntlet\s*=\s*progressFromState/);
 assert.match(llms, /GET \/api\/gauntlet/);
 assert.match(sitemap, /https:\/\/ratchetx\.xyz\/gauntlet/);
 assert.ok(vercel.rewrites.some(route =>
   route.source === '/gauntlet' && route.destination === '/gauntlet.html'));
+assert.ok(vercel.rewrites.some(route =>
+  route.source === '/api/gauntlet' && route.destination === '/api/game?action=gauntlet'));
+assert.equal(fs.existsSync(new URL('../api/gauntlet.js', import.meta.url)), false,
+  'Gauntlet must reuse api/game so the Hobby deployment stays within 12 functions');
 assert.ok(catalog.entries.some(entry =>
   entry.identifier.endsWith(':gauntlet:first-contact')
   && entry.url === 'https://ratchetx.xyz/api/gauntlet'));

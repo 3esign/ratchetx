@@ -55,7 +55,7 @@ const { ACCOUNTS: PX_ACCOUNTS, PYTH_OWNERS, decode: decodePx,
   MAX_AGE_S: PX_MAX_AGE_S, MAX_CONF_BPS: PX_MAX_CONF_BPS } = require('../lib/onchain_px.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
-const { publicSpec } = require('../lib/gauntlet.js');
+const { publicSpec, cleanHandle, progressFromState } = require('../lib/gauntlet.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
 const { RELEASE: VERSION } = require('../lib/release.js');
@@ -1854,7 +1854,13 @@ module.exports = async (req, res) => {
     return false;
   };
   try {
-    const action = (req.method === 'GET' ? req.query.action : (req.body||{}).action) || 'state';
+    const query = req.query || {};
+    // /api/gauntlet rewrites here so it does not consume a thirteenth Vercel
+    // function slot. Preserve that destination action for every method; a
+    // POST to the public GET-only route must not fall through to state.
+    const action = query.action === 'gauntlet'
+      ? 'gauntlet'
+      : (req.method === 'GET' ? query.action : (req.body||{}).action) || 'state';
     // The stream has its own strong service authentication and can legitimately
     // burst when several Pyth accounts update in the same Solana slot. Keep it
     // outside the public per-IP limiter; every byte is validated again here.
@@ -1866,9 +1872,28 @@ module.exports = async (req, res) => {
     // Player records are JSON blobs. Without a per-wallet mutex, two shots
     // can load the same credit balance, both spend it, then last-write-wins
     // the balance while retaining economic effects from both requests.
-    const playerActions = new Set(['state','shot','duel','stake','challenge','accept',
+    let gauntletHandle = null;
+    if (action === 'gauntlet') {
+      if (req.method !== 'GET')
+        return res.status(405).json({ ok:false, v:VERSION, reason:'GET only' });
+      const raw = query.handle;
+      if (raw == null || raw === '') {
+        res.setHeader('cache-control', 'public, max-age=30, s-maxage=60');
+        return res.json({ ok:true, v:VERSION, gauntlet:publicSpec(), progress:null,
+          next:'call ratchet_new_demo through https://ratchetx.xyz/api/mcp' });
+      }
+      try { gauntletHandle = cleanHandle(Array.isArray(raw) ? raw[0] : raw); }
+      catch (error) {
+        return res.status(400).json({ ok:false, v:VERSION,
+          code:error.code || 'BAD_HANDLE', reason:error.message,
+          next:'call ratchet_new_demo and pass its returned handle' });
+      }
+    }
+
+    const playerActions = new Set(['state','gauntlet','shot','duel','stake','challenge','accept',
       'agent-register','reload','mirror_confirm','anchor']);
-    const lockWallet = req.method === 'GET' ? req.query.wallet
+    const lockWallet = gauntletHandle ? 'demo-' + gauntletHandle
+      : req.method === 'GET' ? query.wallet
       : req.body && req.body.auth && req.body.auth.wallet;
     if (playerActions.has(action) && (isWalletShaped(lockWallet) || isDemo(lockWallet))) {
       if (!(await acquirePlayerLock(lockWallet)))
@@ -1973,6 +1998,20 @@ module.exports = async (req, res) => {
     // Fire-and-forget is unsafe on serverless (the function may freeze after
     // the response) and made a refund appear only nondeterministically.
     try { await sweepChallenges(); } catch {}
+
+    if (action === 'gauntlet') {
+      const wallet = 'demo-' + gauntletHandle;
+      const p = await loadPlayer(wallet);
+      const changed = await settle(p, prices);
+      if (p._existed || changed || p._drained > 0 || p._drained7 > 0 || p._drainedSelf7 > 0)
+        await savePlayer(p);
+      const history = ((await getCached('hist:' + wallet, 3_000)) || []).slice(0, 200);
+      const state = { player:{ ...brierOf(p), open:p.open || [], history } };
+      res.setHeader('cache-control', 'no-store');
+      return res.json({ ok:true, v:VERSION, gauntlet:publicSpec(),
+        progress:progressFromState(state, gauntletHandle),
+        derivedFrom:'canonical game state for ' + wallet });
+    }
 
     if (action === 'state') {
       // The daily cron lands here at 00:05 UTC, which is exactly when the
