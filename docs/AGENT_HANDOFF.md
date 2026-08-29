@@ -1,23 +1,79 @@
-# RatchetX Agent Handoff
+# RatchetX agent handoff
 
-**Live Release:** `h91-2026-08-29`
+Updated: 2026-08-29. Working tree contains the release recovery described below;
+production verification and deployment are still pending.
 
-## Known End-to-End Proof Handles
-- Bankr pass 1: `009d2bf7f3be` / shot `308c9b77fcd3`
-- Bankr pass 2: `301e30592c97` / shot `68aef803bf7a`
+## Live identity and external proofs
 
-## Deployment Surfaces
-- Ratchet Server (Vercel)
-- On-chain Pyth Push Accounts
-- Ratchet Seal v2: `23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX`
-- MCP Remote Server
+- Declared release: `h92-2026-08-29`.
+- MCP, Agent Skill and ERC-8004 profile: `1.1.0` locally.
+- Solana registry: agent 1475, asset
+  `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`.
+- Bankr Gauntlet passes:
+  - handle `009d2bf7f3be`, shot `308c9b77fcd3`;
+  - handle `301e30592c97`, shot `68aef803bf7a`.
+- Ratchet Seal v2 program: `23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX`.
 
-## Known Issues / Risks
-- Next anchor deployment (Seal v3) requires new Pyth Owner checks (resolved locally, waiting for on-chain freeze window migration).
-- Strict-Transport-Security missing on test instances (fixed in local vercel.json).
-- `benchmarks.pyth.network/v1` API may return 401 unauthorized in certain CI environments if `PYTH_API_KEY` is not provided.
+## What this recovery changed
 
-## Exact Next Task (Faza 2)
-Faza 1 (Independent Pyth Verifier & Durable AgentRunReceipt Shadow Replay) is **COMPLETE**. The CLI `scripts/verifier.mjs` has been built and the continuous shadow pipeline `scripts/shadow-replay.mjs` is ready.
+- Restored the frozen v2 Rust source to the deployed/reviewed identity and pinned
+  its normalized SHA-256 in `scripts/check-release-safety.mjs`.
+- Removed tracked SQL/rotation/transcript/backup artifacts and an invalid nested
+  repository gitlink. The removed SQL helper exposed a database credential in Git
+  history; credential rotation remains a mandatory external operation.
+- Fixed 30-day hashed invite TTL, attribution, milestones and daily counters.
+- Implemented the remote ranked prepare/submit protocol with real Ed25519 payloads,
+  exact live-target binding, nonce TTL and replay idempotency.
+- Replaced duplicated settlement interpretation with `lib/outcome.js`, shared by
+  live settlement and the verifier.
+- Added schema-v4 record evidence for question type, thresholds/range/race inputs,
+  probability, exact exit transitions and rule versions.
+- Rebuilt the Pyth verifier: symbol→feed-ID mapping comes from `lib/onchain_px.js`;
+  exact benchmark price/publish time and the shared outcome rule reproduce the result.
+  It explicitly leaves first-observed selection authority with the Ratchet hash chain.
+- Reordered premium proof economics: prepare/validate/cache first, then issue a
+  request-digest-bound 0.01 USDC x402 quote. Paid replay is deterministic and does
+  not settle twice.
+- Added durable KV AgentRun receipts and rebuilt agent report cards from real
+  `u:<wallet>` state, exact Brier threshold and receipt provenance.
+- Removed the nonconforming A2A endpoint. Consolidated report/proof routes behind
+  the game function while preserving `/api/agent` and `/api/agent-proof-bundle`.
+  Current deployable API function count is 12.
+- Added release safety, invite, ranked, funded premium and report provenance tests.
 
-Next task: Await further instructions (Faza 5 is complete).
+## Truth boundary
+
+`canonicalSettlement: ratchet-server` and `independentPythReplay: false` remain
+correct. The verifier independently authenticates the selected Pyth update and
+recomputes the outcome. It does not prove that the server observed every qualifying
+transition. No v3 program or Calibration PDA is deployed.
+
+## Required environment names
+
+Existing deployment docs remain authoritative. New/important names are
+`PYTH_API_KEY` for current Benchmarks access and `X402_PROOF_RECEIVER` for the
+separate premium service. Never place values in this repository.
+
+## Verification already completed locally
+
+- `test_x402_premium`: invalid-before-charge, correct 402 URL/amount, paid delivery,
+  exact replay and changed-body rejection.
+- `test_x402`: existing ranked-entry economics and funded-path seam unchanged.
+- `test_agent_funnel_protocol`, `test_ranked_remote_protocol`, `test_agent_report`.
+- Warden, record, agent discovery and release safety pass.
+- Final complete run: 55 pass / 0 fail / 5 browser-fixture skips. The browser
+  fixtures skip only when their local fixture server is absent. Release safety,
+  the 114-check kill switch and all protocol/economics tests passed.
+
+## Exact next actions
+
+1. Inspect `git diff --check`, staged release contents and repository status.
+2. Update public OpenAPI/discovery digests if any Agent Skill bytes change.
+3. Commit the recovery in reviewable commits; do not combine credential rotation
+   with unrelated feature changes.
+4. Rotate the leaked database credential and update the hosting secret atomically.
+5. Deploy through the repository's normal preflight/token path.
+6. Verify production MCP 1.1.0/11 tools, both x402 resources, report-card receipt,
+   core state/proof/record, 12-function limit and absence of `/api/a2a`.
+
+Do not call the work deployed or the credential safe until steps 4–6 are complete.

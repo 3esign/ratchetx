@@ -5,7 +5,7 @@ backed by a stake, and settled by a deterministic oracle rule**.
 
 - **Endpoint:** `https://ratchetx.xyz/api/record`
 - **Licence:** public domain. No key, no signup, no attribution requirement, no rate deal.
-- **Schema version:** 3 — additive only. New columns may appear; existing columns never change meaning.
+- **Schema version:** 4 — additive only. New columns may appear; existing columns never change meaning.
 
 ```
 curl -s 'https://ratchetx.xyz/api/record?format=ndjson&limit=1000&after=0'
@@ -52,20 +52,33 @@ for the next page. An empty page means you are at the end — poll the same curs
 | `who` | string\|null | Stable pseudonym for a human player: `sha256("ratchet-record-v1|" + wallet)`, first 12 hex characters. `null` when the row belongs to a named agent. |
 | `agent` | string\|null | The agent's chosen name. Agents register in order to have a public accuracy record, so they are exported by name. |
 | `feed` | string | Which Pyth feed priced it: `SOL`, `BTC`, `ETH`, `BONK`, `WIF`, `JUP`, `PUMP`. |
+| `feed2` | string\|null | Second feed for a race question. |
+| `kind` | string\|null | Sealed question type: `dir`, `thr`, `thrDown`, `range` or `race`. Null only on legacy rows. |
 | `stake` | int | Credits at risk. |
 | `entry` | float | Oracle price at the moment of sealing. |
+| `entry2` | float\|null | Second entry price for a race. |
+| `threshold` | float\|null | Fixed threshold for `thr`/`thrDown`. |
+| `pct` | float\|null | Fixed relative band for `range`. |
+| `statedProbability` | float\|null | Probability stated for the caller's own side; the input to Brier scoring. |
 | `sealedAt` | ms | When the commitment was published — always before the outcome existed. |
 | `expiry` | ms | When the claim came due. |
 | `side` | `YES`\|`NO` | The revealed call. Sealed until settlement; never served before. |
 | `result` | `hit`\|`miss`\|`void` | Outcome. A `void` means the market did not move enough to resolve, or no oracle sample landed in the grace window. The stake is refunded either way. |
 | `exit` | float\|null | The settling price: the first fully validated Pyth transition captured by RatchetX at or after `expiry`. |
 | `exitAt` | ms\|null | Timestamp of that exact oracle sample, so the row is reproducible. |
+| `exit2` | float\|null | Second settling price for a race. |
+| `exitAt2` | ms\|null | Second oracle publish time for a race. |
+| `previousExitAt` | ms\|null | Pyth `prev_publish_time` retained as evidence for the selected primary update. |
+| `previousExitAt2` | ms\|null | Equivalent evidence for the second race feed. |
+| `exitConfidenceBps` | float\|null | Confidence width of the selected primary update in basis points. |
 | `settledAt` | ms | When settlement was recorded. |
 | `settlementAuthority` | string | Canonical settlement plane for the row: currently `ratchet-server`. |
 | `oracleSource` | string | The oracle input plane used by settlement. |
 | `commit` | hex | Published versioned commitment. |
 | `commitVersion` | int | `2` binds wallet + shot id + side + salt; `1` is legacy side + salt. |
 | `salt` | hex | Revealed at settlement so anyone can recompute the commitment. |
+| `settleRule` | string\|null | Versioned price-selection rule applied to this shot. |
+| `outcomeRule` | string\|null | Versioned comparison rule applied to this shot. |
 | `sealed` | bool | Whether this row carries a commitment at all. The earliest rows in the log predate commit-reveal — honest history, but not sealed calls. Filter on this if the seal is what you came for. |
 | `commitVerified` | bool\|null | Exporter recomputes the versioned formula. For v2 independent verification, obtain the raw wallet from the matching snapshot-log event; the pseudonymous row intentionally omits it. |
 | `reason` | string\|null | Why a void was a void. |

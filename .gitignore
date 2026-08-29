@@ -15,3 +15,13 @@ onchain/ratchet-seal-v2/.keys/
 # Local preflight report written by DEPLOY.cmd. Machine-specific, and it carries
 # a local user path — it does not belong in a public repository.
 deploy_check.txt
+
+# Local investigation/transcript artifacts never belong in a release.
+phases_extracted*.txt
+plan_dump.txt
+rotate*.js
+run_sql.js
+test-pyth.mjs
+onchain/player-passport/program/*.bak
+onchain/player-passport/program/patch.py
+onchain/core-passport-benchmark/mpl-core/

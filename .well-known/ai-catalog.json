@@ -217,6 +217,48 @@
       }
     },
     {
+      "identifier": "urn:air:ratchetx.xyz:x402:proof-bundle",
+      "displayName": "RatchetX Deterministic Proof Bundle",
+      "type": "application/json",
+      "url": "https://ratchetx.xyz/api/agent-proof-bundle",
+      "description": "An exact 0.01 USDC x402 resource that authenticates a settled shot's Pyth update, recomputes its versioned outcome, binds payment to the requested shot digest, and returns a durable AgentRun receipt.",
+      "tags": ["x402", "solana", "pyth", "forecasting", "verification"],
+      "capabilities": ["BuyProofBundle", "VerifyPythUpdate", "ReadAgentRunReceipt"],
+      "representativeQueries": [
+        "Buy a deterministic Pyth verification bundle for a settled RatchetX shot",
+        "Verify an agent forecast and receive a durable content-digested receipt"
+      ],
+      "version": "1.0.0",
+      "updatedAt": "2026-08-29T00:00:00Z",
+      "metadata": {
+        "method": "POST",
+        "x402Version": 2,
+        "network": "solana:5eykt4UsFv8P8NJdTREpY1vzqKqZKvdp",
+        "asset": "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
+        "amountAtomic": "10000",
+        "paymentRequired": true,
+        "recipientRule": "proof-service-receiver-declared-in-quote",
+        "prevalidatedBeforePayment": true,
+        "idempotentReplay": true
+      }
+    },
+    {
+      "identifier": "urn:air:ratchetx.xyz:report:agent-calibration",
+      "displayName": "RatchetX Agent Report Card",
+      "type": "application/json",
+      "url": "https://ratchetx.xyz/api/agent",
+      "description": "Free report card for a RatchetX wallet or demo identity: exact Brier gate, calibration bins, recent coverage and durable verifier-receipt provenance.",
+      "tags": ["solana", "forecasting", "brier", "calibration", "agents"],
+      "capabilities": ["ReadCalibration", "ReadBrierRecord", "ReadReceiptProvenance"],
+      "representativeQueries": [
+        "Show my RatchetX agent's Brier score and calibration curve",
+        "Check whether an agent has enough stated calls to enter the ranked table"
+      ],
+      "version": "1.0.0",
+      "updatedAt": "2026-08-29T00:00:00Z",
+      "metadata": { "method":"GET", "paymentRequired":false, "authenticationRequired":false }
+    },
+    {
       "identifier": "urn:air:ratchetx.xyz:instructions:llms",
       "displayName": "RatchetX Agent Instructions",
       "type": "text/plain",

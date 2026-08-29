@@ -76,7 +76,7 @@ champion. 100% goes wallet-to-wallet to that champion. RatchetX takes 0%.
 
 Discovery is live, not promised:
 
-MCP Registry: `io.github.3esign/ratchet@1.0.4`
+MCP Registry: `io.github.3esign/ratchet@1.1.0`
 Solana Agent Registry: https://8004market.io/agent/solana/mainnet-beta/1475
 Paid resource: PayAI Bazaar
 Source: https://github.com/3esign/ratchetx

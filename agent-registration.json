@@ -60,6 +60,16 @@
       "name": "x402",
       "endpoint": "https://ratchetx.xyz/api/agent-entry",
       "version": "2"
+    },
+    {
+      "name": "Proof Bundle",
+      "endpoint": "https://ratchetx.xyz/api/agent-proof-bundle",
+      "version": "1.0.0"
+    },
+    {
+      "name": "Agent Report",
+      "endpoint": "https://ratchetx.xyz/api/agent",
+      "version": "1.0.0"
     }
   ],
   "registrations": [

@@ -46,6 +46,7 @@ const { getJSON, getCached, getJSONStrict, getManyJSON, setJSON, setManyJSONAtom
   acquireLease, releaseLease, delKey, scanKeys, durable, backend, zincr, zmax, ztop, incrFloat,
   takeNum, hincr, hincrMany, zincrManyOnce, applyOnce, hall, hseed, sweepExpired} = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped, b58decode } = require('../lib/verify.js');
+const rankedAuth = require('../lib/ranked.js');
 const { getPrices } = require('../lib/prices.js');
 const { priceAt, priceCrossing, pathFor, sample: samplePx,
   ingestUpdate: ingestPxUpdate, streamHealth: pxStreamHealth } = require('../lib/pxlog.js');
@@ -56,6 +57,10 @@ const { ACCOUNTS: PX_ACCOUNTS, PYTH_OWNERS, decode: decodePx,
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
 const { publicSpec, publicSpecAsync, cleanHandle, progressFromState } = require('../lib/gauntlet.js');
+const { OUTCOME_RULE, SETTLE_RULE, PRIOR_SETTLE_RULE, LEGACY_EPS,
+  usesPythTransition, order, questionOutcome } = require('../lib/outcome.js');
+const agentReport = require('../lib/agent_report.js');
+const proofBundle = require('../lib/proof_bundle.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
 const { RELEASE: VERSION } = require('../lib/release.js');
@@ -297,46 +302,6 @@ const PXFEEDS = ['SOL','BTC','ETH','BONK','WIF','JUP','PUMP'];   // below this a
 // Prize curves. Unclaimed shares ROLL OVER into the next pot of the same cadence.
 const PRIZE_W = [0.40, 0.25, 0.15, 0.12, 0.08];   // weekly season: top 5
 const PRIZE_D = [0.50, 0.30, 0.20];               // daily pot: top 3
-const OUTCOME_RULE = 'strict-compare-v2';
-const SETTLE_RULE = 'pyth-first-observed-after-v3';
-const PRIOR_SETTLE_RULE = 'pyth-first-crossing-v2';
-const usesPythTransition = rule => rule === SETTLE_RULE || rule === PRIOR_SETTLE_RULE;
-const LEGACY_EPS = 0.0004;
-const order = (a, b) => a > b ? 1 : a < b ? -1 : 0;
-// No economic dead zone: a question resolves whenever its two values differ.
-// VOID is reserved for true equality or missing/unusable oracle evidence.
-function questionOutcome(s, px, px2) {
-  // A shot is a sealed promise. Shots created before h61 do not carry an
-  // outcomeRule, so preserve their original 4bp dead zone. Only newly sealed
-  // v2 shots use strict numerical comparison.
-  if (s.outcomeRule !== OUTCOME_RULE) {
-    if (s.kind === 'thr')
-      return Math.abs(px - s.thresh) / s.thresh < LEGACY_EPS ? 'VOID' : (px > s.thresh ? 'YES' : 'NO');
-    if (s.kind === 'thrDown')
-      return Math.abs(px - s.thresh) / s.thresh < LEGACY_EPS ? 'VOID' : (px < s.thresh ? 'YES' : 'NO');
-    if (s.kind === 'range') {
-      const d = Math.abs((px - s.entry) / s.entry);
-      return Math.abs(d - s.pct) < LEGACY_EPS ? 'VOID' : (d >= s.pct ? 'YES' : 'NO');
-    }
-    if (s.kind === 'race') {
-      const a = (px - s.entry) / s.entry, b = (px2 - s.entry2) / s.entry2;
-      return Math.abs(a - b) < LEGACY_EPS ? 'VOID' : (a > b ? 'YES' : 'NO');
-    }
-    const d = (px - s.entry) / s.entry;
-    return Math.abs(d) < LEGACY_EPS ? 'VOID' : (d > 0 ? 'YES' : 'NO');
-  }
-  let c;
-  if (s.kind === 'thr') c = order(px, s.thresh);
-  else if (s.kind === 'thrDown') c = -order(px, s.thresh);
-  else if (s.kind === 'range') {
-    const distance = Math.abs((px - s.entry) / s.entry);
-    c = order(distance, s.pct);
-  } else if (s.kind === 'race') {
-    const a = (px - s.entry) / s.entry, b = (px2 - s.entry2) / s.entry2;
-    c = order(a, b);
-  } else c = order(px, s.entry);
-  return c === 0 ? 'VOID' : c > 0 ? 'YES' : 'NO';
-}
 const FLOOR_BASE = 0.004180;
 const STALE_VOID_MS = 24 * 3600e3;  // feed gone 24h past expiry -> auto-void
 // Integer allocation, with every unit accounted for.  Floating 0.70/0.15
@@ -1667,7 +1632,10 @@ async function settle(p, prices) {
     if (at2) await noteSettle(s.feed2, 'set', eventId);
     await appendOnce(`settle:${eventId}`, { k:'settle', w:p.w, id:s.id,
       res:s.res, exitPx:px, exitAt:s.exitAt, exitPx2:s.exitPx2,
-      exitAt2:s.exitAt2, side:s.side, salt:s.salt, sp:s.sp ?? null, commit:s.commit,
+      exitAt2:s.exitAt2, prevExitAt:s.prevExitAt == null ? null : s.prevExitAt,
+      prevExitAt2:s.prevExitAt2 == null ? null : s.prevExitAt2,
+      exitConfBps:s.exitConfBps == null ? null : s.exitConfBps,
+      side:s.side, salt:s.salt, sp:s.sp ?? null, commit:s.commit,
       commitV:s.commitV || 1, settleRule:s.settleRule || 'observed-sample-v1',
       settleRuleApplied:s.settleRuleApplied,
       outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1',
@@ -1727,7 +1695,9 @@ async function recordSealedShot(s, w) {
   }
   await appendOnce(`seal:${w}:${s.id}`, { k:'seal', w, id:s.id,
     feed:s.feed, feed2:s.feed2 || null, stake:s.stake, exp:s.exp,
-    entry:s.entry, entry2:s.entry2, commit:s.commit, commitV:s.commitV,
+    entry:s.entry, entry2:s.entry2, kind:s.kind || 'dir',
+    thresh:s.thresh == null ? null : s.thresh, pct:s.pct == null ? null : s.pct,
+    label:s.label || null, commit:s.commit, commitV:s.commitV,
     settleRule:s.settleRule, outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1',
     allocationRule:s.allocationRule, challenge:s.chal || null });
   return true;
@@ -1859,8 +1829,9 @@ module.exports = async (req, res) => {
     // /api/gauntlet rewrites here so it does not consume a thirteenth Vercel
     // function slot. Preserve that destination action for every method; a
     // POST to the public GET-only route must not fall through to state.
-    const action = query.action === 'gauntlet'
-      ? 'gauntlet'
+    const routed = new Set(['gauntlet', 'agent-report', 'agent-proof-bundle']);
+    const action = routed.has(query.action)
+      ? query.action
       : (req.method === 'GET' ? query.action : (req.body||{}).action) || 'state';
     // The stream has its own strong service authentication and can legitimately
     // burst when several Pyth accounts update in the same Solana slot. Keep it
@@ -1870,6 +1841,11 @@ module.exports = async (req, res) => {
     const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
     const isPost = req.method !== 'GET';
     if (rateLimited(ip, isPost)) return res.status(429).json({ ok:false, reason:'slow down - too many requests from this address' });
+    // These public agent routes can scan durable history and, for a new proof,
+    // query Pyth Benchmarks. Keep their stable public URLs, but do not let an
+    // unauthenticated caller bypass the same per-IP budget as the core API.
+    if (action === 'agent-report') return agentReport.handler(req, res);
+    if (action === 'agent-proof-bundle') return proofBundle(req, res);
     // Player records are JSON blobs. Without a per-wallet mutex, two shots
     // can load the same credit balance, both spend it, then last-write-wins
     // the balance while retaining economic effects from both requests.
@@ -2260,12 +2236,22 @@ module.exports = async (req, res) => {
       const b = req.body || {};
       const w = b.auth && b.auth.wallet;
       if (!w || typeof w !== 'string') return res.status(400).json({ ok:false, reason:'no wallet' });
-      if (!isDemo(w)) {
+      const verifiedRanked = action === 'shot' && rankedAuth.isVerifiedRequest(req, b);
+      if (!isDemo(w) && !verifiedRanked) {
         const v = verifyAuth(b.auth);
         if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
       }
       const p = await loadPlayer(w);
       await settle(p, prices);
+      const requestId = verifiedRanked ? String(b.requestId) : null;
+      if (requestId) {
+        const prior = [...(p.open || []), ...(p.closed || []), ...(p.history || [])]
+          .find(row => row && row.requestId === requestId);
+        if (prior) {
+          await savePlayer(p);
+          return res.json({ ok:true, shot:prior, cr:p.cr, idempotent:true });
+        }
+      }
       const cap = Math.min(4, rankOf(p.xp)+1) + 1;
       if (p.open.length >= cap) { await savePlayer(p); return res.status(409).json({ ok:false, reason:`all ${cap} chambers full` }); }
       const stake = +b.stake;
@@ -2359,6 +2345,7 @@ module.exports = async (req, res) => {
       shot.salt = crypto.randomBytes(16).toString('hex');
       shot.commitV = 2;
       shot.commit = shotCommit(w, shot.id, shot.side, shot.salt);
+      if (requestId) shot.requestId = requestId;
       if (sp != null) shot.sp = sp;
       shot.src = p._src || 'bal'; delete p._src;
       p.open.unshift(shot);

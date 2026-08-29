@@ -13,7 +13,7 @@
       "type": "streamable-http",
       "url": "https://ratchetx.xyz/api/mcp",
       "requestMethod": "POST",
-      "getBehavior": "405 with a machine-readable inspection contract and all seven tool schemas in error.data",
+      "getBehavior": "405 with a machine-readable inspection contract and all eleven tool schemas in error.data",
       "mode": "demo",
       "authentication": "none",
       "install": "none; connect the URL directly"

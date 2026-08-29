@@ -9,6 +9,7 @@
   <url><loc>https://ratchetx.xyz/api/feeds</loc><changefreq>hourly</changefreq><priority>0.7</priority></url>
   <url><loc>https://ratchetx.xyz/api/supply</loc><changefreq>daily</changefreq><priority>0.7</priority></url>
   <url><loc>https://ratchetx.xyz/api/agent-entry</loc><changefreq>daily</changefreq><priority>0.9</priority></url>
+  <url><loc>https://ratchetx.xyz/api/agent-proof-bundle</loc><changefreq>daily</changefreq><priority>0.8</priority></url>
   <url><loc>https://ratchetx.xyz/openapi.json</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://ratchetx.xyz/agent-registration.json</loc><changefreq>weekly</changefreq><priority>0.9</priority></url>
   <url><loc>https://ratchetx.xyz/llms.txt</loc><changefreq>daily</changefreq><priority>0.9</priority></url>

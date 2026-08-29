@@ -13,6 +13,9 @@ const game = require('./game.js');
 const proof = require('./proof.js');
 const { RELEASE } = require('../lib/release.js');
 const { progressFromState } = require('../lib/gauntlet.js');
+const funnel = require('../lib/funnel.js');
+const ranked = require('../lib/ranked.js');
+const { getJSONStrict, setJSONEx, acquireLease, releaseLease } = require('../lib/kv.js');
 
 const MCP_VERSION = '1.1.0';
 const MODERN_PROTOCOL = '2026-07-28';
@@ -62,13 +65,13 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: {} } },
 
   { name: 'ratchet_ranked_prepare',
-    description: 'Prepare a ranked forecasting shot. Returns a nonce and the exact payload you must sign locally.',
+    description: 'Prepare a bounded forecast for an already-registered ranked wallet. Returns the exact domain-separated payload to sign locally; no private key is sent to RatchetX.',
     inputSchema: { type: 'object', required: ['wallet', 'target', 'side', 'p'], properties: {
       wallet: { type: 'string', description: 'Your Solana wallet address (base58)' },
-      target: { type: 'string', description: 'Target market e.g., "SOL:24h:1"' },
+      target: { type: 'string', description: 'Exact target id returned by ratchet_board' },
       side: { type: 'string', enum: ['YES', 'NO'] },
       p: { type: 'number', minimum: 0.01, maximum: 0.99 },
-      entryClaim: { type: 'string', description: 'Optional payment receipt for x402' }
+      stake: { type: 'integer', minimum: 100, description: 'Credits to stake; default 500' }
     } } },
   { name: 'ratchet_ranked_submit',
     description: 'Submit a signed ranked forecasting shot using the payload and signature.',
@@ -160,9 +163,11 @@ function rpcError(id, code, message, data) {
 // Invoke the canonical Vercel handlers in-process. This preserves the caller's
 // address for the existing rate limiter and prevents a remote MCP user from
 // being placed on a separate economic or settlement path.
-async function invoke(handler, outerReq, { method = 'GET', query = {}, body = null } = {}) {
+async function invoke(handler, outerReq, { method = 'GET', query = {}, body = null,
+  verifiedRanked = null } = {}) {
   let status = 200, payload, ended = false;
   const req = { method, query, body, headers: outerReq.headers || {}, socket: outerReq.socket || {} };
+  if (verifiedRanked) ranked.markVerified(req, verifiedRanked);
   const res = {
     status(code) { status = code; return this; },
     setHeader() {},
@@ -202,27 +207,15 @@ function slimState(st, wallet) {
 async function callTool(req, name, args = {}) {
   switch (name) {
       case 'ratchet_invite': {
-        const idBuf = crypto.randomBytes(16);
-        const inviteId = idBuf.toString('hex');
-        const hash = crypto.createHash('sha256').update(inviteId).digest('hex');
-        // Store hash in KV for 30 days
-        const { setJSON } = require('../lib/kv.js');
-          const { recordMilestone } = require('../lib/funnel.js');
-        const expMs = Date.now() + 30 * 24 * 3600 * 1000;
-        await setJSON(`inv:${hash}`, {
-             createdAt: Date.now(),
-             exp: expMs,
-             source: args.source || 'agent',
-             gauntletId: 'first-contact-001'
-          }, { ex: Math.floor(expMs / 1000) });
-          await recordMilestone(hash, 'invite_seen', { source: args.source });
+        const inviteId = crypto.randomBytes(16).toString('hex');
+        const { record } = await funnel.issueInvite(inviteId, args.source || 'agent');
         
         return {
            ok: true,
            inviteId,
            gauntletId: 'first-contact-001',
            mcpEndpoint: 'https://ratchetx.xyz/api/mcp',
-           expiresAt: new Date(expMs).toISOString(),
+           expiresAt: new Date(record.exp).toISOString(),
            note: 'Free tracking invite. Call ratchet_new_demo with this invite ID to start the Gauntlet.',
            next: 'ratchet_new_demo'
         };
@@ -231,8 +224,9 @@ async function callTool(req, name, args = {}) {
     case 'ratchet_new_demo': {
         const handle = crypto.randomBytes(6).toString('hex');
         if (args.invite) {
-           const { recordMilestone } = require('../lib/funnel.js');
-           await recordMilestone(args.invite, 'demo_created', { handle });
+           const { hash, record } = await funnel.resolveInvite(args.invite);
+           await funnel.bindDemoInvite(handle, hash, record.exp);
+           await funnel.recordMilestone(hash, 'demo_created', { handle });
         } return { handle, wallet:`demo-${handle}`,
         next:['ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state'],
         note:'free and unranked; no wallet, token, payment or signature; keep this handle for later calls' };
@@ -260,60 +254,60 @@ async function callTool(req, name, args = {}) {
       return outObj;
     }
     case 'ratchet_demo_state': {
-      const wallet = `demo-${demoHandle(args.handle)}`;
+      const handle = demoHandle(args.handle);
+      const wallet = `demo-${handle}`;
       const st = await invoke(game, req, { query:{ action:'state', wallet } });
+      const inviteHash = await funnel.inviteForDemo(handle);
+      if (inviteHash) {
+        const progress = progressFromState(st, wallet);
+        if (progress.latestEvidence && progress.latestEvidence.id) {
+          await funnel.recordMilestone(inviteHash, 'settlement_scored', {
+            shotId:progress.latestEvidence.id, result:progress.latestEvidence.result });
+        }
+        if (progress.completed) {
+          await funnel.recordMilestone(inviteHash, 'gauntlet_complete', {
+            shotId:progress.latestEvidence && progress.latestEvidence.id });
+        }
+      }
       return args.raw ? st : slimState(st, wallet);
     }
     
     case 'ratchet_ranked_prepare': {
-      const { wallet, target, side, p, entryClaim } = args;
-      if (!wallet || !target || !side || !p) throw new Error('Missing arguments');
+      const { wallet, target, side, p, stake } = args;
+      const board = await invoke(game, req, { query:{ action:'board' } });
+      if (!board || !board.targets || !board.targets[target]) throw new Error('target is not live; call ratchet_board and choose an exact current id');
       const nonce = crypto.randomBytes(16).toString('hex');
-      const expiry = Date.now() + 60000; // 60 seconds to sign
-      const payloadObj = { action: 'ranked_shot', wallet, target, side, p, entryClaim: entryClaim || null, nonce, expiry };
-      const payload = JSON.stringify(payloadObj);
-      await setJSON(`nonce:${wallet}:${nonce}`, { payload, used: false }, { ex: 120 });
-      return { nonce, expiry, payload, instruction: 'Sign the payload string as a UTF-8 buffer using Ed25519. Return base64 signature.' };
+      const expiresAt = Date.now() + 60000;
+      const payload = ranked.payloadFor({ wallet, target, side, p, stake, nonce, expiresAt });
+      await setJSONEx(`nonce:ranked:${wallet}:${nonce}`, { payload, used:false, createdAt:Date.now() }, 120);
+      return { nonce, expiresAt, payload, domain:ranked.DOMAIN, network:ranked.NETWORK,
+        instruction:'Sign the exact UTF-8 payload with the wallet Ed25519 key, then call ratchet_ranked_submit.' };
     }
     case 'ratchet_ranked_submit': {
       const { wallet, signature, nonce, payload } = args;
       if (!wallet || !signature || !nonce || !payload) throw new Error('Missing arguments');
-      const record = await getJSONStrict(`nonce:${wallet}:${nonce}`);
-      if (!record) throw new Error('Nonce expired or invalid');
-      if (record.used) throw new Error('Nonce already used (replay conflict)');
-      if (record.payload !== payload) throw new Error('Payload mismatch');
-      
-      const parsed = JSON.parse(payload);
-      if (parsed.expiry < Date.now()) throw new Error('Payload expired');
-      
-      const { b58decode } = require('../lib/verify.js');
-      const pub = b58decode(wallet);
-      if (pub.length !== 32) throw new Error('Invalid wallet');
-      
-      const key = crypto.createPublicKey({
-        key: Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), pub]),
-        format: 'der', type: 'spki',
-      });
-      
-      const msg = Buffer.from(payload, 'utf8');
-      const ok = crypto.verify(null, msg, key, Buffer.from(signature, 'base64'));
-      if (!ok) throw new Error('Invalid signature');
-      
-      await setJSON(`nonce:${wallet}:${nonce}`, { ...record, used: true }, { ex: 120 });
-      
-      // Execute the ranked shot via game.js
-      const mockReq = { 
-        method: 'POST', 
-        query: { action: 'shot', target: parsed.target },
-        body: { wallet: parsed.wallet, side: parsed.side, p: parsed.p, entryClaim: parsed.entryClaim } 
-      };
-      const mockRes = {
-        setHeader: () => {}, status: () => mockRes, end: () => {},
-        json: (obj) => obj
-      };
-      const res = await invoke(game, mockReq, mockReq);
-      if (!res.ok) throw new Error(res.reason || 'Shot failed');
-      return res;
+      const key = `nonce:ranked:${wallet}:${nonce}`;
+      const leaseKey = `lock:${key}`;
+      const lease = await acquireLease(leaseKey, 15);
+      if (!lease) throw new Error('ranked submission is already processing; retry');
+      try {
+        const record = await getJSONStrict(key);
+        if (!record) throw new Error('Nonce expired or invalid');
+        if (record.payload !== payload) throw new Error('Payload mismatch');
+        if (record.used && record.result) return { ...record.result, idempotent:true };
+        if (record.used) throw new Error('Nonce already used');
+        const parsed = ranked.verifyPayload(payload, signature, wallet);
+        if (parsed.nonce !== nonce) throw new Error('Nonce mismatch');
+        const body = { action:'shot', auth:{ wallet }, target:parsed.target,
+          side:parsed.side, p:parsed.p, stake:parsed.stake,
+          requestId:`ranked:${parsed.nonce}` };
+        const out = await invoke(game, req, { method:'POST', body, verifiedRanked:parsed });
+        if (!out || !out.ok) throw new Error(out && out.reason || 'Shot failed');
+        await setJSONEx(key, { ...record, used:true, usedAt:Date.now(), result:out }, 120);
+        return out;
+      } finally {
+        await releaseLease(leaseKey, lease).catch(() => {});
+      }
     }
 
     case 'ratchet_demo_shot': {
@@ -322,7 +316,12 @@ async function callTool(req, name, args = {}) {
         target:String(args.target || ''), side:String(args.side || '').toUpperCase(),
         stake:Math.floor(args.stake == null ? 500 : Number(args.stake)) };
       if (args.p !== undefined && args.p !== null) body.p = Number(args.p);
-      return invoke(game, req, { method:'POST', body });
+      const out = await invoke(game, req, { method:'POST', body });
+      const inviteHash = out && out.ok ? await funnel.inviteForDemo(handle) : null;
+      if (inviteHash && out.shot && out.shot.id) {
+        await funnel.recordMilestone(inviteHash, 'shot_sealed', { shotId:out.shot.id });
+      }
+      return out;
     }
     case 'ratchet_proof': {
       const p = await invoke(proof, req);

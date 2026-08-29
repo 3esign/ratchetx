@@ -13,7 +13,7 @@
   },
   "scripts": {
     "dev": "node --no-maglev node_modules/vercel/bin/vercel.js dev",
-    "test": "node scripts/check-versions.mjs && node scripts/run-tests.mjs"
+    "test": "node scripts/check-release-safety.mjs && node scripts/check-versions.mjs && node scripts/run-tests.mjs"
   },
   "devDependencies": {
     "@x402/extensions": "2.24.0",

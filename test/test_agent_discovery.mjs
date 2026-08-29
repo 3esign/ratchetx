@@ -90,6 +90,8 @@ assert.ok(oasf && oasf.skills.length >= 3 && oasf.domains.includes('technology/b
 const board = catalog.entries.find(e => e.identifier.endsWith(':live-board'));
 const corpus = catalog.entries.find(e => e.identifier.endsWith(':forecast-corpus'));
 const paidEntry = catalog.entries.find(e => e.identifier.endsWith(':x402:ranked-entry-claim'));
+const paidProof = catalog.entries.find(e => e.identifier.endsWith(':x402:proof-bundle'));
+const reportCard = catalog.entries.find(e => e.identifier.endsWith(':report:agent-calibration'));
 const gauntlet = catalog.entries.find(e => e.identifier.endsWith(':gauntlet:first-contact'));
 assert.equal(board.metadata.paymentRequired, false, 'the live board is free');
 assert.equal(corpus.metadata.paymentRequired, false, 'the public corpus is free');
@@ -114,6 +116,13 @@ assert.deepEqual(
     listed:paidEntry.metadata.externalDiscovery.listed },
   { catalog:'PayAI Bazaar', listed:true },
 );
+assert.equal(paidProof.url, 'https://ratchetx.xyz/api/agent-proof-bundle');
+assert.equal(paidProof.metadata.amountAtomic, '10000');
+assert.equal(paidProof.metadata.prevalidatedBeforePayment, true);
+assert.equal(paidProof.metadata.idempotentReplay, true);
+assert.equal(reportCard.url, 'https://ratchetx.xyz/api/agent');
+assert.equal(reportCard.metadata.paymentRequired, false);
+assert.equal(reportCard.metadata.authenticationRequired, false);
 assert.match(llms, /\.well-known\/ai-catalog\.json/);
 assert.match(llms, /canonical arbiter for credits and XP/);
 assert.match(llms, /https:\/\/ratchetx\.xyz\/api\/mcp/);
@@ -153,6 +162,15 @@ for (const path of [
 }
 assert.ok(vercel.rewrites.some(route =>
   route.source === '/gauntlet' && route.destination === '/gauntlet.html'));
+assert.ok(vercel.rewrites.some(route => route.source === '/api/agent'
+  && route.destination === '/api/game?action=agent-report'));
+assert.ok(vercel.rewrites.some(route => route.source === '/api/agent-proof-bundle'
+  && route.destination === '/api/game?action=agent-proof-bundle'));
+assert.ok(!vercel.rewrites.some(route => /a2a/i.test(route.source + route.destination)),
+  'do not advertise an A2A route before a conforming runtime exists');
+const apiFunctions = fs.readdirSync(new URL('../api/', import.meta.url))
+  .filter(name => name.endsWith('.js'));
+assert.ok(apiFunctions.length <= 12, `Vercel function budget exceeded: ${apiFunctions.length}`);
 
 const wellKnownHeaders = vercel.headers.find(h => h.source === '/.well-known/(.*)');
 assert.ok(wellKnownHeaders, 'Vercel must serve well-known discovery files with explicit headers');

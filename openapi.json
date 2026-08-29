@@ -2,9 +2,9 @@
   "openapi": "3.1.0",
   "info": {
     "title": "RatchetX Agent Commerce API",
-    "version": "1.0.1",
-    "description": "The paid ranked-entry capability for RatchetX agents. Free board, proof, corpus and MCP access are intentionally outside this paid catalog.",
-    "x-guidance": "POST an empty JSON object to /api/agent-entry. If the response is 402, satisfy one exact x402 v2 SVM USDC requirement and retry with PAYMENT-SIGNATURE, echoing the declared extensions. The successful response returns a payer-bound claim. Use that claim only with the same payer wallet's normal signed agent-register request.",
+    "version": "1.1.0",
+    "description": "Two paid RatchetX agent capabilities: a champion-funded ranked-entry claim and a deterministic Pyth verification bundle. Free board, corpus, report cards and MCP access remain outside this paid catalog.",
+    "x-guidance": "For ranked entry, POST an empty JSON object to /api/agent-entry and satisfy its exact x402 v2 requirement. For a proof bundle, POST a settled shotId to /api/agent-proof-bundle; Ratchet validates and prepares the exact bundle before issuing a request-digest-bound payment quote.",
     "contact": {
       "name": "RatchetX public issue tracker",
       "url": "https://github.com/3esign/ratchetx/issues"
@@ -94,8 +94,8 @@
     "/api/agent-proof-bundle": {
       "post": {
         "operationId": "buyRatchetXProofBundle",
-        "summary": "Buy a certified premium proof bundle",
-        "description": "Pays exactly 0.01 USDC on Solana mainnet to the RatchetX creator-fee wallet. Returns the content-addressed full receipt, Pyth update evidence, replay rezultat, and log/anchor dokaz.",
+        "summary": "Buy a deterministic premium proof bundle",
+        "description": "Pays exactly 0.01 USDC on Solana mainnet to the explicitly declared RatchetX proof-service receiver. Invalid, unsettled, divergent or unavailable evidence is rejected before facilitator verification or settlement. A quote is bound to the canonical digest of the requested shotId, and an exact retry returns the same bundle without a second settlement.",
         "tags": [
           "Proof bundles"
         ],
@@ -125,7 +125,8 @@
                     "type": "string",
                     "description": "The ID of the settled RatchetX shot"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             }
           }
@@ -151,6 +152,15 @@
           },
           "402": {
             "$ref": "#/components/responses/402PaymentRequired"
+          },
+          "404": {
+            "description": "Settled shot not found; no payment attempted"
+          },
+          "422": {
+            "description": "Shot cannot produce a matching proof bundle; no payment attempted"
+          },
+          "503": {
+            "description": "Pyth evidence or x402 facilitator temporarily unavailable; no payment attempted when evidence is unavailable"
           }
         }
       }
@@ -235,6 +245,7 @@
         "type": "object",
         "required": [
           "ok",
+          "payment",
           "bundle"
         ],
         "properties": {
@@ -242,30 +253,55 @@
             "type": "boolean",
             "const": true
           },
+          "payment": {
+            "type": "object",
+            "required": ["quoteId", "settlement", "network", "amountAtomic", "paidTo"],
+            "properties": {
+              "quoteId": { "type": "string" },
+              "settlement": { "type": "string" },
+              "network": { "type": "string", "const": "solana:mainnet" },
+              "amountAtomic": { "type": "string", "const": "10000" },
+              "paidTo": { "type": "string" }
+            }
+          },
           "bundle": {
             "type": "object",
             "required": [
-              "shotId",
+              "bundleVersion",
+              "request",
               "receipt",
-              "timestamp",
-              "verifierCommand",
-              "logAnchor"
+              "chain",
+              "commitment",
+              "agentRun",
+              "verifier"
             ],
             "properties": {
-              "shotId": {
-                "type": "string"
+              "bundleVersion": {
+                "type": "string",
+                "const": "ratchetx-proof-bundle-v1"
+              },
+              "request": {
+                "type": "object",
+                "required": ["shotId", "digest"],
+                "properties": {
+                  "shotId": { "type": "string" },
+                  "digest": { "type": "string", "pattern": "^[0-9a-f]{64}$" }
+                }
               },
               "receipt": {
                 "type": "object"
               },
-              "timestamp": {
-                "type": "integer"
+              "chain": {
+                "type": "object"
               },
-              "verifierCommand": {
-                "type": "string"
+              "commitment": {
+                "type": "object"
               },
-              "logAnchor": {
-                "type": "string"
+              "agentRun": {
+                "type": "object"
+              },
+              "verifier": {
+                "type": "object"
               }
             }
           }
@@ -291,8 +327,7 @@
               "required": [
                 "x402Version",
                 "resource",
-                "accepts",
-                "extensions"
+                "accepts"
               ],
               "properties": {
                 "x402Version": {

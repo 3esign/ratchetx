@@ -1,109 +1,166 @@
-import fs from 'fs';
+import { createRequire } from 'node:module';
+const require = createRequire(import.meta.url);
+const { ACCOUNTS } = require('../lib/onchain_px.js');
+const { SETTLE_RULE, questionOutcome } = require('../lib/outcome.js');
+const { SETTLE_GRACE_MS } = require('../lib/pxlog.js');
 
-const API_KEY = process.env.PYTH_API_KEY || '';
 const BENCHMARKS_URL = process.env.PYTH_BENCHMARKS_URL || 'https://benchmarks.pyth.network/v1';
+const cleanId = id => String(id || '').replace(/^0x/i, '').toLowerCase();
+const asMs = t => Number(t) < 1e12 ? Number(t) * 1000 : Number(t);
 
-async function verifyShot(shotUrl) {
-  let shot;
-  try {
-    const idMatch = shotUrl.match(/[?&]id=([a-z0-9]{4,16})/i);
-    if (!idMatch) throw new Error('Could not find ?id= in proof URL');
-    const shotId = idMatch[1];
-    
-    const targetUrl = new URL(shotUrl).origin + '/api/record?format=json';
-    const recordRes = await fetch(targetUrl);
-    if (!recordRes.ok) throw new Error(`HTTP ${recordRes.status} from Ratchet`);
-    const data = await recordRes.json();
-    shot = data.rows.find(r => r.id === shotId);
-    if (!shot) {
-       return { result: 'DIVERGENCE', reason: 'Shot not found in public records' };
-    }
-  } catch(e) {
-    return { result: 'INSUFFICIENT_EVIDENCE', reason: `Failed to fetch shot: ${e.message}` };
-  }
-
-  const { id, feed, entry, sealedAt, exp, res: ratchetOutcome, p, thresh } = shot;
-  const grace = shot.grace || 60; // 60s
-  const expSecs = Math.floor(exp / 1000);
-  const url = `${BENCHMARKS_URL}/updates/price/${expSecs}/${grace}?ids[]=${feed}`;
-  
-  let pythData;
-  try {
-    const opts = API_KEY ? { headers: { 'Authorization': `Bearer ${API_KEY}` } } : {};
-    const pythRes = await fetch(url, opts);
-    if (!pythRes.ok) throw new Error(`HTTP ${pythRes.status}`);
-    pythData = await pythRes.json();
-  } catch (e) {
-    return { result: 'INSUFFICIENT_EVIDENCE', reason: `Pyth fetch error: ${e.message}` };
-  }
-  
-  const updates = (pythData.parsed || pythData || []).filter(u => u.id === feed);
-  if (!updates.length) {
-    return { result: 'INSUFFICIENT_EVIDENCE', reason: `No qualified updates in [expiry, expiry+grace]` };
-  }
-  
-  let selected = null;
-  updates.sort((a, b) => a.price.publish_time - b.price.publish_time);
-  
-  for (const update of updates) {
-    const pt = Number(update.price.publish_time);
-    const ptMs = pt * 1000;
-    if (ptMs >= exp && ptMs <= exp + (grace * 1000)) {
-      selected = update.price;
-      break;
-    }
-  }
-
-  if (!selected) {
-    return { result: 'INSUFFICIENT_EVIDENCE', reason: `No Pyth updates published exactly within grace window` };
-  }
-
-  const price = Number(selected.price) * Math.pow(10, selected.expo);
-  
-  const kindMatch = shot.label.match(/(dir|thr)/);
-  const kind = kindMatch ? kindMatch[1] : 'dir';
-  let isHit = false;
-
-  if (kind === 'dir') {
-    if (price > entry) isHit = (shot.side === 'YES');
-    else if (price < entry) isHit = (shot.side === 'NO');
-    else return { result: 'DIVERGENCE', reason: `Tie breaks should be voided, manual review needed` };
-  } else {
-    const t = entry * (1 + (shot.side === 'YES' ? thresh : -thresh));
-    if (shot.side === 'YES') isHit = (price >= t);
-    else isHit = (price <= t);
-  }
-
-  const expectedOutcome = isHit ? 'HIT' : 'MISS';
-  const isMatch = (expectedOutcome === ratchetOutcome);
-
-  const brier = Math.pow((isHit ? 1 : 0) - (p || 0.5), 2);
-
+function normalizeShot(raw) {
   return {
-    shotId: id,
-    feed,
-    entryPrice: entry,
-    exitPrice: price,
-    side: shot.side,
-    probability: p,
-    ratchetSettlement: ratchetOutcome,
-    verifierSettlement: expectedOutcome,
-    brierScore: brier,
-    result: isMatch ? 'MATCH' : 'DIVERGENCE',
-    reason: isMatch ? 'Outcomes match perfectly' : 'Independent verification diverged from Ratchet server'
+    ...raw,
+    id: raw.id || raw.shotId,
+    kind: raw.kind || 'dir',
+    expiry: Number(raw.expiry == null ? raw.exp : raw.expiry),
+    thresh: raw.thresh == null ? raw.threshold : raw.thresh,
+    statedProbability: raw.statedProbability == null ? raw.sp : raw.statedProbability,
+    result: String(raw.result || raw.res || '').toLowerCase(),
+    exit: raw.exit == null ? raw.exitPx : raw.exit,
+    exit2: raw.exit2 == null ? raw.exitPx2 : raw.exit2,
   };
 }
 
-export { verifyShot };
+function parsedUpdates(data) {
+  const list = Array.isArray(data && data.parsed) ? data.parsed
+    : Array.isArray(data) ? data : [];
+  return list.map(u => ({ id: cleanId(u.id), price: u.price || u }));
+}
+
+function toPrice(p) {
+  return Number(p && p.price) * Math.pow(10, Number(p && p.expo));
+}
+
+function nearlyEqual(a, b) {
+  if (!Number.isFinite(a) || !Number.isFinite(b)) return false;
+  return Math.abs(a - b) <= Math.max(1e-12, Math.abs(b) * 1e-10);
+}
+
+async function fetchBenchmarkUpdates(shot, { fetchFn = fetch,
+  apiKey = process.env.PYTH_API_KEY || '' } = {}) {
+  const symbols = [shot.feed, ...(shot.kind === 'race' ? [shot.feed2] : [])];
+  const specs = symbols.map(symbol => ({ symbol, id: ACCOUNTS[symbol] && ACCOUNTS[symbol][1] }));
+  if (specs.some(x => !x.id)) throw new Error('shot names an unsupported Pyth feed');
+  const start = Math.floor(shot.expiry / 1000);
+  const seconds = Math.floor(SETTLE_GRACE_MS / 1000);
+  const params = specs.map(x => `ids[]=${encodeURIComponent(x.id)}`).join('&');
+  const url = `${BENCHMARKS_URL}/updates/price/${start}/${seconds}?${params}`;
+  const res = await fetchFn(url, apiKey ? { headers: { Authorization: `Bearer ${apiKey}` } } : {});
+  if (!res.ok) throw new Error(`Pyth Benchmarks HTTP ${res.status}`);
+  const updates = parsedUpdates(await res.json());
+  const selected = {};
+  for (const spec of specs) {
+    const candidates = updates.filter(u => u.id === cleanId(spec.id))
+      .map(u => ({ symbol: spec.symbol, value: toPrice(u.price),
+        publishTime: asMs(u.price.publish_time), confidence: Number(u.price.conf)
+          * Math.pow(10, Number(u.price.expo)) }))
+      .filter(u => Number.isFinite(u.value) && Number.isFinite(u.publishTime)
+        && u.publishTime >= shot.expiry && u.publishTime <= shot.expiry + SETTLE_GRACE_MS)
+      .sort((a, b) => a.publishTime - b.publishTime || a.value - b.value);
+    if (!candidates.length) throw new Error(`no ${spec.symbol} update in the settlement window`);
+    selected[spec.symbol] = candidates;
+  }
+  return selected;
+}
+
+async function verifyEvidence(raw, options = {}) {
+  const shot = normalizeShot(raw && raw.shot ? raw.shot : raw || {});
+  if (!shot.id || !shot.feed || !Number.isFinite(shot.expiry))
+    return { result:'INSUFFICIENT_EVIDENCE', reason:'record lacks shot id, feed or expiry' };
+  if (!['hit', 'miss'].includes(shot.result))
+    return { result:'INSUFFICIENT_EVIDENCE', reason:'only settled hit/miss shots can produce this bundle' };
+  if (shot.settleRule !== SETTLE_RULE)
+    return { result:'INSUFFICIENT_EVIDENCE', reason:`unsupported settlement rule ${shot.settleRule || 'missing'}` };
+  if (!shot.kind || (shot.kind === 'race' && (!shot.feed2 || !Number.isFinite(Number(shot.entry2))))
+      || ((shot.kind === 'thr' || shot.kind === 'thrDown') && !Number.isFinite(Number(shot.thresh)))
+      || (shot.kind === 'range' && !Number.isFinite(Number(shot.pct))))
+    return { result:'INSUFFICIENT_EVIDENCE', reason:'record lacks the sealed question parameters' };
+
+  let all;
+  try { all = await fetchBenchmarkUpdates(shot, options); }
+  catch (e) { return { result:'INSUFFICIENT_EVIDENCE', reason:String(e.message || e) }; }
+
+  const matchAt = (symbol, at, value) => (all[symbol] || []).find(u =>
+    u.publishTime === Number(at) && nearlyEqual(u.value, Number(value)));
+  const first = matchAt(shot.feed, shot.exitAt, shot.exit);
+  const second = shot.kind === 'race' ? matchAt(shot.feed2, shot.exitAt2, shot.exit2) : null;
+  if (!first || (shot.kind === 'race' && !second)) {
+    return { result:'DIVERGENCE', shotId:shot.id,
+      reason:'the canonical exit price/publish time is absent from Pyth Benchmarks' };
+  }
+
+  const marketOutcome = questionOutcome(shot, first.value, second && second.value);
+  const verifierSettlement = marketOutcome === 'VOID' ? 'void'
+    : marketOutcome === shot.side ? 'hit' : 'miss';
+  const matched = verifierSettlement === shot.result;
+  const probability = Number(shot.statedProbability);
+  const brier = Number.isFinite(probability)
+    ? Math.pow(probability - (verifierSettlement === 'hit' ? 1 : 0), 2) : null;
+  const earliest = all[shot.feed][0];
+
+  return {
+    proofVersion:'ratchetx-pyth-benchmarks-v1',
+    shotId:shot.id,
+    feed:shot.feed,
+    ...(shot.feed2 ? { feed2:shot.feed2 } : {}),
+    question:{ kind:shot.kind, entry:Number(shot.entry),
+      ...(shot.entry2 != null ? { entry2:Number(shot.entry2) } : {}),
+      ...(shot.thresh != null ? { threshold:Number(shot.thresh) } : {}),
+      ...(shot.pct != null ? { pct:Number(shot.pct) } : {}), side:shot.side },
+    expiry:shot.expiry,
+    oracle:[first, ...(second ? [second] : [])],
+    selectionEvidence:{ authority:'ratchet-server-hash-chain',
+      rule:shot.settleRule,
+      benchmarkUpdateWasEarliestPublished:first.publishTime === earliest.publishTime,
+      note:'Pyth authenticates the selected update; the public hash chain records which valid update Ratchet first observed.' },
+    statedProbability:Number.isFinite(probability) ? probability : null,
+    ratchetSettlement:shot.result,
+    verifierSettlement,
+    brierScore:brier == null ? null : +brier.toFixed(6),
+    result:matched ? 'MATCH' : 'DIVERGENCE',
+    reason:matched
+      ? 'Pyth price/time and the shared versioned outcome rule reproduce the recorded result'
+      : 'the authenticated Pyth update produces a different result under the recorded rule',
+  };
+}
+
+async function fetchPublicShot(shotUrl, fetchFn = fetch) {
+  const parsed = new URL(shotUrl);
+  const id = parsed.searchParams.get('id');
+  if (!/^[A-Za-z0-9:_-]{1,80}$/.test(id || '')) throw new Error('proof URL has no valid shot id');
+  let after = 0;
+  for (let page = 0; page < 100; page++) {
+    const url = `${parsed.origin}/api/record?format=json&limit=1000&after=${after}`;
+    const res = await fetchFn(url);
+    if (!res.ok) throw new Error(`Ratchet record HTTP ${res.status}`);
+    const body = await res.json();
+    const shot = (body.rows || []).find(row => row.id === id);
+    if (shot) return shot;
+    const next = Number(body.cursor);
+    if (!Number.isFinite(next) || next <= after || !(body.rows || []).length) break;
+    after = next;
+  }
+  throw new Error('shot not found in the public settled record');
+}
+
+async function verifyShot(shotUrl, options = {}) {
+  try {
+    const shot = await fetchPublicShot(shotUrl, options.fetchFn || fetch);
+    return verifyEvidence(shot, options);
+  } catch (e) {
+    return { result:'INSUFFICIENT_EVIDENCE', reason:String(e.message || e) };
+  }
+}
+
+export { verifyShot, verifyEvidence, fetchPublicShot };
 
 const args = process.argv.slice(2);
-if (args.length > 0 && typeof process !== 'undefined' && process.argv[1].endsWith('verifier.mjs')) {
+if (args.length > 0 && typeof process !== 'undefined'
+    && process.argv[1] && process.argv[1].endsWith('verifier.mjs')) {
   verifyShot(args[0]).then(receipt => {
     console.log(JSON.stringify(receipt, null, 2));
     if (receipt.result === 'DIVERGENCE') process.exit(1);
     if (receipt.result === 'INSUFFICIENT_EVIDENCE') process.exit(2);
-  }).catch(e => {
-    console.error(e);
-    process.exit(1);
-  });
+  }).catch(e => { console.error(e); process.exit(1); });
 }

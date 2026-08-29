@@ -1,65 +1,43 @@
-import fs from 'fs';
-import { spawnSync } from 'child_process';
+import { createRequire } from 'node:module';
+import { verifyShot } from './verifier.mjs';
+const require = createRequire(import.meta.url);
+const { getAgentRun, saveAgentRun } = require('../lib/agent_receipts.js');
 
-const DB_FILE = 'data/shadow_ledger.ndjson';
-if (!fs.existsSync('data')) fs.mkdirSync('data');
+const ORIGIN = String(process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
 
-async function runPipeline() {
-  console.log('[Shadow Replay] Starting durable shadow settlement...');
-  
-  const existingHandles = new Set();
-  if (fs.existsSync(DB_FILE)) {
-    const lines = fs.readFileSync(DB_FILE, 'utf8').split('\n').filter(Boolean);
-    for (const line of lines) {
-      try {
-        const doc = JSON.parse(line);
-        if (doc.id) existingHandles.add(doc.id);
-      } catch(e){}
-    }
+async function recordPages() {
+  const rows = [];
+  let after = 0;
+  for (let page = 0; page < 1000; page++) {
+    const res = await fetch(`${ORIGIN}/api/record?format=json&limit=1000&after=${after}`);
+    if (!res.ok) throw new Error(`record API HTTP ${res.status}`);
+    const body = await res.json();
+    rows.push(...(body.rows || []));
+    const next = Number(body.cursor);
+    if (!(body.rows || []).length || !Number.isFinite(next) || next <= after) break;
+    after = next;
   }
-  
-  console.log(`[Shadow Replay] Found ${existingHandles.size} already verified shots.`);
-  
-  const apiUrl = 'https://ratchetx.xyz/api/record?format=json';
-  const recordRes = await fetch(apiUrl);
-  if (!recordRes.ok) throw new Error(`HTTP ${recordRes.status} from record API`);
-  const data = await recordRes.json();
-  
-  let checked = 0;
-  let newReceipts = 0;
-  
-  for (const shot of data.rows) {
-    if (existingHandles.has(shot.id)) continue;
-    
-    console.log(`[Shadow Replay] Verifying shot ${shot.id}...`);
-    const shotUrl = `https://ratchetx.xyz/api/shot?id=${shot.id}`;
-    
-    const child = spawnSync('node', ['scripts/verifier.mjs', shotUrl], { encoding: 'utf8' });
-    if (child.error) {
-      console.error(`Failed to run verifier: ${child.error}`);
-      continue;
-    }
-    
-    // The verifier prints regular logs and then the JSON receipt.
-    // Let's parse the JSON from stdout.
-    const output = child.stdout.trim();
-    const jsonMatch = output.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      try {
-        const receipt = JSON.parse(jsonMatch[0]);
-        fs.appendFileSync(DB_FILE, JSON.stringify(receipt) + '\n');
-        newReceipts++;
-        console.log(`[Shadow Replay] Saved AgentRunReceipt for ${shot.id} -> ${receipt.result}`);
-      } catch(e) {
-        console.error(`[Shadow Replay] Failed to parse verifier output for ${shot.id}`);
-      }
-    } else {
-      console.error(`[Shadow Replay] No JSON receipt found in output for ${shot.id}`);
-    }
-    checked++;
-  }
-  
-  console.log(`[Shadow Replay] Pipeline completed. Verified ${checked} new shots, wrote ${newReceipts} receipts.`);
+  return rows;
 }
 
-runPipeline().catch(console.error);
+async function runPipeline() {
+  console.log('[Shadow Replay] reading the complete settled record');
+  const rows = await recordPages();
+  let checked = 0, saved = 0, skipped = 0;
+  for (const shot of rows) {
+    if (await getAgentRun(shot.id)) { skipped++; continue; }
+    const receipt = await verifyShot(`${ORIGIN}/shot.html?id=${encodeURIComponent(shot.id)}`);
+    checked++;
+    if (receipt.result === 'INSUFFICIENT_EVIDENCE') {
+      console.log(`[Shadow Replay] ${shot.id}: insufficient evidence (${receipt.reason})`);
+      continue;
+    }
+    const run = await saveAgentRun({ shotId:shot.id, receipt,
+      chain:{ settlementIndex:shot.i } });
+    saved++;
+    console.log(`[Shadow Replay] ${shot.id}: ${receipt.result} ${run.digest}`);
+  }
+  console.log(`[Shadow Replay] complete: ${rows.length} rows, ${checked} checked, ${saved} durable receipts, ${skipped} already present`);
+}
+
+runPipeline().catch(error => { console.error(error); process.exitCode = 1; });

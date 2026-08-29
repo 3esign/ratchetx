@@ -16,8 +16,12 @@
       "destination": "/api/game?action=gauntlet"
     },
     {
-      "source": "/api/a2a/:path*",
-      "destination": "/api/a2a"
+      "source": "/api/agent",
+      "destination": "/api/game?action=agent-report"
+    },
+    {
+      "source": "/api/agent-proof-bundle",
+      "destination": "/api/game?action=agent-proof-bundle"
     }
   ],
   "crons": [
