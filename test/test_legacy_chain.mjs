@@ -2,6 +2,7 @@ import { createRequire } from 'node:module';
 import crypto from 'node:crypto';
 const require = createRequire(import.meta.url);
 const { verifyLegacy, recoverOrder } = require('../lib/legacy_chain.js');
+const { verifyStoredChain } = require('../lib/log.js');
 const { jsonbOrder } = require('../lib/canon.js');
 const sha = s => crypto.createHash('sha256').update(s).digest('hex');
 const GEN = sha('ratchet-genesis');
@@ -21,6 +22,9 @@ ok(rec && rec.via === 'template', `recovered from a harvested template, not a bl
 
 const v = verifyLegacy([stored]);
 ok(v.verified === 1 && v.unrecovered === 0, 'the real entry verifies once its order is recovered');
+const combined = verifyStoredChain([stored], { i:1, h:REAL_H }, 1);
+ok(combined.ok && combined.mode === 'legacy-order-recovery',
+   'the shared economic-path verdict accepts a fully recovered legacy entry');
 
 // a shape no template covers is recovered by bounded search
 const oddEv = { zz:1, aa:2, mm:3, qq:4 };
@@ -35,6 +39,8 @@ const badStored = jsonbOrder({ i:1, t:1787094926996, ev:badEv, h:REAL_H });
 ok(recoverOrder(badStored, GEN) === null, 'a changed VALUE cannot be recovered by any ordering — tamper-evidence holds');
 const v2 = verifyLegacy([badStored]);
 ok(v2.unrecovered === 1 && v2.verified === 0, 'and it is reported unrecovered, never quietly passed');
+ok(!verifyStoredChain([badStored], { i:1, h:REAL_H }, 1).ok,
+   'the shared economic-path verdict still rejects a changed legacy value');
 
 // canonical entries are left alone
 ok(verifyLegacy([{ i:1, t:1, ev:{a:1}, c:1, h:'x' }]).canonical === 1, 'c:1 entries are not this file’s business');

@@ -5,7 +5,7 @@ production verification and deployment are still pending.
 
 ## Live identity and external proofs
 
-- Declared release: `h95-2026-08-30`.
+- Declared release: `h96-2026-08-30`.
 - MCP, Agent Skill and ERC-8004 profile: `1.1.0` locally.
 - Solana registry: agent 1475, asset
   `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`.
@@ -68,6 +68,11 @@ Never place values in this repository.
 h95 removes the accidental Pyth Benchmarks dependency. Valid retained evidence reaches
 402 without any Pyth credential; expired, invalid or divergent evidence fails before the
 facilitator and cannot charge an agent.
+
+h96 makes the premium path use the same honest legacy-chain recovery verdict as the
+public proof page. All retained economic values must reproduce, the current head must
+match, and the sole historical missing index remains explicitly disclosed; changing any
+legacy value still fails before an x402 quote is issued.
 
 ## Verification already completed locally
 
