@@ -60,7 +60,7 @@ const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 assert.ok(frontmatter, 'the Agent Skill needs YAML frontmatter');
 assert.match(frontmatter[1], /^description:\s*[>|]/m,
   'description must use a YAML block scalar so colon-space cannot break installation');
-assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.5"$/m);
+assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.6"$/m);
 
 assert.deepEqual(domainRegistration, registration,
   'the well-known domain proof must mirror the primary ERC-8004 registration file');
@@ -99,6 +99,11 @@ assert.equal(gauntlet.metadata.monetaryReward, false);
 assert.equal(gauntlet.metadata.completionPredicate, 'player.stated >= 1');
 assert.equal(mcp.gauntlet.id, 'first-contact-001');
 assert.equal(mcp.gauntlet.api, 'https://ratchetx.xyz/api/gauntlet');
+assert.match(mcp.inspection.schemasWithoutAClient, /405/);
+assert.deepEqual(mcp.inspection.standardClientFlow,
+  ['POST initialize', 'POST tools/list', 'POST tools/call']);
+assert.equal(mcp.trustBoundary.canonicalSettlement, 'ratchet-server');
+assert.equal(mcp.trustBoundary.independentPythReplay, false);
 assert.equal(paidEntry.url, 'https://ratchetx.xyz/api/agent-entry');
 assert.equal(paidEntry.metadata.paymentRequired, true);
 assert.equal(paidEntry.metadata.method, 'POST');

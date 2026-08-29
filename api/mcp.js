@@ -14,7 +14,7 @@ const proof = require('./proof.js');
 const { RELEASE } = require('../lib/release.js');
 const { progressFromState } = require('../lib/gauntlet.js');
 
-const MCP_VERSION = '1.0.3';
+const MCP_VERSION = '1.0.4';
 const MODERN_PROTOCOL = '2026-07-28';
 const LEGACY_PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 const SUPPORTED_PROTOCOLS = [MODERN_PROTOCOL, ...LEGACY_PROTOCOLS];
@@ -52,6 +52,46 @@ const TOOLS = [
     description: 'Read the compact public health proof: oracle, sampler, stream, token authorities, settlement program, event log and disclosed limitations.',
     inputSchema: { type: 'object', properties: {} } },
 ];
+
+const MCP_ENDPOINT = 'https://ratchetx.xyz/api/mcp';
+const MCP_DISCOVERY = 'https://ratchetx.xyz/.well-known/mcp.json';
+function inspectionContract() {
+  return {
+    transport: {
+      type: 'streamable-http',
+      endpoint: MCP_ENDPOINT,
+      requestMethod: 'POST',
+      getStatus: 405,
+      getMeaning: 'intentional: this stateless server does not expose an SSE GET stream',
+    },
+    discovery: MCP_DISCOVERY,
+    standardFlow: ['initialize', 'tools/list', 'tools/call'],
+    initializeRequest: {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'mcp-protocol-version': '2025-11-25',
+      },
+      body: {
+        jsonrpc: '2.0',
+        id: 1,
+        method: 'initialize',
+        params: {
+          protocolVersion: '2025-11-25',
+          capabilities: {},
+          clientInfo: { name: 'ratchet-inspector', version: '1.0' },
+        },
+      },
+    },
+    toolsListRequest: {
+      jsonrpc: '2.0',
+      id: 2,
+      method: 'tools/list',
+      params: {},
+    },
+    toolSchemas: TOOLS,
+  };
+}
 
 function header(req, name) {
   const hs = req.headers || {};
@@ -186,7 +226,10 @@ module.exports = async function handler(req, res) {
   if (req.method === 'OPTIONS') { res.status(204); return res.end(); }
   if (req.method !== 'POST') {
     res.setHeader('Allow', 'POST, OPTIONS');
-    return sendJSON(res, 405, rpcError(null, -32600, 'Streamable HTTP accepts POST requests'));
+    res.setHeader('Link', '<https://ratchetx.xyz/.well-known/mcp.json>; rel="service-desc"');
+    return sendJSON(res, 405, rpcError(null, -32600,
+      'Streamable HTTP accepts POST requests; GET is an inspection response, not an MCP session',
+      inspectionContract()));
   }
 
   const msg = req.body;
@@ -240,3 +283,4 @@ module.exports = async function handler(req, res) {
 
 module.exports.TOOLS = TOOLS;
 module.exports.SUPPORTED_PROTOCOLS = SUPPORTED_PROTOCOLS;
+module.exports.inspectionContract = inspectionContract;

@@ -14,6 +14,12 @@ assert.equal(spec.reward.money, false);
 assert.equal(spec.reward.token, false);
 assert.equal(spec.reward.rankedEntry, false);
 assert.equal(spec.measurement.globalCompletionCount, null);
+assert.equal(spec.verification.canonicalSettlement, 'ratchet-server');
+assert.equal(spec.verification.independentPythReplay, false);
+assert.equal(spec.publicRuns[0].claim, 'protocol-completion-only');
+assert.deepEqual(spec.publicRuns[0].proofs.map(run => run.handle),
+  ['009d2bf7f3be', '301e30592c97']);
+assert.notEqual(spec.publicRuns[0].proofs[0].shotId, spec.publicRuns[0].proofs[1].shotId);
 assert.equal(cleanHandle('demo-AbC123'), 'abc123');
 assert.throws(() => cleanHandle('not valid!'), /3-18 lowercase/);
 
@@ -30,15 +36,28 @@ assert.equal(waiting.completed, false);
 
 const complete = progressFromState({ player:{
   stated:1, brier:0.1521, brierIndex:61, open:[],
+  closed:[
+    { id:'proof1', label:'SOL UP', feed:'SOL', res:'hit', sp:0.61,
+      entry:100, exitPx:101, t:100, exp:120, exitAt:121, settledAt:123,
+      oracleSrc:'pyth-onchain' },
+  ],
   history:[
     { id:'unscored', label:'BTC UP', res:'miss', sp:null, entry:100, exit:99, t:124 },
-    { id:'proof1', label:'SOL UP', res:'hit', sp:0.61, entry:100, exit:101, t:123 },
+    { id:'proof1', label:'SOL UP', res:'hit', sp:0.61,
+      entry:100, exit:101, t:123 },
   ],
 } }, 'abc123');
 assert.equal(complete.stage, 'complete');
 assert.equal(complete.completed, true);
 assert.equal(complete.latestEvidence.id, 'proof1', 'a newer p-less call is not Gauntlet evidence');
 assert.equal(complete.latestEvidence.probability, 0.61);
+assert.equal(complete.latestEvidence.feed, 'SOL');
+assert.equal(complete.latestEvidence.sealedAt, 100,
+  'settlement-history timestamp must never be presented as the seal timestamp');
+assert.equal(complete.latestEvidence.expiry, 120);
+assert.equal(complete.latestEvidence.exitAt, 121);
+assert.equal(complete.latestEvidence.settledAt, 123);
+assert.equal(complete.latestEvidence.settlementAuthority, 'ratchet-server');
 assert.match(complete.apiProof, /handle=abc123$/);
 
 const gameHandler = require('../api/game.js');
@@ -82,6 +101,9 @@ const registration = JSON.parse(read('agent-registration.json'));
 assert.match(page, /FIRST CONTACT/);
 assert.match(page, /CHECK PROGRESS/);
 assert.match(page, /COPY MISSION/);
+assert.match(page, /Bankr completed First Contact twice/);
+assert.match(page, /009d2bf7f3be/);
+assert.match(page, /301e30592c97/);
 assert.doesNotMatch(page, /innerHTML|private.?key|secret.?key/i);
 assert.match(agents, /href="\/gauntlet"/);
 assert.match(game, /gauntlet:\s*publicSpec\(\)/);

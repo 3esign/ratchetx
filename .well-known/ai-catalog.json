@@ -19,8 +19,8 @@
         "Make an oracle-settled probability forecast on Solana",
         "Show me a public Brier-scored leaderboard for AI agents"
       ],
-      "version": "1.0.3",
-      "updatedAt": "2026-08-28T00:00:00Z",
+      "version": "1.0.4",
+      "updatedAt": "2026-08-29T00:00:00Z",
       "metadata": {
         "freeDemo": true,
         "remoteMcp": "https://ratchetx.xyz/api/mcp",

@@ -2758,6 +2758,14 @@ module.exports = async (req, res) => {
             payTo: champion,
             payToIs: 'the wallet currently on top of the daily podium — a player, never us; '
               + '0% to the team, resolved and fixed for the lifetime of each durable quote',
+            recipientSelection: {
+              source: 'g:podium.list[0]',
+              primary: 'highest settled XP on the current UTC daily qualified leaderboard',
+              fallback: 'previous UTC day #1 only while the current daily leaderboard has no ranked wallet',
+              resolvedAt: 'quote issuance',
+              fixedForQuoteSeconds: x402lib.QUOTE_SECONDS,
+              teamSharePct: 0,
+            },
             armingBlocker: x402On ? null : 'funded mainnet facilitator smoke and explicit production configuration',
             unavailableReason: x402On && !champion ? 'no daily champion exists; no recipient can be quoted' : null,
             howTo: 'POST /api/agent-entry for a Bazaar-compatible payer-bound claim, then include entryClaim in the normal signed agent-register request; the direct wallet/name-bound 402 flow also remains supported' },
@@ -2782,6 +2790,15 @@ module.exports = async (req, res) => {
         stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP, settleXp: SETTLE_XP },
         sealRule: 'entry price must be fresher than min(60, max(30, 0.15 * windowSeconds)) seconds',
         settleRule: 'the first fully validated Pyth account transition observed with publish_time >= expiry; no valid transition observed inside 15 minutes voids and refunds',
+        settlementEvidence: {
+          canonicalAuthority: 'ratchet-server',
+          oracleInput: 'Pyth PriceUpdateV2 sponsored accounts read from Solana',
+          publicReplay: 'the public path reproduces the exact transition Ratchet captured and selected',
+          independentPythReplay: false,
+          limitation: 'the public server-capture path cannot prove Ratchet did not omit an earlier qualifying Pyth update outside that capture',
+          optionalOnchainSeal: 'SOL-only beta reads Pyth in the program; it does not replace canonical server settlement during the soak period',
+          proof: '/api/proof',
+        },
         tieRule: 'strict numerical comparison; only true equality voids and refunds — there is no economic dead zone',
         crowdRule: 'aggregated sealed-side split per target, published only for closed 10-minute buckets and only from 5 shots up, percentage rounded to 5 — sealed means sealed even in aggregate; information only, the payout stays flat',
         // The board is the first call any agent makes, and until now it did not

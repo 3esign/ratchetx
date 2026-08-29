@@ -182,6 +182,10 @@ ok(supportedCalls===1,'facilitator capability is proved before any quote is issu
 
 boardOut=await board(); boardDoor=boardOut.arena?.doors.find(d=>d.id==='x402');
 ok(boardDoor?.enabled===true && boardDoor.payTo===CHAMP && boardDoor.network===MAINNET
+  && boardDoor.recipientSelection?.source==='g:podium.list[0]'
+  && /previous UTC day #1/.test(boardDoor.recipientSelection.fallback)
+  && boardDoor.recipientSelection.fixedForQuoteSeconds===600
+  && boardDoor.recipientSelection.teamSharePct===0
   && /standard v2 facilitator/.test(boardDoor.protocolStatus)
   && /funded mainnet settlement/.test(boardDoor.protocolStatus) && !/shipped dark/.test(boardDoor.protocolStatus),
   'board advertises the armed protocol and live recipient without claiming Bazaar listing');

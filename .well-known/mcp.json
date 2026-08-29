@@ -3,7 +3,7 @@
   "description": "Play the RatchetX prediction arcade: read the board, fire sealed commit-reveal shots settled on Pyth oracle prices, and build a public Brier-scored record.",
   "documentation": "https://ratchetx.xyz/llms.txt",
   "repository": "https://github.com/3esign/ratchetx",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "officialRegistry": {
     "name": "io.github.3esign/ratchet",
     "url": "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.3esign%2Fratchet/versions/latest"
@@ -12,6 +12,8 @@
     {
       "type": "streamable-http",
       "url": "https://ratchetx.xyz/api/mcp",
+      "requestMethod": "POST",
+      "getBehavior": "405 with a machine-readable inspection contract and all seven tool schemas in error.data",
       "mode": "demo",
       "authentication": "none",
       "install": "none; connect the URL directly"
@@ -32,6 +34,18 @@
     "api": "https://ratchetx.xyz/api/gauntlet",
     "completion": "one non-void stated-probability settlement in canonical player state",
     "reward": "status and proof only; no prize, token, payment, rank, or ranked entry"
+  },
+  "inspection": {
+    "discovery": "GET https://ratchetx.xyz/.well-known/mcp.json",
+    "schemasWithoutAClient": "GET https://ratchetx.xyz/api/mcp returns HTTP 405 by transport design and exposes initializeRequest, toolsListRequest and toolSchemas in the JSON-RPC error.data object",
+    "standardClientFlow": ["POST initialize", "POST tools/list", "POST tools/call"]
+  },
+  "trustBoundary": {
+    "canonicalSettlement": "ratchet-server",
+    "publicReplay": "reproduces the exact Pyth transition Ratchet captured and selected",
+    "independentPythReplay": false,
+    "limitation": "the public server-capture path cannot prove Ratchet did not omit an earlier qualifying Pyth update outside that capture",
+    "optionalOnchainSeal": "SOL-only beta; it does not replace canonical server settlement during the soak period"
   },
   "apiBase": "https://ratchetx.xyz/api/game"
 }

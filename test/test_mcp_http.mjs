@@ -87,10 +87,16 @@ const originReq={method:'POST',body:{jsonrpc:'2.0',id:99,method:'ping',params:{}
 const originRes={status(c){originStatus=c;return this;},setHeader(){},json(v){return v;},end(){}};
 await mcp(originReq,originRes);
 ok(originStatus===403, 'non-TLS non-local Origin is refused');
-let getStatus=200;
-const getRes={status(c){getStatus=c;return this;},setHeader(){},json(v){return v;},end(){}};
+let getStatus=200, getBody=null;
+const getHeaders={};
+const getRes={status(c){getStatus=c;return this;},
+  setHeader(k,v){getHeaders[String(k).toLowerCase()]=v;},
+  json(v){getBody=v;return v;},end(){}};
 await mcp({method:'GET',headers:{},socket:{}},getRes);
-ok(getStatus===405, 'GET stream is explicitly unsupported');
+ok(getStatus===405 && getBody?.error?.data?.transport?.requestMethod==='POST'
+  && getBody.error.data.toolSchemas.length===7
+  && /well-known\/mcp\.json/.test(getHeaders.link || ''),
+  'GET stays 405 by transport design but exposes discovery, POST flow and all tool schemas');
 
 console.log(`\n${pass} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

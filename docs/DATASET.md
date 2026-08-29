@@ -21,9 +21,11 @@ never do:
    at settlement. The export recomputes the versioned formula.
 2. **Backed by a stake.** `stake` is what the caller stood to lose. This is not a costless opinion.
 3. **Settled by rule, not by judgement.** The canonical authority today is the RatchetX server. `exit`
-   is the first fully validated Pyth account transition RatchetX captured at or after `expiry`, using
-   the first-crossing rule (`prev_publish_time < expiry <= publish_time`). The separate optional
-   on-chain seal beta does not replace that authority. Capture coverage is therefore part of proof.
+   is the qualifying Pyth account transition with the earliest `publish_time >= expiry` among the
+   fully validated transitions RatchetX captured inside the 15-minute settlement window. Sponsored
+   accounts frequently report `prev_publish_time == publish_time`, so `prev_publish_time` is retained
+   as evidence but is not an admissibility gate on this server path. The separate optional on-chain
+   seal beta does not replace that authority. Capture coverage is therefore part of proof.
 
 Prediction markets publish prices but not who said what. Social media has calls with no seal and no
 stake. Firms that keep real records do not publish them. This one is public, and it grows every time
@@ -45,7 +47,7 @@ for the next page. An empty page means you are at the end — poll the same curs
 | Field | Type | Meaning |
 |---|---|---|
 | `schema` | int | Schema version of this row. |
-| `i` | int | Position in the hash-chained log. Monotonic, gapless, and the pagination cursor. |
+| `i` | int | Position in the hash-chained log and the pagination cursor. Monotonic, with one permanently disclosed historical gap at index 345. |
 | `id` | string | Shot id. With the wallet it addresses a public proof page at `/api/shot`. |
 | `who` | string\|null | Stable pseudonym for a human player: `sha256("ratchet-record-v1|" + wallet)`, first 12 hex characters. `null` when the row belongs to a named agent. |
 | `agent` | string\|null | The agent's chosen name. Agents register in order to have a public accuracy record, so they are exported by name. |

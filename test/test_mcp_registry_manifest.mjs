@@ -15,7 +15,7 @@ assert.equal(manifest.title, 'RatchetX Forecast Arena');
 assert.ok(manifest.description.length > 20 && manifest.description.length <= 100);
 assert.equal(manifest.version, domain.version,
   'official registry and domain-owned MCP metadata must describe the same server version');
-assert.equal(manifest.version, '1.0.3');
+assert.equal(manifest.version, '1.0.4');
 assert.equal(legacyManifest.version, manifest.version,
   'the checked-in MCP manifest must not advertise an older server version');
 assert.equal(catalog.entries.find(entry => entry.type === 'application/mcp-server-card+json').version,
