@@ -5,7 +5,7 @@ production verification and deployment are still pending.
 
 ## Live identity and external proofs
 
-- Declared release: `h94-2026-08-29`.
+- Declared release: `h95-2026-08-29`.
 - MCP, Agent Skill and ERC-8004 profile: `1.1.0` locally.
 - Solana registry: agent 1475, asset
   `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`.
@@ -28,9 +28,10 @@ production verification and deployment are still pending.
   live settlement and the verifier.
 - Added schema-v4 record evidence for question type, thresholds/range/race inputs,
   probability, exact exit transitions and rule versions.
-- Rebuilt the Pyth verifier: symbol→feed-ID mapping comes from `lib/onchain_px.js`;
-  exact benchmark price/publish time and the shared outcome rule reproduce the result.
-  It explicitly leaves first-observed selection authority with the Ratchet hash chain.
+- Rebuilt the proof verifier as a keyless audit: symbol→feed-ID mapping comes from
+  `lib/onchain_px.js`; the sealed commitment, full hash chain, exact retained validated
+  PriceUpdateV2 observation and shared outcome rule reproduce the result. It explicitly
+  leaves first-observed selection authority with the Ratchet hash chain.
 - Reordered premium proof economics: prepare/validate/cache first, then issue a
   request-digest-bound 0.01 USDC x402 quote. Paid replay is deterministic and does
   not settle twice.
@@ -53,22 +54,20 @@ production verification and deployment are still pending.
 ## Truth boundary
 
 `canonicalSettlement: ratchet-server` and `independentPythReplay: false` remain
-correct. The verifier independently authenticates the selected Pyth update and
-recomputes the outcome. It does not prove that the server observed every qualifying
+correct. The verifier recomputes commitment, hash-chain, retained oracle observation
+and outcome consistency. It does not prove that the server observed every qualifying
 transition. No v3 program or Calibration PDA is deployed.
 
 ## Required environment names
 
-Existing deployment docs remain authoritative. New/important names are
-`PYTH_API_KEY` for current Benchmarks access, optional `PYTH_BENCHMARKS_URL` for
-its endpoint override, and `X402_PROOF_RECEIVER` for the separate premium service.
+Existing deployment docs remain authoritative. `X402_PROOF_RECEIVER` selects the
+separate premium-service receiver. `PYTH_API_KEY` is optional for the display-price
+Hermes failover only; neither core settlement nor the premium proof path needs it.
 Never place values in this repository.
 
-Production h93 proved that the premium endpoint is packaged and prevalidates safely,
-but Pyth Benchmarks currently returns HTTP 401 because `PYTH_API_KEY` is not configured
-in Vercel. Valid premium requests therefore return 503 before a quote; no agent can be
-charged. Configure that credential and require the known valid-shot smoke to reach 402
-before advertising the premium service as available.
+h95 removes the accidental Pyth Benchmarks dependency. Valid retained evidence reaches
+402 without any Pyth credential; expired, invalid or divergent evidence fails before the
+facilitator and cannot charge an agent.
 
 ## Verification already completed locally
 

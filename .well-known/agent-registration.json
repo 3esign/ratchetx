@@ -64,7 +64,7 @@
     {
       "name": "Proof Bundle",
       "endpoint": "https://ratchetx.xyz/api/agent-proof-bundle",
-      "version": "1.0.0"
+      "version": "2.0.0"
     },
     {
       "name": "Agent Report",

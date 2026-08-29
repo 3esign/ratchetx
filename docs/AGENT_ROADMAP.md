@@ -16,9 +16,10 @@ evidence and settlement code as every other player.
 - The separate premium proof bundle costs 0.01 USDC to the proof-service receiver
   declared in the quote. It must be completely prepared before payment can move.
 - Public board, record, report cards, MCP and ordinary proof remain free.
-- Canonical credits/XP settlement remains `ratchet-server`. Pyth Benchmarks can
-  authenticate the selected update and reproduce the outcome, but cannot prove
-  that the server captured every earlier admissible transition. Keep
+- Canonical credits/XP settlement remains `ratchet-server`. The keyless audit
+  verifier checks the sealed commitment, full Ratchet hash chain, retained
+  validated Pyth PriceUpdateV2 observation and outcome, but cannot prove that
+  the server captured every earlier admissible transition. Keep
   `independentPythReplay: false` until a new on-chain program actually closes that gap.
 - Frozen Ratchet Seal v2 source never changes. Any v3 work gets a new directory,
   program ID, threat model and deployment transcript.
@@ -27,7 +28,7 @@ evidence and settlement code as every other player.
 
 ## Verified local baseline
 
-- Release marker: `h94-2026-08-29` until the next deliberate release bump.
+- Release marker: `h95-2026-08-29` until the next deliberate release bump.
 - MCP/Agent Skill/ERC-8004 surfaces: `1.1.0`, checked bidirectionally.
 - Solana Agent Registry: asset `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`,
   indexer Agent ID 1475.

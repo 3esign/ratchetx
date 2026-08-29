@@ -1623,9 +1623,18 @@ async function settle(p, prices) {
     if (strict) {
       s.prevExitAt = at.prevPublishTime;
       s.exitConfBps = at.confBps;
+      s.exitObservedAt = Number(at.row && at.row.t) || null;
+      s.exitSlot = Number(at.row && at.row.slot) || 0;
+      s.exitPostedSlot = Number(at.row && at.row.postedSlot) || 0;
+      s.exitSource = (at.row && at.row.src) || 'pyth-onchain';
       if (at2) {
         s.exitPx2 = px2; s.exitAt2 = at2.publishTime;
         s.prevExitAt2 = at2.prevPublishTime;
+        s.exitConfBps2 = at2.confBps;
+        s.exitObservedAt2 = Number(at2.row && at2.row.t) || null;
+        s.exitSlot2 = Number(at2.row && at2.row.slot) || 0;
+        s.exitPostedSlot2 = Number(at2.row && at2.row.postedSlot) || 0;
+        s.exitSource2 = (at2.row && at2.row.src) || 'pyth-onchain';
       }
     }
     await noteSettle(s.feed, 'set', eventId);
@@ -1635,6 +1644,14 @@ async function settle(p, prices) {
       exitAt2:s.exitAt2, prevExitAt:s.prevExitAt == null ? null : s.prevExitAt,
       prevExitAt2:s.prevExitAt2 == null ? null : s.prevExitAt2,
       exitConfBps:s.exitConfBps == null ? null : s.exitConfBps,
+      exitConfBps2:s.exitConfBps2 == null ? null : s.exitConfBps2,
+      exitObservedAt:s.exitObservedAt == null ? null : s.exitObservedAt,
+      exitObservedAt2:s.exitObservedAt2 == null ? null : s.exitObservedAt2,
+      exitSlot:s.exitSlot == null ? null : s.exitSlot,
+      exitSlot2:s.exitSlot2 == null ? null : s.exitSlot2,
+      exitPostedSlot:s.exitPostedSlot == null ? null : s.exitPostedSlot,
+      exitPostedSlot2:s.exitPostedSlot2 == null ? null : s.exitPostedSlot2,
+      exitSource:s.exitSource || null, exitSource2:s.exitSource2 || null,
       side:s.side, salt:s.salt, sp:s.sp ?? null, commit:s.commit,
       commitV:s.commitV || 1, settleRule:s.settleRule || 'observed-sample-v1',
       settleRuleApplied:s.settleRuleApplied,

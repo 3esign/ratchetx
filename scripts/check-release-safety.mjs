@@ -36,4 +36,25 @@ for (const file of files) {
     if (pattern.test(text)) fail(`${label} found in tracked file ${posix}`);
 }
 if (!failed) ok(`${files.length} tracked files contain no blocked credential/artifact patterns`);
+
+// Ratchet's oracle architecture is intentionally keyless: settlement and the
+// paid proof bundle consume Pyth PriceUpdateV2 accounts already published on
+// Solana. A future refactor must not smuggle a metered Pyth HTTP dependency
+// back into either economic path. Hermes may remain an optional display-only
+// fallback in lib/prices.js, outside this protected set.
+const keylessOracleFiles = [
+  'api/game.js', 'lib/pxlog.js', 'lib/proof_bundle.js', 'lib/record.js',
+  'lib/verifier.js', 'scripts/verifier.mjs',
+];
+const paidPythPattern = /PYTH_API_KEY|PYTH_BENCHMARKS_URL|benchmarks\.pyth\.network|fetchBenchmarkUpdates/;
+for (const file of keylessOracleFiles) {
+  const text = fs.readFileSync(file, 'utf8');
+  if (paidPythPattern.test(text))
+    fail(`paid Pyth API dependency entered protected oracle path: ${file}`);
+}
+const verifier = fs.readFileSync('lib/verifier.js', 'utf8');
+if (!/independentPythReplay\s*:\s*false/.test(verifier))
+  fail('keyless verifier must publish independentPythReplay:false');
+else if (!paidPythPattern.test(verifier))
+  ok('core settlement and premium verifier remain on the free Pyth-on-Solana evidence path');
 process.exit(failed ? 1 : 0);

@@ -3,7 +3,7 @@
   "info": {
     "title": "RatchetX Agent Commerce API",
     "version": "1.1.0",
-    "description": "Two paid RatchetX agent capabilities: a champion-funded ranked-entry claim and a deterministic Pyth verification bundle. Free board, corpus, report cards and MCP access remain outside this paid catalog.",
+    "description": "Two paid RatchetX agent capabilities: a champion-funded ranked-entry claim and a keyless deterministic audit bundle over retained Solana/Pyth evidence. Free board, corpus, report cards and MCP access remain outside this paid catalog.",
     "x-guidance": "For ranked entry, POST an empty JSON object to /api/agent-entry and satisfy its exact x402 v2 requirement. For a proof bundle, POST a settled shotId to /api/agent-proof-bundle; Ratchet validates and prepares the exact bundle before issuing a request-digest-bound payment quote.",
     "contact": {
       "name": "RatchetX public issue tracker",
@@ -23,7 +23,7 @@
     },
     {
       "name": "Proof bundles",
-      "description": "Independent verifier outputs bundled with Pyth evidence and anchor proofs."
+      "description": "Keyless commitment, hash-chain and outcome verification over Ratchet-retained Pyth PriceUpdateV2 account evidence. It does not claim independent historical Pyth replay."
     }
   ],
   "paths": {
@@ -159,8 +159,11 @@
           "422": {
             "description": "Shot cannot produce a matching proof bundle; no payment attempted"
           },
+          "410": {
+            "description": "The retained oracle observation has expired; no payment attempted"
+          },
           "503": {
-            "description": "Pyth evidence or x402 facilitator temporarily unavailable; no payment attempted when evidence is unavailable"
+            "description": "Keyless evidence store or x402 facilitator temporarily unavailable; no payment attempted when evidence is unavailable"
           }
         }
       }
@@ -278,7 +281,7 @@
             "properties": {
               "bundleVersion": {
                 "type": "string",
-                "const": "ratchetx-proof-bundle-v1"
+                "const": "ratchetx-proof-bundle-v2"
               },
               "request": {
                 "type": "object",

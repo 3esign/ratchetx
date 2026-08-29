@@ -9,8 +9,9 @@ endpoint is `https://pyth.dourolabs.app/hermes`; authenticated requests use
 `PYTH_API_KEY`. Pricing is intentionally not frozen in this repository because Pyth can
 change it. Check the current Pyth plan page before making a purchasing decision.
 
-RATCHET's API key is configured as a failover. The live primary route does not depend on
-Hermes: it reads Pyth's sponsored push-feed accounts directly from Solana.
+An API key may be configured as an optional display-price failover. The live primary route,
+settlement and premium proof service do not depend on Hermes: they use Pyth's sponsored
+push-feed accounts read directly from Solana and Ratchet's retained validated observations.
 
 ## What we did instead
 
@@ -29,8 +30,8 @@ and decodes them itself. No oracle SDK and no Pyth API key are required for that
 | # | Source | Cost | When |
 |---|--------|------|------|
 | 1 | **Pyth on-chain** — sponsored accounts on Solana | free | always the primary |
-| 2 | Pyth Hermes | current Pyth plan | only if `PYTH_API_KEY` is set |
-| 3 | Coinbase spot | free | last resort, and never silent |
+| 2 | Pyth Hermes | current Pyth plan | optional labeled display failover only, if `PYTH_API_KEY` is set |
+| 3 | Coinbase spot | free | labeled display-only last resort; never seals or settles |
 
 If we ever fall past step 1, `prices.degraded` says so and the page prints it. The banner
 distinguishes *"still Pyth, different route"* from *"not Pyth at all"*, because those are
@@ -91,7 +92,6 @@ Rather than hide this, the page shows each price's publish age. A number that sa
 SOLANA_RPC=<your mainnet RPC>     # optional but recommended (SOLANA_RPC_URL also accepted)
 PYTH_API_KEY=<key>                # configured failover credential
 PYTH_HERMES_URL=https://pyth.dourolabs.app/hermes
-PYTH_BENCHMARKS_URL=https://benchmarks.pyth.network/v1  # optional proof-verifier override
 ```
 
 Unset, `SOLANA_RPC` rotates three public endpoints

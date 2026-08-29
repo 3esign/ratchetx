@@ -40,12 +40,12 @@ skills, x402 support and the reciprocal registry binding.
 
 ## Is this repo actually the running code?
 
-This source tree declares `h94-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
+This source tree declares `h95-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h94-2026-08-29"
-https://ratchetx.xyz/api/proof               ->  "v": "h94-2026-08-29"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h95-2026-08-29"
+https://ratchetx.xyz/api/proof               ->  "v": "h95-2026-08-29"
 ```
 
 Public APIs import that shared release marker so one endpoint cannot silently
@@ -124,8 +124,8 @@ No key that can touch funds.
 | `lib/proof_bundle.js` | prevalidates and caches one deterministic proof before its request-digest-bound x402 payment |
 | `lib/agent_receipts.js` | durable content-digested AgentRun receipts; never a serverless local file |
 | `lib/agent_report.js` | report-card numbers, calibration, exact ranking gate and receipt provenance |
-| `lib/outcome.js` | one versioned outcome function shared by the game and independent verifier |
-| `lib/prices.js` | Pyth Hermes prices, Coinbase fallback — keyless GETs, same source at seal and settle |
+| `lib/outcome.js` | one versioned outcome function shared by the game and keyless audit verifier |
+| `lib/prices.js` | display-price orchestration; only validated Pyth-on-Solana data may seal or settle, while labeled HTTP fallbacks are display-only |
 | `lib/burn.js` | reads a burn transaction from the chain and credits it only if it is real, recent, supply-reducing, and never seen before |
 | `lib/verify.js` | wallet-signature auth (Ed25519 via node:crypto), no JWT, no session store |
 | `lib/log.js` | the hash-chained event log and its permissionless on-chain memo anchor |
@@ -203,11 +203,10 @@ and the page says so). Environment variables, all optional except the mint:
 `RATCHET_MINT` (arms real burns) · `PUBLIC_ORIGIN` (production default: `https://ratchetx.xyz`) ·
 `SOLANA_RPC_URL` or `SOLANA_RPC` (fast RPC lane; public RPCs are the
 fallback) · `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (preferred free durable state; server-only) · `KV_REST_API_URL` + `KV_REST_API_TOKEN` (rollback/fallback durable state) · `CREDIT_PER_TOKEN`
-(default 1) · `RATCHET_LP_BURN_TX` (optional override for the LP proof line) · **`PYTH_API_KEY`** (required for
-direct Hermes calls since 2026-08-18; without it the game falls back
-to a thinner price source only if the primary on-chain route fails, and says so on the page) ·
-`PYTH_HERMES_URL` (override the Hermes host) · `RATCHET_SEAL_PROGRAM_ID` + `RATCHET_SEAL_VERSION` +
-`PYTH_BENCHMARKS_URL` (optional premium-verifier endpoint override; defaults to Pyth Benchmarks v1) ·
+(default 1) · `RATCHET_LP_BURN_TX` (optional override for the LP proof line) ·
+`PYTH_API_KEY` + `PYTH_HERMES_URL` (optional display-price failover only; core
+settlement and premium proof bundles never require either) ·
+`RATCHET_SEAL_PROGRAM_ID` + `RATCHET_SEAL_VERSION` +
 `RATCHET_SEAL_CLUSTER` (arms optional sealing; it reuses `SOLANA_RPC_URL` unless `RATCHET_SEAL_RPC_URL` is set) ·
 `RATCHET_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)
 

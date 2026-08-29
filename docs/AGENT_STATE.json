@@ -1,5 +1,5 @@
 {
-  "productionRelease": "h94-2026-08-29",
+  "productionRelease": "h95-2026-08-29",
   "versions": {
     "mcp": "1.1.0",
     "agentSkill": "1.1.0",
@@ -29,6 +29,6 @@
   "localRecoveryDeployment": "deployed",
   "productionStatus": {
     "core": "healthy",
-    "premiumProof": "safe prevalidation active; PYTH_API_KEY required before a valid request can reach 402"
+    "premiumProof": "keyless prevalidation active; no Pyth API key required; invalid or expired evidence fails before payment"
   }
 }

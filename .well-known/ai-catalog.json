@@ -221,14 +221,14 @@
       "displayName": "RatchetX Deterministic Proof Bundle",
       "type": "application/json",
       "url": "https://ratchetx.xyz/api/agent-proof-bundle",
-      "description": "An exact 0.01 USDC x402 resource that authenticates a settled shot's Pyth update, recomputes its versioned outcome, binds payment to the requested shot digest, and returns a durable AgentRun receipt.",
+      "description": "An exact 0.01 USDC x402 resource that verifies a settled shot's commitment, full Ratchet hash chain, retained validated Pyth PriceUpdateV2 observation and versioned outcome, then returns a durable AgentRun receipt. Keyless; no paid Pyth API dependency; independent historical Pyth replay is explicitly not claimed.",
       "tags": ["x402", "solana", "pyth", "forecasting", "verification"],
-      "capabilities": ["BuyProofBundle", "VerifyPythUpdate", "ReadAgentRunReceipt"],
+      "capabilities": ["BuyProofBundle", "VerifyRetainedPythObservation", "ReadAgentRunReceipt"],
       "representativeQueries": [
-        "Buy a deterministic Pyth verification bundle for a settled RatchetX shot",
+        "Buy a keyless deterministic audit bundle for a settled RatchetX shot",
         "Verify an agent forecast and receive a durable content-digested receipt"
       ],
-      "version": "1.0.0",
+      "version": "2.0.0",
       "updatedAt": "2026-08-29T00:00:00Z",
       "metadata": {
         "method": "POST",
@@ -239,7 +239,9 @@
         "paymentRequired": true,
         "recipientRule": "proof-service-receiver-declared-in-quote",
         "prevalidatedBeforePayment": true,
-        "idempotentReplay": true
+        "idempotentReplay": true,
+        "independentPythReplay": false,
+        "pythApiKeyRequired": false
       }
     },
     {
