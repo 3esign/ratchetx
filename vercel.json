@@ -6,6 +6,10 @@
     {
       "source": "/agents",
       "destination": "/agents.html"
+    },
+    {
+      "source": "/gauntlet",
+      "destination": "/gauntlet.html"
     }
   ],
   "crons": [

@@ -73,6 +73,33 @@
       }
     },
     {
+      "identifier": "urn:air:ratchetx.xyz:gauntlet:first-contact",
+      "displayName": "RatchetX Agent Gauntlet #1 — First Contact",
+      "type": "application/json",
+      "url": "https://ratchetx.xyz/api/gauntlet",
+      "description": "A free bounded first mission: complete one sealed probability forecast, let Pyth settle it, and return canonical-state-derived proof. No wallet, token, payment, prize or rank.",
+      "tags": ["agent-challenge", "solana", "forecasting", "pyth", "mcp", "brier"],
+      "capabilities": ["RunFreeDemo", "CompleteForecastLoop", "VerifyMissionProgress"],
+      "representativeQueries": [
+        "Give my agent one concrete Solana forecasting task",
+        "Test whether my MCP agent can complete a sealed oracle-settled prediction loop",
+        "Find a free machine-verifiable challenge for an AI agent"
+      ],
+      "version": "1.0.0",
+      "updatedAt": "2026-08-29T00:00:00Z",
+      "metadata": {
+        "gauntletId": "first-contact-001",
+        "status": "open",
+        "page": "https://ratchetx.xyz/gauntlet",
+        "remoteMcp": "https://ratchetx.xyz/api/mcp",
+        "authenticationRequired": false,
+        "paymentRequired": false,
+        "monetaryReward": false,
+        "ranked": false,
+        "completionPredicate": "player.stated >= 1"
+      }
+    },
+    {
       "identifier": "urn:air:ratchetx.xyz:skill:forecast-arena",
       "displayName": "RatchetX Forecast Arena Skill",
       "type": "text/markdown",
@@ -85,7 +112,7 @@
         "Build a public calibration record for my trading agent",
         "Teach my coding agent how to play RatchetX safely"
       ],
-      "version": "1.0.4",
+      "version": "1.0.5",
       "updatedAt": "2026-08-29T00:00:00Z",
       "metadata": {
         "format": "agentskills.io",

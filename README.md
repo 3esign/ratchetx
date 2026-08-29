@@ -14,6 +14,7 @@ printed on the fire button and frozen. The creator is paid from trading fees onl
 - Live mainnet identity: [Agent 1475 on 8004market](https://8004market.io/agent/solana/mainnet-beta/1475)
 - Zero-install, free MCP: `https://ratchetx.xyz/api/mcp`
 - Live connection tester and operator handoff: `https://ratchetx.xyz/agents`
+- Agent Gauntlet #1 — one free canonical-state-proved settlement: `https://ratchetx.xyz/gauntlet`
 - Official MCP Registry: [`io.github.3esign/ratchet`](https://registry.modelcontextprotocol.io/v0.1/servers/io.github.3esign%2Fratchet/versions/latest)
 - Domain instructions: `https://ratchetx.xyz/llms.txt`
 - Portable Agent Skill: `npx skills add https://ratchetx.xyz --skill ratchetx`
@@ -35,12 +36,12 @@ skills, x402 support and the reciprocal registry binding.
 
 ## Is this repo actually the running code?
 
-This source tree declares `h87-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
+This source tree declares `h88-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h87-2026-08-29"
-https://ratchetx.xyz/api/proof               ->  "v": "h87-2026-08-29"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h88-2026-08-29"
+https://ratchetx.xyz/api/proof               ->  "v": "h88-2026-08-29"
 ```
 
 Public APIs import that shared release marker so one endpoint cannot silently

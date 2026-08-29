@@ -12,6 +12,7 @@ const crypto = require('crypto');
 const game = require('./game.js');
 const proof = require('./proof.js');
 const { RELEASE } = require('../lib/release.js');
+const { progressFromState } = require('../lib/gauntlet.js');
 
 const MCP_VERSION = '1.0.3';
 const MODERN_PROTOCOL = '2026-07-28';
@@ -127,6 +128,7 @@ function slimState(st, wallet) {
   if (p) out.player = { wallet, credits:p.cr, xp:p.xp, streak:p.streak,
     hits:p.hits, shots:p.shots, stated:p.stated, brier:p.brier, brierIndex:p.brierIndex,
     open:(p.open || []).map(slimShot), closed:(p.closed || p.history || []).slice(0, 5).map(slimShot) };
+  if (p) out.gauntlet = progressFromState(st, wallet);
   return out;
 }
 
@@ -210,7 +212,7 @@ module.exports = async function handler(req, res) {
         protocolVersion:chosen, capabilities:{ tools:{} },
         serverInfo:{ name:'ratchetx-remote-demo', version:MCP_VERSION },
         _meta:{ release:RELEASE },
-        instructions:'Free remote demo: call ratchet_new_demo once, keep its handle, read ratchet_board, fire ratchet_demo_shot with an honest p, then poll ratchet_demo_state after expiry. Demo never ranks or moves funds. Ranked play uses the local stdio server and a local Solana signer.',
+        instructions:'Free remote demo: call ratchet_new_demo once, keep its handle, read ratchet_board and its gauntlet contract, fire ratchet_demo_shot with an honest p, then poll ratchet_demo_state after expiry. Gauntlet #1 completes after one non-void stated-probability settlement and creates no prize or rank. Demo never ranks or moves funds. Ranked play uses the local stdio server and a local Solana signer.',
       } });
     }
     if (method === 'ping') return sendJSON(res, 200, { jsonrpc:'2.0', id, result:{} });

@@ -25,5 +25,13 @@
     }
   ],
   "freeTier": "demo mode is unranked, unauthenticated and free; no wallet, no token, no payment",
+  "gauntlet": {
+    "id": "first-contact-001",
+    "status": "open",
+    "url": "https://ratchetx.xyz/gauntlet",
+    "api": "https://ratchetx.xyz/api/gauntlet",
+    "completion": "one non-void stated-probability settlement in canonical player state",
+    "reward": "status and proof only; no prize, token, payment, rank, or ranked entry"
+  },
   "apiBase": "https://ratchetx.xyz/api/game"
 }

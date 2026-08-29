@@ -61,10 +61,16 @@ ok(ident.out && /^[a-f0-9]{12}$/.test(ident.out.handle), 'server creates a fresh
 const board = await tool('ratchet_board');
 const target = board.out && board.out.targets && board.out.targets.find(t=>t.kind==='dir');
 ok(!!target, 'remote MCP reads the canonical live board');
+ok(board.out.gauntlet && board.out.gauntlet.id==='first-contact-001'
+  && board.out.gauntlet.reward.money===false,
+  'the first board read exposes the free non-economic Gauntlet contract');
 const shot = await tool('ratchet_demo_shot',{handle:ident.out.handle,target:target.id,side:'YES',stake:500,p:0.61});
 ok(shot.out && shot.out.ok===true && shot.out.shot && shot.out.shot.commit, 'remote MCP seals a real demo shot with stated probability');
 const state = await tool('ratchet_demo_state',{handle:ident.out.handle});
 ok(state.out && state.out.player && state.out.player.open.length===1, 'same handle reads its canonical open shot');
+ok(state.out.gauntlet && state.out.gauntlet.stage==='awaiting_settlement'
+  && state.out.gauntlet.completed===false,
+  'demo state derives Gauntlet progress from the canonical open shot');
 const proof = await tool('ratchet_proof');
 ok(proof.out && proof.out.checks[0].id==='oracle' && proof.out.truthPlane, 'proof is exposed in compact structured form');
 const bad = await tool('ratchet_demo_state',{handle:'NOT VALID!'});

@@ -55,6 +55,7 @@ const { ACCOUNTS: PX_ACCOUNTS, PYTH_OWNERS, decode: decodePx,
   MAX_AGE_S: PX_MAX_AGE_S, MAX_CONF_BPS: PX_MAX_CONF_BPS } = require('../lib/onchain_px.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
+const { publicSpec } = require('../lib/gauntlet.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
 const { RELEASE: VERSION } = require('../lib/release.js');
@@ -2750,6 +2751,7 @@ module.exports = async (req, res) => {
         // refusal. An invitation nobody can find is not an invitation, so the
         // doors, the toll, its recipient and the credential are stated here.
         arena,
+        gauntlet: publicSpec(),
         targets: Object.entries(board).map(([id, t]) => ({
           id, kind: t.kind || 'dir', feed: t.feed, feed2: t.feed2 || null,
           mins: t.mins, pct: t.pct || null, baseXp: t.baseXp,

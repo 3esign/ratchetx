@@ -23,6 +23,11 @@
       ]
     },
     {
+      "name": "Gauntlet",
+      "endpoint": "https://ratchetx.xyz/api/gauntlet",
+      "version": "1.0"
+    },
+    {
       "name": "OASF",
       "endpoint": "https://ratchetx.xyz/agent-registration.json",
       "version": "0.8",
@@ -40,7 +45,7 @@
     {
       "name": "Agent Skill",
       "endpoint": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
-      "version": "1.0.4"
+      "version": "1.0.5"
     },
     {
       "name": "OpenAPI",

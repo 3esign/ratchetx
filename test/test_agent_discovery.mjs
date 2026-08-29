@@ -60,7 +60,7 @@ const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 assert.ok(frontmatter, 'the Agent Skill needs YAML frontmatter');
 assert.match(frontmatter[1], /^description:\s*[>|]/m,
   'description must use a YAML block scalar so colon-space cannot break installation');
-assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.4"$/m);
+assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.5"$/m);
 
 assert.deepEqual(domainRegistration, registration,
   'the well-known domain proof must mirror the primary ERC-8004 registration file');
@@ -82,14 +82,23 @@ assert.deepEqual(registration.services.find(s => s.name === 'MCP').tools, [
 ]);
 assert.ok(registration.services.some(s => s.name === 'x402'
   && s.endpoint === 'https://ratchetx.xyz/api/agent-entry' && s.version === '2'));
+assert.ok(registration.services.some(s => s.name === 'Gauntlet'
+  && s.endpoint === 'https://ratchetx.xyz/api/gauntlet' && s.version === '1.0'));
 const oasf = registration.services.find(s => s.name === 'OASF');
 assert.ok(oasf && oasf.skills.length >= 3 && oasf.domains.includes('technology/blockchain/blockchain'));
 
 const board = catalog.entries.find(e => e.identifier.endsWith(':live-board'));
 const corpus = catalog.entries.find(e => e.identifier.endsWith(':forecast-corpus'));
 const paidEntry = catalog.entries.find(e => e.identifier.endsWith(':x402:ranked-entry-claim'));
+const gauntlet = catalog.entries.find(e => e.identifier.endsWith(':gauntlet:first-contact'));
 assert.equal(board.metadata.paymentRequired, false, 'the live board is free');
 assert.equal(corpus.metadata.paymentRequired, false, 'the public corpus is free');
+assert.equal(gauntlet.url, 'https://ratchetx.xyz/api/gauntlet');
+assert.equal(gauntlet.metadata.paymentRequired, false);
+assert.equal(gauntlet.metadata.monetaryReward, false);
+assert.equal(gauntlet.metadata.completionPredicate, 'player.stated >= 1');
+assert.equal(mcp.gauntlet.id, 'first-contact-001');
+assert.equal(mcp.gauntlet.api, 'https://ratchetx.xyz/api/gauntlet');
 assert.equal(paidEntry.url, 'https://ratchetx.xyz/api/agent-entry');
 assert.equal(paidEntry.metadata.paymentRequired, true);
 assert.equal(paidEntry.metadata.method, 'POST');
@@ -106,6 +115,7 @@ assert.match(llms, /https:\/\/ratchetx\.xyz\/api\/mcp/);
 assert.match(llms, /Standard x402 v2 USDC door \(LIVE\)/);
 assert.match(llms, /funded mainnet payment and[\s\S]*idempotent replay test passed/);
 assert.match(llms, /POST \/api\/agent-entry/);
+assert.match(llms, /GET \/api\/gauntlet/);
 assert.match(llms, /PayAI Bazaar independently indexed/);
 assert.equal(openapi.openapi, '3.1.0');
 assert.equal(openapi.servers[0].url, 'https://ratchetx.xyz');
@@ -122,6 +132,8 @@ assert.deepEqual(Object.keys(openapi.paths), ['/api/agent-entry'],
   'free APIs must not be mislabeled as paid x402scan resources');
 assert.doesNotMatch(llms, /shipped dark|production flag is still OFF/i);
 for (const path of [
+  '/gauntlet',
+  '/api/gauntlet',
   '/api/agent-entry',
   '/openapi.json',
   '/agent-registration.json',
@@ -134,6 +146,8 @@ for (const path of [
 ]) {
   assert.ok(sitemap.includes(path), `sitemap is missing agent discovery path: ${path}`);
 }
+assert.ok(vercel.rewrites.some(route =>
+  route.source === '/gauntlet' && route.destination === '/gauntlet.html'));
 
 const wellKnownHeaders = vercel.headers.find(h => h.source === '/.well-known/(.*)');
 assert.ok(wellKnownHeaders, 'Vercel must serve well-known discovery files with explicit headers');
