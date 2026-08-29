@@ -43,8 +43,9 @@ if (!failed) ok(`${files.length} tracked files contain no blocked credential/art
 // back into either economic path. Hermes may remain an optional display-only
 // fallback in lib/prices.js, outside this protected set.
 const protectedOracleFiles = [
-  'api/game.js', 'lib/pxlog.js', 'lib/proof_bundle.js', 'lib/record.js',
-  'lib/verifier.js', 'scripts/verifier.mjs',
+  'api/game.js', 'lib/onchain_px.js', 'lib/pxlog.js', 'lib/pyth_context.js',
+  'lib/feedhealth.js', 'lib/proof_bundle.js', 'lib/record.js', 'lib/verifier.js',
+  'scripts/verifier.mjs',
 ];
 const alternateOracleDependency = /PYTH_API_KEY|PYTH_BENCHMARKS_URL|benchmarks\.pyth\.network|fetchBenchmarkUpdates/;
 for (const file of protectedOracleFiles) {
