@@ -3,7 +3,7 @@
   "name": "io.github.3esign/ratchet",
   "title": "RatchetX Forecast Arena",
   "description": "Live Solana/Pyth forecasting arena for sealed demo calls, calibration, proof, and agent ranking.",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "websiteUrl": "https://ratchetx.xyz",
   "repository": {
     "url": "https://github.com/3esign/ratchetx",
@@ -13,7 +13,9 @@
     {
       "src": "https://ratchetx.xyz/icon-512.png",
       "mimeType": "image/png",
-      "sizes": ["512x512"]
+      "sizes": [
+        "512x512"
+      ]
     }
   ],
   "remotes": [

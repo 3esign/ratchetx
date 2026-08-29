@@ -1,0 +1,27 @@
+{
+  "productionRelease": "h91-2026-08-29",
+  "versions": {
+    "mcp": "1.1.0",
+    "agentSkill": "1.1.0",
+    "erc8004": "1.1.0",
+    "aiCatalog": "1.0.6"
+  },
+  "endpoints": {
+    "mcp": "https://ratchetx.xyz/.well-known/mcp.json",
+    "catalog": "https://ratchetx.xyz/.well-known/ai-catalog.json",
+    "skill": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
+    "api": "https://ratchetx.xyz/api/game",
+    "erc8004": "https://ratchetx.xyz/.well-known/agent-registration.json"
+  },
+  "identities": {
+    "solanaAgentRegistry": "1475"
+  },
+  "freezeDates": {
+    "sealV2": "2026-09-08T00:00:00Z"
+  },
+  "trustBoundaries": {
+    "canonicalSettlement": "ratchet-server",
+    "independentPythReplay": false
+  },
+  "lastVerifiedDeploy": "2026-08-29T17:00:00Z"
+}

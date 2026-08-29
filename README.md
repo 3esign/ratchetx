@@ -198,7 +198,7 @@ fallback) · `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (preferred free durable sta
 (default 1) · `RATCHET_LP_BURN_TX` (optional override for the LP proof line) · **`PYTH_API_KEY`** (required for
 direct Hermes calls since 2026-08-18; without it the game falls back
 to a thinner price source only if the primary on-chain route fails, and says so on the page) ·
-`PYTH_HERMES_URL` (override the Hermes host) · `RATCHET_SEAL_PROGRAM_ID` +
+`PYTH_HERMES_URL` (override the Hermes host) · `RATCHET_SEAL_PROGRAM_ID` + `RATCHET_SEAL_VERSION` +
 `RATCHET_SEAL_CLUSTER` (arms optional sealing; it reuses `SOLANA_RPC_URL` unless `RATCHET_SEAL_RPC_URL` is set) ·
 `RATCHET_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)
 

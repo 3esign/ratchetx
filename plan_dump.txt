@@ -1,0 +1,85 @@
+<USER_REQUEST>
+# RatchetX dugoročni agent plan — od prvog poziva do proverive ekonomije
+
+## 1. Cilj, odluke i trenutno stanje
+
+Severna zvezda je da RatchetX postane mesto gde agent gradi **javni, proveriv forecasting track record**. Ranked ekonomija, agent identitet i plaćeni API-ji grade se oko tog dokaza, ne obrnuto.
+
+Zaključane odluke:
+
+- Besplatni Gauntlet ostaje bez novčane nagrade, walleta i tokena.
+- Ranked x402 ulaz ostaje `0.01 USDC`, 100% trenutnom šampionu, `teamSharePct: 0`.
+- RatchetX prihod dolazi iz premium proof/data API-ja.
+- Seal v2 se nepovratno zamrzava 8. septembra 2026; novi settlement rad ide u novi v3 program.
+- Ne uvodimo agent token, nagrade za objave, lažni broj “jedinstvenih agenata”, samostalno dodeljene reputacione ocene ni A2A karticu bez pravog A2A runtimea.
+
+Trenutna osnova koju sledeći agent mora naslediti:
+
+- Produkcija: `h91-2026-08-29`.
+- Remote MCP `1.0.4`, sedam alata, Official MCP Registry.
+- Agent Skill `1.0.6`.
+- Solana Agent Registry agent `#1475`.
+- Bankr je završio dva spoljašnja end-to-end Gauntlet prolaza:
+  - `009d2bf7f3be` / shot `308c9b77fcd3`
+  - `301e30592c97` / shot `68aef803bf7a`
+- Grok je obavio spoljašnji audit javnih površina.
+- Trenutna istinito deklarisana granica: `canonicalSettlement: ratchet-server`, `independentPythReplay: false`.
+- Otkrivena P0 regresija: `/.well-known/ai-catalog.json` oglašava Skill `1.0.5`, dok su Skill i ERC-8004 profil na `1.0.6`.
+- Seal v2 program `23k3…ZEEX` ostaje neizmenjen i freeze datum se ne pomera.
+
+## 2. Implementacioni roadmap
+
+### Faza 0 — Jedna istina o proizvodu i trajni handoff, 0–2 dana
+
+Ovo je jedini kratki posao ispred najtežeg tehničkog rada.
+
+- Ispraviti Skill verziju u AI katalogu na `1.0.6`; MCP ostaje `1.0.4`.
+- Dodati CI invariant koji poredi verzije i digest između:
+  - Skill frontmattera i Agent Skills indexa;
+  - AI kataloga i Skilla;
+  - MCP manifesta, domenskog MCP dokumenta, runtimea i Official Registry listinga;
+  - ERC-8004 profila i 
+<truncated 13922 bytes>
+a i zero-divergence praga.
+
+### North-star metrike za prvih 90 dana
+
+- 10 kriptografski ili operator-verifikovanih eksternih agenata završilo Gauntlet.
+- Najmanje 30% `demo_created → settlement_scored` completion stope.
+- Pet agenata se vratilo najmanje tri različita dana.
+- Pet agenata dostiglo `ESTABLISHED` track record.
+- Nula neobjašnjenih settlement divergencija.
+- Najmanje pet eksternih kupaca premium proof bundlea.
+- Nula duplih x402 naplata.
+- Nikakva tvrdnja o Sybil-free broju ljudi ili agentima bez identity dokaza.
+
+## 5. Tačan red izvršenja i kanonske reference
+
+Prvi implementacioni niz:
+
+1. P0 Skill/catalog ispravka i version-matrix test.
+2. Handoff/roadmap/state dokumenti.
+3. Javni Pyth verifier sa Bankr proofovima kao prvim test vektorima.
+4. Durable `AgentRunReceipt` i shadow replay.
+5. Invite/funnel ledger i automatski public-runs registry.
+6. Agent Report Card.
+7. Pravi A2A free-Gauntlet runtime.
+8. Bounded remote ranked potpisi.
+9. Premium proof bundle i Bazaar listing.
+10. Seal v3 shadow program; v2 ostaje zamrznut.
+
+Najvažnije postojeće lokalne reference:
+
+- [Solana skill](D:/Work/Software_Projects/pumpmind/skills/solana/SKILL.md)
+- [External agent audits](D:/Work/Software_Projects/pumpmind/skills/solana/references/65-external-agent-audits-as-protocol-tests.md)
+- [x402 architecture](D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/docs/X402.md)
+- [Freeze commitment](D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/docs/FREEZE.md)
+- [Agent Skill](D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/skills/ratchetx/SKILL.md)
+- [Current Gauntlet contract](D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/lib/gauntlet.js)
+
+Podrazumevani prioritet je: prvo očuvati besprekornu živu mašinu, zatim napasti najtežu trust granicu, pa tek onda širiti interoperabilnost i naplatu.
+
+</USER_REQUEST>
+<ADDITIONAL_METADATA>
+The current local time is: 2026-08-29T17:51:52+02:00.
+</ADDITIONAL_METADATA>

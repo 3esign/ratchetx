@@ -1,0 +1,17 @@
+{
+  "name": "@ratchetx/core-passport-benchmark",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Isolated Metaplex Core/AppData comparison for the RATCHET player passport.",
+  "scripts": {
+    "test": "node --test test/*.test.mjs",
+    "plan": "node src/cli.mjs plan",
+    "devnet": "node src/cli.mjs devnet"
+  },
+  "dependencies": {
+    "@metaplex-foundation/mpl-core": "1.10.0",
+    "@metaplex-foundation/umi": "1.5.1",
+    "@metaplex-foundation/umi-bundle-defaults": "1.5.1"
+  }
+}

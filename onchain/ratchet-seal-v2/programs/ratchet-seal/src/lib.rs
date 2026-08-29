@@ -347,15 +347,37 @@ fn check_confidence(price: i64, conf: u64) -> Result<()> {
     Ok(())
 }
 
+const VALID_RECEIVERS: [Pubkey; 4] = [
+    pubkey!("rec5EKMGg6MxZYaMdyBfgwp4d5rB9T1VQH5pJv5LtFJ"),
+    pubkey!("pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT"),
+    pubkey!("rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp"),
+    pubkey!("pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou"),
+];
+
+const VALID_PUSH_ORACLES: [Pubkey; 2] = [
+    pubkey!("pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT"),
+    pubkey!("pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou"),
+];
+
 /// Deserialize only the official upgraded shard-0 sponsored Pyth push feed.
 fn load_push_price_update(ai: &AccountInfo, feed_id: &[u8; 32]) -> Result<PriceUpdateV2> {
-    require!(*ai.owner == PYTH_RECEIVER_ID, RatchetError::BadPriceAccount);
+    require!(VALID_RECEIVERS.contains(ai.owner), RatchetError::BadPriceAccount);
+    
     let shard_id = 0u16.to_le_bytes();
-    let (expected_feed, _) = Pubkey::find_program_address(
-        &[shard_id.as_ref(), feed_id.as_ref()],
-        &PYTH_PUSH_ORACLE_ID,
-    );
-    require!(ai.key() == expected_feed, RatchetError::BadPriceAccount);
+    let mut expected_feed_match = None;
+    
+    for oracle_id in VALID_PUSH_ORACLES.iter() {
+        let (expected_feed, _) = Pubkey::find_program_address(
+            &[shard_id.as_ref(), feed_id.as_ref()],
+            oracle_id,
+        );
+        if ai.key() == expected_feed {
+            expected_feed_match = Some(expected_feed);
+            break;
+        }
+    }
+    
+    let expected_feed = expected_feed_match.ok_or(error!(RatchetError::BadPriceAccount))?;
 
     let data = ai.try_borrow_data()?;
     let mut slice: &[u8] = &data;

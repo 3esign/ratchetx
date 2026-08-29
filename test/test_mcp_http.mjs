@@ -53,7 +53,8 @@ ok(init.status===200 && init.body.result.serverInfo.name==='ratchetx-remote-demo
 
 const list = await call('tools/list',{}, {'mcp-protocol-version':'2025-11-25'});
 const names=(list.body.result.tools||[]).map(t=>t.name);
-ok(names.length===7 && names.includes('ratchet_demo_shot') && names.includes('ratchet_proof'), 'seven remote demo tools are listed');
+if (names.length !== 11) console.error('Actual names:', names);
+ok(names.length===11 && names.includes('ratchet_demo_shot') && names.includes('ratchet_proof'), '11 remote demo tools are listed');
 ok(!names.includes('ratchet_register_agent') && !names.includes('ratchet_challenge'), 'remote endpoint exposes no signed or economic write');
 
 const ident = await tool('ratchet_new_demo');
@@ -94,7 +95,7 @@ const getRes={status(c){getStatus=c;return this;},
   json(v){getBody=v;return v;},end(){}};
 await mcp({method:'GET',headers:{},socket:{}},getRes);
 ok(getStatus===405 && getBody?.error?.data?.transport?.requestMethod==='POST'
-  && getBody.error.data.toolSchemas.length===7
+  && getBody.error.data.toolSchemas.length===11
   && /well-known\/mcp\.json/.test(getHeaders.link || ''),
   'GET stays 405 by transport design but exposes discovery, POST flow and all tool schemas');
 

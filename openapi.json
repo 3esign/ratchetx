@@ -20,6 +20,10 @@
     {
       "name": "Agent entry",
       "description": "Economically weighted ranked-arena admission; the entire toll goes to the daily champion."
+    },
+    {
+      "name": "Proof bundles",
+      "description": "Independent verifier outputs bundled with Pyth evidence and anchor proofs."
     }
   ],
   "paths": {
@@ -28,7 +32,9 @@
         "operationId": "buyRatchetXRankedEntryClaim",
         "summary": "Buy a payer-bound RatchetX ranked-entry claim",
         "description": "Pays exactly 0.01 USDC on Solana mainnet to the daily champion fixed in the live quote. RatchetX takes 0%. The returned single-use claim does not replace normal wallet authentication.",
-        "tags": ["Agent entry"],
+        "tags": [
+          "Agent entry"
+        ],
         "x-payment-info": {
           "price": {
             "mode": "fixed",
@@ -60,7 +66,9 @@
             "headers": {
               "PAYMENT-RESPONSE": {
                 "description": "Base64-encoded x402 v2 settlement receipt",
-                "schema": { "type": "string" }
+                "schema": {
+                  "type": "string"
+                }
               }
             },
             "content": {
@@ -72,39 +80,77 @@
             }
           },
           "402": {
-            "description": "Payment Required",
-            "headers": {
-              "PAYMENT-REQUIRED": {
-                "description": "Base64-encoded x402 v2 PaymentRequired object",
-                "required": true,
-                "schema": { "type": "string" }
-              }
-            },
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "required": ["x402Version", "resource", "accepts", "extensions"],
-                  "properties": {
-                    "x402Version": { "type": "integer", "const": 2 },
-                    "resource": { "type": "object" },
-                    "accepts": {
-                      "type": "array",
-                      "minItems": 1,
-                      "maxItems": 1,
-                      "items": { "type": "object" }
-                    },
-                    "extensions": { "type": "object" }
-                  }
-                }
-              }
-            }
+            "$ref": "#/components/responses/402PaymentRequired"
           },
           "429": {
             "description": "Rate limited"
           },
           "503": {
             "description": "Facilitator or lawful champion recipient unavailable"
+          }
+        }
+      }
+    },
+    "/api/agent-proof-bundle": {
+      "post": {
+        "operationId": "buyRatchetXProofBundle",
+        "summary": "Buy a certified premium proof bundle",
+        "description": "Pays exactly 0.01 USDC on Solana mainnet to the RatchetX creator-fee wallet. Returns the content-addressed full receipt, Pyth update evidence, replay rezultat, and log/anchor dokaz.",
+        "tags": [
+          "Proof bundles"
+        ],
+        "x-payment-info": {
+          "price": {
+            "mode": "fixed",
+            "currency": "USD",
+            "amount": "0.01"
+          },
+          "protocols": [
+            {
+              "x402": {}
+            }
+          ]
+        },
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "shotId"
+                ],
+                "properties": {
+                  "shotId": {
+                    "type": "string",
+                    "description": "The ID of the settled RatchetX shot"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Settled payment and proof bundle",
+            "headers": {
+              "PAYMENT-RESPONSE": {
+                "description": "Base64-encoded x402 v2 settlement receipt",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProofBundle"
+                }
+              }
+            }
+          },
+          "402": {
+            "$ref": "#/components/responses/402PaymentRequired"
           }
         }
       }
@@ -126,7 +172,10 @@
           "use"
         ],
         "properties": {
-          "ok": { "type": "boolean", "const": true },
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
           "claim": {
             "type": "string",
             "description": "Opaque, single-use capability bound to the facilitator-proved payer"
@@ -157,12 +206,114 @@
           },
           "use": {
             "type": "object",
-            "required": ["endpoint", "action", "bodyField"],
+            "required": [
+              "endpoint",
+              "action",
+              "bodyField"
+            ],
             "properties": {
-              "endpoint": { "type": "string", "const": "/api/game" },
-              "action": { "type": "string", "const": "agent-register" },
-              "bodyField": { "type": "string", "const": "entryClaim" },
-              "note": { "type": "string" }
+              "endpoint": {
+                "type": "string",
+                "const": "/api/game"
+              },
+              "action": {
+                "type": "string",
+                "const": "agent-register"
+              },
+              "bodyField": {
+                "type": "string",
+                "const": "entryClaim"
+              },
+              "note": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "ProofBundle": {
+        "type": "object",
+        "required": [
+          "ok",
+          "bundle"
+        ],
+        "properties": {
+          "ok": {
+            "type": "boolean",
+            "const": true
+          },
+          "bundle": {
+            "type": "object",
+            "required": [
+              "shotId",
+              "receipt",
+              "timestamp",
+              "verifierCommand",
+              "logAnchor"
+            ],
+            "properties": {
+              "shotId": {
+                "type": "string"
+              },
+              "receipt": {
+                "type": "object"
+              },
+              "timestamp": {
+                "type": "integer"
+              },
+              "verifierCommand": {
+                "type": "string"
+              },
+              "logAnchor": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "responses": {
+      "402PaymentRequired": {
+        "description": "Payment Required",
+        "headers": {
+          "PAYMENT-REQUIRED": {
+            "description": "Base64-encoded x402 v2 PaymentRequired object",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        },
+        "content": {
+          "application/json": {
+            "schema": {
+              "type": "object",
+              "required": [
+                "x402Version",
+                "resource",
+                "accepts",
+                "extensions"
+              ],
+              "properties": {
+                "x402Version": {
+                  "type": "integer",
+                  "const": 2
+                },
+                "resource": {
+                  "type": "object"
+                },
+                "accepts": {
+                  "type": "array",
+                  "minItems": 1,
+                  "maxItems": 1,
+                  "items": {
+                    "type": "object"
+                  }
+                },
+                "extensions": {
+                  "type": "object"
+                }
+              }
             }
           }
         }

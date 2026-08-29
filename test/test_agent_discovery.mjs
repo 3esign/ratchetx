@@ -60,7 +60,7 @@ const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 assert.ok(frontmatter, 'the Agent Skill needs YAML frontmatter');
 assert.match(frontmatter[1], /^description:\s*[>|]/m,
   'description must use a YAML block scalar so colon-space cannot break installation');
-assert.match(frontmatter[1], /^\s+version:\s+"1\.0\.6"$/m);
+assert.match(frontmatter[1], /^\s+version:\s+"1\.1\.0"$/m);
 
 assert.deepEqual(domainRegistration, registration,
   'the well-known domain proof must mirror the primary ERC-8004 registration file');
@@ -75,10 +75,10 @@ assert.deepEqual(registration.registrations, [{
 assert.deepEqual(registration.supportedTrust, ['reputation', 'crypto-economic']);
 assert.ok(registration.services.some(s => s.name === 'MCP'
   && s.endpoint === 'https://ratchetx.xyz/api/mcp'
-  && s.version === '2025-11-25'));
+  && s.version === '1.1.0'));
 assert.deepEqual(registration.services.find(s => s.name === 'MCP').tools, [
-  'ratchet_new_demo', 'ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state',
-  'ratchet_arena', 'ratchet_challenges', 'ratchet_proof',
+  'ratchet_invite', 'ratchet_new_demo', 'ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state',
+  'ratchet_arena', 'ratchet_challenges', 'ratchet_proof', 'ratchet_agent_record', 'ratchet_ranked_prepare', 'ratchet_ranked_submit',
 ]);
 assert.ok(registration.services.some(s => s.name === 'x402'
   && s.endpoint === 'https://ratchetx.xyz/api/agent-entry' && s.version === '2'));
@@ -133,7 +133,7 @@ assert.deepEqual(paidOperation['x-payment-info'], {
 });
 assert.ok(paidOperation.responses['200'] && paidOperation.responses['402']);
 assert.equal(paidOperation.requestBody.content['application/json'].schema.additionalProperties, false);
-assert.deepEqual(Object.keys(openapi.paths), ['/api/agent-entry'],
+assert.deepEqual(Object.keys(openapi.paths), ['/api/agent-entry', '/api/agent-proof-bundle'],
   'free APIs must not be mislabeled as paid x402scan resources');
 assert.doesNotMatch(llms, /shipped dark|production flag is still OFF/i);
 for (const path of [

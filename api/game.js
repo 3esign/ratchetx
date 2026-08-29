@@ -55,11 +55,12 @@ const { ACCOUNTS: PX_ACCOUNTS, PYTH_OWNERS, decode: decodePx,
   MAX_AGE_S: PX_MAX_AGE_S, MAX_CONF_BPS: PX_MAX_CONF_BPS } = require('../lib/onchain_px.js');
 const { getTx, decideBurn, rpcCall, INCINERATOR } = require('../lib/burn.js');
 const { append, appendOnce, decideAnchor } = require('../lib/log.js');
-const { publicSpec, cleanHandle, progressFromState } = require('../lib/gauntlet.js');
+const { publicSpec, publicSpecAsync, cleanHandle, progressFromState } = require('../lib/gauntlet.js');
 const MINT = process.env.RATCHET_MINT || '';       // set on token day -> real burns go live
 const CREDIT_PER_TOKEN = +(process.env.CREDIT_PER_TOKEN || 1);
 const { RELEASE: VERSION } = require('../lib/release.js');
 const MIRROR_PROGRAM_ID = process.env.RATCHET_SEAL_PROGRAM_ID || '';
+const LEGACY_V2_PROGRAM_ID = '23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX';
 const MIRROR_RPC_URL = process.env.RATCHET_SEAL_RPC_URL || process.env.SOLANA_RPC || process.env.SOLANA_RPC_URL || '';
 const MIRROR_CLUSTER = process.env.RATCHET_SEAL_CLUSTER || 'devnet';
 const MIRROR_FEEDS = new Set(String(process.env.RATCHET_SEAL_FEEDS || 'SOL').split(',').map(x => x.trim().toUpperCase()).filter(Boolean));
@@ -1879,7 +1880,7 @@ module.exports = async (req, res) => {
       const raw = query.handle;
       if (raw == null || raw === '') {
         res.setHeader('cache-control', 'public, max-age=30, s-maxage=60');
-        return res.json({ ok:true, v:VERSION, gauntlet:publicSpec(), progress:null,
+        return res.json({ ok:true, v:VERSION, gauntlet: await publicSpecAsync(), progress:null,
           next:'call ratchet_new_demo through https://ratchetx.xyz/api/mcp' });
       }
       try { gauntletHandle = cleanHandle(Array.isArray(raw) ? raw[0] : raw); }
@@ -2033,7 +2034,7 @@ module.exports = async (req, res) => {
         ...brierOf(p), open:p.open || [], closed, history,
       } };
       res.setHeader('cache-control', 'no-store');
-      return res.json({ ok:true, v:VERSION, gauntlet:publicSpec(),
+      return res.json({ ok:true, v:VERSION, gauntlet: await publicSpecAsync(),
         progress:progressFromState(state, gauntletHandle),
         derivedFrom:'canonical game state for ' + wallet });
     }
@@ -2247,7 +2248,7 @@ module.exports = async (req, res) => {
         season: seasonKey(), day: today(), ladderAll,
         mint: MINT || null, incinerator: MINT ? INCINERATOR : null, mcap,
         tokenProgram,
-        mirror: { enabled: MIRROR_ENABLED, version:'seal-v2', mode:'optional-seal',
+        mirror: { enabled: MIRROR_ENABLED, version: process.env.RATCHET_SEAL_VERSION || 'seal-v3', mode:'optional-seal',
           programId: MIRROR_ENABLED ? MIRROR_PROGRAM_ID : null,
           cluster: MIRROR_ENABLED ? MIRROR_CLUSTER : null, feeds: MIRROR_ENABLED ? [...MIRROR_FEEDS] : [] },
         lastSeason,
@@ -2832,7 +2833,7 @@ module.exports = async (req, res) => {
         // refusal. An invitation nobody can find is not an invitation, so the
         // doors, the toll, its recipient and the credential are stated here.
         arena,
-        gauntlet: publicSpec(),
+        gauntlet: await publicSpecAsync(),
         targets: Object.entries(board).map(([id, t]) => ({
           id, kind: t.kind || 'dir', feed: t.feed, feed2: t.feed2 || null,
           mins: t.mins, pct: t.pct || null, baseXp: t.baseXp,
@@ -3303,7 +3304,7 @@ module.exports = async (req, res) => {
       const PROGRAM_ID = MIRROR_PROGRAM_ID;
       let seal = null, sealIx = null;
       for (const ix of (msg && msg.instructions) || []) {
-        if (ix.programId === PROGRAM_ID && ix.data) {
+        if ((ix.programId === PROGRAM_ID || ix.programId === LEGACY_V2_PROGRAM_ID) && ix.data) {
           try { seal = parseMirrorSeal(b58decode(ix.data)); } catch { seal = null; }
           if (seal) { sealIx = ix; break; }
         }

@@ -36,7 +36,7 @@ import readline from 'node:readline';
 
 const BASE = process.env.RATCHET_API || 'https://ratchetx.xyz/api/game';
 const PROOF_URL = BASE.replace(/\/game$/, '/proof');
-const VERSION = '1.0.4';
+const VERSION = '1.1.0';
 
 // ---------- identity (same scheme as agent/ratchet-agent.mjs) ----------
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -138,6 +138,9 @@ function slimState(st, wallet) {
 
 // ---------- tools ----------
 const TOOLS = [
+    { name: 'ratchet_invite',
+      description: 'Request a fresh invitation to the RatchetX platform. An invite grants a non-privileged tracking handle for attribution but provides no funds or ranked status.',
+      inputSchema: { type: 'object', properties: { source: { type: 'string' } } } },
   { name: 'ratchet_whoami',
     description: 'Who am I on the board: mode (demo/ranked), wallet, auth scheme, API base. Demo wallets play the identical oracle-settled board but never enter ladders, pots, or the arena ranking.',
     inputSchema: { type: 'object', properties: {} } },

@@ -76,8 +76,8 @@ try {
   // 2 ---- tools are listed with schemas
   const list = await rpc('tools/list', {});
   const names = (list.result.tools || []).map(t => t.name);
-  ok(names.length === 10 && names.includes('ratchet_shot') && names.includes('ratchet_proof'),
-    'all ten tools are listed');
+  ok(names.length === 11 && names.includes('ratchet_shot') && names.includes('ratchet_proof'),
+    'all eleven tools are listed');
   ok(list.result.tools.every(t => t.inputSchema && t.inputSchema.type === 'object'),
     'every tool carries an input schema');
 

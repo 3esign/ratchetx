@@ -14,15 +14,18 @@ const proof = require('./proof.js');
 const { RELEASE } = require('../lib/release.js');
 const { progressFromState } = require('../lib/gauntlet.js');
 
-const MCP_VERSION = '1.0.4';
+const MCP_VERSION = '1.1.0';
 const MODERN_PROTOCOL = '2026-07-28';
 const LEGACY_PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 const SUPPORTED_PROTOCOLS = [MODERN_PROTOCOL, ...LEGACY_PROTOCOLS];
 
 const TOOLS = [
+    { name: 'ratchet_invite',
+      description: 'Request a fresh invitation to the RatchetX platform. An invite grants a non-privileged tracking handle for attribution but provides no funds or ranked status.',
+      inputSchema: { type: 'object', properties: { source: { type: 'string' } } } },
   { name: 'ratchet_new_demo',
-    description: 'Create a fresh free demo identity. Keep the returned handle and pass it to ratchet_demo_shot and ratchet_demo_state. Demo calls use the real board and oracle but never rank, enter pots, or move funds.',
-    inputSchema: { type: 'object', properties: {} } },
+      description: 'Create a fresh free demo identity. Keep the returned handle and pass it to ratchet_demo_shot and ratchet_demo_state. Demo calls use the real board and oracle but never rank, enter pots, or move funds.',
+      inputSchema: { type: 'object', properties: { invite: { type: 'string', description: 'Optional 128-bit invite ID' } } } },
   { name: 'ratchet_board',
     description: 'Read the live board: target ids, horizons, Pyth prices and ages, sealing and settlement rules, arena scoring, and ranked-entry doors.',
     inputSchema: { type: 'object', properties: {} } },
@@ -35,6 +38,12 @@ const TOOLS = [
       stake: { type: 'integer', minimum: 100, description: 'free demo credits; default 500' },
       p: { type: 'number', minimum: 0.01, maximum: 0.99,
         description: 'stated probability that your chosen side wins' },
+    } } },
+  
+  { name: 'ratchet_agent_record',
+    description: 'Fetch the public Agent Report Card showing scored calls, Brier score, and ESTABLISHED status.',
+    inputSchema: { type: 'object', required: ['id'], properties: {
+      id: { type: 'string', description: 'Agent wallet or demo-handle' }
     } } },
   { name: 'ratchet_demo_state',
     description: 'Read a demo identity record, including credits, open shots and recent settlements. Poll this after expiry because settlement is lazy and this read collects it.',
@@ -51,6 +60,24 @@ const TOOLS = [
   { name: 'ratchet_proof',
     description: 'Read the compact public health proof: oracle, sampler, stream, token authorities, settlement program, event log and disclosed limitations.',
     inputSchema: { type: 'object', properties: {} } },
+
+  { name: 'ratchet_ranked_prepare',
+    description: 'Prepare a ranked forecasting shot. Returns a nonce and the exact payload you must sign locally.',
+    inputSchema: { type: 'object', required: ['wallet', 'target', 'side', 'p'], properties: {
+      wallet: { type: 'string', description: 'Your Solana wallet address (base58)' },
+      target: { type: 'string', description: 'Target market e.g., "SOL:24h:1"' },
+      side: { type: 'string', enum: ['YES', 'NO'] },
+      p: { type: 'number', minimum: 0.01, maximum: 0.99 },
+      entryClaim: { type: 'string', description: 'Optional payment receipt for x402' }
+    } } },
+  { name: 'ratchet_ranked_submit',
+    description: 'Submit a signed ranked forecasting shot using the payload and signature.',
+    inputSchema: { type: 'object', required: ['wallet', 'signature', 'nonce', 'payload'], properties: {
+      wallet: { type: 'string' },
+      signature: { type: 'string', description: 'base64 Ed25519 signature of the payload string' },
+      nonce: { type: 'string' },
+      payload: { type: 'string', description: 'The exact canonical JSON string returned by prepare' }
+    } } },
 ];
 
 const MCP_ENDPOINT = 'https://ratchetx.xyz/api/mcp';
@@ -174,20 +201,121 @@ function slimState(st, wallet) {
 
 async function callTool(req, name, args = {}) {
   switch (name) {
+      case 'ratchet_invite': {
+        const idBuf = crypto.randomBytes(16);
+        const inviteId = idBuf.toString('hex');
+        const hash = crypto.createHash('sha256').update(inviteId).digest('hex');
+        // Store hash in KV for 30 days
+        const { setJSON } = require('../lib/kv.js');
+          const { recordMilestone } = require('../lib/funnel.js');
+        const expMs = Date.now() + 30 * 24 * 3600 * 1000;
+        await setJSON(`inv:${hash}`, {
+             createdAt: Date.now(),
+             exp: expMs,
+             source: args.source || 'agent',
+             gauntletId: 'first-contact-001'
+          }, { ex: Math.floor(expMs / 1000) });
+          await recordMilestone(hash, 'invite_seen', { source: args.source });
+        
+        return {
+           ok: true,
+           inviteId,
+           gauntletId: 'first-contact-001',
+           mcpEndpoint: 'https://ratchetx.xyz/api/mcp',
+           expiresAt: new Date(expMs).toISOString(),
+           note: 'Free tracking invite. Call ratchet_new_demo with this invite ID to start the Gauntlet.',
+           next: 'ratchet_new_demo'
+        };
+      }
+
     case 'ratchet_new_demo': {
-      const handle = crypto.randomBytes(6).toString('hex');
-      return { ok:true, mode:'demo', handle, wallet:`demo-${handle}`,
+        const handle = crypto.randomBytes(6).toString('hex');
+        if (args.invite) {
+           const { recordMilestone } = require('../lib/funnel.js');
+           await recordMilestone(args.invite, 'demo_created', { handle });
+        } return { handle, wallet:`demo-${handle}`,
         next:['ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state'],
         note:'free and unranked; no wallet, token, payment or signature; keep this handle for later calls' };
     }
     case 'ratchet_board': return invoke(game, req, { query:{ action:'board' } });
     case 'ratchet_arena': return invoke(game, req, { query:{ action:'arena' } });
     case 'ratchet_challenges': return invoke(game, req, { query:{ action:'challenges' } });
+    
+    case 'ratchet_agent_record': {
+      const agentMod = require('./agent.js');
+      const mockReq = { method: 'GET', query: { id: args.id } };
+      let outObj;
+      const mockRes = {
+        setHeader: () => {},
+        status: (code) => mockRes,
+        json: (obj) => { outObj = obj; return obj; },
+        end: () => {}
+      };
+      await agentMod(mockReq, mockRes);
+      if (!outObj.ok) {
+        const error = new Error(outObj.reason);
+        error.code = 'AGENT_RECORD_ERROR';
+        throw error;
+      }
+      return outObj;
+    }
     case 'ratchet_demo_state': {
       const wallet = `demo-${demoHandle(args.handle)}`;
       const st = await invoke(game, req, { query:{ action:'state', wallet } });
       return args.raw ? st : slimState(st, wallet);
     }
+    
+    case 'ratchet_ranked_prepare': {
+      const { wallet, target, side, p, entryClaim } = args;
+      if (!wallet || !target || !side || !p) throw new Error('Missing arguments');
+      const nonce = crypto.randomBytes(16).toString('hex');
+      const expiry = Date.now() + 60000; // 60 seconds to sign
+      const payloadObj = { action: 'ranked_shot', wallet, target, side, p, entryClaim: entryClaim || null, nonce, expiry };
+      const payload = JSON.stringify(payloadObj);
+      await setJSON(`nonce:${wallet}:${nonce}`, { payload, used: false }, { ex: 120 });
+      return { nonce, expiry, payload, instruction: 'Sign the payload string as a UTF-8 buffer using Ed25519. Return base64 signature.' };
+    }
+    case 'ratchet_ranked_submit': {
+      const { wallet, signature, nonce, payload } = args;
+      if (!wallet || !signature || !nonce || !payload) throw new Error('Missing arguments');
+      const record = await getJSONStrict(`nonce:${wallet}:${nonce}`);
+      if (!record) throw new Error('Nonce expired or invalid');
+      if (record.used) throw new Error('Nonce already used (replay conflict)');
+      if (record.payload !== payload) throw new Error('Payload mismatch');
+      
+      const parsed = JSON.parse(payload);
+      if (parsed.expiry < Date.now()) throw new Error('Payload expired');
+      
+      const { b58decode } = require('../lib/verify.js');
+      const pub = b58decode(wallet);
+      if (pub.length !== 32) throw new Error('Invalid wallet');
+      
+      const key = crypto.createPublicKey({
+        key: Buffer.concat([Buffer.from('302a300506032b6570032100', 'hex'), pub]),
+        format: 'der', type: 'spki',
+      });
+      
+      const msg = Buffer.from(payload, 'utf8');
+      const ok = crypto.verify(null, msg, key, Buffer.from(signature, 'base64'));
+      if (!ok) throw new Error('Invalid signature');
+      
+      await setJSON(`nonce:${wallet}:${nonce}`, { ...record, used: true }, { ex: 120 });
+      
+      // Execute the ranked shot via game.js
+      const mockReq = { 
+        method: 'POST', 
+        query: { action: 'shot', target: parsed.target },
+        body: { wallet: parsed.wallet, side: parsed.side, p: parsed.p, entryClaim: parsed.entryClaim } 
+      };
+      const mockRes = {
+        setHeader: () => {}, status: () => mockRes, end: () => {},
+        json: (obj) => obj
+      };
+      const res = await invoke(game, mockReq, mockReq);
+      if (!res.ok) throw new Error(res.reason || 'Shot failed');
+      return res;
+    }
+
     case 'ratchet_demo_shot': {
       const handle = demoHandle(args.handle);
       const body = { action:'shot', auth:{ wallet:`demo-${handle}` },

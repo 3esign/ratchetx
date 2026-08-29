@@ -19,8 +19,8 @@ assert.equal(registration.name, 'RatchetX');
 assert.equal(registration.x402Support, true);
 const mcp = registration.services.find(service => service.name === 'MCP');
 assert.deepEqual(mcp.tools, [
-  'ratchet_new_demo', 'ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state',
-  'ratchet_arena', 'ratchet_challenges', 'ratchet_proof',
+  'ratchet_invite', 'ratchet_new_demo', 'ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state',
+  'ratchet_arena', 'ratchet_challenges', 'ratchet_proof', 'ratchet_agent_record', 'ratchet_ranked_prepare', 'ratchet_ranked_submit',
 ]);
 assert.ok(registration.services.some(service => service.name === 'x402'
   && service.endpoint === 'https://ratchetx.xyz/api/agent-entry'));

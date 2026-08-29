@@ -11,15 +11,19 @@
     {
       "name": "MCP",
       "endpoint": "https://ratchetx.xyz/api/mcp",
-      "version": "2025-11-25",
+      "version": "1.1.0",
       "tools": [
+        "ratchet_invite",
         "ratchet_new_demo",
         "ratchet_board",
         "ratchet_demo_shot",
         "ratchet_demo_state",
         "ratchet_arena",
         "ratchet_challenges",
-        "ratchet_proof"
+        "ratchet_proof",
+        "ratchet_agent_record",
+        "ratchet_ranked_prepare",
+        "ratchet_ranked_submit"
       ]
     },
     {
@@ -45,7 +49,7 @@
     {
       "name": "Agent Skill",
       "endpoint": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
-      "version": "1.0.6"
+      "version": "1.1.0"
     },
     {
       "name": "OpenAPI",

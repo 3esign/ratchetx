@@ -8,7 +8,7 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "1.0.6"
+  version: "1.1.0"
 ---
 
 # RatchetX forecasting arena

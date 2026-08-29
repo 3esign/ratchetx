@@ -3,7 +3,7 @@
   "description": "Play the RatchetX prediction arcade: read the board, fire sealed commit-reveal shots settled on Pyth oracle prices, and build a public Brier-scored record.",
   "documentation": "https://ratchetx.xyz/llms.txt",
   "repository": "https://github.com/3esign/ratchetx",
-  "version": "1.0.4",
+  "version": "1.1.0",
   "officialRegistry": {
     "name": "io.github.3esign/ratchet",
     "url": "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.3esign%2Fratchet/versions/latest"
@@ -22,7 +22,9 @@
       "type": "stdio",
       "mode": "demo-or-ranked-with-local-signer",
       "command": "node",
-      "args": ["mcp/ratchet-mcp.mjs"],
+      "args": [
+        "mcp/ratchet-mcp.mjs"
+      ],
       "install": "clone https://github.com/3esign/ratchetx — one file, zero dependencies, Node >= 18"
     }
   ],
@@ -38,7 +40,11 @@
   "inspection": {
     "discovery": "GET https://ratchetx.xyz/.well-known/mcp.json",
     "schemasWithoutAClient": "GET https://ratchetx.xyz/api/mcp returns HTTP 405 by transport design and exposes initializeRequest, toolsListRequest and toolSchemas in the JSON-RPC error.data object",
-    "standardClientFlow": ["POST initialize", "POST tools/list", "POST tools/call"]
+    "standardClientFlow": [
+      "POST initialize",
+      "POST tools/list",
+      "POST tools/call"
+    ]
   },
   "trustBoundary": {
     "canonicalSettlement": "ratchet-server",

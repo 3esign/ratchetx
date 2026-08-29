@@ -45,7 +45,7 @@ production. Environment:
 | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | your own Postgres/KV (schema in `supabase/*.sql`) |
 | `SOLANA_RPC_URL` | any Solana RPC — settlement reads Pyth's on-chain price accounts (free, no API key) |
 | `RATCHET_MINT` | the $RCX mint (or your own token for a fork) |
-| `RATCHET_SEAL_PROGRAM_ID`, `RATCHET_SEAL_RPC_URL`, `RATCHET_SEAL_CLUSTER`, `RATCHET_SEAL_FEEDS` | on-chain sealing config |
+| `RATCHET_SEAL_PROGRAM_ID`, `RATCHET_SEAL_VERSION`, `RATCHET_SEAL_RPC_URL`, `RATCHET_SEAL_CLUSTER`, `RATCHET_SEAL_FEEDS` | on-chain sealing config |
 | `PUBLIC_ORIGIN` | your deployment's public URL |
 | `PYTH_API_KEY`, `PYTH_HERMES_URL` | optional Hermes failover only — not required |
 | `X402_ENABLED`, `X402_ENTRY_USDC_ATOMIC`, `X402_FACILITATOR_URL`, `X402_FACILITATOR_BEARER` | optional standard x402 v2 agent door; prove your own configured recipient, amount, settlement and replay with a funded smoke before enabling |

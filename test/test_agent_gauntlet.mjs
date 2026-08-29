@@ -4,7 +4,8 @@ import fs from 'node:fs';
 
 const require = createRequire(import.meta.url);
 const { publicSpec, cleanHandle, progressFromState } = require('../lib/gauntlet.js');
-const spec = publicSpec();
+const { publicSpecAsync } = require('../lib/gauntlet.js');
+  const spec = await publicSpecAsync();
 
 assert.equal(spec.id, 'first-contact-001');
 assert.equal(spec.status, 'open');
@@ -16,7 +17,7 @@ assert.equal(spec.reward.rankedEntry, false);
 assert.equal(spec.measurement.globalCompletionCount, null);
 assert.equal(spec.verification.canonicalSettlement, 'ratchet-server');
 assert.equal(spec.verification.independentPythReplay, false);
-assert.equal(spec.publicRuns[0].claim, 'protocol-completion-only');
+assert.equal(spec.publicRuns[0].claim, 'operator-verified-x');
 assert.deepEqual(spec.publicRuns[0].proofs.map(run => run.handle),
   ['009d2bf7f3be', '301e30592c97']);
 assert.notEqual(spec.publicRuns[0].proofs[0].shotId, spec.publicRuns[0].proofs[1].shotId);
@@ -108,7 +109,7 @@ assert.match(page, /009d2bf7f3be/);
 assert.match(page, /301e30592c97/);
 assert.doesNotMatch(page, /innerHTML|private.?key|secret.?key/i);
 assert.match(agents, /href="\/gauntlet"/);
-assert.match(game, /gauntlet:\s*publicSpec\(\)/);
+assert.match(game, /gauntlet:\s*await\s+publicSpecAsync\(\)/);
 assert.match(game, /action === 'gauntlet'/);
 assert.match(game, /progress:progressFromState\(state, gauntletHandle\)/);
 assert.match(mcp, /out\.gauntlet\s*=\s*progressFromState/);
