@@ -2006,7 +2006,13 @@ module.exports = async (req, res) => {
       if (p._existed || changed || p._drained > 0 || p._drained7 > 0 || p._drainedSelf7 > 0)
         await savePlayer(p);
       const history = ((await getCached('hist:' + wallet, 3_000)) || []).slice(0, 200);
-      const state = { player:{ ...brierOf(p), open:p.open || [], history } };
+      // Gauntlet progress is a projection, not the raw player object. Give the
+      // projector the retained closed shots so it can join compact history
+      // rows to their real seal/expiry/oracle evidence without exposing salt,
+      // side or any other hidden shot field in the response.
+      const state = { player:{
+        ...brierOf(p), open:p.open || [], closed:p.closed || [], history,
+      } };
       res.setHeader('cache-control', 'no-store');
       return res.json({ ok:true, v:VERSION, gauntlet:publicSpec(),
         progress:progressFromState(state, gauntletHandle),
