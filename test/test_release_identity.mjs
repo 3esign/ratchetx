@@ -21,6 +21,12 @@ const read = p => fs.readFileSync(at(p), 'utf8');
 
 const { RELEASE } = require('../lib/release.js');
 ok(/^h\d+-\d{4}-\d{2}-\d{2}$/.test(RELEASE), `the release marker has the agreed shape (${RELEASE})`);
+const deploy = read('DEPLOY.cmd');
+ok(/call npm test/.test(deploy), 'the one-command deploy runs the complete release gate first');
+ok(/require\('\.\/lib\/release\.js'\)\.RELEASE/.test(deploy),
+  'the deploy verifies production against the shared release marker');
+ok(!/"v":"h\d+-\d{4}-\d{2}-\d{2}"/.test(deploy),
+  'the deploy script contains no hand-maintained release literal');
 
 // Instrument versions are a different axis on a different schedule: they roll
 // when the RULES of that instrument change, not when a build ships. They are
