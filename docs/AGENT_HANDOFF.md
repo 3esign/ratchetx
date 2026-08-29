@@ -5,7 +5,7 @@ production verification and deployment are still pending.
 
 ## Live identity and external proofs
 
-- Declared release: `h93-2026-08-29`.
+- Declared release: `h94-2026-08-29`.
 - MCP, Agent Skill and ERC-8004 profile: `1.1.0` locally.
 - Solana registry: agent 1475, asset
   `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`.
@@ -45,6 +45,10 @@ production verification and deployment are still pending.
   Gauntlet handle did not canonicalize to its `demo-<handle>` player key. h93 moves
   the runtime to statically required `lib/verifier.js` and tests both accepted demo
   ID forms. Invalid premium IDs still fail before any payment quote.
+- h94 fixes the stale seven-tool assertion on `/agents` by binding the live check
+  to all 11 canonical MCP tool names, and adds a shareable public Brier/calibration
+  profile driven only by `/api/agent` values. The initial production profile for
+  Bankr is `/agents?id=009d2bf7f3be`.
 
 ## Truth boundary
 
@@ -59,6 +63,12 @@ Existing deployment docs remain authoritative. New/important names are
 `PYTH_API_KEY` for current Benchmarks access, optional `PYTH_BENCHMARKS_URL` for
 its endpoint override, and `X402_PROOF_RECEIVER` for the separate premium service.
 Never place values in this repository.
+
+Production h93 proved that the premium endpoint is packaged and prevalidates safely,
+but Pyth Benchmarks currently returns HTTP 401 because `PYTH_API_KEY` is not configured
+in Vercel. Valid premium requests therefore return 503 before a quote; no agent can be
+charged. Configure that credential and require the known valid-shot smoke to reach 402
+before advertising the premium service as available.
 
 ## Verification already completed locally
 

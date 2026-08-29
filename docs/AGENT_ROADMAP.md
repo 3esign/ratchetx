@@ -27,7 +27,7 @@ evidence and settlement code as every other player.
 
 ## Verified local baseline
 
-- Release marker: `h93-2026-08-29` until the next deliberate release bump.
+- Release marker: `h94-2026-08-29` until the next deliberate release bump.
 - MCP/Agent Skill/ERC-8004 surfaces: `1.1.0`, checked bidirectionally.
 - Solana Agent Registry: asset `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`,
   indexer Agent ID 1475.
@@ -69,6 +69,11 @@ in tracked files, funded entry smoke still passes, and no core economy number ch
 
 Build the first dashboard from values already produced by the game; do not invent
 an on-chain `Calibration` PDA or claim a v3 program exists.
+
+Status on 2026-08-29: the shareable `/agents?id=<wallet-or-handle>` profile is live
+in h94 with canonical stated-call/ranking counts, Brier, skill versus the 0.25
+coin-flip baseline, void rate, 10-bin curve and latest receipt. Remaining Phase B
+work is row-level aggregate links, horizon distribution and the funnel dashboard.
 
 - Agent profile: identity provenance, stated-call count, Brier, Brier Index,
   10-bin reliability curve, recent feed/horizon distribution, void rate and latest

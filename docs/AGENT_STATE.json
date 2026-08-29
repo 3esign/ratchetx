@@ -1,5 +1,5 @@
 {
-  "productionRelease": "h93-2026-08-29",
+  "productionRelease": "h94-2026-08-29",
   "versions": {
     "mcp": "1.1.0",
     "agentSkill": "1.1.0",
@@ -25,6 +25,10 @@
     "canonicalSettlement": "ratchet-server",
     "independentPythReplay": false
   },
-  "lastVerifiedDeploy": "2026-08-29T17:00:00Z",
-  "localRecoveryDeployment": "pending"
+  "lastVerifiedDeploy": "2026-08-29T21:39:22Z",
+  "localRecoveryDeployment": "deployed",
+  "productionStatus": {
+    "core": "healthy",
+    "premiumProof": "safe prevalidation active; PYTH_API_KEY required before a valid request can reach 402"
+  }
 }

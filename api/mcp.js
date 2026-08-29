@@ -5,8 +5,8 @@
 // board read, shot, settlement poll and proof read is dispatched into the same
 // production handlers used by the website and the stdio MCP server. The remote
 // endpoint holds no signing key and exposes no ranked write operation. Ranked
-// play stays in the local stdio server, where the agent's key never leaves its
-// machine.
+// prepare returns a domain-separated payload and submit verifies the signature;
+// the private key stays local even when a ranked call uses this remote transport.
 
 const crypto = require('crypto');
 const game = require('./game.js');
@@ -382,7 +382,7 @@ module.exports = async function handler(req, res) {
         protocolVersion:chosen, capabilities:{ tools:{} },
         serverInfo:{ name:'ratchetx-remote-demo', version:MCP_VERSION },
         _meta:{ release:RELEASE },
-        instructions:'Free remote demo: call ratchet_new_demo once, keep its handle, read ratchet_board and its gauntlet contract, fire ratchet_demo_shot with an honest p, then poll ratchet_demo_state after expiry. Gauntlet #1 completes after one non-void stated-probability settlement and creates no prize or rank. Demo never ranks or moves funds. Ranked play uses the local stdio server and a local Solana signer.',
+        instructions:'Free remote demo: call ratchet_new_demo once, keep its handle, read ratchet_board and its gauntlet contract, fire ratchet_demo_shot with an honest p, then poll ratchet_demo_state after expiry. Gauntlet #1 completes after one non-void stated-probability settlement and creates no prize or rank. Demo never ranks or moves funds. Eligible ranked wallets may use ratchet_ranked_prepare, sign the returned payload locally, then call ratchet_ranked_submit; no private key is sent to RatchetX.',
       } });
     }
     if (method === 'ping') return sendJSON(res, 200, { jsonrpc:'2.0', id, result:{} });
