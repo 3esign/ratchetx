@@ -1,6 +1,6 @@
 # RatchetX agent roadmap — proverljiva ekonomija, ne broj integracija
 
-Updated: 2026-08-29. This file is the canonical long-term plan. `docs/AGENT_STATE.json`
+Updated: 2026-08-30. This file is the canonical long-term plan. `docs/AGENT_STATE.json`
 is the machine-readable version contract; `docs/AGENT_HANDOFF.md` is the live work handoff.
 
 ## North star and non-negotiable boundaries
@@ -28,7 +28,7 @@ evidence and settlement code as every other player.
 
 ## Verified local baseline
 
-- Release marker: `h95-2026-08-29` until the next deliberate release bump.
+- Release marker: `h95-2026-08-30` until the next deliberate release bump.
 - MCP/Agent Skill/ERC-8004 surfaces: `1.1.0`, checked bidirectionally.
 - Solana Agent Registry: asset `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`,
   indexer Agent ID 1475.

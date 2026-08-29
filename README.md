@@ -40,12 +40,12 @@ skills, x402 support and the reciprocal registry binding.
 
 ## Is this repo actually the running code?
 
-This source tree declares `h95-2026-08-29` through `lib/release.js`. A deployment is release-consistent only when
+This source tree declares `h95-2026-08-30` through `lib/release.js`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h95-2026-08-29"
-https://ratchetx.xyz/api/proof               ->  "v": "h95-2026-08-29"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h95-2026-08-30"
+https://ratchetx.xyz/api/proof               ->  "v": "h95-2026-08-30"
 ```
 
 Public APIs import that shared release marker so one endpoint cannot silently

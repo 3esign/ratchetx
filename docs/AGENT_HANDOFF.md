@@ -1,11 +1,11 @@
 # RatchetX agent handoff
 
-Updated: 2026-08-29. Working tree contains the release recovery described below;
+Updated: 2026-08-30. Working tree contains the release recovery described below;
 production verification and deployment are still pending.
 
 ## Live identity and external proofs
 
-- Declared release: `h95-2026-08-29`.
+- Declared release: `h95-2026-08-30`.
 - MCP, Agent Skill and ERC-8004 profile: `1.1.0` locally.
 - Solana registry: agent 1475, asset
   `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`.
