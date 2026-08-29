@@ -32,10 +32,12 @@ evidence and settlement code as every other player.
 - Do not publish an A2A Agent Card until a conforming task runtime, persistence,
   authentication, cancellation and conformance test exist.
 
-## Verified local baseline
+## Verified production baseline
 
-- Candidate release marker: `h97-2026-08-30`; production remains h96 until live verification.
-- MCP/Agent Skill/ERC-8004 surfaces: `1.2.0`, checked bidirectionally.
+- Production release marker: `h97-2026-08-30`, live-verified on
+  `ratchetx.xyz`; no pending candidate.
+- MCP/Agent Skill/ERC-8004 surfaces: `1.2.0`, checked bidirectionally; the
+  official MCP Registry lists `io.github.3esign/ratchet@1.2.0` as latest.
 - MCP advertises 13 tools in Pyth-first order. `ratchet_pyth_context` exposes
   shared price, confidence, EMA, cadence and slots; `ratchet_pyth_path` exposes
   a bounded retained observation path. Both stop before `getPrices()`.

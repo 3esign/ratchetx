@@ -1,12 +1,15 @@
 # RatchetX agent handoff
 
-Updated: 2026-08-30. Working tree contains the h97 Pyth agent-layer candidate;
-production verification and deployment are still pending.
+Updated: 2026-08-30. h97 Pyth agent layer is committed, deployed, live-verified
+and published as MCP 1.2.0 in the official registry.
 
 ## Live identity and external proofs
 
-- Production release: `h96-2026-08-30`; local candidate: `h97-2026-08-30`.
-- MCP, Agent Skill and ERC-8004 profile: `1.2.0` locally.
+- Production release: `h97-2026-08-30`; no pending local candidate.
+- MCP, Agent Skill and ERC-8004 profile: `1.2.0` live.
+- Production deployment: `dpl_Ea669LKXFCG1K66SDrhAxoMr6818`.
+- Official MCP Registry: `io.github.3esign/ratchet@1.2.0` is latest; publish
+  workflow run `33280486574` completed successfully.
 - Solana registry: agent 1475, asset
   `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`.
 - Bankr Gauntlet passes:

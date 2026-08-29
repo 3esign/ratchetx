@@ -1,6 +1,6 @@
 {
-  "productionRelease": "h96-2026-08-30",
-  "candidateRelease": "h97-2026-08-30",
+  "productionRelease": "h97-2026-08-30",
+  "candidateRelease": null,
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.2.0",
@@ -28,7 +28,7 @@
     "canonicalSettlement": "ratchet-server",
     "independentPythReplay": false
   },
-  "lastVerifiedDeploy": "2026-08-29T21:39:22Z",
+  "lastVerifiedDeploy": "2026-08-29T23:16:32Z",
   "localRecoveryDeployment": "deployed",
   "productionStatus": {
     "core": "healthy",
