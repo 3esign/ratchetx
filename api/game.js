@@ -2006,12 +2006,31 @@ module.exports = async (req, res) => {
       if (p._existed || changed || p._drained > 0 || p._drained7 > 0 || p._drainedSelf7 > 0)
         await savePlayer(p);
       const history = ((await getCached('hist:' + wallet, 3_000)) || []).slice(0, 200);
+      const latestScored = history.find(row => row
+        && (row.res === 'hit' || row.res === 'miss')
+        && row.sp !== null && row.sp !== undefined && row.sp !== ''
+        && Number.isFinite(Number(row.sp)));
+      let closed = p.closed || [];
+      if (latestScored && latestScored.id) {
+        try {
+          // appendOnce persists this receipt atomically with the seal entry.
+          // It is an exact O(1) pointer to the hash-chain timestamp, including
+          // for older shots whose player object did not retain a createdAt.
+          const seal = await getJSONStrict(
+            `g:log:once:seal:${wallet}:${latestScored.id}`);
+          if (seal && Number.isFinite(Number(seal.t))) {
+            closed = closed.map(shot => shot && shot.id === latestScored.id
+              ? { ...shot, sealedAt:Number(seal.t), sealLogIndex:Number(seal.i) || null }
+              : shot);
+          }
+        } catch {}
+      }
       // Gauntlet progress is a projection, not the raw player object. Give the
       // projector the retained closed shots so it can join compact history
       // rows to their real seal/expiry/oracle evidence without exposing salt,
       // side or any other hidden shot field in the response.
       const state = { player:{
-        ...brierOf(p), open:p.open || [], closed:p.closed || [], history,
+        ...brierOf(p), open:p.open || [], closed, history,
       } };
       res.setHeader('cache-control', 'no-store');
       return res.json({ ok:true, v:VERSION, gauntlet:publicSpec(),

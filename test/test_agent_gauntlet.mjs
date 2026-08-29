@@ -38,7 +38,8 @@ const complete = progressFromState({ player:{
   stated:1, brier:0.1521, brierIndex:61, open:[],
   closed:[
     { id:'proof1', label:'SOL UP', feed:'SOL', res:'hit', sp:0.61,
-      entry:100, exitPx:101, t:100, exp:120, exitAt:121, settledAt:123,
+      entry:100, exitPx:101, sealedAt:100, sealLogIndex:77,
+      exp:120, exitAt:121, settledAt:123,
       oracleSrc:'pyth-onchain' },
   ],
   history:[
@@ -54,6 +55,7 @@ assert.equal(complete.latestEvidence.probability, 0.61);
 assert.equal(complete.latestEvidence.feed, 'SOL');
 assert.equal(complete.latestEvidence.sealedAt, 100,
   'settlement-history timestamp must never be presented as the seal timestamp');
+assert.equal(complete.latestEvidence.sealLogIndex, 77);
 assert.equal(complete.latestEvidence.expiry, 120);
 assert.equal(complete.latestEvidence.exitAt, 121);
 assert.equal(complete.latestEvidence.settledAt, 123);
