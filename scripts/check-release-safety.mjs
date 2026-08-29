@@ -42,19 +42,19 @@ if (!failed) ok(`${files.length} tracked files contain no blocked credential/art
 // Solana. A future refactor must not smuggle a metered Pyth HTTP dependency
 // back into either economic path. Hermes may remain an optional display-only
 // fallback in lib/prices.js, outside this protected set.
-const keylessOracleFiles = [
+const protectedOracleFiles = [
   'api/game.js', 'lib/pxlog.js', 'lib/proof_bundle.js', 'lib/record.js',
   'lib/verifier.js', 'scripts/verifier.mjs',
 ];
-const paidPythPattern = /PYTH_API_KEY|PYTH_BENCHMARKS_URL|benchmarks\.pyth\.network|fetchBenchmarkUpdates/;
-for (const file of keylessOracleFiles) {
+const alternateOracleDependency = /PYTH_API_KEY|PYTH_BENCHMARKS_URL|benchmarks\.pyth\.network|fetchBenchmarkUpdates/;
+for (const file of protectedOracleFiles) {
   const text = fs.readFileSync(file, 'utf8');
-  if (paidPythPattern.test(text))
-    fail(`paid Pyth API dependency entered protected oracle path: ${file}`);
+  if (alternateOracleDependency.test(text))
+    fail(`alternate oracle dependency entered protected settlement path: ${file}`);
 }
 const verifier = fs.readFileSync('lib/verifier.js', 'utf8');
 if (!/independentPythReplay\s*:\s*false/.test(verifier))
-  fail('keyless verifier must publish independentPythReplay:false');
-else if (!paidPythPattern.test(verifier))
-  ok('core settlement and premium verifier remain on the free Pyth-on-Solana evidence path');
+  fail('verifier must publish independentPythReplay:false');
+else if (!alternateOracleDependency.test(verifier))
+  ok('core settlement and premium verifier remain bound to validated Pyth-on-Solana evidence');
 process.exit(failed ? 1 : 0);

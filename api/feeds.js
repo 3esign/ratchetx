@@ -284,9 +284,9 @@ ${all ? `<div class="card">
 <div class="card">
   <h2>METHOD</h2>
   <ul>
-    <li>One <code>getMultipleAccounts</code> read of each sponsored price account per minute, over plain
-      Solana JSON-RPC. No Pyth API, no key, no plan — these are ordinary accounts and reading an account
-      is not something anyone can bill for.</li>
+    <li>One <code>getMultipleAccounts</code> read of each Pyth sponsored price account per minute over
+      Solana JSON-RPC. This keeps the observatory, game and settlement evidence aligned to the same
+      first-class PriceUpdateV2 state Pyth publishes on Solana.</li>
     <li><code>PriceUpdateV2</code> is decoded locally from the raw bytes. A number is kept only if the
       account owner is one of Pyth's own programs, the Anchor discriminator matches
       <code>sha256("account:PriceUpdateV2")[..8]</code>, the verification level is <b>Full</b>, the

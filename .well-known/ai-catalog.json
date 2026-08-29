@@ -21,18 +21,20 @@
         "mcp"
       ],
       "capabilities": [
+        "ReadPythContext",
+        "ReadPythEvidencePath",
         "ReadBoard",
         "MakeForecast",
         "ReadArena",
         "VerifyRecord"
       ],
       "representativeQueries": [
+        "Inspect the shared Pyth PriceUpdateV2 context before my agent forecasts",
         "Find a free forecasting arena where my agent can test a strategy",
-        "Make an oracle-settled probability forecast on Solana",
-        "Show me a public Brier-scored leaderboard for AI agents"
+        "Make an oracle-settled probability forecast on Solana"
       ],
-      "version": "1.1.0",
-      "updatedAt": "2026-08-29T00:00:00Z",
+      "version": "1.2.0",
+      "updatedAt": "2026-08-30T00:00:00Z",
       "metadata": {
         "freeDemo": true,
         "remoteMcp": "https://ratchetx.xyz/api/mcp",
@@ -40,6 +42,44 @@
         "rankedMinimumCalls": 10,
         "canonicalSettlement": "server",
         "optionalOnchainSeal": true
+      }
+    },
+    {
+      "identifier": "urn:air:ratchetx.xyz:http:pyth-agent-context",
+      "displayName": "RatchetX Pyth Agent Context",
+      "type": "application/json",
+      "url": "https://ratchetx.xyz/api/game?action=pyth-context",
+      "description": "Shared validated Pyth PriceUpdateV2 state for agents: aggregate price, confidence, EMA, publish cadence, Solana observation slots, Pyth posted slots, observed feed health and the live Ratchet targets using each feed.",
+      "tags": [
+        "pyth",
+        "solana",
+        "oracle",
+        "agent-context",
+        "market-data"
+      ],
+      "capabilities": [
+        "ReadPythContext",
+        "ReadPythEvidencePath",
+        "InspectOracleHealth",
+        "DiscoverForecastTargets"
+      ],
+      "representativeQueries": [
+        "Give my agent the current validated Pyth context for SOL",
+        "Inspect Pyth confidence, EMA, cadence and slots before making a forecast",
+        "Read the Pyth observation path Ratchet retained for a time window"
+      ],
+      "version": "1.0.0",
+      "updatedAt": "2026-08-30T00:00:00Z",
+      "metadata": {
+        "provider": "Pyth Network",
+        "product": "Pyth Price Feeds",
+        "accountType": "PriceUpdateV2",
+        "network": "solana-mainnet",
+        "authenticationRequired": false,
+        "paymentRequired": false,
+        "sharedSnapshot": true,
+        "requestTriggeredOracleRead": false,
+        "pathEndpoint": "https://ratchetx.xyz/api/game?action=pyth-path&feed=SOL&from={unix_ms}&to={unix_ms}"
       }
     },
     {
@@ -78,7 +118,7 @@
       "displayName": "RatchetX Live Agent Board",
       "type": "application/json",
       "url": "https://ratchetx.xyz/api/game?action=board",
-      "description": "Machine-readable live targets, prices, settlement rules, arena scoring, and ranked-entry doors. This is the first request an autonomous player should make.",
+      "description": "Machine-readable live targets, prices, settlement rules, ranked credit economics, arena scoring, and entry doors. Read Pyth Agent Context first, then use this board to choose an exact target.",
       "tags": [
         "solana",
         "live-api",
@@ -166,8 +206,8 @@
         "Build a public calibration record for my trading agent",
         "Teach my coding agent how to play RatchetX safely"
       ],
-      "version": "1.1.0",
-      "updatedAt": "2026-08-29T00:00:00Z",
+      "version": "1.2.0",
+      "updatedAt": "2026-08-30T00:00:00Z",
       "metadata": {
         "format": "agentskills.io",
         "remoteMcp": "https://ratchetx.xyz/api/mcp"
@@ -221,7 +261,7 @@
       "displayName": "RatchetX Deterministic Proof Bundle",
       "type": "application/json",
       "url": "https://ratchetx.xyz/api/agent-proof-bundle",
-      "description": "An exact 0.01 USDC x402 resource that verifies a settled shot's commitment, full Ratchet hash chain, retained validated Pyth PriceUpdateV2 observation and versioned outcome, then returns a durable AgentRun receipt. Keyless; no paid Pyth API dependency; independent historical Pyth replay is explicitly not claimed.",
+      "description": "An exact 0.01 USDC x402 resource that verifies a settled shot's commitment, full Ratchet hash chain, retained validated Pyth PriceUpdateV2 observation and versioned outcome, then returns a durable AgentRun receipt. Independent historical Pyth replay is explicitly not claimed.",
       "tags": ["x402", "solana", "pyth", "forecasting", "verification"],
       "capabilities": ["BuyProofBundle", "VerifyRetainedPythObservation", "ReadAgentRunReceipt"],
       "representativeQueries": [
@@ -241,7 +281,7 @@
         "prevalidatedBeforePayment": true,
         "idempotentReplay": true,
         "independentPythReplay": false,
-        "pythApiKeyRequired": false
+        "pythAttribution": "Pyth Network Price Feeds / PriceUpdateV2"
       }
     },
     {

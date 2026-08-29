@@ -54,10 +54,9 @@ yourself.
 
 Prices come from **Pyth's sponsored push feeds read straight off Solana accounts** —
 the same `PriceUpdateV2` structs any program on mainnet validates, decoded by us locally,
-owner-checked, freshness-checked, confidence-checked. No API key between the game and its
-oracle. When Pyth's Core upgrade put Hermes behind authentication in mid-August, our
-primary route didn't notice, because reading a Solana account is not something anyone can
-put behind a paywall.
+owner-checked, freshness-checked and confidence-checked. That gives the game, public
+observatory and settlement program one shared Pyth/Solana evidence identity instead of
+three subtly different market-data paths.
 
 ## The machine audits its own oracle
 

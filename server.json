@@ -2,8 +2,8 @@
   "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
   "name": "io.github.3esign/ratchet",
   "title": "RatchetX Forecast Arena",
-  "description": "Live Solana/Pyth forecasting arena for sealed demo calls, calibration, proof, and agent ranking.",
-  "version": "1.1.0",
+  "description": "Shared Pyth context and live Solana forecasting arena for calibration, proof, and agent ranking.",
+  "version": "1.2.0",
   "websiteUrl": "https://ratchetx.xyz",
   "repository": {
     "url": "https://github.com/3esign/ratchetx",

@@ -48,9 +48,14 @@ const { getJSON, getCached, getJSONStrict, getManyJSON, setJSON, setManyJSONAtom
 const { verifyAuth, isDemo, isWalletShaped, b58decode } = require('../lib/verify.js');
 const rankedAuth = require('../lib/ranked.js');
 const { getPrices } = require('../lib/prices.js');
-const { priceAt, priceCrossing, pathFor, sample: samplePx,
-  ingestUpdate: ingestPxUpdate, streamHealth: pxStreamHealth } = require('../lib/pxlog.js');
-const { report: feedReport, noteSettle, ensureRollups } = require('../lib/feedhealth.js');
+const { priceAt, priceCrossing, pathFor, evidencePathFor, latestSnapshot,
+  sample: samplePx, ingestUpdate: ingestPxUpdate,
+  streamHealth: pxStreamHealth } = require('../lib/pxlog.js');
+const { report: feedReport, cachedReport: cachedFeedReport,
+  noteSettle, ensureRollups } = require('../lib/feedhealth.js');
+const { buildContext: buildPythContext, cleanFeed: cleanPythFeed,
+  cleanHours: cleanPythHours, parsePathRequest, pathResponse } =
+  require('../lib/pyth_context.js');
 const { realisedVol, sigmaOver, probAbove } = require('../lib/vol.js');
 const { ACCOUNTS: PX_ACCOUNTS, PYTH_OWNERS, decode: decodePx,
   MAX_AGE_S: PX_MAX_AGE_S, MAX_CONF_BPS: PX_MAX_CONF_BPS } = require('../lib/onchain_px.js');
@@ -1689,6 +1694,43 @@ async function settle(p, prices) {
 // it). Letting someone open a position against it is not.
 const maxSealAge = mins => Math.min(60, Math.max(30, Math.round(0.15 * mins * 60)));
 
+// Freeze the exact validated Pyth state that admitted an economic shot. The
+// fingerprint excludes request time and age (both move while the underlying
+// update stays the same) and binds the PriceUpdateV2 identity, price,
+// confidence, EMA, publish cadence and slots. This is evidence of what
+// Ratchet accepted; it is not a second oracle or a trading signal.
+function oracleSealSnapshot(prices, feeds) {
+  const value = (map, feed) => {
+    if (!map || map[feed] == null || map[feed] === '') return null;
+    const n = Number(map[feed]);
+    return Number.isFinite(n) ? n : null;
+  };
+  const body = {
+    schema:'ratchetx-oracle-seal-v1',
+    provider:'Pyth Network',
+    product:'PriceUpdateV2',
+    network:'Solana mainnet',
+    source:String(prices && prices.src || ''),
+    feeds:Object.fromEntries(feeds.map(feed => {
+      const account = PX_ACCOUNTS[feed] || [];
+      return [feed, {
+        account:account[0] || null,
+        feedId:account[1] || null,
+        price:value(prices, feed),
+        confidenceBps:value(prices && prices.confs, feed),
+        emaPrice:value(prices && prices.emaPrices, feed),
+        emaConfidenceBps:value(prices && prices.emaConfs, feed),
+        publishTime:value(prices && prices.pubs, feed),
+        previousPublishTime:value(prices && prices.prevPubs, feed),
+        rpcSlot:value(prices && prices.slots, feed),
+        postedSlot:value(prices && prices.postedSlots, feed),
+      }];
+    })),
+  };
+  return { ...body,
+    snapshotHash:crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex') };
+}
+
 async function takeStake(p, stake) {
   if (badStake(stake)) return `stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}`;
   if (p.cr < stake) return `not enough credits - you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`;
@@ -1716,7 +1758,9 @@ async function recordSealedShot(s, w) {
     thresh:s.thresh == null ? null : s.thresh, pct:s.pct == null ? null : s.pct,
     label:s.label || null, commit:s.commit, commitV:s.commitV,
     settleRule:s.settleRule, outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1',
-    allocationRule:s.allocationRule, challenge:s.chal || null });
+    allocationRule:s.allocationRule, economyRule:s.economyRule || null,
+    economyMode:s.economyMode || null,
+    oracleSeal:s.oracleSeal || null, challenge:s.chal || null });
   return true;
 }
 
@@ -1784,11 +1828,15 @@ async function oracleIngest(req, res) {
         throw new Error('invalid Pyth publish interval');
       if (age < -5 || age > PX_MAX_AGE_S) throw new Error('stale or future Pyth update');
       const confBps = decoded.px > 0 ? decoded.conf / decoded.px * 10000 : Infinity;
+      const emaConfBps = decoded.emaPx > 0
+        ? decoded.emaConf / decoded.emaPx * 10000 : Infinity;
       if (!Number.isFinite(confBps) || confBps > PX_MAX_CONF_BPS)
         throw new Error('Pyth confidence too wide');
+      if (!Number.isFinite(emaConfBps)) throw new Error('invalid Pyth EMA confidence');
       validated.push({ feed:spec.feed, slot, postedSlot:decoded.postedSlot, price:decoded.px,
         publishTime:decoded.publishTime, prevPublishTime:decoded.prevPublishTime,
-        confBps:+confBps.toFixed(3) });
+        confBps:+confBps.toFixed(3), emaPrice:decoded.emaPx,
+        emaConfidenceBps:+emaConfBps.toFixed(3) });
     }
   } catch (error) {
     return res.status(400).json({ ok:false, reason:String(error.message || error) });
@@ -1936,6 +1984,36 @@ module.exports = async (req, res) => {
       rep.reproduce = 'GET /api/game?action=path&feed=SOL&from=<ms>&to=<ms> returns the same samples these statistics are computed from';
       res.setHeader('access-control-allow-origin', '*');
       return res.json(rep);
+    }
+
+    // Agent-readable Pyth layer. Both routes stop before getPrices(), so an
+    // agent read never creates a fresh Solana RPC request. The capture worker
+    // writes one shared validated snapshot and every client sees that state.
+    if (action === 'pyth-context') {
+      let feed;
+      try { feed = cleanPythFeed(query.feed); }
+      catch (error) { return res.status(400).json({ ok:false, v:VERSION, reason:error.message }); }
+      const hours = cleanPythHours(query.hours);
+      const [snapshot, health] = await Promise.all([
+        latestSnapshot(),
+        cachedFeedReport(hours),
+      ]);
+      const targets = Object.entries(targetBoard(boardHour())).map(([id, t]) => ({
+        id, kind:t.kind || 'dir', feed:t.feed, feed2:t.feed2 || null,
+        mins:t.mins, label:t.label,
+      }));
+      res.setHeader('cache-control', 'public, max-age=15, s-maxage=30');
+      return res.json({ ...buildPythContext({ snapshot, health, targets, feed }), v:VERSION });
+    }
+
+    if (action === 'pyth-path') {
+      let request;
+      try { request = parsePathRequest(query); }
+      catch (error) { return res.status(400).json({ ok:false, v:VERSION, reason:error.message }); }
+      const points = await evidencePathFor(request.feed, request.from, request.to,
+        request.sourceValue);
+      res.setHeader('cache-control', 'public, max-age=15, s-maxage=30');
+      return res.json({ ...pathResponse(request, points), v:VERSION });
     }
 
     // A blockhash is a pure RPC passthrough for the reload signer — it needs
@@ -2320,6 +2398,15 @@ module.exports = async (req, res) => {
 
       const requiredFeeds = action === 'shot'
         ? [spec.feed, spec.feed2].filter(Boolean) : [duelLine.feed];
+      const uncertain = requiredFeeds.map(f => ({
+        feed:f, confidenceBps:Number((prices.confs || {})[f]),
+      })).find(row => Number.isFinite(row.confidenceBps)
+        && row.confidenceBps > PX_MAX_CONF_BPS);
+      if (uncertain) {
+        await savePlayer(p);
+        return res.status(409).json({ ok:false,
+          reason:`the Pyth confidence interval for ${uncertain.feed} is ${uncertain.confidenceBps}bps; ranked sealing requires ${PX_MAX_CONF_BPS}bps or less — no credits were debited` });
+      }
       const crossingReady = prices.src === 'pyth-onchain' && requiredFeeds.every(f =>
         Number.isFinite((prices.pubs || {})[f])
         && Number.isFinite((prices.prevPubs || {})[f])
@@ -2334,6 +2421,7 @@ module.exports = async (req, res) => {
       if (err) { await savePlayer(p); return res.status(400).json({ ok:false, reason: err }); }
 
       let shot;
+      const oracleSeal = oracleSealSnapshot(prices, requiredFeeds);
       if (action === 'shot') {
         const t = spec;
         const kind = t.kind || 'dir';
@@ -2344,6 +2432,8 @@ module.exports = async (req, res) => {
           entry: prices[t.feed], entryAge: (prices.ages || {})[t.feed], oracleSrc: prices.src,
           exp: Date.now()+t.mins*60e3, stake, settleRule:SETTLE_RULE,
           outcomeRule:OUTCOME_RULE, allocationRule:'on-settle-v2', sealAccountingV:2,
+          economyRule:'credits-at-valid-oracle-seal-v1',
+          economyMode:isDemo(w) ? 'demo' : 'ranked', oracleSeal,
           xp: Math.max(1, Math.round(t.baseXp * stakeMult(stake) * xpMult)), label: t.label };
         if (kind === 'thr') shot.thresh = prices[t.feed] * (1 + t.pct);
         if (kind === 'thrDown') shot.thresh = prices[t.feed] * (1 - t.pct);
@@ -2357,6 +2447,8 @@ module.exports = async (req, res) => {
           entry: prices[wl.feed], oracleSrc: prices.src, exp: Date.now()+wl.mins*60e3, stake,
           settleRule:SETTLE_RULE, outcomeRule:OUTCOME_RULE,
           allocationRule:'on-settle-v2', sealAccountingV:2,
+          economyRule:'credits-at-valid-oracle-seal-v1',
+          economyMode:isDemo(w) ? 'demo' : 'ranked', oracleSeal,
           xp: Math.max(1, Math.round(14 * stakeMult(stake) * (withW ? 0.8 : 3.4))), label: 'DUEL vs the Warden: '+wl.q, duel:true };
       }
       shot.salt = crypto.randomBytes(16).toString('hex');
@@ -2818,6 +2910,15 @@ module.exports = async (req, res) => {
         prices: { src: prices.src, ages: prices.ages || null,
           ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x))) },
         stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP, settleXp: SETTLE_XP },
+        rankedEconomy: {
+          oracleRead:'shared Pyth context is read-only and never consumes RCX',
+          stakeUnit:'Ratchet play credits',
+          debitAt:'only after target, signature and fresh fully validated Pyth seal all pass',
+          settlement:'HIT/MISS finalizes the stake; VOID returns the full credit stake',
+          rcxRole:'RCX is the ranked reload rail, not an oracle access fee',
+          reload:'verified RCX reloads credit play-rights 1:1 and route 70% to destruction, 30% directly to the live champion podium, 0% to RatchetX',
+          perShotTransaction:false,
+        },
         sealRule: 'entry price must be fresher than min(60, max(30, 0.15 * windowSeconds)) seconds',
         settleRule: 'the first fully validated Pyth account transition observed with publish_time >= expiry; no valid transition observed inside 15 minutes voids and refunds',
         settlementEvidence: {

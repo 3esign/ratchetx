@@ -7,7 +7,7 @@ const DISC = crypto.createHash('sha256').update('account:PriceUpdateV2').digest(
 const OWNER = 'pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT';
 
 // Build a byte-exact PriceUpdateV2 the way the Solana account really holds it.
-function mkAccount({ feedId, price, conf, expo, publishTime, prevPublishTime, full = true, disc = DISC }) {
+function mkAccount({ feedId, price, conf, emaPrice, emaConf, expo, publishTime, prevPublishTime, full = true, disc = DISC }) {
   const parts = [];
   parts.push(disc);                                   // 8  discriminator
   parts.push(crypto.randomBytes(32));                 // 32 write_authority
@@ -19,8 +19,8 @@ function mkAccount({ feedId, price, conf, expo, publishTime, prevPublishTime, fu
   parts.push(n('writeInt32LE', expo, 4));                   // exponent
   parts.push(n('writeBigInt64LE', BigInt(publishTime), 8)); // publish_time
   parts.push(n('writeBigInt64LE', BigInt(prevPublishTime), 8)); // prev_publish_time
-  parts.push(n('writeBigInt64LE', BigInt(price), 8));       // ema_price
-  parts.push(n('writeBigUInt64LE', 1n, 8));                 // ema_conf
+  parts.push(n('writeBigInt64LE', BigInt(emaPrice == null ? price : emaPrice), 8)); // ema_price
+  parts.push(n('writeBigUInt64LE', BigInt(emaConf == null ? 1 : emaConf), 8));      // ema_conf
   parts.push(n('writeBigUInt64LE', 999n, 8));               // posted_slot
   return Buffer.concat(parts).toString('base64');
 }
@@ -81,6 +81,10 @@ for (const s of Object.keys(TRUE_PX)) {
   assert.equal(r.pubs[s], now - 4, `${s} publish_time must be the oracle's own, verbatim`);
   assert.equal(r.prevPubs[s], now - 64, `${s} prev_publish_time must survive decoding for first-crossing settlement`);
   assert.equal(r.postedSlots[s], 999, `${s} posted_slot must survive decoding for deterministic same-second ordering`);
+  assert.equal(r.slots[s], 1, `${s} RPC observation slot must survive the batched read`);
+  assert.ok(Math.abs(r.emaPrices[s] - TRUE_PX[s]) < TRUE_PX[s] * 1e-9,
+    `${s} EMA price decoded from the PriceFeedMessage`);
+  assert.ok(Number.isFinite(r.emaConfs[s]), `${s} EMA confidence normalized to bps`);
 }
 // The observatory joins prices to telemetry by symbol. If those key sets ever
 // diverge, a dropped feed acquires a confidence band or a kept one loses its
@@ -88,6 +92,7 @@ for (const s of Object.keys(TRUE_PX)) {
 assert.deepEqual(Object.keys(r.ages).sort(), Object.keys(TRUE_PX).sort(), 'ages cover exactly the kept feeds');
 assert.deepEqual(Object.keys(r.confs).sort(), Object.keys(r.ages).sort(), 'confs cover exactly the same feeds as ages');
 assert.deepEqual(Object.keys(r.pubs).sort(), Object.keys(r.ages).sort(), 'pubs cover exactly the same feeds as ages');
+assert.deepEqual(Object.keys(r.emaPrices).sort(), Object.keys(r.ages).sort(), 'EMA values cover exactly the same feeds as ages');
 console.log('decode 7/7 ok  · SOL', r.SOL, '· BONK', r.BONK, '· age', r.ages.SOL + 's', '· conf', r.confs.SOL + 'bps');
 console.log('rpc calls', rpcCalls, '· max batch', maxBatch, '(provider cap is 5)');
 assert.equal(maxBatch <= 5, true, 'batch exceeds the 5-key cap');

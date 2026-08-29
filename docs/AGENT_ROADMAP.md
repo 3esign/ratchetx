@@ -10,6 +10,12 @@ making probability-bearing calls against the same live board, stake rules, Pyth
 evidence and settlement code as every other player.
 
 - The human and agent core loop stays one loop. No privileged agent settlement path.
+- Pyth publishes once, Ratchet validates/captures once, and every agent reads the
+  same shared PriceUpdateV2 snapshot and bounded observed path. A reader must not
+  create a fresh oracle request or receive privileged data.
+- Oracle reading and ranked economics are separate: reading consumes no RCX.
+  Existing play credits are deducted only after a fresh valid seal; VOID refunds
+  them. RCX remains the ranked reload rail, not a per-read or per-shot transfer.
 - Free Gauntlet remains wallet-free, token-free and reward-free.
 - Ranked x402 entry is 0.01 USDC and 100% goes to the quoted daily champion.
   RatchetX takes 0% of entry.
@@ -28,8 +34,11 @@ evidence and settlement code as every other player.
 
 ## Verified local baseline
 
-- Release marker: `h96-2026-08-30` until the next deliberate release bump.
-- MCP/Agent Skill/ERC-8004 surfaces: `1.1.0`, checked bidirectionally.
+- Candidate release marker: `h97-2026-08-30`; production remains h96 until live verification.
+- MCP/Agent Skill/ERC-8004 surfaces: `1.2.0`, checked bidirectionally.
+- MCP advertises 13 tools in Pyth-first order. `ratchet_pyth_context` exposes
+  shared price, confidence, EMA, cadence and slots; `ratchet_pyth_path` exposes
+  a bounded retained observation path. Both stop before `getPrices()`.
 - Solana Agent Registry: asset `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`,
   indexer Agent ID 1475.
 - External Gauntlet proof: Bankr handles `009d2bf7f3be` and `301e30592c97`.
@@ -55,7 +64,10 @@ evidence and settlement code as every other player.
 2. Run the complete suite, deployment preflight and a production preview.
 3. Deploy with the normal Vercel token path; verify both domains report one release.
 4. Live contract checks:
-   - MCP initialize and `tools/list` return `1.1.0` and all 11 tools;
+   - MCP initialize and `tools/list` return `1.2.0` and all 13 tools;
+   - both Pyth tools return Pyth attribution and `requestTriggeredOracleRead:false`;
+   - a ranked seal records its exact Pyth snapshot hash, stale refusal debits
+     nothing, and settlement VOID refunds the full credit stake;
    - invite TTL and ranked prepare/submit succeed through the remote endpoint;
    - invalid premium request produces 4xx without a facilitator settlement;
    - valid premium request produces 402 with the correct resource URL and digest binding;

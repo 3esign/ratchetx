@@ -20,7 +20,11 @@ require.cache[pricesPath] = { id:pricesPath, filename:pricesPath, loaded:true, e
   getPrices:async () => { const t=Math.floor(Date.now()/1000), scale=(T+=0.4)/100; return {
     src:'pyth-onchain', ages:Object.fromEntries(FEEDS.map(f=>[f,3])),
     confs:Object.fromEntries(FEEDS.map(f=>[f,10])), pubs:Object.fromEntries(FEEDS.map(f=>[f,t])),
-    prevPubs:Object.fromEntries(FEEDS.map(f=>[f,t-60])), SOL:T, BTC:60000*scale,
+    prevPubs:Object.fromEntries(FEEDS.map(f=>[f,t-60])),
+    slots:Object.fromEntries(FEEDS.map((f,i)=>[f,500000+i])),
+    postedSlots:Object.fromEntries(FEEDS.map((f,i)=>[f,499900+i])),
+    emaPrices:Object.fromEntries(FEEDS.map(f=>[f,({SOL:T,BTC:60000*scale,ETH:2000*scale,BONK:0.000002*scale,WIF:0.1*scale,JUP:0.2*scale,PUMP:0.005*scale})[f]])),
+    emaConfs:Object.fromEntries(FEEDS.map(f=>[f,8])), SOL:T, BTC:60000*scale,
     ETH:2000*scale, BONK:0.000002*scale, WIF:0.1*scale, JUP:0.2*scale, PUMP:0.005*scale }; } } };
 require.cache[burnPath] = { id:burnPath, filename:burnPath, loaded:true, exports:{
   INCINERATOR:'1nc1nerator11111111111111111111111111111111', rpcCall:async()=>null,
@@ -53,8 +57,11 @@ ok(init.status===200 && init.body.result.serverInfo.name==='ratchetx-remote-demo
 
 const list = await call('tools/list',{}, {'mcp-protocol-version':'2025-11-25'});
 const names=(list.body.result.tools||[]).map(t=>t.name);
-if (names.length !== 11) console.error('Actual names:', names);
-ok(names.length===11 && names.includes('ratchet_demo_shot') && names.includes('ratchet_proof'), '11 remote demo tools are listed');
+if (names.length !== 13) console.error('Actual names:', names);
+ok(names.length===13 && names.includes('ratchet_pyth_context') && names.includes('ratchet_pyth_path')
+  && names.includes('ratchet_demo_shot') && names.includes('ratchet_proof'), '13 remote tools are listed');
+ok(names.indexOf('ratchet_pyth_context') < names.indexOf('ratchet_board'),
+  'Pyth context is discovered before the board');
 ok(!names.includes('ratchet_register_agent') && !names.includes('ratchet_challenge'), 'remote endpoint exposes no signed or economic write');
 
 const ident = await tool('ratchet_new_demo');
@@ -62,6 +69,14 @@ ok(ident.out && /^[a-f0-9]{12}$/.test(ident.out.handle), 'server creates a fresh
 const board = await tool('ratchet_board');
 const target = board.out && board.out.targets && board.out.targets.find(t=>t.kind==='dir');
 ok(!!target, 'remote MCP reads the canonical live board');
+const context = await tool('ratchet_pyth_context',{feed:target.feed,hours:1});
+ok(context.out?.pyth?.provider==='Pyth Network'
+  && context.out?.access?.requestTriggeredOracleRead===false
+  && context.out?.feeds?.[0]?.current?.postedSlot != null,
+  'remote MCP returns shared Pyth context with attribution, slots and zero reader-triggered oracle calls');
+const path = await tool('ratchet_pyth_path',{feed:target.feed,from:Date.now()-120000,to:Date.now()+1000,limit:10});
+ok(path.out?.attribution?.provider==='Pyth Network' && Array.isArray(path.out?.points),
+  'remote MCP returns a bounded retained Pyth observation path');
 ok(board.out.gauntlet && board.out.gauntlet.id==='first-contact-001'
   && board.out.gauntlet.reward.money===false,
   'the first board read exposes the free non-economic Gauntlet contract');
@@ -95,7 +110,7 @@ const getRes={status(c){getStatus=c;return this;},
   json(v){getBody=v;return v;},end(){}};
 await mcp({method:'GET',headers:{},socket:{}},getRes);
 ok(getStatus===405 && getBody?.error?.data?.transport?.requestMethod==='POST'
-  && getBody.error.data.toolSchemas.length===11
+  && getBody.error.data.toolSchemas.length===13
   && /well-known\/mcp\.json/.test(getHeaders.link || ''),
   'GET stays 405 by transport design but exposes discovery, POST flow and all tool schemas');
 

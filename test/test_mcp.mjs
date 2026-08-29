@@ -20,6 +20,10 @@ require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true
   exports: { getPrices: async () => { const t=Math.floor(Date.now()/1000), scale=(T+=0.4)/100; return { src:'pyth-onchain',
     ages:Object.fromEntries(FEEDS.map(f=>[f,3])), confs:Object.fromEntries(FEEDS.map(f=>[f,10])),
     pubs:Object.fromEntries(FEEDS.map(f=>[f,t])), prevPubs:Object.fromEntries(FEEDS.map(f=>[f,t-60])),
+    slots:Object.fromEntries(FEEDS.map((f,i)=>[f,600000+i])),
+    postedSlots:Object.fromEntries(FEEDS.map((f,i)=>[f,599900+i])),
+    emaPrices:Object.fromEntries(FEEDS.map(f=>[f,({SOL:T,BTC:60000*scale,ETH:2000*scale,BONK:0.000002*scale,WIF:0.1*scale,JUP:0.2*scale,PUMP:0.005*scale})[f]])),
+    emaConfs:Object.fromEntries(FEEDS.map(f=>[f,8])),
     SOL:T, BTC:60000*scale, ETH:2000*scale, BONK:0.000002*scale, WIF:0.1*scale, JUP:0.2*scale, PUMP:0.005*scale }; } } };
 require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
   exports: { INCINERATOR:'1nc1nerator11111111111111111111111111111111',
@@ -36,7 +40,7 @@ const srv = http.createServer(async (req, res) => {
   }
   const q = Object.fromEntries(u.searchParams);
   const fake = { method: req.method, query: q, body, headers: {'x-forwarded-for':'8.8.8.'+Math.floor(Math.random()*250)}, socket:{} };
-  const out = { _s:200, status(c){this._s=c;return this;},
+  const out = { _s:200, status(c){this._s=c;return this;}, setHeader(){},
     json(o){ res.writeHead(this._s,{'content-type':'application/json'}); res.end(JSON.stringify(o)); } };
   const handler = u.pathname.startsWith('/proof') ? proof : game;
   try { await handler(fake, out); } catch (e) { out.status(500).json({ok:false,reason:String(e)}); }
@@ -76,8 +80,11 @@ try {
   // 2 ---- tools are listed with schemas
   const list = await rpc('tools/list', {});
   const names = (list.result.tools || []).map(t => t.name);
-  ok(names.length === 11 && names.includes('ratchet_shot') && names.includes('ratchet_proof'),
-    'all eleven tools are listed');
+  ok(names.length === 13 && names.includes('ratchet_pyth_context')
+    && names.includes('ratchet_pyth_path') && names.includes('ratchet_shot')
+    && names.includes('ratchet_proof'), 'all thirteen tools are listed');
+  ok(names.indexOf('ratchet_pyth_context') < names.indexOf('ratchet_board'),
+    'Pyth context is discovered before the board');
   ok(list.result.tools.every(t => t.inputSchema && t.inputSchema.type === 'object'),
     'every tool carries an input schema');
 
@@ -91,6 +98,21 @@ try {
     'board carries targets and live prices');
   const dir = board.targets.find(t => t.kind === 'dir');
   ok(!!dir, 'a directional target exists to fire on');
+  const context = toolJSON(await rpc('tools/call', { name:'ratchet_pyth_context',
+    arguments:{ feed:dir.feed, hours:1 } }));
+  if (!(context?.pyth?.provider === 'Pyth Network'
+    && context?.access?.requestTriggeredOracleRead === false
+    && context?.feeds?.[0]?.current?.postedSlot != null)) console.error('context:', context);
+  ok(context.pyth?.provider === 'Pyth Network'
+    && context.access?.requestTriggeredOracleRead === false
+    && context.feeds?.[0]?.current?.postedSlot != null,
+    'stdio MCP reads the shared Pyth snapshot with attribution and slots');
+  const path = toolJSON(await rpc('tools/call', { name:'ratchet_pyth_path',
+    arguments:{ feed:dir.feed, from:Date.now()-120000, to:Date.now()+1000, limit:10 } }));
+  if (!(path?.attribution?.provider === 'Pyth Network' && Array.isArray(path?.points)))
+    console.error('path:', path);
+  ok(path.attribution?.provider === 'Pyth Network' && Array.isArray(path.points),
+    'stdio MCP reads a bounded retained Pyth observation path');
 
   // 5 ---- a demo shot seals through the real handler
   const shot = toolJSON(await rpc('tools/call', { name: 'ratchet_shot',

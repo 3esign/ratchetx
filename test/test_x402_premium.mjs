@@ -5,7 +5,6 @@ import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 const { encodePaymentSignatureHeader } = require('@x402/core/http');
 
-process.env.PUBLIC_ORIGIN = 'http://127.0.0.1:8247';
 process.env.X402_ENABLED = '1';
 globalThis.__ratchet_mem = new Map();
 
@@ -99,10 +98,15 @@ const srv = http.createServer(async (req, res) => {
   try { await handler(req, res); }
   catch (e) { res.status(500).json({ ok:false, reason:String(e) }); }
 });
-await new Promise(resolve => srv.listen(8247, '127.0.0.1', resolve));
+// Browser fixture servers may already own the layout-test port. This isolated
+// protocol test needs no fixed address, so let the OS allocate a collision-free
+// loopback port and make that exact origin part of the signed resource.
+await new Promise(resolve => srv.listen(0, '127.0.0.1', resolve));
+const testOrigin = `http://127.0.0.1:${srv.address().port}`;
+process.env.PUBLIC_ORIGIN = testOrigin;
 
 const call = (body, headers = {}) => new Promise((resolve, reject) => {
-  const req = http.request('http://127.0.0.1:8247/api/agent-proof-bundle', {
+  const req = http.request(`${testOrigin}/api/agent-proof-bundle`, {
     method:'POST', headers:{ 'content-type':'application/json', ...headers },
   }, res => { const chunks=[]; res.on('data', c => chunks.push(c)); res.on('end', () => {
     const raw=Buffer.concat(chunks).toString(); resolve({ status:res.statusCode,

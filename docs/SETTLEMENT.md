@@ -4,9 +4,8 @@ The whole game rests on one sentence: **the exit price is the first oracle
 sample at or after expiry — settling early, late, or by a stranger produces the
 same number.** This page documents how that sentence is enforced today, and how
 the v3 program enforces it on-chain. The mechanics below were worked through
-with the Pyth team on their developer forum in August 2026, after the Pyth Core
-upgrade (August 26, 2026, 16:00 UTC) put Hermes and historical timestamp API
-access behind API keys.
+with the Pyth team on their developer forum in August 2026. Ratchet uses the
+PriceUpdateV2 state Pyth publishes on Solana as the canonical live evidence plane.
 
 ## Today (v2, API layer)
 
@@ -18,14 +17,13 @@ after expiry. If no sample lands within 15 minutes of expiry, the shot **voids
 and refunds** — we would rather give the stake back than invent a price. Anyone
 can trigger settlement (see [SELF_HOST.md](SELF_HOST.md) and `tools/crank.mjs`).
 
-This path uses no Pyth API key and is unaffected by the Core upgrade.
+This path keeps the game and settlement evidence on the same Pyth/Solana account identity.
 
-## v3 (on-chain settlement, trust-free cranks)
+## v3 (on-chain settlement, permissionless cranks)
 
-v3 moves the same rule into bytecode. Two paths, layered so that the game never
-depends on a paid external service:
+v3 moves the same rule into bytecode. Two complementary Pyth integration paths:
 
-### Primary: the checkpoint race (free, fully on-chain)
+### Primary: the checkpoint race (fully on-chain)
 
 After a shot expires at `T`, **anyone** can call the `checkpoint` instruction.
 It reads the sponsored push account for the shot's feed and, if that account's
@@ -42,12 +40,10 @@ has every incentive to checkpoint immediately; our own keeper and every
 total neglect. This is v2's "first recorded sample" rule with the recording
 moved on-chain and the recorder role opened to the world.
 
-### Optional precision upgrade: signed historical updates (API-keyed)
+### Optional precision upgrade: signed historical updates
 
-For exact *first-print* proofs, the upgraded Hermes timestamp endpoint
-(`https://pyth.dourolabs.app/hermes/v2/updates/price/{publish_time}`, binary
-encoding — **requires a Pyth API key** after the Core upgrade) returns the
-signed Core update whose metadata includes `prev_publish_time`. A cranker
+For exact *first-print* proofs, an authenticated Hermes timestamp endpoint can
+return the signed Core update whose metadata includes `prev_publish_time`. A cranker
 submits `binary.data` through the upgraded Core Solana receiver, and the
 program enforces:
 

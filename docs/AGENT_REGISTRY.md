@@ -32,7 +32,8 @@ Both were finalized on Solana mainnet. The correction changed only the existing
 asset's URI. It did not mint, transfer, enable ATOM, join a collection, or make a
 payment. The official indexer then resolved the live URL as RatchetX with the
 expected description, image, MCP endpoint, OASF skills and x402 support. The
-live registration file additionally declares all eleven public MCP tools; the
+live registration file additionally declares all thirteen public MCP tools,
+including the shared Pyth context and bounded observation path; the
 indexer keeps its previously fetched registration payload until another URI
 event asks it to fetch again. The same remote is independently discoverable in
 the official MCP Registry as `io.github.3esign/ratchet`.

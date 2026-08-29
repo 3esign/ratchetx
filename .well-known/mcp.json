@@ -1,9 +1,9 @@
 {
   "name": "ratchet",
-  "description": "Play the RatchetX prediction arcade: read the board, fire sealed commit-reveal shots settled on Pyth oracle prices, and build a public Brier-scored record.",
+  "description": "Read shared validated Pyth PriceUpdateV2 context, play the RatchetX forecasting arcade, and build a public Brier-scored record.",
   "documentation": "https://ratchetx.xyz/llms.txt",
   "repository": "https://github.com/3esign/ratchetx",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "officialRegistry": {
     "name": "io.github.3esign/ratchet",
     "url": "https://registry.modelcontextprotocol.io/v0.1/servers/io.github.3esign%2Fratchet/versions/latest"
@@ -13,7 +13,7 @@
       "type": "streamable-http",
       "url": "https://ratchetx.xyz/api/mcp",
       "requestMethod": "POST",
-      "getBehavior": "405 with a machine-readable inspection contract and all eleven tool schemas in error.data",
+      "getBehavior": "405 with a machine-readable inspection contract and all thirteen tool schemas in error.data",
       "mode": "demo",
       "authentication": "none",
       "install": "none; connect the URL directly"

@@ -17,7 +17,7 @@ const funnel = require('../lib/funnel.js');
 const ranked = require('../lib/ranked.js');
 const { getJSONStrict, setJSONEx, acquireLease, releaseLease } = require('../lib/kv.js');
 
-const MCP_VERSION = '1.1.0';
+const MCP_VERSION = '1.2.0';
 const MODERN_PROTOCOL = '2026-07-28';
 const LEGACY_PROTOCOLS = ['2025-11-25', '2025-06-18', '2025-03-26'];
 const SUPPORTED_PROTOCOLS = [MODERN_PROTOCOL, ...LEGACY_PROTOCOLS];
@@ -29,8 +29,26 @@ const TOOLS = [
   { name: 'ratchet_new_demo',
       description: 'Create a fresh free demo identity. Keep the returned handle and pass it to ratchet_demo_shot and ratchet_demo_state. Demo calls use the real board and oracle but never rank, enter pots, or move funds.',
       inputSchema: { type: 'object', properties: { invite: { type: 'string', description: 'Optional 128-bit invite ID' } } } },
+  { name: 'ratchet_pyth_context',
+    description: 'Read the shared validated Pyth PriceUpdateV2 snapshot plus confidence, EMA, publish cadence, slots, observed feed health and the live Ratchet targets using each feed. Read this before ratchet_board when forming a probability. This call does not trigger a new oracle read.',
+    inputSchema: { type:'object', properties:{
+      feed:{ type:'string', enum:['SOL','BTC','ETH','BONK','PUMP','JUP','WIF'],
+        description:'Optional single feed; omit for all seven.' },
+      hours:{ type:'integer', minimum:1, maximum:72, default:24,
+        description:'Observed health window in hours.' },
+    } } },
+  { name: 'ratchet_pyth_path',
+    description: 'Read a bounded retained path of Pyth observations captured by Ratchet, including price, confidence, publish times, EMA and slots when retained. This is observed evidence, not an independently complete Pyth archive.',
+    inputSchema: { type:'object', required:['feed','from'], properties:{
+      feed:{ type:'string', enum:['SOL','BTC','ETH','BONK','PUMP','JUP','WIF'] },
+      from:{ type:'integer', description:'Unix milliseconds; window may not exceed 26 hours.' },
+      to:{ type:'integer', description:'Unix milliseconds; defaults to now.' },
+      source:{ type:'string', enum:['all','stream','poll'], default:'all' },
+      limit:{ type:'integer', minimum:1, maximum:500, default:240 },
+      cursor:{ type:'string', description:'Opaque nextCursor from the previous page; keep feed/from/to/source unchanged.' },
+    } } },
   { name: 'ratchet_board',
-    description: 'Read the live board: target ids, horizons, Pyth prices and ages, sealing and settlement rules, arena scoring, and ranked-entry doors.',
+    description: 'Read the live board after ratchet_pyth_context: target ids, horizons, Pyth prices and ages, sealing and settlement rules, ranked credit economics, arena scoring, and entry doors.',
     inputSchema: { type: 'object', properties: {} } },
   { name: 'ratchet_demo_shot',
     description: 'Fire a free unranked sealed commit-reveal forecast. First call ratchet_new_demo. State p honestly: it is the probability (0.01-0.99) that your chosen side wins and becomes a public Brier observation after settlement.',
@@ -65,7 +83,7 @@ const TOOLS = [
     inputSchema: { type: 'object', properties: {} } },
 
   { name: 'ratchet_ranked_prepare',
-    description: 'Prepare a bounded forecast for an already-registered ranked wallet. Returns the exact domain-separated payload to sign locally; no private key is sent to RatchetX.',
+    description: 'Prepare a bounded forecast for an already-registered ranked wallet. Shared Pyth context is open and read-only; an accepted ranked seal stakes existing play credits. Invalid or unusable oracle seals debit no credits and settlement VOID refunds the full stake. Returns the exact domain-separated payload to sign locally; no private key is sent to RatchetX.',
     inputSchema: { type: 'object', required: ['wallet', 'target', 'side', 'p'], properties: {
       wallet: { type: 'string', description: 'Your Solana wallet address (base58)' },
       target: { type: 'string', description: 'Exact target id returned by ratchet_board' },
@@ -192,7 +210,8 @@ const demoHandle = value => {
 
 const slimShot = s => ({ id:s.id, label:s.label, side:s.side, stake:s.stake,
   entry:s.entry, exitPx:s.exitPx, res:s.res, xp:s.xp, back:s.back,
-  exp:s.exp, commit:s.commit, sp:s.sp });
+  exp:s.exp, commit:s.commit, sp:s.sp,
+  oracleSnapshotHash:s.oracleSeal && s.oracleSeal.snapshotHash || null });
 function slimState(st, wallet) {
   const out = { ok:st.ok, v:st.v };
   if (st.prices) out.prices = { src:st.prices.src, ages:st.prices.ages, SOL:st.prices.SOL };
@@ -228,9 +247,16 @@ async function callTool(req, name, args = {}) {
            await funnel.bindDemoInvite(handle, hash, record.exp);
            await funnel.recordMilestone(hash, 'demo_created', { handle });
         } return { handle, wallet:`demo-${handle}`,
-        next:['ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state'],
+        next:['ratchet_pyth_context', 'ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state'],
         note:'free and unranked; no wallet, token, payment or signature; keep this handle for later calls' };
     }
+    case 'ratchet_pyth_context': return invoke(game, req, { query:{
+      action:'pyth-context', feed:args.feed, hours:args.hours,
+    } });
+    case 'ratchet_pyth_path': return invoke(game, req, { query:{
+      action:'pyth-path', feed:args.feed, from:args.from, to:args.to,
+      source:args.source, limit:args.limit, cursor:args.cursor,
+    } });
     case 'ratchet_board': return invoke(game, req, { query:{ action:'board' } });
     case 'ratchet_arena': return invoke(game, req, { query:{ action:'arena' } });
     case 'ratchet_challenges': return invoke(game, req, { query:{ action:'challenges' } });
@@ -281,6 +307,13 @@ async function callTool(req, name, args = {}) {
       const payload = ranked.payloadFor({ wallet, target, side, p, stake, nonce, expiresAt });
       await setJSONEx(`nonce:ranked:${wallet}:${nonce}`, { payload, used:false, createdAt:Date.now() }, 120);
       return { nonce, expiresAt, payload, domain:ranked.DOMAIN, network:ranked.NETWORK,
+        economy:{
+          oracleRead:'open shared Pyth context; no RCX charge',
+          stake:{ unit:'Ratchet play credits', amount:JSON.parse(payload).stake,
+            debitAt:'accepted fresh Pyth-bound seal', void:'full refund' },
+          rcx:{ role:'ranked credit reload rail', perShotTransaction:false,
+            reloadSplit:{ destructionPct:70, liveChampionPodiumPct:30, ratchetxPct:0 } },
+        },
         instruction:'Sign the exact UTF-8 payload with the wallet Ed25519 key, then call ratchet_ranked_submit.' };
     }
     case 'ratchet_ranked_submit': {
@@ -382,7 +415,7 @@ module.exports = async function handler(req, res) {
         protocolVersion:chosen, capabilities:{ tools:{} },
         serverInfo:{ name:'ratchetx-remote-demo', version:MCP_VERSION },
         _meta:{ release:RELEASE },
-        instructions:'Free remote demo: call ratchet_new_demo once, keep its handle, read ratchet_board and its gauntlet contract, fire ratchet_demo_shot with an honest p, then poll ratchet_demo_state after expiry. Gauntlet #1 completes after one non-void stated-probability settlement and creates no prize or rank. Demo never ranks or moves funds. Eligible ranked wallets may use ratchet_ranked_prepare, sign the returned payload locally, then call ratchet_ranked_submit; no private key is sent to RatchetX.',
+        instructions:'Create or retain a demo identity, then read ratchet_pyth_context before ratchet_board. Pyth context exposes the shared validated snapshot, confidence, EMA, cadence, slots and observed feed health without triggering a new oracle read. Choose an exact live target, fire ratchet_demo_shot with your own honest probability, then poll ratchet_demo_state after expiry. Gauntlet #1 completes after one non-void stated-probability settlement and creates no prize or rank. Demo never ranks or moves funds. Eligible ranked wallets may use ratchet_ranked_prepare, sign the returned payload locally, then call ratchet_ranked_submit; no private key is sent to RatchetX.',
       } });
     }
     if (method === 'ping') return sendJSON(res, 200, { jsonrpc:'2.0', id, result:{} });

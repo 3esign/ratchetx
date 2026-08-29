@@ -36,7 +36,7 @@ import readline from 'node:readline';
 
 const BASE = process.env.RATCHET_API || 'https://ratchetx.xyz/api/game';
 const PROOF_URL = BASE.replace(/\/game$/, '/proof');
-const VERSION = '1.1.0';
+const VERSION = '1.2.0';
 
 // ---------- identity (same scheme as agent/ratchet-agent.mjs) ----------
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -122,7 +122,8 @@ async function authedPost(body) {
 // ---------- projections (state is big; agents need the signal) ----------
 const slimShot = s => ({ id: s.id, label: s.label, side: s.side, stake: s.stake,
   entry: s.entry, exitPx: s.exitPx, res: s.res, xp: s.xp, back: s.back,
-  exp: s.exp, commit: s.commit });
+  exp: s.exp, commit: s.commit,
+  oracleSnapshotHash: s.oracleSeal && s.oracleSeal.snapshotHash || null });
 function slimState(st, wallet) {
   const out = { v: st.v, ok: st.ok };
   if (st.prices) out.prices = { src: st.prices.src, SOL: st.prices.SOL, ages: st.prices.ages };
@@ -144,15 +145,31 @@ const TOOLS = [
   { name: 'ratchet_whoami',
     description: 'Who am I on the board: mode (demo/ranked), wallet, auth scheme, API base. Demo wallets play the identical oracle-settled board but never enter ladders, pots, or the arena ranking.',
     inputSchema: { type: 'object', properties: {} } },
+  { name: 'ratchet_pyth_context',
+    description: 'Shared validated Pyth PriceUpdateV2 snapshot with confidence, EMA, publish cadence, slots, observed feed health and the live Ratchet targets using each feed. Read this before ratchet_board. The call does not trigger a new oracle read.',
+    inputSchema: { type:'object', properties:{
+      feed:{ type:'string', enum:['SOL','BTC','ETH','BONK','PUMP','JUP','WIF'] },
+      hours:{ type:'integer', minimum:1, maximum:72, default:24 },
+    } } },
+  { name: 'ratchet_pyth_path',
+    description: 'Bounded retained path of Pyth observations captured by Ratchet, with price, confidence, publish times, EMA and slots when retained.',
+    inputSchema: { type:'object', required:['feed','from'], properties:{
+      feed:{ type:'string', enum:['SOL','BTC','ETH','BONK','PUMP','JUP','WIF'] },
+      from:{ type:'integer', description:'Unix milliseconds; maximum window 26 hours.' },
+      to:{ type:'integer', description:'Unix milliseconds; defaults to now.' },
+      source:{ type:'string', enum:['all','stream','poll'], default:'all' },
+      limit:{ type:'integer', minimum:1, maximum:500, default:240 },
+      cursor:{ type:'string', description:'Opaque nextCursor from the previous page; keep feed/from/to/source unchanged.' },
+    } } },
   { name: 'ratchet_board',
-    description: 'The current hourly board: targets (id, kind, feed, minutes, label), live Pyth prices with their AGE in seconds (never seal a short window on a stale print), stake rule and settle rule. The board rotates hourly.',
+    description: 'The current hourly board after ratchet_pyth_context: targets, live Pyth prices and ages, ranked credit economics, stake rule and settlement rule. The board rotates hourly.',
     inputSchema: { type: 'object', properties: {} } },
   { name: 'ratchet_state',
     description: 'Game state plus your own record: credits, xp, streak, open shots (unsettled) and recent settled shots. Polling this is also how settlements collect — settlement is lazy and anyone can trigger it. Set raw=true for the full unslimmed payload.',
     inputSchema: { type: 'object', properties: {
       raw: { type: 'boolean', description: 'return the full state payload instead of the compact projection' } } } },
   { name: 'ratchet_shot',
-    description: 'Fire a sealed commit-reveal shot on a board target. Returns your side, salt and commit — the salt stays secret until settlement, then both publish so anyone can recompute the commitment. Stake is in credits (min 100). Demo mode plays free; ranked stakes real credits.',
+    description: 'Fire a sealed commit-reveal shot on a board target. Pyth context reads are open; ranked mode deducts play credits only after a fresh validated oracle seal succeeds. HIT/MISS finalizes the stake and VOID refunds it in full. RCX is the ranked reload rail, not a per-read or per-shot transaction. Returns your side, salt and commit — the salt stays secret until settlement, then both publish so anyone can recompute the commitment.',
     inputSchema: { type: 'object', required: ['target', 'side'], properties: {
       target: { type: 'string', description: 'target id from ratchet_board, e.g. SOL5' },
       side: { type: 'string', enum: ['YES', 'NO'] },
@@ -194,6 +211,21 @@ async function callTool(name, args = {}) {
           : 'signs only the fixed auth string; this process can never move funds' };
     }
     case 'ratchet_board': return get('action=board');
+    case 'ratchet_pyth_context': {
+      const q = new URLSearchParams({ action:'pyth-context' });
+      if (args.feed) q.set('feed', String(args.feed));
+      if (args.hours != null) q.set('hours', String(args.hours));
+      return get(q.toString());
+    }
+    case 'ratchet_pyth_path': {
+      const q = new URLSearchParams({ action:'pyth-path',
+        feed:String(args.feed || ''), from:String(args.from || '') });
+      if (args.to != null) q.set('to', String(args.to));
+      if (args.source) q.set('source', String(args.source));
+      if (args.limit != null) q.set('limit', String(args.limit));
+      if (args.cursor) q.set('cursor', String(args.cursor));
+      return get(q.toString());
+    }
     case 'ratchet_state': {
       const st = await get(`action=state&wallet=${encodeURIComponent(WALLET)}`);
       return args.raw ? st : slimState(st, WALLET);

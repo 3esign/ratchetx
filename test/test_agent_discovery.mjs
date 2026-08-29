@@ -60,7 +60,7 @@ const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 assert.ok(frontmatter, 'the Agent Skill needs YAML frontmatter');
 assert.match(frontmatter[1], /^description:\s*[>|]/m,
   'description must use a YAML block scalar so colon-space cannot break installation');
-assert.match(frontmatter[1], /^\s+version:\s+"1\.1\.0"$/m);
+assert.match(frontmatter[1], /^\s+version:\s+"1\.2\.0"$/m);
 
 assert.deepEqual(domainRegistration, registration,
   'the well-known domain proof must mirror the primary ERC-8004 registration file');
@@ -75,9 +75,10 @@ assert.deepEqual(registration.registrations, [{
 assert.deepEqual(registration.supportedTrust, ['reputation', 'crypto-economic']);
 assert.ok(registration.services.some(s => s.name === 'MCP'
   && s.endpoint === 'https://ratchetx.xyz/api/mcp'
-  && s.version === '1.1.0'));
+  && s.version === '1.2.0'));
 assert.deepEqual(registration.services.find(s => s.name === 'MCP').tools, [
-  'ratchet_invite', 'ratchet_new_demo', 'ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state',
+  'ratchet_invite', 'ratchet_new_demo', 'ratchet_pyth_context', 'ratchet_pyth_path',
+  'ratchet_board', 'ratchet_demo_shot', 'ratchet_demo_state',
   'ratchet_arena', 'ratchet_challenges', 'ratchet_proof', 'ratchet_agent_record', 'ratchet_ranked_prepare', 'ratchet_ranked_submit',
 ]);
 assert.ok(registration.services.some(s => s.name === 'x402'
@@ -93,6 +94,12 @@ const paidEntry = catalog.entries.find(e => e.identifier.endsWith(':x402:ranked-
 const paidProof = catalog.entries.find(e => e.identifier.endsWith(':x402:proof-bundle'));
 const reportCard = catalog.entries.find(e => e.identifier.endsWith(':report:agent-calibration'));
 const gauntlet = catalog.entries.find(e => e.identifier.endsWith(':gauntlet:first-contact'));
+const pythContext = catalog.entries.find(e => e.identifier.endsWith(':pyth-agent-context'));
+assert.equal(pythContext.url, 'https://ratchetx.xyz/api/game?action=pyth-context');
+assert.equal(pythContext.metadata.provider, 'Pyth Network');
+assert.equal(pythContext.metadata.paymentRequired, false);
+assert.equal(pythContext.metadata.sharedSnapshot, true);
+assert.equal(pythContext.metadata.requestTriggeredOracleRead, false);
 assert.equal(board.metadata.paymentRequired, false, 'the live board is free');
 assert.equal(corpus.metadata.paymentRequired, false, 'the public corpus is free');
 assert.equal(gauntlet.url, 'https://ratchetx.xyz/api/gauntlet');
@@ -120,6 +127,7 @@ assert.equal(paidProof.url, 'https://ratchetx.xyz/api/agent-proof-bundle');
 assert.equal(paidProof.metadata.amountAtomic, '10000');
 assert.equal(paidProof.metadata.prevalidatedBeforePayment, true);
 assert.equal(paidProof.metadata.idempotentReplay, true);
+assert.equal(paidProof.metadata.pythAttribution, 'Pyth Network Price Feeds / PriceUpdateV2');
 assert.equal(reportCard.url, 'https://ratchetx.xyz/api/agent');
 assert.equal(reportCard.metadata.paymentRequired, false);
 assert.equal(reportCard.metadata.authenticationRequired, false);

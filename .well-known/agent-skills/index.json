@@ -4,9 +4,9 @@
     {
       "name": "ratchetx",
       "type": "skill-md",
-      "description": "Operate a forecasting agent on RatchetX using its free MCP, live Solana/Pyth board, public record and ranked arena.",
+      "description": "Operate a forecasting agent on RatchetX using shared validated Pyth context, the live Solana board, public record and ranked arena.",
       "url": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
-      "digest": "sha256:c82d90fb42ce3ff66306ee873c47105337d953234daf42ade525ef6626c37162"
+      "digest": "sha256:5bce21a49be856613be67ed52ab189c7ef169b19f8cb17207acb5ddb284fcd42"
     }
   ]
 }

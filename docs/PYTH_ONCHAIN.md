@@ -4,34 +4,30 @@
 
 ## What changed
 
-Pyth moved the Core/API-key cutover to **18 August 2026**. The current upgraded Hermes
-endpoint is `https://pyth.dourolabs.app/hermes`; authenticated requests use
-`PYTH_API_KEY`. Pricing is intentionally not frozen in this repository because Pyth can
-change it. Check the current Pyth plan page before making a purchasing decision.
-
-An API key may be configured as an optional display-price failover. The live primary route,
-settlement and premium proof service do not depend on Hermes: they use Pyth's sponsored
-push-feed accounts read directly from Solana and Ratchet's retained validated observations.
+Pyth Price Feeds expose multiple integration surfaces. Ratchet's canonical route uses
+Pyth sponsored push-feed accounts on Solana so the game, observatory and settlement
+program share the same PriceUpdateV2 identity. A configured authenticated Hermes route
+is labeled display-only failover; it never changes settlement authority.
 
 ## What we did instead
 
 Pyth does not only serve prices over HTTP. It also **pushes** sponsored price feeds onto
-Solana as ordinary accounts. Those accounts hold the same `PriceUpdateV2` struct, signed
-by the same publishers, that the pull oracle hands you over HTTP. Reading a Solana
-account is not something anyone can bill for.
+Solana accounts. Those accounts hold the `PriceUpdateV2` struct that Solana programs
+can validate directly.
 
 So the game now reads the oracle where it actually lives.
 
-`lib/onchain_px.js` fetches the seven sponsored feed accounts over plain Solana JSON-RPC
-and decodes them itself. No oracle SDK and no Pyth API key are required for that route.
+`lib/onchain_px.js` fetches the seven sponsored feed accounts over Solana JSON-RPC,
+decodes them, and validates owner, account discriminator, verification level, feed ID,
+age and confidence before a value can enter the game.
 
 ### Source order (`lib/prices.js`)
 
-| # | Source | Cost | When |
+| # | Source | Role | When |
 |---|--------|------|------|
-| 1 | **Pyth on-chain** — sponsored accounts on Solana | free | always the primary |
-| 2 | Pyth Hermes | current Pyth plan | optional labeled display failover only, if `PYTH_API_KEY` is set |
-| 3 | Coinbase spot | free | labeled display-only last resort; never seals or settles |
+| 1 | **Pyth on-chain** — sponsored PriceUpdateV2 accounts on Solana | canonical game and evidence state | always the primary |
+| 2 | Pyth Hermes | optional labeled display failover | only when explicitly configured |
+| 3 | Coinbase spot | non-Pyth display-only last resort | never seals or settles |
 
 If we ever fall past step 1, `prices.degraded` says so and the page prints it. The banner
 distinguishes *"still Pyth, different route"* from *"not Pyth at all"*, because those are
@@ -100,14 +96,15 @@ to whichever answered last and failing over on error. It works out of the box; a
 endpoint is one env var and the difference between "works" and "works under load".
 
 Requests are batched **5 accounts per call** — the smallest `getMultipleAccounts` cap we
-have actually hit in production (QuickNode's free plan). Seven feeds = two calls.
+have actually hit in production. Seven feeds = two calls.
 `getPrices()` caches for 3 seconds and collapses concurrent callers into a single upstream
 fetch, so a burst of readers costs two RPC calls, not two per reader.
 
 ## Why this is better than what it replaced
 
-It avoids a metered oracle HTTP path, but still depends on Solana RPC availability and
-Pyth continuing to sponsor these accounts. Those dependencies are monitored and surfaced.
+It avoids splitting live evidence across separate oracle identities, but still depends on
+Solana RPC availability and Pyth continuing to sponsor these accounts. Those dependencies
+are monitored and surfaced.
 
 It is also **more honest**. The website now reads the exact same account the settlement
 program validates on-chain. Before, the page trusted an HTTP endpoint and the program

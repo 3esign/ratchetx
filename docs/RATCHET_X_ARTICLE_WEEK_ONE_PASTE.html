@@ -80,10 +80,9 @@ minute-by-minute price record is a public endpoint, so you can re-derive any out
 yourself.</p>
 <p>Prices come from <strong>Pyth&#39;s sponsored push feeds read straight off Solana accounts</strong> —
 the same <code>PriceUpdateV2</code> structs any program on mainnet validates, decoded by us locally,
-owner-checked, freshness-checked, confidence-checked. No API key between the game and its
-oracle. When Pyth&#39;s Core upgrade put Hermes behind authentication in mid-August, our
-primary route didn&#39;t notice, because reading a Solana account is not something anyone can
-put behind a paywall.</p>
+owner-checked, freshness-checked and confidence-checked. That gives the game, public
+observatory and settlement program one shared Pyth/Solana evidence identity instead of
+three subtly different market-data paths.</p>
 <h2>The machine audits its own oracle</h2>
 <p>Because real stakes settle on those feeds, we can&#39;t look away when one misbehaves — so we
 publish what we see. <strong>The Observatory</strong> (<code>/api/feeds</code>) is a continuous third-party

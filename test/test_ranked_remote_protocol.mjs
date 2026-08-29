@@ -70,6 +70,12 @@ assert.equal(prepared.isError, undefined);
 const challenge = prepared.structuredContent;
 assert.equal(challenge.domain, 'ratchetx.xyz');
 assert.equal(challenge.network, 'solana:mainnet');
+assert.equal(challenge.economy.oracleRead, 'open shared Pyth context; no RCX charge');
+assert.equal(challenge.economy.stake.debitAt, 'accepted fresh Pyth-bound seal');
+assert.equal(challenge.economy.stake.void, 'full refund');
+assert.deepEqual(challenge.economy.rcx.reloadSplit,
+  { destructionPct:70, liveChampionPodiumPct:30, ratchetxPct:0 });
+assert.equal(challenge.economy.rcx.perShotTransaction, false);
 assert.deepEqual(
   ttlWrites.find(row => row.key === `nonce:ranked:${wallet}:${challenge.nonce}`),
   { key:`nonce:ranked:${wallet}:${challenge.nonce}`, ttl:120 },

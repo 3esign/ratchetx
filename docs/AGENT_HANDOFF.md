@@ -1,12 +1,12 @@
 # RatchetX agent handoff
 
-Updated: 2026-08-30. Working tree contains the release recovery described below;
+Updated: 2026-08-30. Working tree contains the h97 Pyth agent-layer candidate;
 production verification and deployment are still pending.
 
 ## Live identity and external proofs
 
-- Declared release: `h96-2026-08-30`.
-- MCP, Agent Skill and ERC-8004 profile: `1.1.0` locally.
+- Production release: `h96-2026-08-30`; local candidate: `h97-2026-08-30`.
+- MCP, Agent Skill and ERC-8004 profile: `1.2.0` locally.
 - Solana registry: agent 1475, asset
   `Auj5yXbsaeQUJpYpSRugkgRE3ABc76uqmUe3Vz7fxqCu`.
 - Bankr Gauntlet passes:
@@ -58,12 +58,31 @@ correct. The verifier recomputes commitment, hash-chain, retained oracle observa
 and outcome consistency. It does not prove that the server observed every qualifying
 transition. No v3 program or Calibration PDA is deployed.
 
+## h97 Pyth-native agent layer
+
+- `ratchet_pyth_context` returns the shared validated PriceUpdateV2 snapshot,
+  confidence, EMA, publish cadence, Solana observation slots, Pyth posted slots,
+  observed health and active targets. `ratchet_pyth_path` returns a bounded
+  retained observation path. Pagination uses an opaque composite `nextCursor`,
+  not `observedAt + 1`, so distinct transitions captured in the same
+  millisecond cannot be skipped.
+- Both read from Ratchet capture state and stop before `getPrices()`. Agent reads
+  therefore do not trigger Solana/Pyth reads or create data privilege.
+- Accepted economic shots record `ratchetx-oracle-seal-v1`, including a SHA-256
+  fingerprint over feed identity, price, confidence, EMA, publish times and slots.
+- Existing economics remain unchanged: Pyth reads consume no RCX; a valid ranked
+  seal deducts play credits; HIT/MISS finalizes the stake; VOID refunds it. RCX
+  remains the verified ranked reload rail with the frozen 70/30/0 routing.
+- MCP discovery, ERC-8004 metadata, AI catalog, Agent Skill, llms.txt and `/agents`
+  advertise 1.2.0 and all 13 tools in Pyth-first order.
+
 ## Required environment names
 
 Existing deployment docs remain authoritative. `X402_PROOF_RECEIVER` selects the
-separate premium-service receiver. `PYTH_API_KEY` is optional for the display-price
-Hermes failover only; neither core settlement nor the premium proof path needs it.
-Never place values in this repository.
+separate premium-service receiver. Core settlement, agent context and proof use
+validated Pyth PriceUpdateV2 state captured from Solana. A configured Hermes route
+is a labeled display-only failover and never changes the settlement authority.
+Never place credential values in this repository.
 
 h95 removes the accidental Pyth Benchmarks dependency. Valid retained evidence reaches
 402 without any Pyth credential; expired, invalid or divergent evidence fails before the
@@ -93,7 +112,7 @@ legacy value still fails before an x402 quote is issued.
    with unrelated feature changes.
 4. Rotate the leaked database credential and update the hosting secret atomically.
 5. Deploy through the repository's normal preflight/token path.
-6. Verify production MCP 1.1.0/11 tools, both x402 resources, report-card receipt,
+6. Verify production MCP 1.2.0/13 tools, both Pyth reads, both x402 resources, report-card receipt,
    core state/proof/record, 12-function limit and absence of `/api/a2a`.
 
 Do not call the work deployed or the credential safe until steps 4–6 are complete.

@@ -24,7 +24,11 @@ require.cache[pricesPath] = { id: pricesPath, filename: pricesPath, loaded: true
     ages:PX.ages || Object.fromEntries(TEST_FEEDS.map(f=>[f,1])),
     confs:PX.confs || Object.fromEntries(TEST_FEEDS.map(f=>[f,10])),
     pubs:PX.pubs || Object.fromEntries(TEST_FEEDS.map(f=>[f,t])),
-    prevPubs:PX.prevPubs || Object.fromEntries(TEST_FEEDS.map(f=>[f,t-60])) }; } } };
+    prevPubs:PX.prevPubs || Object.fromEntries(TEST_FEEDS.map(f=>[f,t-60])),
+    slots:PX.slots || Object.fromEntries(TEST_FEEDS.map((f,i)=>[f,300000+i])),
+    postedSlots:PX.postedSlots || Object.fromEntries(TEST_FEEDS.map((f,i)=>[f,299900+i])),
+    emaPrices:PX.emaPrices || Object.fromEntries(TEST_FEEDS.map(f=>[f,PX[f]])),
+    emaConfs:PX.emaConfs || Object.fromEntries(TEST_FEEDS.map(f=>[f,8])) }; } } };
 require.cache[burnPath] = { id: burnPath, filename: burnPath, loaded: true,
   exports: { INCINERATOR: '1nc1nerator11111111111111111111111111111111',
     // getTokenAccountsByOwner answers with an EMPTY LIST for a wallet that has
@@ -971,6 +975,22 @@ const kvmod = require('../lib/kv.js');
   PX.ages = { SOL: 3, BTC: 3, ETH: 3, BONK: 3, WIF: 3, JUP: 3, PUMP: 3 };
   r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-fresh3' }, target: TARGET5, side: 'YES', stake: 500 } });
   ok(r.body.ok, 'a fresh print seals normally');
+  ok(r.body.shot.economyRule === 'credits-at-valid-oracle-seal-v1'
+     && r.body.shot.economyMode === 'demo'
+     && /^[0-9a-f]{64}$/.test(r.body.shot.oracleSeal?.snapshotHash || ''),
+     'an accepted stake records its economy rule and exact Pyth snapshot fingerprint');
+  ok(r.body.shot.oracleSeal?.provider === 'Pyth Network'
+     && Number.isFinite(r.body.shot.oracleSeal?.feeds?.[r.body.shot.feed]?.postedSlot),
+     'the seal retains Pyth attribution, publish evidence and slots');
+
+  PX.confs = Object.fromEntries(TEST_FEEDS.map(f => [f, f === FLASH_FEED ? 201 : 10]));
+  r = await call('POST', { body: { action:'shot', auth:{wallet:'demo-confwide1'},
+    target:TARGET5, side:'YES', stake:500 } });
+  ok(!r.body.ok && /confidence interval/.test(r.body.reason || ''),
+    'a confidence explosion is refused at the final economic boundary');
+  ok(!getMem('u:demo-confwide1') || getMem('u:demo-confwide1').cr === 5000,
+    'wide-confidence refusal debits no credits');
+  delete PX.confs;
   for (const k of Object.keys(PX)) delete PX[k];
   Object.assign(PX, saved);
 }

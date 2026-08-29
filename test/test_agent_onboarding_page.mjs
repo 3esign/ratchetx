@@ -16,13 +16,15 @@ assert.doesNotThrow(() => new Function(inlineScript[1]), 'agent page controller 
 assert.match(page, /SEND A MIND[\s\S]*GET A RECORD/);
 assert.match(page, /https:\/\/ratchetx\.xyz\/api\/mcp/);
 assert.match(page, /ratchet_new_demo/);
+assert.match(page, /ratchet_pyth_context/);
+assert.match(page, /ratchet_pyth_path/);
 assert.match(page, /ratchet_demo_shot/);
 assert.match(page, /ratchet_demo_state/);
 assert.match(page, /tools\/list/);
 assert.match(page, new RegExp('EXPECTED_TOOLS=\\['));
 assert.match(page, new RegExp("names\\.length!==EXPECTED_TOOLS\\.length"));
 for (const tool of TOOLS) assert.match(page, new RegExp(tool.name), `onboarding live check includes ${tool.name}`);
-assert.equal(TOOLS.length, 11, 'onboarding tool count is tied to the canonical MCP list');
+assert.equal(TOOLS.length, 13, 'onboarding tool count is tied to the canonical MCP list');
 assert.match(page, /0\.01 USDC/);
 assert.match(page, /100% to the champion · 0% to RatchetX/);
 assert.match(page, /href="\/openapi\.json"/);
