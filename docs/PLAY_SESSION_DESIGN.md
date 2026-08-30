@@ -1,6 +1,6 @@
 # Bounded Bankr play sessions
 
-Current addition: h104 candidate adds `owner-discover`; see RELEASE_H104.md.
+Current addition: deployed h104 adds `owner-discover`; see RELEASE_H104.md.
 POST uses the existing signed owner envelope, action `owner_discover`, exact
 field order domain/network/version/action/wallet/issuedAt/nonce. No ID or bearer;
 the128-bit nonce is echoed with wallet and observedAt. Fresh signed reads may

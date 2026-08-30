@@ -3,8 +3,8 @@
 Updated: 2026-08-30. This file is the canonical long-term plan. `docs/AGENT_STATE.json`
 is the machine-readable version contract; `docs/AGENT_HANDOFF.md` is the live work handoff.
 
-Latest checkpoint: h103 is deployed; h104 cross-device owner management is the
-candidate described in RELEASE_H104.md. The one-owner Bankr acceptance pilot has
+Latest checkpoint: h104 cross-device owner management is deployed and verified,
+as recorded in RELEASE_H104.md. The one-owner Bankr acceptance pilot has
 completed (evidence in RELEASE_H103.md); user reports all grants revoked.
 Historical h101 pilot prerequisites below must not trigger another live run.
 Next product acceptance is independent-user onboarding with separate authority,

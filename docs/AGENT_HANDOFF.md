@@ -1,8 +1,8 @@
 # RatchetX agent handoff
 
-## Current checkpoint — h103 deployed; h104 candidate (2026-08-30)
+## Current checkpoint — h104 deployed (2026-08-30)
 
-Canonical identity: AGENT_STATE.json; new work: RELEASE_H104.md. User confirmed
+Canonical identity: AGENT_STATE.json; deployment evidence: RELEASE_H104.md. User confirmed
 all pilot permissions revoked. The completed Bankr pilot is shot6cce3cd29ed6:
 public HIT/stake100/return170 and15 stated calls/Brier0.2945 independently read;
 immediate HTTP replay PASS is Bankr-reported, private journal not inspected.

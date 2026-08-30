@@ -1,9 +1,8 @@
 {
-  "productionRelease": "h103-2026-08-30",
-  "candidateRelease": "h104-2026-08-30",
-  "productionDeployment": "dpl_9kUJHfdGiBkGpEfgxUUAEgDRmUro",
-  "productionCodeCommit": "01ba4f4b22f216c75d65c27339cac3681bd3c380",
-  "productionUiRevision": "h103-session-errors",
+  "productionRelease": "h104-2026-08-30",
+  "productionDeployment": "dpl_GNtuSrsQeJtypgvjmag68V9pBdLG",
+  "productionCodeCommit": "dd02cd1b7e7df38065b91a298f7024fa721c258b",
+  "productionUiRevision": "h104-owner-discovery",
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.2.1",
@@ -36,9 +35,9 @@
     "canonicalSettlement": "ratchet-server",
     "independentPythReplay": false
   },
-  "lastVerifiedDeploy": "2026-08-30T17:41:17.906Z",
+  "lastVerifiedDeploy": "2026-08-30T18:58:04.342Z",
   "localRecoveryDeployment": "deployed",
-  "ownerPilotClosure": "Owner reports all grants revoked on 2026-08-30; no further authenticated verification or gameplay attempted. This supersedes the earlier pending revocation note below.",
+  "ownerPilotClosure": "Owner reports all grants revoked on 2026-08-30; no further authenticated verification or gameplay attempted.",
   "productionStatus": {
     "core": "healthy",
     "premiumProof": "retained PriceUpdateV2 evidence is fully prevalidated; invalid or expired evidence fails before payment",
@@ -46,6 +45,6 @@
     "playerActivity": "80 rows verified: 75 player events plus 5 separately labeled demos; gold agent text, proof links, no demo payouts or player-retention eviction; house Fleet excluded",
     "agentProtocol": "MCP scorecard executes the canonical REST report handler; omitted path bounds remain frozen across cursors; nextRequest supplies exact continuation arguments; no new wait worker or settlement rule",
     "rankedEconomy": "Pyth reads consume no RCX; accepted seals stake play credits; VOID refunds; RCX remains the ranked reload rail",
-    "playSessions": "h103 deployed; 20 focused suites plus 2 release gates and 19 release readbacks pass. New owner-approved Bankr pilot shot 6cce3cd29ed6: Bankr reports submit200/replay200/idempotent, one100 debit, HIT/return170/final1452182. Public proof and report independently checked 2026-08-30 18:18UTC: HIT, stake100/return170, stated15/Brier0.2945; public commitment hash matches. Private wire journal not independently inspected; one owner pilot is not global X support. Later separate preflight ORACLE_STALE report says no submit/journal/debit; it does not invalidate the completed run or prove grant usability. Preserve original journal; no further execution or transfer/reload authority. Latest grant revocation pending confirmation. See RELEASE_H103.md post-release evidence; prior shot16c371304581 wire replay remains untested"
+    "playSessions": "h104 deployed: signed latest-session discovery across devices, explicit owner controls and fail-closed strict JSON reads. 19 focused checks and 19 production readbacks pass; no real wallet/browser end-to-end test performed. Owner reports all pilot grants revoked. Completed pilot shot6cce3cd29ed6: public HIT/stake100/return170 and stated15/Brier0.2945 independently checked; submit200/replay200/idempotent is Bankr-reported, private journal not inspected. Later separate ORACLE_STALE preflight reportedly submitted nothing/debited nothing. Preserve the journal; no more gameplay or transfer/reload authority. This is one owner pilot, not global X support. See RELEASE_H104.md and historical RELEASE_H103.md; prior shot16c371304581 wire replay remains untested."
   }
 }
