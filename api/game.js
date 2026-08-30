@@ -490,17 +490,7 @@ async function bumpStats(deltas) {
   await hincrMany(STATS, deltas);
 }
 async function bumpFeed(entry) {
-  const lease = await acquireLease('lock:g:feed', 15);
-  if (!lease) return false; // cosmetic feed may skip a contested row; the hash log never does
-  try {
-    const f = (await getJSONStrict('g:feed')) || [];
-    if (entry.id && f.some(x => x && x.id === entry.id)) return false;
-    f.unshift({ t: Date.now(), ...entry });
-    await setJSON('g:feed', f.slice(0, 100));
-    return true;
-  } finally {
-    try { await releaseLease('lock:g:feed', lease); } catch {}
-  }
+  return require('../lib/activity_feed.js').bumpFeed(entry);
 }
 
 /** Persist a verified Solana memo anchor without a replay/list split-brain.
@@ -2280,7 +2270,7 @@ module.exports = async (req, res) => {
       }
       const [feed, warden, wardenPrev, wardenHist, mcap, tokenProgram,
         lastSeason, lastDay, logHead] = await Promise.all([
-        getCached('g:feed', 3_000), wardenLine(prices),
+        require('../lib/activity_feed.js').readFeed(), wardenLine(prices),
         getCached('g:warden:rec:prev', 60_000), getCached('g:warden:hist', 5_000),
         getMcap(), getMintProgram(), getCached('g:seasonResults', 30_000),
         getCached('g:dayResults', 15_000), getCached('g:log:head', 3_000),

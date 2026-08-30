@@ -128,7 +128,7 @@ module.exports = async (req, res) => {
       podiumPrev: (await getJSON('g:podium:prev')) || null,
       podiumFallback: (await getJSON('g:podium:fallback')) || null,
       podiumHistory: (await getJSON('g:podium:history')) || [],
-      feed: (await getJSON('g:feed')) || [],
+      feed: (await getJSON('g:feed:players:v2')) || (await getJSON('g:feed')) || [],
       anchors: (await getJSON('g:anchors')) || [],
       warden: {
         rec: (await getJSON('g:warden:rec')) || null,

@@ -1273,9 +1273,9 @@ function paint(){
   const fx=el=>setHTML(el,s.feed.map(f=>{
     const d=new Date(f.t);
     // every money event carries its signature: the feed line IS the receipt
-    const tx=f.sig?` · <a href="https://solscan.io/tx/${f.sig}" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none">tx ↗</a>`:"";
+    const tx=f.sig?` · <a href="https://solscan.io/tx/${encodeURIComponent(f.sig)}" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none">tx ↗</a>`:"";
     return`<div class="kl"><span class="t">${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span>
-      <span class="wl">${f.w}</span><span style="color:${f.c==='hit'?'var(--grn)':f.c==='miss'?'var(--red)':'var(--ink2)'}">${f.a}${tx}</span></div>`}).join("")||'<div class="empty">QUIET — BE FIRST</div>');
+      <span class="wl">${esc(f.w)}</span><span style="color:${f.c==='hit'?'var(--grn)':f.c==='miss'?'var(--red)':'var(--ink2)'}">${esc(f.a)}${tx}</span></div>`}).join("")||'<div class="empty">QUIET — BE FIRST</div>');
   fx($("kill"));fx($("duelfeed"));
   $("seas").textContent=s.season.toUpperCase();
   $("potN").textContent=" · POT "+Math.floor(s.stats.pot||0).toLocaleString()+" 🔥";

@@ -45,9 +45,42 @@ an application projection bug, not evidence of Pyth manipulation or credit loss.
   bounded contention and backend failure. The Redis fixture does not execute Lua.
 - Existing Pyth context/stream tests verify same-millisecond cursor completeness,
   zero per-reader oracle fetches, and canonical byte validation/capture retries.
-- Full suite and staged production verification: record final results below only
-  after they complete. Local production-secret export was blocked; Vercel also
+- Full suite after the kill-feed repair: 60 passed, 0 failed, 5 browser-fixture
+  skips. Browser inspection could not start because its Windows sandbox failed
+  its ACL setup; no claim of completed visual QA. Local production-secret export
+  was blocked; Vercel also
   marks the credentials non-exportable. No production env file was created.
+
+Initial Pyth-only canary, commit 67c8723, deployment
+`dpl_HPV5Q8NDxhw6KxkaLoB4N7obqzbB`, exercised the real Supabase runtime twice:
+heartbeat sampled=true at 1788078314371 and 1788078717481. All seven atomicFeeds
+were present with no legacyFeeds. SOL advanced from publishTime 1788078307 /
+postedSlot 442833129 to 1788078712 / 442834404. This verifies real insert/update
+paths, not a synthetic production concurrency test. The canary was not promoted:
+the user then reported the kill-feed defect below. Final combined deployment
+must be verified separately.
+
+## Kill-feed repair included before final release
+
+Live state returned two visible rows; the public snapshot held 100 rows, of which
+98 were hidden house-Fleet activity. Filtering happened AFTER the shared 100-row
+retention cap, so agents had already evicted player receipts. Regression contract
+3923b4f proves a Fleet burst removed all 100 seeded player rows before the fix.
+
+`lib/activity_feed.js` now rejects house-Fleet writes before the retention cap.
+Ranked external-agent wallets remain ordinary players. A versioned player-only
+projection protects rolling releases; the legacy mirror preserves snapshot and
+rollback compatibility. Initialization recovers at most the last 1000 retained
+event indices (plus up to three legacy chunks), merges by receipt identity, and
+keeps the latest 100 player rows. It does not claim full-history recovery. Normal
+reads do not rescan history; failure leaves no empty/partial migration marker.
+Recovery never rewrites the log, settles a shot or changes a balance. A historical
+HIT without retained payout bytes displays its recorded XP, not an inferred payout.
+Seal rows expose neither side nor salt. Rendered feed text is escaped.
+
+`test_activity_feed` pins retention before filtering; `test_activity_recovery`
+covers bounded restoration, immutable-entry precedence, duplicate receipts,
+outages/retry, rolling old writers, demo exclusion and safe rendering.
 
 The opt-in `scripts/probe-ordered-kv.mjs` accepts runtime-provided credentials and
 touches only two random `test:pyth-order:*` TTL keys, then removes them. It prints
@@ -57,8 +90,9 @@ durable backend. It is excluded from deployments along with all scripts.
 ## Release gate and rollback
 
 Deploy clean committed code with `vercel deploy --prod --skip-domain`. Use normal
-board reads to exercise actual validated capture on that deployment, then inspect
+heartbeat reads to exercise actual validated capture on that deployment, then inspect
 Pyth context for atomicFeeds, chronological progress and truthful fallback status.
+Check the combined candidate's state for restored player-feed rows and provenance.
 Promote that exact deployment only after checks pass. A failed canary must not
 replace the current domain. Rollback to the previous deployment restores old code;
 the new projection keys are isolated, TTL-bound and cannot mutate player balances.
