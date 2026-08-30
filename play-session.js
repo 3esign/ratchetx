@@ -170,7 +170,7 @@
       limitIds.forEach(id => { el(id).disabled = busy; });
       el('consent').disabled = busy; el('sessionId').disabled = busy; el('rememberSession').disabled = busy;
       el('forgetSession').disabled = busy;
-      el('singlePreset').disabled = busy; el('seriesPreset').disabled = busy;
+      el('singlePreset').disabled = busy; el('seriesPreset').disabled = busy; el('largePreset').disabled = busy;
       const commandReady = commandSession && commandSession.wallet === connectedWallet && commandSession.id === el('sessionId').value.trim();
       const playReady = commandReady && commandSession.revokedAt === null && commandSession.expiresAt > now()
         && commandSession.pending === null && commandSession.attempts < commandSession.limits.maxAttempts
@@ -398,7 +398,7 @@
     limitIds.forEach(id => el(id).addEventListener('input', () => {
       el('consent').checked = false; summary(); updateControls();
     }));
-    for (const [id, values] of [['singlePreset', [1, 100, 100, 30, 60]], ['seriesPreset', [5, 100, 500, 60, 60]]]) {
+    for (const [id, values] of [['singlePreset', [1, 100, 100, 30, 60]], ['seriesPreset', [5, 100, 500, 60, 60]], ['largePreset', [10, 10000, 100000, 240, 60]]]) {
       el(id).addEventListener('click', () => {
         if (busy) return;
         limitIds.forEach((key, i) => { el(key).value = String(values[i]); });

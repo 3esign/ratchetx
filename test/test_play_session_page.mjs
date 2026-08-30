@@ -430,6 +430,13 @@ assert.equal(commands.nodes.consent.checked, false, 'preset never supplies conse
 await commands.dispatch('singlePreset');
 assert.equal(commands.nodes.maxAttempts.value, '1');
 assert.equal(commands.nodes.maxGrossCredits.value, '100');
+commands.nodes.consent.checked = true;
+await commands.dispatch('largePreset');
+assert.deepEqual(['maxAttempts','maxStakeCredits','maxGrossCredits','durationMinutes','minIntervalSeconds'].map(id=>commands.nodes[id].value), ['10','10000','100000','240','60']);
+assert.equal(commands.nodes.consent.checked, false);
+assert.match(html, /Allowance is not your balance/);
+assert.match(html, /cooldown, not an automatic schedule/);
+assert.match(html, /--stake 10000/);
 assert.equal(commands.requests.length, commandReads, 'presets never grant or play');
 await commands.dispatch('disconnectWallet');
 assert.equal(commands.nodes.bankrCommands.hidden, true);
