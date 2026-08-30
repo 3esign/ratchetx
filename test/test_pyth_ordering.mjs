@@ -81,4 +81,24 @@ await px.ingestUpdate('SOL',older);
 const crossing = await px.priceCrossing('SOL',expiry,now);
 assert.equal(crossing.price,100,'settlement still uses earliest admissible retained slot');
 assert.equal((await snapshot()).price,110,'latest context uses newest retained slot');
+
+// Rolling deployment: seed once from legacy state, then ignore unconditional
+// writes left in flight by h97. Reading alone must never write a projection.
+reset();
+const kv=require('../lib/kv.js');
+const legacy={observedAt:now,source:'pyth-onchain-stream',price:110,
+  publishTime:base.publishTime,prevPublishTime:base.prevPublishTime,
+  confidenceBps:199,rpcSlot:402,postedSlot:402,emaPrice:100,emaConfidenceBps:20};
+await kv.setJSONEx('pxlatest:BTC',legacy,3600);
+const beforeRead=globalThis.__ratchet_mem.size;
+let view=await px.latestSnapshot(now);
+assert.equal(view.feeds.BTC.postedSlot,402);
+assert.ok(view.projection.legacyFeeds.includes('BTC'));
+assert.equal(globalThis.__ratchet_mem.size,beforeRead,'legacy bootstrap reads remain read-only');
+await px.ingestUpdate('BTC',older);
+await kv.setJSONEx('pxlatest:BTC',{...legacy,postedSlot:401,price:100},3600);
+view=await px.latestSnapshot(now);
+assert.equal(view.feeds.BTC.postedSlot,402,'old deployment cannot overwrite versioned high-water mark');
+assert.ok(view.projection.atomicFeeds.includes('BTC'));
+assert.ok(!view.projection.legacyFeeds.includes('BTC'));
 console.log('Pyth ordering: both arrival orders, duplicates, hour boundaries, poll/stream races, 199/200/201 bps and unchanged settlement pass');

@@ -1,6 +1,6 @@
 {
   "productionRelease": "h97-2026-08-30",
-  "candidateRelease": null,
+  "candidateRelease": "h98-2026-08-30",
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.2.0",

@@ -5,6 +5,10 @@ and published as MCP 1.2.0 in the official registry.
 
 ## Live identity and external proofs
 
+Candidate h98 fixes shared Pyth-context regressions under late arrivals. See
+`docs/PYTH_ORDERING_H98.md` for the red-before-fix contract, backend atomicity,
+release checks and limits. Production remains h97 until the candidate is promoted.
+
 - Production release: `h97-2026-08-30`; no pending local candidate.
 - MCP, Agent Skill and ERC-8004 profile: `1.2.0` live.
 - Production deployment: `dpl_Ea669LKXFCG1K66SDrhAxoMr6818`.
