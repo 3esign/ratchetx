@@ -88,6 +88,8 @@
       ATTEMPT_ALREADY_TERMINAL: 'This attempt already has a result. Check owner status for its receipt; do not retry the shot.',
       SESSION_CONTENTION: 'Another session operation is in progress. Check owner status before taking another action.',
       NETWORK_UNCERTAIN: 'The server response was not received. An action may have completed. Check owner status with the session ID; do not assume failure or automatically retry.',
+      AVAILABILITY_UNREACHABLE: 'The read-only check could not reach the server. This check did not create a session or spend credits. Use CHECK AVAILABILITY to try the check again.',
+      AVAILABILITY_BAD_RESPONSE: 'The read-only check did not receive a valid availability response. This check did not create a session or spend credits. Use CHECK AVAILABILITY to check again.',
       BAD_RESPONSE: 'The server did not return a valid confirmation. Check owner status before taking another action.'
     };
     if (known[code]) return known[code];
@@ -180,13 +182,14 @@
             redirect: 'error', referrerPolicy: 'no-referrer', signal: controller.signal,
             headers: body ? {'Content-Type': 'application/json', 'Accept': 'application/json'} : {'Accept': 'application/json'},
             ...(body ? {body: JSON.stringify(body)} : {})});
-        } catch { throw new Error('NETWORK_UNCERTAIN'); }
+        } catch { throw new Error(method === 'GET' ? 'AVAILABILITY_UNREACHABLE' : 'NETWORK_UNCERTAIN'); }
         captureServerTime(response);
         let data;
-        try { data = await response.json(); } catch { throw new Error('BAD_RESPONSE'); }
+        try { data = await response.json(); } catch { throw new Error(method === 'GET' ? 'AVAILABILITY_BAD_RESPONSE' : 'BAD_RESPONSE'); }
         if (!response.ok || !data || data.ok !== true) {
           const code = data && (data.code || data.reason || data.error);
-          throw new Error(typeof code === 'string' && /^[A-Z_0-9]{1,64}$/.test(code) ? code : 'BAD_RESPONSE');
+          throw new Error(method === 'GET' ? 'AVAILABILITY_BAD_RESPONSE'
+            : typeof code === 'string' && /^[A-Z_0-9]{1,64}$/.test(code) ? code : 'BAD_RESPONSE');
         }
         return data;
       } finally { win.clearTimeout(timer); }

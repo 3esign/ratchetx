@@ -29,6 +29,8 @@ const money = n => !Number.isFinite(n) ? '—'
   : Math.abs(n) >= 1000 ? n.toLocaleString(undefined,{maximumFractionDigits:0})
   : Math.abs(n) >= 1 ? n.toFixed(2) : Math.abs(n) >= 0.01 ? n.toFixed(4)
   : Number(n.toPrecision(4)).toString();
+const timestamp = value => typeof value === 'number' && value > 0
+  && Number.isFinite(new Date(value).getTime()) ? value : null;
 
 function spark(rows, entry, settleAt, up) {
   if (!rows || rows.length < 2) return '';
@@ -114,10 +116,21 @@ a{color:var(--gold)}
       wallet: w, shotId: s.id, side: s.side, salt: s.salt, commit: s.commit });
     const { recomputed, matches } = proof;
 
+    // Current game shots retain their seal time in the atomic event receipt,
+    // not s.t. Oracle publish time and compact-history settlement time are not
+    // entry time. Older player records may retain sealedAt/t themselves.
+    const seal = await getJSON(`g:log:once:seal:${w}:${id}`);
+    const recordedAt = timestamp(seal && seal.t);
+    const entryAt = recordedAt ?? timestamp(s.sealedAt) ?? timestamp(s.t);
+    const entryLabel = entryAt == null ? 'ENTRY TIME UNAVAILABLE'
+      : `${recordedAt == null ? 'ENTRY' : 'SEAL RECORDED'} ${new Date(entryAt).toISOString().replace('T',' ').slice(0,16)} UTC`;
+    const proofPage = `${SITE}/api/shot?w=${encodeURIComponent(w)}&id=${encodeURIComponent(id)}`;
+    const reportPage = `${SITE}/api/agent?id=${encodeURIComponent(w)}`;
+
     let path = [];
     try {
-      if (s.feed && s.t && (s.settledAt || s.exp))
-        path = await pathFor(s.feed, s.t - 60e3, (s.settledAt || s.exp) + 60e3);
+      if (s.feed && entryAt != null && (s.settledAt || s.exp))
+        path = await pathFor(s.feed, entryAt - 60e3, (s.settledAt || s.exp) + 60e3);
     } catch {}
 
     const title = `${verdict} — ${s.label || 'RATCHET shot'}`;
@@ -129,7 +142,7 @@ a{color:var(--gold)}
     const xpAwarded = vd ? 0 : hit ? Number(s.xp||0)
       : Number.isFinite(+s.settleXp) ? Number(s.xp||0) : 0;
     const body = `<div class="card">
-  <div class="k">${esc(short(w))} · ${esc(new Date(s.t || Date.now()).toISOString().replace('T',' ').slice(0,16))} UTC</div>
+  <div class="k">${esc(short(w))} · ${esc(entryLabel)}</div>
   <h1>${esc(s.label || 'shot')}</h1>
   <div class="verdict ${vd?'void':hit?'hit':'miss'}">${verdict}${vd?' — REFUNDED':''}</div>
   <div class="k" style="margin:0">CALLED <b style="color:var(--ink)">${esc(s.side || '—')}</b>${
@@ -158,6 +171,11 @@ a{color:var(--gold)}
     <code>RATCHET SERVER · ${esc(s.settleRuleApplied || s.settleRule || 'recorded settlement rule')}</code>
     ${s.exitAt ? `<div class="k" style="margin:11px 0 4px">SETTLING ORACLE SAMPLE</div>
       <code>${esc(new Date(s.exitAt).toISOString())} · first fully validated Pyth transition captured by RATCHET at or after expiry</code>` : ''}
+  </div>
+  <div class="proof">
+    <h2>PUBLIC EVIDENCE LINKS</h2>
+    <a href="${esc(proofPage)}">Settled-shot permalink</a> · <a href="${esc(reportPage)}">Owner's cumulative agent report</a>
+    <div class="k" style="margin:9px 0 0">The report's AgentRun receipt status describes a retained-evidence audit, not authenticated HTTP session replay. This page does not test replay or prove who operated the wallet.</div>
   </div>
 </div>`;
     return send(200, page(title, desc, body));

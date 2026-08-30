@@ -1,13 +1,13 @@
 {
   "productionRelease": "h102-2026-08-30",
-  "candidateRelease": null,
+  "candidateRelease": "h103-2026-08-30",
   "productionDeployment": "dpl_Ms76fJAEbzhwpB5691o8QayRGJ68",
   "productionCodeCommit": "1362d541d9c53561baceaed4cb86c7c2419cf1e9",
   "productionUiRevision": "h101-ui1",
   "versions": {
     "mcp": "1.2.0",
-    "agentSkill": "1.2.0",
-    "erc8004": "1.2.0",
+    "agentSkill": "1.2.1",
+    "erc8004": "1.2.1",
     "aiCatalog": "1.0"
   },
   "endpoints": {
@@ -21,7 +21,10 @@
     "reportCard": "https://ratchetx.xyz/api/agent?id=<wallet-or-demo>",
     "proofBundle": "https://ratchetx.xyz/api/agent-proof-bundle",
     "playSession": "https://ratchetx.xyz/api/game?action=play-session",
-    "playSessionSetup": "https://ratchetx.xyz/play-session.html"
+    "playSessionSetup": "https://ratchetx.xyz/play-session.html",
+    "playSessionTest": "https://ratchetx.xyz/skills/ratchetx/references/owner-session-test.md",
+    "playSessionRunner": "https://ratchetx.xyz/skills/ratchetx/scripts/session-smoke.mjs",
+    "shotProof": "https://ratchetx.xyz/api/shot?w=<wallet-or-demo>&id=<shot-id>"
   },
   "identities": {
     "solanaAgentRegistry": "1475"
@@ -42,6 +45,6 @@
     "playerActivity": "80 rows verified: 75 player events plus 5 separately labeled demos; gold agent text, proof links, no demo payouts or player-retention eviction; house Fleet excluded",
     "agentProtocol": "MCP scorecard executes the canonical REST report handler; omitted path bounds remain frozen across cursors; nextRequest supplies exact continuation arguments; no new wait worker or settlement rule",
     "rankedEconomy": "Pyth reads consume no RCX; accepted seals stake play credits; VOID refunds; RCX remains the ranked reload rail",
-    "playSessions": "h102 live with safe retained canonical refusal codes and recovery-aware replay; 17 focused checks and 8 public read-back checks pass. Bankr reports one rejected 100-credit attempt with stable replay and zero debit, not successful gameplay. Fresh owner grant required for another attempt; no token transfer/reload authority"
+    "playSessions": "h102 owner-session pilot shot 16c371304581 settled HIT: 100 credits staked, 170 returned, final owner balance 1452112. Public shot/report checked. Wire duplicate POST was NOT tested; request-map inspection is not replay evidence. Bankr subsequently reports HTTP401 SESSION_REVOKED. h103 candidate adds deterministic bounded replay client and correct proof links; no new live grant or attempt authorized; no token transfer/reload authority"
   }
 }

@@ -60,7 +60,7 @@ const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 assert.ok(frontmatter, 'the Agent Skill needs YAML frontmatter');
 assert.match(frontmatter[1], /^description:\s*[>|]/m,
   'description must use a YAML block scalar so colon-space cannot break installation');
-assert.match(frontmatter[1], /^\s+version:\s+"1\.2\.0"$/m);
+assert.match(frontmatter[1], /^\s+version:\s+"1\.2\.1"$/m);
 
 assert.deepEqual(domainRegistration, registration,
   'the well-known domain proof must mirror the primary ERC-8004 registration file');
@@ -189,6 +189,18 @@ assert.ok(skillHeaders && skillHeaders.headers.some(h =>
   'the public Agent Skill must be served as Markdown');
 assert.match(vercelIgnore, /^!skills\/ratchetx\/SKILL\.md$/m,
   'the exact public Agent Skill must be re-included after the global Markdown deploy exclusion');
+const runbook = read('../skills/ratchetx/references/owner-session-test.md');
+assert.ok(skill.includes('(references/owner-session-test.md)'), 'owner-session mode routes to its bounded runbook');
+assert.ok(runbook.includes('(../scripts/session-smoke.mjs)'), 'runner is discoverable from the installed skill');
+for (const path of ['references/owner-session-test.md', 'scripts/session-smoke.mjs']) {
+  assert.ok(fs.statSync(new URL('../skills/ratchetx/' + path, import.meta.url)).isFile());
+  assert.ok(vercelIgnore.split(/\r?\n/).includes('!skills/ratchetx/' + path));
+  assert.ok(vercel.headers.some(h => h.source === '/skills/ratchetx/' + path
+    && h.headers.some(v => v.key === 'Access-Control-Allow-Origin' && v.value === '*')));
+}
+for (const privatePath of ['tools/', 'ops/', 'docs/', '.env*', '*keypair*.json']) {
+  assert.ok(vercelIgnore.split(/\r?\n/).includes(privatePath), 'private deployment exclusion preserved: ' + privatePath);
+}
 const openapiHeaders = vercel.headers.find(h => h.source === '/openapi.json');
 assert.ok(openapiHeaders && openapiHeaders.headers.some(h =>
   h.key === 'Access-Control-Allow-Origin' && h.value === '*'),

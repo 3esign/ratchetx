@@ -115,6 +115,20 @@
       ]
     },
     {
+      "source": "/skills/ratchetx/references/owner-session-test.md",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Content-Type", "value": "text/markdown; charset=utf-8" }
+      ]
+    },
+    {
+      "source": "/skills/ratchetx/scripts/session-smoke.mjs",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Content-Type", "value": "text/javascript; charset=utf-8" }
+      ]
+    },
+    {
       "source": "/.well-known/(.*)",
       "headers": [
         {

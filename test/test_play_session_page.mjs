@@ -83,6 +83,7 @@ function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, post
         assert.equal(init.method, 'GET', 'availability is a read-only GET');
         if (preflightHook) await preflightHook({nodes, provider, providerEvents, requests});
         if (readinessMode === 'network-error') throw new Error('Network failed');
+        else if (readinessMode === 'bad-json') data = null;
         else if (readinessMode === 'disabled') data.enabled = false;
         else if (readinessMode === 'wrong-network') data.network = 'solana:devnet';
         else if (readinessMode === 'wrong-contract') data.rights = ['shot', 'status', 'transfer'];
@@ -101,7 +102,10 @@ function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, post
         else if (body.op === 'revoke') {session.revokedAt = Date.now(); data = {ok: true, revoked: true};}
         else assert.fail('unexpected op');
       }
-      return {ok: true, headers: {get: key => key === 'date' ? new Date().toUTCString() : null}, json: async () => data};
+      return {ok: true, headers: {get: key => key === 'date' ? new Date().toUTCString() : null}, json: async () => {
+        if ((!body && readinessMode === 'bad-json') || (body && responseMode === 'bad-json')) throw new Error('Invalid JSON');
+        return data;
+      }};
     }};
   ui.mount(win, doc);
   async function dispatch(id, event = 'click') {
@@ -167,7 +171,7 @@ assert.equal(f.nodes.credential.value, ''); assert.equal(f.nodes.credentialPanel
 assert.match(f.nodes.actionStatus.textContent, /previously reserved attempt may still finish/);
 assert.equal(f.requests.some(req => req.body && req.body.op === 'shot'), false, 'setup has no shot transport');
 
-for (const mode of ['disabled', 'network-error', 'wrong-network', 'wrong-contract']) {
+for (const mode of ['disabled', 'network-error', 'bad-json', 'wrong-network', 'wrong-contract']) {
   const unavailable = fixture({preflightMode: mode});
   await unavailable.dispatch('connectWallet');
   unavailable.nodes.consent.checked = true;
@@ -181,7 +185,11 @@ for (const mode of ['disabled', 'network-error', 'wrong-network', 'wrong-contrac
   assert.match(unavailable.nodes.grantReadiness.textContent, /Availability has not passed.*CHECK AVAILABILITY/);
   assert.equal(unavailable.nodes.grantReadiness.textContent.includes(unavailable.nodes.preflightStatus.textContent), true,
     mode + ': the nearby explanation includes the actual readiness failure');
-  assert.match(unavailable.nodes.preflightStatus.textContent, mode === 'network-error' ? /Availability check failed/ : /unavailable or its contract does not match/);
+  assert.match(unavailable.nodes.preflightStatus.textContent, ['network-error', 'bad-json'].includes(mode) ? /Availability check failed/ : /unavailable or its contract does not match/);
+  assert.doesNotMatch(unavailable.nodes.preflightStatus.textContent, /action may have completed|Check owner status with the session ID/);
+  if (['network-error', 'bad-json'].includes(mode)) {
+    assert.match(unavailable.nodes.preflightStatus.textContent, /read-only check.*did not create a session or spend credits.*CHECK AVAILABILITY/);
+  }
   unavailable.preflightMode('ok');
   await unavailable.dispatch('checkApiNearGrant');
   assert.equal(unavailable.requests.length, 2, mode + ': explicit retry makes exactly one more GET');
@@ -233,14 +241,16 @@ assert.equal(restored.nodes.credential.value, '');
 await restored.dispatch('connectWallet');
 assert.equal(JSON.parse([...restored.storage.values()][0]).wallet, wallet2, 'connecting a different wallet cannot silently relabel the saved owner');
 
-const uncertain = fixture({postMode: 'network-error'});
+for (const postMode of ['network-error', 'bad-json']) {
+const uncertain = fixture({postMode});
 await uncertain.dispatch('checkApi'); await uncertain.dispatch('connectWallet');
 uncertain.nodes.consent.checked = true; await uncertain.dispatch('grantForm', 'submit');
 assert.equal(uncertain.nodes.credential.value, '', 'no credential is revealed without server confirmation');
 assert.equal(uncertain.nodes.credentialPanel.hidden, true);
 assert.match(uncertain.nodes.sessionId.value, /^[a-f0-9]{32}$/, 'non-secret ID retained for lost-response owner recovery');
-assert.match(uncertain.nodes.actionStatus.textContent, /may have completed/);
+assert.match(uncertain.nodes.actionStatus.textContent, postMode === 'network-error' ? /may have completed/ : /Check owner status before taking another action/);
 assert.equal(uncertain.requests.filter(req => req.body).length, 1, 'no network retries');
+}
 
 const switched = fixture({signReply: provider => {provider.publicKey = wallet2; return {signature: new Uint8Array(64), publicKey: wallet2};}});
 await switched.dispatch('checkApi'); await switched.dispatch('connectWallet');

@@ -25,6 +25,11 @@ tools/
 # Keep this one exact Markdown file in the deployment while every other *.md
 # remains excluded by the safety boundary above.
 !skills/ratchetx/SKILL.md
+# Only these two portable public companions are shipped; all other helpers stay private.
+!skills/ratchetx/references/owner-session-test.md
+!skills/ratchetx/scripts/
+skills/ratchetx/scripts/*
+!skills/ratchetx/scripts/session-smoke.mjs
 *keypair*.json
 *.keys/
 deploy_check.txt
