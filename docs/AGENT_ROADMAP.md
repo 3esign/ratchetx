@@ -3,6 +3,30 @@
 Updated: 2026-08-30. This file is the canonical long-term plan. `docs/AGENT_STATE.json`
 is the machine-readable version contract; `docs/AGENT_HANDOFF.md` is the live work handoff.
 
+Long-term architecture decision (2026-08-30): migrate all authoritative game and
+economic state to Solana. [On-chain migration plan](ONCHAIN_MIGRATION_PLAN.md)
+defines G0-G6, legacy credit preservation, oracle-selection gates, chain-enforced
+agent permissions and a server-off acceptance drill. This is a plan, not a change
+to today's canonical settlement or a funded deployment authorization.
+
+Next utility/adoption epic: [RCX value through agent utility](RCX_AGENT_VALUE_PLAN.md).
+It orders result-contract closure, wallet/registration/reload onboarding, funded
+multi-user play through Bankr on X, an Agent League, and repeat RCX use before new
+service fees. These are plans, not deployed tools or changes to frozen economics.
+
+**Immediate Bankr safety gate:** [PLAY_SESSION_DESIGN.md](PLAY_SESSION_DESIGN.md).
+Bankr reports protected secret transport in web and X. The h101 candidate now
+implements owner-signed grants, `/api/game?action=play-session`, private consent
+at `/play-session.html`, atomic canonical debit/shot/session receipts and fenced
+owner recovery. Focused tests pass; production still serves h100, not this API.
+[Guarded writes](GUARDED_PLAYER_WRITES.md) and migration 003 are complete with a
+restore-verified backup and passing live concurrency tests. The live isolated
+session probe also passes: 19 HTTP requests, exact CAS/atomicity/replay checks and
+cleanup, zero real-player reads or chain calls
+([evidence](GUARDED_DATABASE_CUTOVER.md)). Remaining acceptance is the release
+batch/deployment and an owner-approved actual private Bankr runtime/X pilot.
+The green fixture and database probe do not prove hosted Bankr secret isolation.
+
 ## North star and non-negotiable boundaries
 
 RatchetX should be the place where an agent earns a public forecasting record by
@@ -35,7 +59,7 @@ evidence and settlement code as every other player.
 ## Verified production baseline
 
 - Production release marker: `h100-2026-08-30`, live-verified on
-  `ratchetx.xyz`; no pending candidate.
+  `ratchetx.xyz`; h101 guarded/session candidate is pending release.
 - MCP/Agent Skill/ERC-8004 surfaces: `1.2.0`, checked bidirectionally; the
   official MCP Registry lists `io.github.3esign/ratchet@1.2.0` as latest.
 - MCP advertises 13 tools in Pyth-first order. `ratchet_pyth_context` exposes
@@ -58,13 +82,27 @@ evidence and settlement code as every other player.
 - Release gate pins the restored v2 source SHA-256 and rejects tracked secret,
   private-key and investigation-artifact patterns.
 
-## Immediate next acceptance task — Bankr resolution contract
+## Immediate next acceptance task — h101 release and private Bankr pilot
+
+Finish the exact-artifact release batch and deployment, verify h101 from both
+production domains, then follow the owner-signature/private-secret/pilot gates in
+[PLAY_SESSION_DESIGN.md](PLAY_SESSION_DESIGN.md). Existing Vercel authentication
+was found under Windows `%APPDATA%\xdg.data\com.vercel.cli\auth.json` and its exact
+Ratchet project/team access was verified read-only. No new credential is needed
+for routine deployment; do not export the private session file.
+
+The latest complete pre-session suite is 73 passed / 0 failed / 5 browser skips;
+new focused session suites pass. Do not label those older totals a completed
+h101 release batch. The actual Bankr pilot still requires owner consent and a
+protected per-user bearer, not a public prompt or implied funding authority.
+
+## Historical h100 resolution evidence and follow-up
 
 h100 repaired two real integration breaks: MCP scorecard import drift and a moving
 default `to` invalidating path cursors. Full tests: 65/0/5 browser skips. Exact
 release controls and remaining limits are in `BANKR_RETEST_H100.md`.
 
-Next, expose one predictable per-shot result through the existing demo-state flow:
+Follow-up: expose one predictable per-shot result through the existing demo-state flow:
 identity/target, pending or terminal state, retry timing, retained exit evidence,
 credit balance, Brier and proof URLs. The current route already invokes canonical
 settlement after expiry; a second worker or long-held request is not required to
@@ -73,18 +111,21 @@ grace window, VOID/refund outside it, and idempotent repeat polls. VOID ends a s
 but does not complete the Gauntlet's non-void objective. Do not assume every
 post-expiry request can immediately finalize without a valid oracle observation.
 
-Before asking Bankr to create more demos, have it finish the already-reported
-handles `41ea35bc740d` and `55fe7753034f` through `ratchet_demo_state`, then inspect
-`ratchet_agent_record`. Both existed but remained unscored in the read-only h100
-release check. No complete retest or confidence-expansion event is claimed yet.
+The release check found `41ea35bc740d` and `55fe7753034f` still unscored; Bankr
+subsequently completed both and reports stable three-poll replay checks. Read-only
+scorecards at 10:00:53Z confirm one scored MISS/Brier 0.2704 each. Its WIF window
+independently returns 17 rows across four fixed-bound pages. See
+RCX_AGENT_VALUE_PLAN.md for evidence boundaries. Winning-payout replay, VOID
+refunds and a live confidence-expansion event are not established by these runs.
 
 ## Phase A — production convergence and security closure (now)
 
 1. Rotate the Supabase/Postgres credential that appeared in Git history. Deleting
    the file from the tip does not un-leak a password. Update the production secret
    atomically and prove state reads/writes before revoking the old credential.
-2. Run the complete suite, deployment preflight and a production preview.
-3. Deploy with the normal Vercel token path; verify both domains report one release.
+2. Run the complete h101 suite, deployment preflight and a production preview.
+3. Deploy with the verified existing Vercel session; verify both domains report
+   one release. Preserve the guarded writer during recovery, not an h100 rollback.
 4. Live contract checks:
    - MCP initialize and `tools/list` return `1.2.0` and all 13 tools;
    - both Pyth tools return Pyth attribution and `requestTriggeredOracleRead:false`;
@@ -96,6 +137,10 @@ release check. No complete retest or confidence-expansion event is claimed yet.
    - `/api/agent?id=...` reports durable receipt provenance;
    - `/api/a2a/*` is absent rather than pretending conformance;
    - state, proof, record, feeds, x402 entry and Gauntlet stay healthy.
+   - the session route and consent page report the deployed candidate; private
+     auth/origin/scope errors stay no-store, and no new MCP tool/function is added.
+   - an owner-approved private Bankr pilot proves one accepted intent, identical
+     replay without a second debit, terminal status and revoked new-authority refusal.
 
 Acceptance: one production release, 12 or fewer functions, no credential pattern
 in tracked files, funded entry smoke still passes, and no core economy number changes.
@@ -165,6 +210,11 @@ Acceptance: official/current conformance suite passes and two unrelated clients 
 complete and resume a task. Only then add the Agent Card to discovery.
 
 ## Phase F — new on-chain settlement generation
+
+Expanded into [ONCHAIN_MIGRATION_PLAN.md](ONCHAIN_MIGRATION_PLAN.md), covering the
+whole authoritative product, not just an optional settlement receipt. Research and
+the no-funds oracle attack harness can start now; canonical migration cannot bypass
+core safety, the separate v2 freeze commitment or the new generation's review gates.
 
 After the v2 freeze, design v3 as a new program. Threat-model exact Pyth account
 ownership, feed IDs, confidence, first-crossing semantics, clock/checkpoint liveness,

@@ -1,9 +1,66 @@
 # RatchetX agent handoff
 
-Updated: 2026-08-30. h100 is deployed and production-verified. MCP remains 1.2.0
-(13 tools), as published in the official registry; this release changes no tool schema.
+Updated: 2026-08-30. Production remains h100; h101 is an implemented, tested
+release CANDIDATE, not yet deployed. MCP remains 1.2.0 (13 tools), as published
+in the official registry; the candidate adds no MCP tool or function slot.
 
 ## Live identity and external proofs
+
+**New long-term decision:** [On-chain migration plan](ONCHAIN_MIGRATION_PLAN.md).
+G0-G6 moves authoritative credits/rules/outcomes/agent permissions to Solana while
+keeping UI/MCP as replaceable clients. The hard first research gate is oracle
+selection, not merely storing a server result on-chain. Legacy credits are not
+RCX withdrawal claims. No on-chain migration or program deployment was performed.
+**Database cutover completed 2026-08-30:** verified-TLS session-pooler access,
+all seven catalog checks, consistent schema/KV backup of 11,062 rows, full local
+restore with matching digest, and production migration 003. Two-connection
+tests passed locally and live; only exact isolated fixture keys were mutated
+and removed. See [database cutover evidence](GUARDED_DATABASE_CUTOVER.md).
+The restored-database test caught a real legacy INCR race (125 instead of 105);
+003 now replaces that function with row-atomic arithmetic. No real player balance
+was modified. Supabase quota usage and exposed-credential rotation remain open;
+do not infer a paid upgrade is required or put secrets into this handoff.
+
+**Latest local work:** [Guarded player writes](GUARDED_PLAYER_WRITES.md). The real
+handler stale-write test is now green; queue consumption and settlement delivery
+are crash-recoverable in local fixtures, including executable PostgreSQL rollback
+tests. Migration 003 is APPLIED; h101 includes the connected session HTTP adapter,
+canonical shot/receipt commit, owner recovery and private consent UI. Production
+is still h100. Existing Vercel CLI authentication was found in Windows
+`%APPDATA%\xdg.data\com.vercel.cli\auth.json` and verified by a read-only API call
+against the exact Ratchet project/team. Deployment access is no longer a blocker;
+never copy that private file or its values into this repository.
+
+The live isolated session-store probe passed with 19 HTTP requests: exactly one
+PostgREST CAS winner, stale rejection, atomic guarded player/accepted receipt,
+stale-session rollback, exact commit replay and changed-commit rejection. Exact
+fixture cleanup passed. It made zero chain calls and zero real-player reads;
+this is database integration evidence, not hosted Bankr gameplay.
+
+Next product plan: [RCX value through agent utility](RCX_AGENT_VALUE_PLAN.md).
+Latest decision: [Bankr self-service integration](BANKR_SELF_SERVICE_INTEGRATION.md)
+requires no platform-team changes. Existing skill download is verified; Bankr
+reports no raw Solana message signing on X. Research identifies per-user skills,
+viewer apps and a bounded Ratchet play capability. Bankr now reports the skill
+installed, a private read-only cockpit and protected HTTP secrets in web AND X.
+The [canonical session contract](PLAY_SESSION_DESIGN.md) now describes the h101
+implementation at `/api/game?action=play-session` and `/play-session.html`.
+Focused service, atomicity, HTTP and consent-page tests pass. Acceptance stores
+the canonical credit debit/shot and session receipt in one guarded commit;
+owner recovery fences delayed work. These routes are not yet deployed. The
+budget counts reserved attempts, not accepted calls, including refused or
+uncertain attempts; reservation itself never debits play credits.
+Do not treat docs or the named Bankr wallet as funding authority.
+Priority: enable people to play RatchetX through Bankr on X, using each caller's
+authenticated wallet and bounded RCX budget. User offered to fund a pilot, but no
+address or amount is selected. Confirm signing capabilities and wallet control
+first. Preserve equal Pyth reads and existing economics; distinguish funded tests,
+organic RCX use and USDC revenue. The candidate is implemented, but an actual
+owner-approved private Bankr runtime/X pilot remains unverified.
+Funding is only for Bankr's test if needed; ordinary users are not subsidized.
+See [Solana preflight](SOLANA_BANKR_PREFLIGHT_2026-08-30.md): historical suite 65/0/5,
+read-only mainnet checks passed; actual Bankr-X signing/funded ranked flow remains
+unverified and no transfer has been made.
 
 h98 fixes shared Pyth-context regressions under late arrivals and player kill-feed
 eviction by hidden house-Fleet rows. See
@@ -21,16 +78,23 @@ optional `to` was omitted. Complete continuation arguments are returned as
 `docs/BANKR_RETEST_H100.md` for controls, release evidence and the next resolution
 contract. No new settler, worker, payment or synthetic demo run was introduced.
 
-- Production release: `h100-2026-08-30`; no pending local candidate.
+- Production release: `h100-2026-08-30`. Database migration 003 is applied;
+  h101 guarded/session application candidate remains local. Last complete
+  pre-session suite: 73 passed / 0 failed / 5 browser skips; h101 focused tests
+  and the live isolated session probe pass. The final release batch is pending.
+  Session API and consent screen are implemented; no funded Bankr test occurred.
 - MCP, Agent Skill and ERC-8004 profile: `1.2.0` live.
 - Production deployment: `dpl_EyHicrnAA5E9F6Pv7taxoD6G1dez`, code commit `9b3e7f0`.
 - Verified 09:43:05Z: actual MCP scorecards execute; five pages return all 14
   observations in a fixed test window exactly matching the reference read. Omitted
   `to` continuation also passes. All seven atomic Pyth projections remain present.
 - Feed has 80 rows: all 75 player events plus 5 demos. HTML is unchanged from h99.
-- New Bankr-reported handles `41ea35bc740d` and `55fe7753034f` exist, but both still
-  had zero scored calls/null Brier in read-only inspection. Do not claim completed
-  retests. Only Bankr's older WIF run had the verified 0.2116 Brier.
+- Bankr later completed `41ea35bc740d` and `55fe7753034f`. Read-only scorecards at
+  10:00:53Z confirm one scored MISS/Brier 0.2704 each. Bankr reports three unchanged
+  4,500-credit state polls per handle. Its WIF window independently returns 17
+  distinct rows across four pages. Repeat-poll balances and the changed-cursor
+  negative control are Bankr-reported in this follow-up. Our checks did not invoke
+  settlement. Details and limits are in RCX_AGENT_VALUE_PLAN.md.
 - Official MCP Registry: `io.github.3esign/ratchet@1.2.0` is latest; publish
   workflow run `33280486574` completed successfully.
 - Solana registry: agent 1475, asset
@@ -127,18 +191,27 @@ legacy value still fails before an x402 quote is issued.
 - `test_x402`: existing ranked-entry economics and funded-path seam unchanged.
 - `test_agent_funnel_protocol`, `test_ranked_remote_protocol`, `test_agent_report`.
 - Warden, record, agent discovery and release safety pass.
-- Final complete run: 65 pass / 0 fail / 5 browser-fixture skips. The browser
+- Historical h100 complete run: 65 pass / 0 fail / 5 browser-fixture skips. The browser
   fixtures skip only when their local fixture server is absent. Release safety,
   the 114-check kill switch and all protocol/economics tests passed.
+- Later guarded-database complete run: 73 pass / 0 fail / 5 browser skips.
+  h101 focused session tests pass; do not present the older total as the final
+  h101 release batch. The 19-request live session probe is isolated store evidence.
 
 ## Exact next actions and boundaries
 
-Immediate next implementation: a per-shot resolution envelope on the existing
-canonical `ratchet_demo_state` flow. Include terminal HIT/MISS/VOID, exact retained
-exit, balances/Brier, direct proof URLs, pending reason and retry timing. Keep VOID
-terminality separate from Gauntlet non-void completion; no forced post-expiry result,
-second settler, five-minute serverless wait or invented confidence-expansion test.
-Acceptance and existing progress-selector limitation: `docs/BANKR_RETEST_H100.md`.
+Immediate next actions: finish the exact-artifact h101 release batch, deploy and
+read back the release, then perform the separately owner-approved private Bankr
+pilot in [PLAY_SESSION_DESIGN.md](PLAY_SESSION_DESIGN.md). The owner signs the
+bounded grant and stores its bearer only in Bankr's private per-user secret form;
+no chat, public prompt or generic wallet signer receives the credential.
+
+The earlier demo-state resolution-envelope improvement remains follow-up work,
+not a missing session bridge: terminal HIT/MISS/VOID, retained exit, balances,
+Brier, proof URLs, pending reason and retry timing should remain explicit.
+Keep VOID terminality separate from Gauntlet non-void completion; do not add a
+second settler or force a result without an admissible oracle observation.
+Historical acceptance limits remain in `docs/BANKR_RETEST_H100.md`.
 
 1. Keep the current release evidence above; do not repeat a funded smoke merely
    for deployment verification. `activity-feed`, Pyth context/path and MCP schemas
@@ -151,8 +224,9 @@ Acceptance and existing progress-selector limitation: `docs/BANKR_RETEST_H100.md
 5. Earlier recovery documented a leaked database credential. This turn did not
    export, rotate, or certify that credential. Confirm rotation via the authorized
    hosting procedure separately; non-exportable secrets must stay non-exportable.
-6. Browser visual QA was unavailable due to Windows ACL startup failure; do not
-   confuse the successful API/HTML-byte verification with a rendered visual check.
+6. Earlier broad browser QA was unavailable due to Windows ACL startup failure.
+   The h101 consent-page checks are scoped separately in PLAY_SESSION_DESIGN.md;
+   neither API/HTML bytes nor isolated page QA establish all-site browser coverage.
 7. Future successful MCP demo calls are indexed as `MCP client` unless there is
    separate attributed evidence for a name. Do not label arbitrary callers Bankr
    or Grok, count demos as ranked volume, or merge demo retention into player KV.
