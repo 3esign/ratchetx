@@ -4,7 +4,9 @@
 The HTTP adapter, canonical shot bridge, owner recovery and private consent page
 are live. See RELEASE_H101.md for exact artifact and acceptance evidence.
 A deployed adapter is not a hosted Bankr execution proof; that pilot still needs
-the owner's signature and protected per-user secret setup.
+the owner's signature and protected per-user secret setup. Bankr has since
+reported one rejected, zero-debit attempt with stable replay, not accepted
+gameplay. See RELEASE_H102.md for the diagnostic fix and next acceptance.
 
 ## What the owner authorizes
 
@@ -76,6 +78,11 @@ thirteenth Vercel function. MCP / skill versions remain 1.2.0.
   It does not invoke the broad state route's optional staking/anchor work.
 - 202 ATTEMPT_UNRESOLVED / reserved receipt means stop dispatching and inspect
   status or ask for signed owner recovery. It is NOT a failed-payment refund.
+- h102: definite rejection stays HTTP 409 / SHOT_REFUSED, with a persisted
+  allowlisted request.result.code and fixed safe refusal explanation. Unknown
+  inner errors and legacy receipts stay generic; raw error text is never echoed.
+  Exact replay may return HTTP 200 / ok:true with request.state=rejected. It is
+  receipt retrieval, NOT acceptance or permission to place another forecast.
 
 Only durable Supabase mode exposes live session operations. Redis/memory tests
 do not authorize a production fallback. Build requires guarded-player-v1 readiness.

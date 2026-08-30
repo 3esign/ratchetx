@@ -11,6 +11,7 @@ for (const key of ['SUPABASE_URL','SUPABASE_SERVICE_KEY','SUPABASE_SERVICE_ROLE_
 const require = createRequire(import.meta.url);
 const originalNow = Date.now, originalFetch = globalThis.fetch;
 let time = Date.UTC(2026,7,30,12), networkAttempts = 0, crossingCalls = 0, onPrices = null;
+let pumpAge = 0, pumpConfidenceBps = 1, pumpProvenance = true;
 Date.now = () => time;
 globalThis.fetch = async () => {
   networkAttempts++;
@@ -28,9 +29,9 @@ require.cache[pricePath] = {id:pricePath,filename:pricePath,loaded:true,exports:
   getPrices:async()=>{
     if (onPrices) { const effect=onPrices;onPrices=null;await effect(); }
     return {src:'pyth-onchain',...Object.fromEntries(feeds.map(f=>[f,100])),
-    ages:Object.fromEntries(feeds.map(f=>[f,0])),
-    confs:Object.fromEntries(feeds.map(f=>[f,1])),
-    pubs:Object.fromEntries(feeds.map(f=>[f,Math.floor(time/1000)])),
+    ages:Object.fromEntries(feeds.map(f=>[f,f==='PUMP'?pumpAge:0])),
+    confs:Object.fromEntries(feeds.map(f=>[f,f==='PUMP'?pumpConfidenceBps:1])),
+    pubs:Object.fromEntries(feeds.map(f=>[f,f==='PUMP'&&!pumpProvenance?null:Math.floor(time/1000)])),
     prevPubs:Object.fromEntries(feeds.map(f=>[f,Math.floor(time/1000)-60]))};
   }}};
 const px = require('../lib/pxlog.js');
@@ -68,14 +69,14 @@ function base58(bytes) {
   return out;
 }
 let sequence = 0;
-function owner() {
+function owner(limits={}) {
   const {publicKey,privateKey} = crypto.generateKeyPairSync('ed25519');
   const wallet = base58(publicKey.export({format:'der',type:'spki'}).subarray(12));
   const sessionId = id(++sequence);
   const token = `rxp1.${wallet}.${sessionId}.${crypto.randomBytes(32).toString('hex')}`;
   const sign = payload => crypto.sign(null,Buffer.from(payload),privateKey).toString('base64');
   const grant = sessions.canonicalGrant({wallet,id:sessionId,tokenHash:hash(token),issuedAt:time,
-    expiresAt:time+3600000,limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1500,minIntervalMs:5000}},time);
+    expiresAt:time+3600000,limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1500,minIntervalMs:5000,...limits}},time);
   const payload = JSON.stringify(grant);
   return {wallet,sessionId,token,sign,grant,body:{op:'grant',payload,signature:sign(payload)}};
 }
@@ -126,6 +127,9 @@ try {
   let result = await invoke({method:'GET'});
   assert.equal(result.body.enabled,false);
   assert.equal(result.body.requiresExistingAdmittedAgent,true);
+  const refusalLabels=result.body.agentContract.shot.refusalCodes;
+  assert.equal(typeof refusalLabels.ORACLE_STALE,'string');
+  assert.match(result.body.agentContract.shot.rejected,/HTTP 200.*rejected/);
   result = await invoke({body:a.body});
   assert.equal(result.status,503);
   assert.equal(result.body.code,'DURABLE_SESSION_STORE_REQUIRED');
@@ -304,6 +308,104 @@ try {
   assert.equal(await kv.getJSONStrict('lock:u:'+revoking.wallet),null,'failed post-resolution status releases the lease');
   safeResponse(result,revoking);
   console.log('HTTP status rereads current authorization after asynchronous canonical player resolution PASS');
+
+  // The exact first-pilot terms are valid. Exercise the real canonical handler
+  // at the five-minute oracle boundary, not only an always-fresh 500-credit shot.
+  // All owners, prices and credits remain synthetic and in memory.
+  time=496695*3600e3+18*60e3+7020;
+  const pilotBoard=await invoke({method:'GET',query:{action:'board'}});
+  const pilotTarget=pilotBoard.body.targets.find(t=>t.id==='H496695Q0');
+  assert.ok(pilotTarget);
+  assert.equal(pilotTarget.feed,'PUMP');
+  assert.equal(pilotTarget.kind,'dir');
+  assert.equal(pilotTarget.mins,5);
+  const gameModule=require.cache[require.resolve('../api/game.js')];
+  const originalGameExport=gameModule.exports;
+  const sessionBridge=require('../lib/play_session_game.js');
+  let dispatches=0, injectedRefusal=null;
+  const privateDiagnostic='synthetic-secret-never-expose-this-raw-reason';
+  // Observe only the adapter's recursive canonical call; invoke() still calls
+  // the original outer handler. One unknown response tests safe fallback codes.
+  gameModule.exports=async(req,res)=>{
+    dispatches++;
+    assert.deepEqual(req.query,{});
+    assert.equal(sessionBridge.isVerifiedRequest(req,req.body),true);
+    if(injectedRefusal)return res.status(400).json(injectedRefusal);
+    return originalGameExport(req,res);
+  };
+  try {
+    for(const fixture of [
+      {name:'fresh',age:0,confidenceBps:1,state:'accepted'},
+      {name:'age-boundary',age:45,confidenceBps:1,state:'accepted'},
+      {name:'confidence-boundary',age:0,confidenceBps:200,state:'accepted'},
+      {name:'stale',age:46,confidenceBps:1,state:'rejected',code:'ORACLE_STALE'},
+      {name:'confidence',age:0,confidenceBps:201,state:'rejected',code:'ORACLE_CONFIDENCE_TOO_WIDE'},
+      {name:'unknown-refusal',age:0,confidenceBps:1,state:'rejected',code:'SHOT_REFUSED',inject:true},
+      {name:'missing-provenance',age:0,confidenceBps:1,state:'reserved',provenance:false},
+    ]) {
+      const f=owner({maxAttempts:1,maxStakeCredits:500,maxGrossCredits:500});
+      const initialPlayer=await seedPlayer(f,{cr:1452042});
+      await grant(f);
+      pumpAge=fixture.age;
+      pumpConfidenceBps=fixture.confidenceBps;
+      pumpProvenance=fixture.provenance!==false;
+      injectedRefusal=fixture.inject
+        ? {ok:false,code:'PRIVATE_INTERNAL_DIAGNOSTIC',reason:privateDiagnostic} : null;
+      const pilotIntent={requestId:id(200+sequence),target:pilotTarget.id,side:'YES',p:0.55,stake:100};
+      const beforeDispatches=dispatches;
+      const response=await invoke({body:{op:'shot',intent:pilotIntent},headers:bearer(f)});
+      const accepted=fixture.state==='accepted';
+      assert.equal(response.status,accepted?200:fixture.state==='rejected'?409:202,fixture.name);
+      assert.equal(response.body.ok,accepted,fixture.name);
+      if(!accepted)assert.equal(response.body.code,fixture.state==='rejected'?'SHOT_REFUSED':'ATTEMPT_UNRESOLVED');
+      const stored=await record(f), savedPlayer=await player(f);
+      const retained=stored.requests[pilotIntent.requestId];
+      assert.equal(retained.state,fixture.state,fixture.name);
+      assert.equal(stored.attempts,1);
+      assert.equal(stored.grossCredits,100);
+      assert.equal(stored.pending,fixture.state==='reserved'?pilotIntent.requestId:null);
+      assert.equal(savedPlayer.cr,accepted?1451942:1452042);
+      assert.equal(savedPlayer.open.length,accepted?1:0);
+      if(accepted) {
+        assert.equal(savedPlayer.open[0].stake,100);
+        assert.equal(savedPlayer.open[0].sp,0.55);
+        assert.equal(savedPlayer.open[0].id,retained.result.shotId);
+      } else {
+        assert.deepEqual(savedPlayer.open,initialPlayer.open);
+        assert.deepEqual(savedPlayer.closed,initialPlayer.closed);
+        for(const field of ['xp','hits','shots','bn','bsum'])
+          assert.equal(savedPlayer[field]??0,initialPlayer[field]??0,fixture.name+' cannot score '+field);
+      }
+      if(fixture.state==='rejected') {
+        assert.deepEqual(retained.result,{state:'rejected',code:fixture.code});
+        assert.deepEqual(response.body.request,retained);
+        assert.equal(response.body.refusal.code,fixture.code);
+        assert.equal(response.body.refusal.reason,refusalLabels[fixture.code]);
+        assert.match(response.body.refusal.next,/terminal/);
+      } else if(fixture.state==='reserved')assert.equal(retained.result,undefined);
+      safeResponse(response,f);
+      const encoded=JSON.stringify({response,retained});
+      assert.ok(!encoded.includes(privateDiagnostic),'raw canonical reason must not escape');
+      assert.ok(!encoded.includes('PRIVATE_INTERNAL_DIAGNOSTIC'),'unknown internal code must not escape');
+
+      // A later healthy oracle never grants another dispatch, replenishes the
+      // spent authority, or converts the retained refusal into an accepted shot.
+      pumpAge=0;pumpConfidenceBps=1;pumpProvenance=true;injectedRefusal=null;
+      const replay=await invoke({body:{op:'shot',intent:pilotIntent},headers:bearer(f)});
+      assert.equal(replay.status,200);
+      assert.equal(replay.body.idempotent,true);
+      assert.deepEqual(replay.body.request,retained,fixture.name+' replay preserves its exact receipt');
+      assert.deepEqual(replay.body.refusal,response.body.refusal,fixture.name+' replay preserves its safe explanation');
+      assert.equal(dispatches,beforeDispatches+1,fixture.name+' replay must not redispatch');
+      assert.deepEqual(await player(f),savedPlayer,fixture.name+' replay cannot mutate the player');
+      assert.deepEqual(await record(f),stored,fixture.name+' replay cannot replenish authority');
+      safeResponse(replay,f);
+    }
+  } finally {
+    gameModule.exports=originalGameExport;
+    pumpAge=0;pumpConfidenceBps=1;pumpProvenance=true;
+  }
+  console.log('HTTP exact 100-credit PUMP pilot: oracle boundaries, stable refusal codes, safe fallback, unresolved 503 and no-redispatch replay PASS');
   assert.equal(networkAttempts,0,'fixture must not even attempt an external request');
 } finally {
   kv.backend=originalBackend;

@@ -1,6 +1,6 @@
 {
   "productionRelease": "h101-2026-08-30",
-  "candidateRelease": null,
+  "candidateRelease": "h102-2026-08-30",
   "productionDeployment": "dpl_eq1opEjU2aKbGS3mnakFeYEQGDMw",
   "productionCodeCommit": "be553c742e66f04786f857c7a731c90a8001cad2",
   "productionUiRevision": "h101-ui1",
@@ -42,6 +42,6 @@
     "playerActivity": "80 rows verified: 75 player events plus 5 separately labeled demos; gold agent text, proof links, no demo payouts or player-retention eviction; house Fleet excluded",
     "agentProtocol": "MCP scorecard executes the canonical REST report handler; omitted path bounds remain frozen across cursors; nextRequest supplies exact continuation arguments; no new wait worker or settlement rule",
     "rankedEconomy": "Pyth reads consume no RCX; accepted seals stake play credits; VOID refunds; RCX remains the ranked reload rail",
-    "playSessions": "h101 live owner-signed shot/status capability, gross-reserved-attempt limits, atomic player/acceptance receipt and fenced owner recovery; no token transfer/reload authority; actual protected Bankr pilot awaits owner setup"
+    "playSessions": "h101 live; Bankr reports one rejected 100-credit attempt and stable replay with zero debit, not successful gameplay. h102 candidate retains safe canonical refusal codes. Fresh owner grant required for another attempt; no token transfer/reload authority"
   }
 }

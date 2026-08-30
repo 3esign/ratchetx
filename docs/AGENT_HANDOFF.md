@@ -1,5 +1,18 @@
 # RatchetX agent handoff
 
+## Current work — h102 refusal diagnostics (2026-08-30)
+
+See [h102 evidence and next Bankr acceptance](RELEASE_H102.md). Bankr reports a
+rejected 100-credit PUMP attempt with stable replay and zero debit, not a completed
+forecast. Production log confirms outer409 but the old adapter discarded its
+inner cause. Synthetic exact-intent controls pass when fresh and reject stale /
+wide-confidence data. h102 adds safe persistent codes, preserves gross attempt
+accounting and never retries a terminal rejection. The one-attempt grant is used;
+another pilot needs a fresh owner signature/private secret replacement.
+Production remains h101 until the h102 release evidence below is filled.
+
+## Previous h101 release (historical)
+
 Updated: 2026-08-30T15:02:28.056Z. h101 with UI hotfix h101-ui1 is DEPLOYED and public-verified.
 MCP remains 1.2.0 (13 tools), as published in the official registry; this release
 adds no MCP tool or function slot. See [release evidence](RELEASE_H101.md).

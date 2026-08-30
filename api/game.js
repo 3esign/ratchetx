@@ -1742,10 +1742,13 @@ function oracleSealSnapshot(prices, feeds) {
     snapshotHash:crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex') };
 }
 
-async function takeStake(p, stake) {
-  if ((p.settlementOutbox || []).length >= 32) return 'settlement delivery is pending; read state before opening another shot';
-  if (badStake(stake)) return `stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}`;
-  if (p.cr < stake) return `not enough credits - you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`;
+async function takeStake(p, stake, structured = false) {
+  // Existing challenge callers still receive prose; the shot adapter needs a
+  // stable code from this SAME validation, not a second copy of the credit rules.
+  const refuse = (code, reason) => structured ? {code, reason} : reason;
+  if ((p.settlementOutbox || []).length >= 32) return refuse('SETTLEMENT_DELIVERY_PENDING', 'settlement delivery is pending; read state before opening another shot');
+  if (badStake(stake)) return refuse('INVALID_STAKE', `stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}`);
+  if (p.cr < stake) return refuse('INSUFFICIENT_CREDITS', `not enough credits - you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`);
   p.cr -= stake; p._src = 'cr';
   return null;
 }
@@ -1920,7 +1923,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
 
     const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
     const isPost = req.method !== 'GET';
-    if (rateLimited(ip, isPost)) return res.status(429).json({ ok:false, reason:'slow down - too many requests from this address' });
+    if (rateLimited(ip, isPost)) return res.status(429).json({ ok:false, code:'RATE_LIMITED', reason:'slow down - too many requests from this address' });
     if(action==='play-session')return await sessionHttp.handle(req,res,{
       acquirePlayerLock,trackPlayer:playerWrites.track,game:module.exports,
       resolvePlayer:async w=>{
@@ -1973,7 +1976,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
       : req.body && req.body.auth && req.body.auth.wallet;
     if (playerActions.has(action) && (isWalletShaped(lockWallet) || isDemo(lockWallet))) {
       if (!(await acquirePlayerLock(lockWallet)))
-        return res.status(409).json({ ok:false, reason:'that player already has an update in flight — retry in a moment' });
+        return res.status(409).json({ ok:false, code:'PLAYER_BUSY', reason:'that player already has an update in flight — retry in a moment' });
     }
 
     // ============================================================
@@ -2385,7 +2388,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         }
       }
       const cap = Math.min(4, rankOf(p.xp)+1) + 1;
-      if (p.open.length >= cap) { await savePlayer(p); return res.status(409).json({ ok:false, reason:`all ${cap} chambers full` }); }
+      if (p.open.length >= cap) { await savePlayer(p); return res.status(409).json({ ok:false, code:'CHAMBERS_FULL', reason:`all ${cap} chambers full` }); }
       const stake = +b.stake;
 
       // ---- validate EVERYTHING before any money moves. The previous
@@ -2395,14 +2398,14 @@ module.exports = async (req, res) => playerWrites.run(async () => {
       if (action === 'shot') {
         const board = { ...targetBoard(boardHour() - 1), ...targetBoard(boardHour()) };
         const t = board[b.target];
-        if (!t || (b.side!=='YES' && b.side!=='NO')) { await savePlayer(p); return res.status(400).json({ ok:false, reason:'that question left the board - pick from the current mix' }); }
-        if (!Number.isFinite(prices[t.feed]) || (t.feed2 && !Number.isFinite(prices[t.feed2]))) { await savePlayer(p); return res.status(409).json({ ok:false, reason:'that feed is offline right now - try another target' }); }
+        if (!t || (b.side!=='YES' && b.side!=='NO')) { await savePlayer(p); return res.status(400).json({ ok:false, code:'TARGET_UNAVAILABLE', reason:'that question left the board - pick from the current mix' }); }
+        if (!Number.isFinite(prices[t.feed]) || (t.feed2 && !Number.isFinite(prices[t.feed2]))) { await savePlayer(p); return res.status(409).json({ ok:false, code:'FEED_UNAVAILABLE', reason:'that feed is offline right now - try another target' }); }
         // refuse to seal against a print that is stale relative to the window
         const ages = prices.ages || {};
         const lim = maxSealAge(t.mins);
         const stale = [t.feed, t.feed2].filter(Boolean)
           .map(f => ({ f, a: ages[f] })).filter(x => Number.isFinite(x.a) && x.a > lim);
-        if (stale.length) { await savePlayer(p); return res.status(409).json({ ok:false,
+        if (stale.length) { await savePlayer(p); return res.status(409).json({ ok:false, code:'ORACLE_STALE',
           reason: `the oracle's last ${stale[0].f} print is ${stale[0].a}s old and this window needs one under ${lim}s — the feed updates on a 60s heartbeat or a 0.5% move, so try again in a moment` }); }
         spec = t;
       } else {
@@ -2427,7 +2430,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         sp = Number(b.p);
         if (!Number.isFinite(sp) || sp < 0.01 || sp > 0.99) {
           await savePlayer(p);
-          return res.status(400).json({ ok:false,
+          return res.status(400).json({ ok:false, code:'INVALID_PROBABILITY',
             reason:'stated probability p must be a number from 0.01 to 0.99 — your confidence that your own side wins' });
         }
         sp = Math.round(sp * 100) / 100;
@@ -2441,7 +2444,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         && row.confidenceBps > PX_MAX_CONF_BPS);
       if (uncertain) {
         await savePlayer(p);
-        return res.status(409).json({ ok:false,
+        return res.status(409).json({ ok:false, code:'ORACLE_CONFIDENCE_TOO_WIDE',
           reason:`the Pyth confidence interval for ${uncertain.feed} is ${uncertain.confidenceBps}bps; ranked sealing requires ${PX_MAX_CONF_BPS}bps or less — no credits were debited` });
       }
       const crossingReady = prices.src === 'pyth-onchain' && requiredFeeds.every(f =>
@@ -2454,8 +2457,8 @@ module.exports = async (req, res) => playerWrites.run(async () => {
           reason:'new shots pause until the on-chain Pyth feed exposes a verifiable publish-time crossing — fallback quotes remain display-only' });
       }
 
-      const err = await takeStake(p, stake);
-      if (err) { await savePlayer(p); return res.status(400).json({ ok:false, reason: err }); }
+      const err = await takeStake(p, stake, true);
+      if (err) { await savePlayer(p); return res.status(400).json({ ok:false, ...err }); }
 
       let shot;
       const oracleSeal = oracleSealSnapshot(prices, requiredFeeds);
