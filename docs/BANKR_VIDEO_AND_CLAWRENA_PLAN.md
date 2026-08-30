@@ -114,7 +114,7 @@ deadline or silently change the existing oracle/economic rules to accelerate ent
 Requested2026-08-30. This is NOT implemented by h104: completed pilot is distinct
 from seamless pairing, multi-attempt operation and profile management.
 
-h105 candidate adds the landing CTA, one/five-request presets, owner-bound public
+h105 deployed adds the landing CTA, one/five-request presets, owner-bound public
 copy commands, skill1.3.0 and the per-command `session-play.mjs` controller. Once
 deployed and tested in Bankr, record actual X runtime evidence separately. The
 owner must still privately replace `RATCHET_PLAY_SESSION` after each new grant;

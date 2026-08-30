@@ -1,6 +1,6 @@
 # h105 — Bankr entry and bounded X commands
 
-Release candidate2026-08-30. Agent Skill1.3.0, MCP1.2.0 unchanged.
+Deployed2026-08-30. Agent Skill1.3.0, MCP1.2.0 unchanged.
 
 ## Delivered scope
 
@@ -61,4 +61,12 @@ Independent skill routing check passed stranger rejection, owner stats-only and
 duplicate-command handling; missing-journal status-only guidance was clarified.
 Generic Python skill validator could not run because PyYAML is absent; manual
 frontmatter/reference review and repository skill version/digest checks passed.
-Clean-artifact deploy and public readbacks are recorded in a follow-up below.
+Production verified2026-08-30T19:41:43.189Z:17/17 readbacks PASS.
+Code commit976acae0286671ef6b86cc688a0f2843d30a6297; deployment
+dpl_ABvkjDZ4kV4V5fG5MGE8vLsMKmiK; immutable URL
+https://ratchetx-4kfwv42i5-3esigns-projects.vercel.app; aliashttps://ratchetx.xyz.
+Nine public artifacts match clean release bytes, three API surfaces reporth105,
+three private paths remain404, unauthenticated status returns401 and GitHub runner
+matches deployed bytes. Guarded DB prerequisite passed; no migration performed.
+Runner SHA256:4f83c659ab3e8e4a8a876c705ee55e86d7c66088e9b07076fb3168eb2cf5700c.
+This publication record is a subsequent docs-only commit, not a different deploy.
