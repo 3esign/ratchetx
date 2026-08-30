@@ -1,7 +1,7 @@
 # h103 — deterministic owner-session retest and honest proof links
 
-Candidate: h103-2026-08-30. Agent Skill 1.2.1; MCP stays 1.2.0 (13 tools).
-Deployment evidence is appended only after the exact artifact is verified.
+DEPLOYED and public-verified: 2026-08-30T17:41:17.906Z.
+Release h103-2026-08-30. Agent Skill 1.2.1; MCP stays 1.2.0 (13 tools).
 
 ## Scope
 
@@ -80,3 +80,60 @@ same limits and server semantics.
 Operator backlog remains separate: coordinated rotation of exposed API/database
 credentials, Supabase quota headroom and future on-chain migration. No credential
 rotation, paid-plan purchase or new wallet transaction is implied by this release.
+
+## Exact release evidence
+
+- Repository main: https://github.com/3esign/ratchetx.
+- Artifact commit: 01ba4f4b22f216c75d65c27339cac3681bd3c380; clean detached
+  worktree `.release/ratchetx-h103-20260830`, 334 tracked source files.
+- Ordered source-tree SHA256 (h101 definition):
+  `98f7909cea85b85d6a6a13920bf67744efafd9afdadba3982d8c6173f5744b6c`.
+- Deployment: dpl_9kUJHfdGiBkGpEfgxUUAEgDRmUro, READY, production, domain
+  https://ratchetx.xyz; immutable URL
+  https://ratchetx-73noy4lq3-3esigns-projects.vercel.app.
+- Existing guarded player database prerequisite PASS. No migration was run.
+- Exact-artifact 20 focused suites PASS: play_session, play_session_kv,
+  play_session_atomicity, play_session_http, play_session_page, critical_paths,
+  harness, balance, settle, warden, ranked_remote_protocol, player_write_fencing,
+  player_commit_recovery, release_identity, canon, agent_report, shot_page,
+  agent_discovery, session_smoke, session_smoke_contract.
+- Release-safety and version/digest gates PASS: total22 checks. This is not a
+  claim that every repository/browser suite ran. Node24.15.0 tested; Bun and
+  actual Bankr X runtime execution were not tested in this release.
+- Real-handler fixture proves adjacent identical POSTs dispatch/debit once,
+  canonical HIT settlement1000→900→1070, existing13-call Brier .3087→.3011/14,
+  and post-preflight ORACLE_STALE refusal without debit/retry. External network
+  is blocked. Memory-only status-throttle TTL expiry is explicitly simulated;
+  an immediate429 control still passes.
+- Vercel59.10.0's actual bundled ignore filter allowed the three intended skill
+  files and denied19 private/sibling/helper controls. Public readback also
+  confirmed five known private source paths remain404.
+- Nineteen production readbacks PASS: six exact static files, skill digest,
+  three h103 API identities, canonical pilot proof/report, credentialless401,
+  wrong-Origin403 and five private-path404 checks. The public pilot proof now
+  displays SEAL RECORDED from retained evidence. No bearer was used.
+
+| Artifact | SHA256 |
+|---|---|
+| index.html | 3894669b36547ec8a74b7c98642eb5ffddf3fdbfc27abf761b0e308894969f67 |
+| play-session.html | f020f7dbb80069ca2f4f37211e1ec032b3cf9b098564f2003b1f76b09ebb4cb7 |
+| play-session.js | 221edee9059c5fe71289d8776c69e637a4c0fe9ab117e5af1e43e0586045b2b2 |
+| Skill1.2.1 | 1d0955d2c4fbca21eb4299276a78a31cecb2f6322dfeeea61dee364e3bb4afc0 |
+| owner-session-test.md | 98d48c1c77b8c8742641b7e929199acf2f98ac3c6aca3fd85c0610a6665d9c23 |
+| session-smoke.mjs | 1b6592079a27a912de796d3aa035e67540b7514f982b5cbd850d7998efcc98b5 |
+
+The first readback orchestration command had a syntax error before any requests;
+corrected command passed all19. No runtime defect or spending occurred.
+Workspace knowledge reference88 is indexed; Solana skill-lint passes. The
+optional Python frontmatter validator remains unavailable without PyYAML;
+discovery/version tests validate the changed skill's frontmatter and exact digest.
+
+### Message to Bankr before authorizing a new pilot
+
+Update the RatchetX skill from 3esign/ratchetx to1.2.1. Read the linked
+owner-session-test.md and locate session-smoke.mjs in the installed skill.
+Confirm you can execute it with Node or Bun, protected RATCHET_PLAY_SESSION,
+and a persistent private journal in this runtime. Do not print the secret.
+Do not execute a forecast yet: the previous grant was revoked. No demo
+fallback, replacement grant, transfers or reloads. Report readiness and the
+runtime; I will create and explicitly authorize the next bounded session.

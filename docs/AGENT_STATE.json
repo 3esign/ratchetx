@@ -1,9 +1,9 @@
 {
-  "productionRelease": "h102-2026-08-30",
-  "candidateRelease": "h103-2026-08-30",
-  "productionDeployment": "dpl_Ms76fJAEbzhwpB5691o8QayRGJ68",
-  "productionCodeCommit": "1362d541d9c53561baceaed4cb86c7c2419cf1e9",
-  "productionUiRevision": "h101-ui1",
+  "productionRelease": "h103-2026-08-30",
+  "candidateRelease": null,
+  "productionDeployment": "dpl_9kUJHfdGiBkGpEfgxUUAEgDRmUro",
+  "productionCodeCommit": "01ba4f4b22f216c75d65c27339cac3681bd3c380",
+  "productionUiRevision": "h103-session-errors",
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.2.1",
@@ -36,7 +36,7 @@
     "canonicalSettlement": "ratchet-server",
     "independentPythReplay": false
   },
-  "lastVerifiedDeploy": "2026-08-30T15:40:34.862Z",
+  "lastVerifiedDeploy": "2026-08-30T17:41:17.906Z",
   "localRecoveryDeployment": "deployed",
   "productionStatus": {
     "core": "healthy",
@@ -45,6 +45,6 @@
     "playerActivity": "80 rows verified: 75 player events plus 5 separately labeled demos; gold agent text, proof links, no demo payouts or player-retention eviction; house Fleet excluded",
     "agentProtocol": "MCP scorecard executes the canonical REST report handler; omitted path bounds remain frozen across cursors; nextRequest supplies exact continuation arguments; no new wait worker or settlement rule",
     "rankedEconomy": "Pyth reads consume no RCX; accepted seals stake play credits; VOID refunds; RCX remains the ranked reload rail",
-    "playSessions": "h102 owner-session pilot shot 16c371304581 settled HIT: 100 credits staked, 170 returned, final owner balance 1452112. Public shot/report checked. Wire duplicate POST was NOT tested; request-map inspection is not replay evidence. Bankr subsequently reports HTTP401 SESSION_REVOKED. h103 candidate adds deterministic bounded replay client and correct proof links; no new live grant or attempt authorized; no token transfer/reload authority"
+    "playSessions": "h103 deployed: bounded deterministic runner, canonical proof links and explicit AgentRun versus HTTP replay meaning. 20 focused suites plus 2 release gates pass; 19 production readbacks pass. Prior owner pilot shot 16c371304581 HIT: stake100/return170/final1452112. Wire duplicate POST remains untested live; later Bankr HTTP401 SESSION_REVOKED. No new grant or attempt authorized, no transfer/reload authority. Node-tested; Bun/X execution still needs fresh owner-approved pilot"
   }
 }
