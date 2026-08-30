@@ -1884,7 +1884,7 @@ module.exports = async (req, res) => {
     // /api/gauntlet rewrites here so it does not consume a thirteenth Vercel
     // function slot. Preserve that destination action for every method; a
     // POST to the public GET-only route must not fall through to state.
-    const routed = new Set(['gauntlet', 'agent-report', 'agent-proof-bundle']);
+    const routed = new Set(['gauntlet', 'agent-report', 'agent-proof-bundle', 'activity-feed']);
     const action = routed.has(query.action)
       ? query.action
       : (req.method === 'GET' ? query.action : (req.body||{}).action) || 'state';
@@ -1901,6 +1901,12 @@ module.exports = async (req, res) => {
     // unauthenticated caller bypass the same per-IP budget as the core API.
     if (action === 'agent-report') return agentReport.handler(req, res);
     if (action === 'agent-proof-bundle') return proofBundle(req, res);
+    if (action === 'activity-feed') {
+      if (req.method !== 'GET') return res.status(405).json({ok:false,v:VERSION,reason:'GET only'});
+      const activity = await require('../lib/activity_feed.js').peekFeed();
+      res.setHeader('cache-control','public, max-age=3, s-maxage=3');
+      return res.json({ok:true,v:VERSION,readOnly:true,...activity});
+    }
     // Player records are JSON blobs. Without a per-wallet mutex, two shots
     // can load the same credit balance, both spend it, then last-write-wins
     // the balance while retaining economic effects from both requests.

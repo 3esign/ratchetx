@@ -92,7 +92,11 @@ durable backend. It is excluded from deployments along with all scripts.
 Deploy clean committed code with `vercel deploy --prod --skip-domain`. Use normal
 heartbeat reads to exercise actual validated capture on that deployment, then inspect
 Pyth context for atomicFeeds, chronological progress and truthful fallback status.
-Check the combined candidate's state for restored player-feed rows and provenance.
+Inspect `GET /api/game?action=activity-feed` for restored player-feed rows and
+provenance. This route returns before player locks, oracle reads and settlement;
+it never writes the migration. `projection.persisted:false` explicitly marks a
+read-only recovery preview. Normal game activity initializes the actual cosmetic
+projection. Do not use the mutating state endpoint as a candidate smoke test.
 Promote that exact deployment only after checks pass. A failed canary must not
 replace the current domain. Rollback to the previous deployment restores old code;
 the new projection keys are isolated, TTL-bound and cannot mutate player balances.
