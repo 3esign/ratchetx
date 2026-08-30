@@ -1,8 +1,8 @@
 {
   "productionRelease": "h105-2026-08-30",
-  "productionDeployment": "dpl_ABvkjDZ4kV4V5fG5MGE8vLsMKmiK",
-  "productionCodeCommit": "976acae0286671ef6b86cc688a0f2843d30a6297",
-  "productionUiRevision": "h105-bankr-entry-and-bounded-commands",
+  "productionDeployment": "dpl_7N2qiE6Q7kfDAVmzWJeoGtxNenUs",
+  "productionCodeCommit": "235e0b31c9a2963de07ff20a98f189ab55eb83b0",
+  "productionUiRevision": "h105-session-allowance-guidance",
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.3.0",
@@ -35,7 +35,8 @@
     "canonicalSettlement": "ratchet-server",
     "independentPythReplay": false
   },
-  "lastVerifiedDeploy": "2026-08-30T19:41:43.189Z",
+  "lastVerifiedDeploy": "2026-08-30T19:53:15.234Z",
+  "nextPlan": "docs/NEXT_BANKR_PLAN.md",
   "bankrCommands": "h105 deployed: landing CTA, explicit presets, public copy commands and skill1.3.0 reusable session-play runner. 14 isolated gates and17 production readbacks pass. New Bankr/X pilot remains untested; manual private env handoff required, no cryptographic X binding or automatic pairing. Public IDs never authorize play. Prior pilot details below are historical.",
   "localRecoveryDeployment": "deployed",
   "ownerPilotClosure": "Owner reports all grants revoked on 2026-08-30; no further authenticated verification or gameplay attempted.",

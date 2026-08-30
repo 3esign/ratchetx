@@ -70,3 +70,13 @@ three private paths remain404, unauthenticated status returns401 and GitHub runn
 matches deployed bytes. Guarded DB prerequisite passed; no migration performed.
 Runner SHA256:4f83c659ab3e8e4a8a876c705ee55e86d7c66088e9b07076fb3168eb2cf5700c.
 This publication record is a subsequent docs-only commit, not a different deploy.
+
+## UI-only follow-up
+
+Code235e0b31c9a2963de07ff20a98f189ab55eb83b0 deployed as
+dpl_7N2qiE6Q7kfDAVmzWJeoGtxNenUs:
+https://ratchetx-c72qlw6sp-3esigns-projects.vercel.app.
+Adds10×10,000 preset and inline allowance/balance/stake/cooldown explanations.
+The session UI test passed; HTML/JS production bytes both matched at
+2026-08-30T19:53:15.234Z. No runner/backend/economic changes or live play.
+Auto-play remains disabled; see NEXT_BANKR_PLAN.md for gated continuation.
