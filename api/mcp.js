@@ -354,6 +354,9 @@ async function callTool(req, name, args = {}) {
       if (inviteHash && out.shot && out.shot.id) {
         await funnel.recordMilestone(inviteHash, 'shot_sealed', { shotId:out.shot.id });
       }
+      if (out && out.ok && out.shot && out.shot.id) {
+        try { await require('../lib/activity_agents.js').noteMcpDemo(handle,out.shot.id); } catch {}
+      }
       return out;
     }
     case 'ratchet_proof': {

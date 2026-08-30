@@ -1,0 +1,53 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import vm from 'node:vm';
+import {createRequire} from 'node:module';
+const require=createRequire(import.meta.url);
+for(const k of ['SUPABASE_URL','SUPABASE_SERVICE_KEY','SUPABASE_SERVICE_ROLE_KEY','KV_REST_API_URL','KV_REST_API_TOKEN','UPSTASH_REDIS_REST_URL','UPSTASH_REDIS_REST_TOKEN']) delete process.env[k];
+const kv=require('../lib/kv.js'), {hashCommit}=require('../lib/commit.js');
+const agents=require('../lib/activity_agents.js');
+const ref={handle:'guard123',shotId:'guard-shot',name:'<img src=x onerror=alert(1)>'};
+const shot={id:ref.shotId,side:'YES',salt:'hidden-salt',sp:.54,stake:500,exp:5000,label:'WIF forecast',commitV:2};
+shot.commit=hashCommit({version:2,wallet:'demo-'+ref.handle,shotId:shot.id,side:shot.side,salt:shot.salt});
+assert.equal(agents.demoRow(ref,{open:[shot]}),null,'no fabricated seal time');
+const open=agents.demoRow(ref,{open:[shot]},{t:1000});
+assert.ok(open && open.mode==='demo');
+assert.ok(!JSON.stringify(open).includes('hidden-salt') && !open.a.includes('0.54') && !open.a.includes('YES'),'unresolved side/p/salt stay hidden');
+assert.equal(agents.demoRow(ref,{closed:[{...shot,res:'hit',settledAt:4000}]}),null,'pre-expiry outcome refused');
+assert.equal(agents.demoRow(ref,{closed:[{...shot,res:'hit',settledAt:6000,commit:'f'.repeat(64)}]}),null,'bad commitment cannot become gold activity');
+const miss=agents.demoRow(ref,{closed:[{...shot,res:'miss',settledAt:6000}]});
+assert.match(miss.a,/MISS/);assert.match(miss.a,/0.2916/);assert.match(miss.a,/no payout/);
+
+for(let i=0;i<105;i++) {
+  const handle='client'+i, id='shot'+i;
+  const s={...shot,id,res:'hit',settledAt:6000+i};
+  s.commit=hashCommit({version:2,wallet:'demo-'+handle,shotId:id,side:s.side,salt:s.salt});
+  await kv.setJSON('u:demo-'+handle,{closed:[s]});
+  await agents.noteMcpDemo(handle,id);
+}
+assert.equal((await kv.getJSONStrict(agents.DEMO_KEY)).length,100,'bounded separate MCP index');
+assert.equal(await agents.noteMcpDemo('client104','shot104'),false,'retry cannot duplicate descriptor');
+const original=Array.from({length:100},(_,i)=>({id:'player'+i,t:2000+i,w:'player',a:'real activity',c:'seal'}));
+await kv.setJSON('g:feed:players:v2',original);
+let batchReads=0;const getMany=kv.getManyJSON;
+kv.getManyJSON=async keys=>{batchReads++;assert.ok(keys.length<=200);return getMany(keys);};
+const combined=await agents.combine(original);
+assert.equal(combined.length,120);assert.equal(combined.filter(r=>r.mode==='demo').length,20);
+assert.deepEqual(await kv.getJSONStrict('g:feed:players:v2'),original,'100 player receipts survive demo burst');
+assert.equal(combined.find(r=>r.mode==='demo').actor.name,'MCP client','transport does not establish Bankr/Grok identity');
+await agents.combine(original);
+assert.equal(batchReads,3,'warm display does not repeat identity/receipt reads');
+kv.getManyJSON=getMany;
+
+const html=fs.readFileSync(new URL('../index.html',import.meta.url),'utf8');
+const start=html.indexOf('const fx=el=>'), end=html.indexOf('  fx($("kill"))',start);
+assert.ok(start>=0 && end>start);
+let rendered='';
+const esc=s=>String(s??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+vm.runInNewContext(html.slice(start,end)+'\nfx(null);',{Date,encodeURIComponent,esc,s:{feed:[miss,{...original[0],proofUrl:'javascript:alert(1)'}]},setHTML:(_el,value)=>{rendered=value;}});
+assert.match(rendered,/agent-entry/);assert.match(rendered,/AGENT · DEMO/);
+assert.match(rendered,/color:var\(--gold\)/);assert.match(rendered,/proof ↗/);
+assert.ok(rendered.includes('&lt;img') && !rendered.includes('<img'));
+assert.ok(!rendered.includes('javascript:'));
+assert.match(html,/GOLD = AGENT · DEMO = TEST CREDITS, NO PRIZES/);
+console.log('AGENT ACTIVITY SAFETY AND RENDERING PASS');

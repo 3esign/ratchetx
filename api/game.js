@@ -1447,7 +1447,7 @@ async function repairReloadReceipt(sig, g) {
   for (const leg of legs) if (isWalletShaped(leg.w) && leg.amt > 0)
     await pushChampionReceipt(leg.w, { id:sig, t:g.t, kind:'received',
       rcx:leg.amt, from:shortW(g.w) });
-  await bumpFeed({ id:`reload:${sig}`, w:shortW(g.w),
+  await bumpFeed({ id:`reload:${sig}`, w:shortW(g.w), actorWallet:g.w,
     a:`BURNED ${Number(g.burned||0).toLocaleString()} RCX`
       + (g.champPaid ? ` - ${Number(g.champPaid).toLocaleString()} RCX paid to other champions` : '')
       + (g.selfRouted ? ` - ${Number(g.selfRouted).toLocaleString()} RCX stayed with this champion` : '')
@@ -1597,7 +1597,7 @@ async function settle(p, prices) {
         await applyOnce(`hitpay:${eventId}`, { w:p.w, id:s.id, back:s.back, t:now }, {
           hashKey:STATS, deltas:{ hitPaid:s.back },
         });
-        await bumpFeed({ id:`settle:${eventId}`, w:shortW(p.w),
+        await bumpFeed({ id:`settle:${eventId}`, w:shortW(p.w), actorWallet:p.w,
           a:`HIT +${s.xp} XP - +${s.back.toLocaleString()} credits`, c:'hit' });
       }
     } else {
@@ -1608,7 +1608,7 @@ async function settle(p, prices) {
       s.skillXp = 0; s.settleXp = SETTLE_XP; s.xp = SETTLE_XP;
       p.xp += s.xp;
       await bumpLadderOnce(p.w, s.xp, p.qualified, s.id);
-      if (!isDemo(p.w)) await bumpFeed({ id:`settle:${eventId}`,
+      if (!isDemo(p.w)) await bumpFeed({ id:`settle:${eventId}`, actorWallet:p.w,
         w:shortW(p.w), a:`MISS - streak reset - +${s.xp} XP`, c:'miss' });
     }
 
@@ -1905,7 +1905,9 @@ module.exports = async (req, res) => {
       if (req.method !== 'GET') return res.status(405).json({ok:false,v:VERSION,reason:'GET only'});
       const activity = await require('../lib/activity_feed.js').peekFeed();
       res.setHeader('cache-control','public, max-age=3, s-maxage=3');
-      return res.json({ok:true,v:VERSION,readOnly:true,...activity});
+      return res.json({ok:true,v:VERSION,readOnly:true,...activity,
+        feed:await require('../lib/activity_agents.js').combine(activity.feed),
+        feedPolicy:{playerLimit:100,agentDemoLimit:20,demoPaysPrizes:false}});
     }
     // Player records are JSON blobs. Without a per-wallet mutex, two shots
     // can load the same credit balance, both spend it, then last-write-wins
@@ -2160,7 +2162,7 @@ module.exports = async (req, res) => {
                     }
                     // One log entry per signature, even across a crash-retry. (h70)
                     await appendOnce(`anchor:${sig}`, { k:'anchor', w, i: d.i, sig, xp: paidXp });
-                    await bumpFeed({ w: shortW(w), a: `ANCHORED the log via Blink · entry #${d.i}${paidXp ? ' · +25 XP' : ''}`, c:'hit', sig });
+                    await bumpFeed({ w: shortW(w), actorWallet:w, a: `ANCHORED the log via Blink · entry #${d.i}${paidXp ? ' · +25 XP' : ''}`, c:'hit', sig });
                     await savePlayer(p);
                   }
                 }
@@ -2274,13 +2276,14 @@ module.exports = async (req, res) => {
         player.dayToSeat = (player.dayRank && player.dayRank <= seats) ? 0
           : Math.max(1, ((cut ? cut[1] : 0) + 1) - player.dayXp);
       }
-      const [feed, warden, wardenPrev, wardenHist, mcap, tokenProgram,
+      const [playerFeed, warden, wardenPrev, wardenHist, mcap, tokenProgram,
         lastSeason, lastDay, logHead] = await Promise.all([
         require('../lib/activity_feed.js').readFeed(), wardenLine(prices),
         getCached('g:warden:rec:prev', 60_000), getCached('g:warden:hist', 5_000),
         getMcap(), getMintProgram(), getCached('g:seasonResults', 30_000),
         getCached('g:dayResults', 15_000), getCached('g:log:head', 3_000),
       ]);
+      const feed = await require('../lib/activity_agents.js').combine(playerFeed);
       return res.json({ ok:true, v: VERSION, durable, storage:backend,
         truthPlane: {
           canonicalSettlement: 'ratchet-server',
@@ -2289,9 +2292,8 @@ module.exports = async (req, res) => {
           onchainSeal: MIRROR_ENABLED ? 'optional-mainnet-beta' : 'disabled',
         },
         prices:{src:prices.src,degraded:prices.degraded||null,ages:prices.ages||null,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
-        // The main killfeed is for player activity. Agent calls remain in the
-        // Arena payload and the append-only event log, but do not crowd out
-        // human seals, settlements, reloads, staking and anchors here.
+        // House Fleet stays in Arena/log. Actual registered agents and proven
+        // demo attempts are visible, with separate demo retention and labels.
         stats: st, feed: (feed || []).filter(x => !x.agent), ladder, ladderDay,
         warden, wardenRec,
         wardenModel: WARDEN_MODEL,
@@ -2463,7 +2465,7 @@ module.exports = async (req, res) => {
       // (see the board handler), so sealed means sealed even in aggregate.
       if (action === 'shot') await hincr(`odds:${boardHour()}`,
         `${Math.floor(Date.now() / 600e3)}:${b.target}:${shot.side}`, 1).catch(() => {});
-      if (!isDemo(w)) await bumpFeed({ id:`seal:${w}:${shot.id}`,
+      if (!isDemo(w)) await bumpFeed({ id:`seal:${w}:${shot.id}`, actorWallet:w,
         w: shortW(w), a: `sealed a shot - ${stake} credits`, c:'seal' });
       return res.json({ ok:true, shot, cr: p.cr });
     }
@@ -2574,7 +2576,7 @@ module.exports = async (req, res) => {
           throw e;
         }
         await appendOnce(`chal:${c.id}`, { k:'chal', id: c.id, by: w, label, side, stake, mins });
-        await bumpFeed({ id:`chal:${c.id}`, w: shortW(w),
+        await bumpFeed({ id:`chal:${c.id}`, w: shortW(w), actorWallet:w,
           a: `challenges the room: ${label} - ${side}`, c: 'seal' });
         return res.json({ ok:true, challenge: { ...c, by: shortW(w) },
           note: 'the level is struck when someone accepts, not now' });
@@ -2690,7 +2692,7 @@ module.exports = async (req, res) => {
         entry: px, exp, stake: c.stake });
       await recordSealedShot(authorShot, c.by);
       await recordSealedShot(takerShot, w);
-      await bumpFeed({ id:`chaltake:${c.id}`, w: shortW(w),
+      await bumpFeed({ id:`chaltake:${c.id}`, w: shortW(w), actorWallet:w,
         a: `took ${shortW(c.by)}'s challenge: ${c.label}`, c: 'seal' });
       return res.json({ ok:true, shot: takerShot, against: shortW(c.by),
         struckAt: px, note: 'both sides were struck on this price, at this moment' });
@@ -2808,7 +2810,7 @@ module.exports = async (req, res) => {
         if (!reg.includes(w)) { reg.push(w); await setJSON('g:arena', reg.slice(0, 500)); }
         if (first) {
           await append({ k:'agentjoin', w, name });
-          await bumpFeed({ w: name, a: 'entered THE ARENA', c: 'seal' });
+          await bumpFeed({ w: name, actorWallet:w, a: 'entered THE ARENA', c: 'seal' });
         }
         return res.json({ ok:true, agent: p.agent, admitted: true, qualified: !!p.qualified,
           entry: p.x402Entry ? 'x402-toll-to-champion' : 'rcx',
@@ -3018,7 +3020,7 @@ module.exports = async (req, res) => {
         await bumpStats({ stakers: turnOn ? 1 : -1 });
         await append({ k: 'stake', w, on: turnOn });
       }
-      if (turnOn) await bumpFeed({ w: shortW(w), a: 'joined the STAKERS · holding pays daily', c: 'seal' });
+      if (turnOn) await bumpFeed({ w: shortW(w), actorWallet:w, a: 'joined the STAKERS · holding pays daily', c: 'seal' });
       return res.json({ ok: true, on: turnOn });
     }
 
@@ -3472,7 +3474,7 @@ module.exports = async (req, res) => {
       }
       // One log entry per signature, even across a crash-retry. (h70)
       await appendOnce(`anchor:${sig}`, { k:'anchor', w, i: d.i, sig, xp: paidXp });
-      await bumpFeed({ w: shortW(w), a: `ANCHORED the log on-chain · entry #${d.i}${paidXp ? ' · +25 XP' : ''}`, c:'hit', sig });
+      await bumpFeed({ w: shortW(w), actorWallet:w, a: `ANCHORED the log on-chain · entry #${d.i}${paidXp ? ' · +25 XP' : ''}`, c:'hit', sig });
       return res.json({ ok:true, i: d.i, xp: paidXp, note: paidXp ? null : 'anchored - XP pays once per wallet per day' });
     }
 

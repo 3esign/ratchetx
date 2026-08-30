@@ -283,6 +283,10 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .kl:last-child{border:0}
 .kl .t{color:var(--dim);font-size:9.5px;width:38px;flex:none}
 .kl .wl{color:var(--ice);flex:none}
+.kl.agent-entry .t,.kl.agent-entry .wl{color:var(--gold)}
+.kl .actor-tag{display:block;font:700 9px/1.4 var(--mono);letter-spacing:.06em;color:var(--gold);overflow-wrap:anywhere}
+.kl .activity-text{min-width:0;overflow-wrap:anywhere}
+.feed-legend{font:500 9px/1.5 var(--mono);color:var(--dim);margin:-4px 0 9px}
 .warden{display:grid;grid-template-columns:1fr 320px;gap:16px}
 @media(max-width:920px){.warden{grid-template-columns:1fr}}
 .wcard{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:26px}
@@ -676,7 +680,7 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
           border-radius:8px;padding:9px 10px;cursor:pointer;word-break:break-all;margin-bottom:4px"></div>
       </details>
     </div>
-    <div class="panel" style="flex:0 0 auto;display:flex;flex-direction:column;min-height:0"><h3>KILL FEED</h3><div class="kill" id="kill"></div></div>
+    <div class="panel" style="flex:0 0 auto;display:flex;flex-direction:column;min-height:0"><h3>KILL FEED</h3><p class="feed-legend">GOLD = AGENT · DEMO = TEST CREDITS, NO PRIZES</p><div class="kill" id="kill"></div></div>
   </div>
   </div>
 </div></div></section>
@@ -1272,10 +1276,14 @@ function paint(){
   // feed + ladder
   const fx=el=>setHTML(el,s.feed.map(f=>{
     const d=new Date(f.t);
+    const agentEntry=f.actor&&['registered-agent','demo-agent'].includes(f.actor.kind);
+    const tag=agentEntry?`<span class="actor-tag">${f.mode==='demo'?'AGENT · DEMO':'AGENT'} · ${esc(f.actor.name)}</span>`:'';
+    const proof=agentEntry&&/^\/gauntlet\?handle=[a-z0-9]{3,18}$/.test(f.proofUrl||'')
+      ?` · <a href="${f.proofUrl}" style="color:var(--gold)">proof ↗</a>`:'';
     // every money event carries its signature: the feed line IS the receipt
-    const tx=f.sig?` · <a href="https://solscan.io/tx/${encodeURIComponent(f.sig)}" target="_blank" rel="noopener" style="color:var(--ice);text-decoration:none">tx ↗</a>`:"";
-    return`<div class="kl"><span class="t">${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span>
-      <span class="wl">${esc(f.w)}</span><span style="color:${f.c==='hit'?'var(--grn)':f.c==='miss'?'var(--red)':'var(--ink2)'}">${esc(f.a)}${tx}</span></div>`}).join("")||'<div class="empty">QUIET — BE FIRST</div>');
+    const tx=f.sig?` · <a href="https://solscan.io/tx/${encodeURIComponent(f.sig)}" target="_blank" rel="noopener" style="color:${agentEntry?'var(--gold)':'var(--ice)'};text-decoration:none">tx ↗</a>`:"";
+    return`<div class="kl ${agentEntry?'agent-entry':''}"><span class="t" title="${esc(d.toLocaleString())}">${String(d.getHours()).padStart(2,"0")}:${String(d.getMinutes()).padStart(2,"0")}</span>
+      <span class="wl">${esc(f.w)}</span><span class="activity-text" style="color:${agentEntry?'var(--gold)':f.c==='hit'?'var(--grn)':f.c==='miss'?'var(--red)':'var(--ink2)'}">${tag}${esc(f.a)}${tx}${proof}</span></div>`}).join("")||'<div class="empty">QUIET — BE FIRST</div>');
   fx($("kill"));fx($("duelfeed"));
   $("seas").textContent=s.season.toUpperCase();
   $("potN").textContent=" · POT "+Math.floor(s.stats.pot||0).toLocaleString()+" 🔥";

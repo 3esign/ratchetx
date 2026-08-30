@@ -1,6 +1,6 @@
 {
   "productionRelease": "h98-2026-08-30",
-  "candidateRelease": null,
+  "candidateRelease": "h99-2026-08-30",
   "productionDeployment": "dpl_aUSupktX6fEXcDcgN14PqALNSXq1",
   "productionCodeCommit": "263836c",
   "versions": {
