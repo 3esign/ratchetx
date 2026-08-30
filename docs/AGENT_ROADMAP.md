@@ -3,6 +3,14 @@
 Updated: 2026-08-30. This file is the canonical long-term plan. `docs/AGENT_STATE.json`
 is the machine-readable version contract; `docs/AGENT_HANDOFF.md` is the live work handoff.
 
+Latest checkpoint: h103 is deployed; h104 cross-device owner management is the
+candidate described in RELEASE_H104.md. The one-owner Bankr acceptance pilot has
+completed (evidence in RELEASE_H103.md); user reports all grants revoked.
+Historical h101 pilot prerequisites below must not trigger another live run.
+Next product acceptance is independent-user onboarding with separate authority,
+not repeated spending on the owner's account. Credential rotation/quota closure
+remain operator backlog; no second-user or global-X availability claim is made.
+
 Long-term architecture decision (2026-08-30): migrate all authoritative game and
 economic state to Solana. [On-chain migration plan](ONCHAIN_MIGRATION_PLAN.md)
 defines G0-G6, legacy credit preservation, oracle-selection gates, chain-enforced

@@ -42,6 +42,10 @@
     }
     return payload;
   }
+  function discoveryPayload(wallet, issuedAt, nonce) {
+    if (!WALLET.test(wallet) || !HEX32.test(nonce)) throw new Error('INVALID_OWNER_COMMAND');
+    return {domain: DOMAIN, network: NETWORK, version: VERSION, action: 'owner_discover', wallet, issuedAt, nonce};
+  }
   function hex(bytes) { return Array.from(bytes, n => n.toString(16).padStart(2, '0')).join(''); }
   async function createCredential(wallet, webCrypto) {
     if (!WALLET.test(wallet) || !webCrypto || !webCrypto.subtle) throw new Error('SECURE_BROWSER_REQUIRED');
@@ -90,6 +94,8 @@
       NETWORK_UNCERTAIN: 'The server response was not received. An action may have completed. Check owner status with the session ID; do not assume failure or automatically retry.',
       AVAILABILITY_UNREACHABLE: 'The read-only check could not reach the server. This check did not create a session or spend credits. Use CHECK AVAILABILITY to try the check again.',
       AVAILABILITY_BAD_RESPONSE: 'The read-only check did not receive a valid availability response. This check did not create a session or spend credits. Use CHECK AVAILABILITY to check again.',
+      OWNER_READ_UNREACHABLE: 'The signed read could not reach the server. This read did not create, revoke or spend a permission. You can explicitly sign a new lookup; no automatic retry will run.',
+      OWNER_READ_BAD_RESPONSE: 'The signed read did not return a valid owner-matched result. No permission was changed by this read. Sign a new lookup to check again.',
       BAD_RESPONSE: 'The server did not return a valid confirmation. Check owner status before taking another action.'
     };
     if (known[code]) return known[code];
@@ -104,7 +110,7 @@
     let provider = null, connectedWallet = '', busy = false, apiEnabled = false, clockOffset = 0;
     let apiCheckState = 'unchecked';
     let lastSession = null, rememberedOwner = '', visibleCredential = '';
-    let accountHandler = null, disconnectHandler = null;
+    let accountHandler = null, disconnectHandler = null, ownerEpoch = 0;
     const limitIds = ['maxAttempts', 'maxStakeCredits', 'maxGrossCredits', 'durationMinutes', 'minIntervalSeconds'];
     function currentOptions() { return readLimits(Object.fromEntries(limitIds.map(id => [id, el(id).value]))); }
     function setMessage(message, kind) {
@@ -120,6 +126,7 @@
     function resetSessionDisplay() {
       lastSession = null; el('sessionPanel').hidden = true; el('recoveryPanel').hidden = true;
       el('sessionDetails').textContent = ''; el('pendingRequest').textContent = '';
+      el('sessionObserved').textContent = ''; el('sessionIdSummary').textContent = '';
     }
     function updateControls() {
       const hasId = HEX32.test(el('sessionId').value.trim());
@@ -139,10 +146,17 @@
         : !el('consent').checked ? 'Availability passed. Review the limits and tick the consent checkbox to enable signing.'
         : 'Ready. SIGN & CREATE SESSION will request one wallet message signature for the displayed limits.';
       el('ownerStatus').disabled = busy || !connectedWallet || !hasId;
-      el('revokeSession').disabled = busy || !connectedWallet || !hasId;
+      el('findSession').disabled = busy || !connectedWallet;
+      el('revokeSession').disabled = busy || !connectedWallet || !hasId || !!(lastSession && lastSession.revokedAt != null);
+      el('copySessionId').disabled = busy || !connectedWallet || !lastSession;
+      el('ownerReadiness').textContent = busy ? 'Finish the current wallet or server request before continuing.'
+        : !connectedWallet ? 'Connect the same owner wallet. Then SIGN & FIND MY SESSION works on this device without an ID or play credential.'
+        : lastSession ? 'Status is a snapshot. Sign & check status to refresh. Revoking requires its own separate signature.'
+        : hasId ? 'You can check the entered ID, or sign to find this wallet’s latest session. No play permission is created.'
+        : 'Signed on another device? SIGN & FIND MY SESSION retrieves this wallet’s latest retained permission. No session ID or play credential needed.';
       el('recoverSession').disabled = busy || !connectedWallet || !lastSession || !HEX32.test(lastSession.pending || '');
       limitIds.forEach(id => { el(id).disabled = busy; });
-      el('consent').disabled = busy; el('sessionId').disabled = busy;
+      el('consent').disabled = busy; el('sessionId').disabled = busy; el('rememberSession').disabled = busy;
       el('forgetSession').disabled = busy;
     }
     function summary() {
@@ -175,6 +189,7 @@
     }
     async function request(method, body) {
       const controller = new AbortController(), timer = win.setTimeout(() => controller.abort(), 20000);
+      const ownerRead = body && ['owner-discover', 'owner-status'].includes(body.op);
       try {
         let response;
         try {
@@ -182,14 +197,14 @@
             redirect: 'error', referrerPolicy: 'no-referrer', signal: controller.signal,
             headers: body ? {'Content-Type': 'application/json', 'Accept': 'application/json'} : {'Accept': 'application/json'},
             ...(body ? {body: JSON.stringify(body)} : {})});
-        } catch { throw new Error(method === 'GET' ? 'AVAILABILITY_UNREACHABLE' : 'NETWORK_UNCERTAIN'); }
+        } catch { throw new Error(method === 'GET' ? 'AVAILABILITY_UNREACHABLE' : ownerRead ? 'OWNER_READ_UNREACHABLE' : 'NETWORK_UNCERTAIN'); }
         captureServerTime(response);
         let data;
-        try { data = await response.json(); } catch { throw new Error(method === 'GET' ? 'AVAILABILITY_BAD_RESPONSE' : 'BAD_RESPONSE'); }
+        try { data = await response.json(); } catch { throw new Error(method === 'GET' ? 'AVAILABILITY_BAD_RESPONSE' : ownerRead ? 'OWNER_READ_BAD_RESPONSE' : 'BAD_RESPONSE'); }
         if (!response.ok || !data || data.ok !== true) {
           const code = data && (data.code || data.reason || data.error);
           throw new Error(method === 'GET' ? 'AVAILABILITY_BAD_RESPONSE'
-            : typeof code === 'string' && /^[A-Z_0-9]{1,64}$/.test(code) ? code : 'BAD_RESPONSE');
+            : typeof code === 'string' && /^[A-Z_0-9]{1,64}$/.test(code) ? code : ownerRead ? 'OWNER_READ_BAD_RESPONSE' : 'BAD_RESPONSE');
         }
         return data;
       } finally { win.clearTimeout(timer); }
@@ -221,31 +236,52 @@
       return connectedWallet;
     }
     async function signAndPost(op, payload) {
-      const owner = assertOwner(), signingProvider = provider;
+      const owner = assertOwner(), signingProvider = provider, epoch = ownerEpoch;
       if (payload.wallet !== owner) throw new Error('WALLET_CHANGED');
       const serialized = JSON.stringify(payload);
       el('signedPayload').textContent = serialized;
       setMessage('Review and approve the ' + op + ' message in your wallet. No transaction will be sent.');
       const reply = await signingProvider.signMessage(encoder.encode(serialized), 'utf8');
-      if (provider !== signingProvider || assertOwner() !== owner
+      if (ownerEpoch !== epoch || provider !== signingProvider || assertOwner() !== owner
         || (reply && reply.publicKey && String(reply.publicKey) !== owner)) throw new Error('WALLET_CHANGED');
       const signature = signatureBase64(reply, value => win.btoa(value));
       if (op === 'grant') {
         el('sessionId').value = payload.id; resetSessionDisplay(); remember();
       }
       setMessage('Waiting for the server to confirm ' + op + '. Do not close this page.');
-      return request('POST', {op, payload: serialized, signature});
+      const data = await request('POST', {op, payload: serialized, signature});
+      // A response cannot populate a different wallet/device lifecycle, even if
+      // the account changes away and back while the request is in flight.
+      if (ownerEpoch !== epoch || provider !== signingProvider || assertOwner() !== owner) throw new Error('WALLET_CHANGED');
+      return data;
     }
-    function showSession(session) {
-      const owner = assertOwner(), id = el('sessionId').value.trim();
+    function validateSession(session, owner, id) {
       if (!session || session.wallet !== owner || session.id !== id || !session.limits
-        || !Number.isSafeInteger(session.attempts) || !Number.isSafeInteger(session.grossCredits)
+        || !HEX32.test(id) || session.budgetRule !== 'gross-reserved-attempts-v1'
+        || !Number.isSafeInteger(session.attempts) || session.attempts < 0 || session.attempts > session.limits.maxAttempts
+        || !Number.isSafeInteger(session.grossCredits) || session.grossCredits < 0 || session.grossCredits > session.limits.maxGrossCredits
         || !Number.isSafeInteger(session.expiresAt)
+        || (session.revokedAt !== null && !Number.isSafeInteger(session.revokedAt))
         || (session.pending !== null && !HEX32.test(session.pending || ''))) throw new Error('BAD_RESPONSE');
+      const l = session.limits;
+      if (!Number.isSafeInteger(l.maxAttempts) || l.maxAttempts < 1 || l.maxAttempts > 100
+        || !Number.isSafeInteger(l.maxStakeCredits) || l.maxStakeCredits < 100 || l.maxStakeCredits > 10000
+        || !Number.isSafeInteger(l.maxGrossCredits) || l.maxGrossCredits < l.maxStakeCredits || l.maxGrossCredits > 100000
+        || !Number.isSafeInteger(l.minIntervalMs) || l.minIntervalMs < 5000 || l.minIntervalMs > 600000) throw new Error('BAD_RESPONSE');
+    }
+    function showSession(session, observedAt = now()) {
+      const owner = assertOwner(), id = el('sessionId').value.trim();
+      validateSession(session, owner, id);
       lastSession = session;
-      el('sessionState').textContent = session.revokedAt != null ? 'REVOKED' : session.expiresAt <= now() ? 'EXPIRED' : 'ACTIVE';
+      el('sessionState').textContent = session.revokedAt != null ? 'REVOKED' : session.expiresAt <= now() ? 'EXPIRED'
+        : session.pending ? 'PENDING' : session.attempts >= session.limits.maxAttempts || session.grossCredits >= session.limits.maxGrossCredits ? 'ALLOWANCE USED' : 'ACTIVE';
       el('attemptsUsed').textContent = session.attempts + ' / ' + session.limits.maxAttempts;
       el('creditsUsed').textContent = session.grossCredits + ' / ' + session.limits.maxGrossCredits;
+      el('sessionIdSummary').textContent = session.id;
+      el('sessionObserved').textContent = 'Status checked ' + new Date(observedAt).toLocaleString() + '. This is the latest retained permission; older replaced sessions are not listed.';
+      el('sessionLimits').textContent = 'Per-attempt cap: ' + session.limits.maxStakeCredits.toLocaleString()
+        + ' play-credits · minimum interval: ' + session.limits.minIntervalMs / 1000 + ' seconds.';
+      el('ownerRecord').setAttribute('href', '/api/agent?id=' + encodeURIComponent(owner));
       el('sessionExpiry').textContent = 'Expires ' + new Date(session.expiresAt).toLocaleString()
         + '. Reserved attempts can consume allowance without debiting credits; revocation does not cancel work already reserved.';
       // Explicit allowlist prevents a future API field from rendering a credential/hash/signature.
@@ -267,10 +303,32 @@
       remember(); updateControls();
     }
     async function ownerStatus() {
+      resetSessionDisplay();
       const payload = ownerPayload('owner_status', assertOwner(), el('sessionId').value.trim(), now());
       const data = await signAndPost('owner-status', payload);
       showSession(data.session);
       setMessage('Owner status checked. No shot was submitted.', 'success');
+    }
+    async function findSession() {
+      const owner = assertOwner();
+      if (!win.crypto || typeof win.crypto.getRandomValues !== 'function') throw new Error('SECURE_BROWSER_REQUIRED');
+      const nonce = hex(win.crypto.getRandomValues(new Uint8Array(16)));
+      clearCredential(); resetSessionDisplay();
+      const data = await signAndPost('owner-discover', discoveryPayload(owner, now(), nonce));
+      if (data.wallet !== owner || data.nonce !== nonce || data.readOnly !== true
+        || data.discovery !== 'latest-retained-session-v1' || !Number.isSafeInteger(data.observedAt)
+        || data.observedAt > now() + 5000 || data.observedAt < now() - 300000
+        || !Object.prototype.hasOwnProperty.call(data, 'session')) throw new Error('OWNER_READ_BAD_RESPONSE');
+      if (data.session === null) {
+        el('sessionId').value = ''; el('rememberSession').checked = false; remember();
+        setMessage('No retained session was found for this wallet. No permission was created. If you used a different wallet, connect that owner instead.', 'success');
+        return;
+      }
+      try { validateSession(data.session, owner, data.session.id); } catch { throw new Error('OWNER_READ_BAD_RESPONSE'); }
+      // Populate only after owner, nonce and the complete display record match.
+      el('sessionId').value = data.session.id;
+      showSession(data.session, data.observedAt);
+      setMessage('Session found for this wallet. Review its status and limits below. This lookup did not grant, revoke or spend any permission; the private credential cannot be recovered here.', 'success');
     }
     async function run(task) {
       if (busy) return;
@@ -279,6 +337,7 @@
       finally { busy = false; updateControls(); }
     }
     function dropWallet() {
+      ownerEpoch++;
       if (provider && typeof provider.removeListener === 'function') {
         if (accountHandler) provider.removeListener('accountChanged', accountHandler);
         if (disconnectHandler) provider.removeListener('disconnect', disconnectHandler);
@@ -305,6 +364,7 @@
       }
       setMessage('Wallet connected. Checking availability without signing or creating permission.', 'success');
       await checkApi();
+      if (connectedWallet === wallet && provider === candidate) setMessage('Wallet connected. Use SIGN & FIND MY SESSION to manage an existing permission on this device, or review a new grant below. Connecting did not sign or create permission.', 'success');
     }));
     el('disconnectWallet').addEventListener('click', () => run(async () => {
       const previous = provider; dropWallet();
@@ -336,6 +396,14 @@
       });
     });
     el('ownerStatus').addEventListener('click', () => run(ownerStatus));
+    el('findSession').addEventListener('click', () => run(findSession));
+    el('copySessionId').addEventListener('click', () => run(async () => {
+      if (!lastSession || lastSession.wallet !== assertOwner() || lastSession.id !== el('sessionId').value.trim()) return;
+      try {
+        await win.navigator.clipboard.writeText(lastSession.id);
+        setMessage('Session ID copied. This is not the private play credential.', 'success');
+      } catch { setMessage('Could not copy the ID. Select the displayed session ID to copy it manually.', 'error'); }
+    }));
     el('revokeSession').addEventListener('click', () => run(async () => {
       const payload = ownerPayload('revoke', assertOwner(), el('sessionId').value.trim(), now());
       const result = await signAndPost('revoke', payload);
@@ -351,7 +419,7 @@
       resetSessionDisplay();
       setMessage('Recovery request confirmed. No shot was retried and no allowance was restored. Sign & check status to inspect the resulting receipt.', 'success');
     }));
-    el('sessionId').addEventListener('input', () => { resetSessionDisplay(); updateControls(); });
+    el('sessionId').addEventListener('input', () => { ownerEpoch++; clearCredential(); resetSessionDisplay(); updateControls(); });
     el('sessionId').addEventListener('change', remember);
     el('rememberSession').addEventListener('change', remember);
     el('forgetSession').addEventListener('click', () => {
@@ -374,7 +442,7 @@
         setMessage('Private credential copied to this device’s clipboard. Paste only into your protected per-user secret store, never chat. Clear clipboard history afterward.', 'success');
       } catch { setMessage('Clipboard access failed. Use the owner-visible field to copy privately. Never paste the credential into chat.', 'error'); }
     });
-    win.addEventListener('pagehide', () => { clearCredential(); el('consent').checked = false; });
+    win.addEventListener('pagehide', () => { ownerEpoch++; clearCredential(); resetSessionDisplay(); el('consent').checked = false; });
     doc.addEventListener('visibilitychange', () => {
       if (doc.hidden) { el('credential').type = 'password'; el('toggleCredential').textContent = 'SHOW'; el('toggleCredential').setAttribute('aria-pressed', 'false'); }
     });
@@ -391,7 +459,7 @@
     }
   }
   if (typeof module === 'object' && module.exports) {
-    module.exports = {readLimits, grantPayload, ownerPayload, createCredential, signatureBase64, safeError, mount};
+    module.exports = {readLimits, grantPayload, ownerPayload, discoveryPayload, createCredential, signatureBase64, safeError, mount};
   } else if (typeof window !== 'undefined' && typeof document !== 'undefined') {
     mount(window, document);
   }

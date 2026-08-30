@@ -20,7 +20,7 @@
     <main>
       <div class="eyebrow">PRIVATE OWNER SETUP · SOLANA MAINNET</div>
       <h1>Your wallet.<br><span>Your limits.</span></h1>
-      <p class="lead">Give your agent a short-lived permission to use this wallet’s <strong>existing Ratchet play-credits</strong>. Approve the limits here, then keep the credential in your own protected secret store.</p>
+      <p class="lead">Manage your agent’s permission from <strong>any device with the same owner wallet</strong>, or approve a new bounded session using existing Ratchet play-credits. Your private credential stays in your own protected secret store.</p>
 
       <section class="card" aria-labelledby="readyTitle">
         <div class="row between"><h2 id="readyTitle">01 · CHECK & CONNECT</h2><button id="checkApi" type="button">CHECK AVAILABILITY</button></div>
@@ -32,8 +32,37 @@
         <p class="note">Use Phantom or a compatible injected Solana wallet. Connecting is not consent to play. This wallet may be different from your Bankr wallet: its credits and public record stay separate. A credential is not proof of Bankr identity.</p>
       </section>
 
+      <div id="actionStatus" class="message" role="status" hidden></div>
+
+      <section class="card" aria-labelledby="ownerTitle">
+        <h2 id="ownerTitle">02 · FIND & MANAGE YOUR SESSION</h2>
+        <p>Signed on your phone and now on your laptop? Connect the <strong>same owner wallet</strong>, then sign a read-only lookup. No session ID or play credential is needed.</p>
+        <div class="actions"><button id="findSession" class="primary" type="button" aria-describedby="ownerReadiness" disabled>SIGN & FIND MY SESSION</button></div>
+        <p id="ownerReadiness" class="note" role="status" aria-live="polite">Connect your owner wallet to find its latest retained session.</p>
+        <p class="note">One message signature, no transaction or network fee. This lookup does not create, revoke, recover or play. It can find the latest retained permission, including an expired or revoked one; it cannot restore the private credential or list replaced sessions.</p>
+        <details><summary>Have a session ID? Enter it manually</summary>
+          <p class="note">An ID saved on another device is not automatically copied here. Signed lookup above finds the latest retained permission for this wallet.</p>
+          <label><span>Session ID (32 lowercase hexadecimal characters)</span><input id="sessionId" type="text" maxlength="32" pattern="[a-f0-9]{32}" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="Session ID, not the private credential"></label>
+          <label class="consent"><input type="checkbox" id="rememberSession"><span>Remember only this session ID and wallet address on this device. Never save the credential.</span></label>
+          <p id="rememberedWallet" class="note" hidden></p>
+          <button id="forgetSession" type="button">FORGET LOCAL ID</button>
+        </details>
+        <div class="actions"><button id="ownerStatus" type="button" disabled>SIGN & CHECK STATUS</button><button id="revokeSession" class="danger" type="button" disabled>SIGN & REVOKE</button></div>
+        <p class="note">Each owner action requires its own exact message signature. Connecting or finding a session never approves revocation.</p>
+        <div id="sessionPanel" hidden>
+          <p class="note">Selected session ID</p><p class="wallet" id="sessionIdSummary"></p>
+          <button id="copySessionId" type="button" disabled>COPY SESSION ID</button>
+          <div class="metrics"><div class="metric"><span>SESSION</span><b id="sessionState">—</b></div><div class="metric"><span>RESERVED ATTEMPTS</span><b id="attemptsUsed">—</b></div><div class="metric"><span>GROSS CREDITS RESERVED</span><b id="creditsUsed">—</b></div></div>
+          <p id="sessionLimits" class="note"></p><p id="sessionExpiry" class="note"></p><p id="sessionObserved" class="note"></p>
+          <p><a id="ownerRecord" href="/agents">Open this wallet’s public forecasting record</a></p>
+          <details><summary>Inspect owner status and request receipts</summary><pre id="sessionDetails"></pre></details>
+          <div class="recover" id="recoveryPanel" hidden><h3>A reserved attempt needs reconciliation.</h3><p>Recovery checks the existing request and fences a late dispatcher where safe. It does <strong>not</strong> submit or automatically retry a shot, restore gross allowance, or guarantee an immediate result.</p><p class="wallet" id="pendingRequest"></p><button id="recoverSession" type="button">SIGN & RECOVER THIS ATTEMPT</button></div>
+        </div>
+        <details><summary>Inspect the exact message being signed</summary><pre id="signedPayload">No signature requested yet. The grant contains a credential hash, never the credential itself.</pre></details>
+      </section>
+
       <section class="card" aria-labelledby="grantTitle">
-        <h2 id="grantTitle">02 · APPROVE A BOUNDED SESSION</h2>
+        <h2 id="grantTitle">03 · APPROVE A NEW BOUNDED SESSION</h2>
         <p>Only an existing admitted Ratchet arena agent with play-credits can use this permission. This page does not fund, register, reload, or place a forecast for you.</p>
         <form id="grantForm" autocomplete="off">
           <div class="fields">
@@ -51,34 +80,17 @@
           <button id="checkApiNearGrant" type="button" hidden>CHECK AVAILABILITY</button>
           <p class="note">One canonical message signature; no transaction or network fee. Creating a new session replaces this wallet’s previous session if no attempt is unresolved. We never ask for a seed phrase or private key.</p>
         </form>
-        <details><summary>Inspect the exact message being signed</summary><pre id="signedPayload">No signature requested yet. The grant contains a credential hash, never the credential itself.</pre></details>
       </section>
-
-      <div id="actionStatus" class="message" role="status" hidden></div>
 
       <section id="credentialPanel" class="card secret" aria-labelledby="credentialTitle" hidden>
         <h2 id="credentialTitle">YOUR PRIVATE PLAY CREDENTIAL</h2>
         <p><strong>Never paste this in chat, a prompt, a URL, a screenshot, a shared app, or public storage.</strong> Anyone holding it can use the remaining play allowance.</p>
         <label><span>Credential — shown only after the server confirms the grant</span><input id="credential" type="password" readonly autocomplete="off" spellcheck="false" autocapitalize="off" data-lpignore="true" data-1p-ignore></label>
         <div class="actions"><button id="copyCredential" type="button">COPY PRIVATE CREDENTIAL</button><button id="toggleCredential" type="button" aria-pressed="false">SHOW</button><button id="clearCredential" type="button">CLEAR FROM THIS PAGE</button></div>
-        <ol><li>Open <strong>Bankr Settings → Env Vars</strong>, if your runtime provides it. Create your own protected per-user secret named <code>RATCHET_PLAY_SESSION</code>. Paste the value only into that private form, never into a prompt or chat.</li><li>Restrict use to <strong>ratchetx.xyz only</strong>. Have the runtime inject the secret privately for Ratchet session requests. Never put an app owner’s credential into a viewer session or a shared app. Do not use the reserved <code>BANKR_</code> name prefix.</li><li>Clear the credential here after saving it. Clearing does not revoke it; use the owner controls below to revoke.</li></ol>
+        <ol><li>Open <strong>Bankr Settings → Env Vars</strong>, if your runtime provides it. Create your own protected per-user secret named <code>RATCHET_PLAY_SESSION</code>. Paste the value only into that private form, never into a prompt or chat.</li><li>Restrict use to <strong>ratchetx.xyz only</strong>. Have the runtime inject the secret privately for Ratchet session requests. Never put an app owner’s credential into a viewer session or a shared app. Do not use the reserved <code>BANKR_</code> name prefix.</li><li>Clear the credential here after saving it. Clearing does not revoke it; use the owner controls above to revoke.</li></ol>
         <p class="note">This page does not integrate with or verify Bankr’s secret storage. If your runtime cannot keep and inject a private per-user secret, stop: do not send the credential in chat. The credential is not saved by this page and cannot be recovered after leaving; copy only on your own device and clear clipboard history when finished.</p>
       </section>
 
-      <section class="card" aria-labelledby="ownerTitle">
-        <h2 id="ownerTitle">03 · INSPECT, RECOVER OR REVOKE</h2>
-        <p>These controls need a fresh signature from the session’s owner wallet, never the play credential. Enter the non-secret session ID to return later.</p>
-        <label><span>Session ID (32 lowercase hexadecimal characters)</span><input id="sessionId" type="text" maxlength="32" pattern="[a-f0-9]{32}" autocomplete="off" spellcheck="false" autocapitalize="off" placeholder="Session ID, not the private credential"></label>
-        <label class="consent"><input type="checkbox" id="rememberSession"><span>Remember only this session ID and wallet address on this device. Never save the credential.</span></label>
-        <p id="rememberedWallet" class="note" hidden></p>
-        <div class="actions"><button id="ownerStatus" type="button" disabled>SIGN & CHECK STATUS</button><button id="revokeSession" class="danger" type="button" disabled>SIGN & REVOKE</button><button id="forgetSession" type="button">FORGET LOCAL ID</button></div>
-        <div id="sessionPanel" hidden>
-          <div class="metrics"><div class="metric"><span>SESSION</span><b id="sessionState">—</b></div><div class="metric"><span>RESERVED ATTEMPTS</span><b id="attemptsUsed">—</b></div><div class="metric"><span>GROSS CREDITS RESERVED</span><b id="creditsUsed">—</b></div></div>
-          <p id="sessionExpiry" class="note"></p>
-          <details><summary>Inspect owner status and request receipts</summary><pre id="sessionDetails"></pre></details>
-          <div class="recover" id="recoveryPanel" hidden><h3>A reserved attempt needs reconciliation.</h3><p>Recovery checks the existing request and fences a late dispatcher where safe. It does <strong>not</strong> submit or automatically retry a shot, restore gross allowance, or guarantee an immediate result.</p><p class="wallet" id="pendingRequest"></p><button id="recoverSession" type="button">SIGN & RECOVER THIS ATTEMPT</button></div>
-        </div>
-      </section>
       <noscript><p class="message error">JavaScript is required to connect your wallet and sign a bounded session. No permission has been granted.</p></noscript>
     </main>
     <footer>RATCHET-OWNED OFF-CHAIN PLAY PERMISSION · EXISTING CREDITS ONLY · NOT AN ON-CHAIN TOKEN APPROVAL<br>Private means owner-controlled setup, not an anonymous wallet or private forecast record.</footer>

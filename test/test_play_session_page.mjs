@@ -54,7 +54,8 @@ assert.match(html, /id="checkApiNearGrant" type="button" hidden/);
 assert.doesNotMatch(source, /console\.|innerHTML|sessionStorage|URLSearchParams|history\.|signTransaction|signAndSendTransaction/);
 assert.equal((source.match(/localStorage\.setItem/g) || []).length, 1, 'only one explicitly allowlisted metadata write');
 
-function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, postMode = 'ok', preflightMode = 'ok', preflightHook} = {}) {
+function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, postMode = 'ok', preflightMode = 'ok', preflightHook,
+  initialSession = null, discoveryMode = 'ok', postHook} = {}) {
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   const nodes = Object.fromEntries(ids.map(id => [id, {value: defaults[id] || '', checked: false,
     hidden: false, disabled: false, textContent: '', type: id === 'credential' ? 'password' : 'text',
@@ -62,7 +63,7 @@ function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, post
     setAttribute(key, value) {this.attributes[key] = value;}}]));
   const requests = [], signed = [], clipboard = [], storage = new Map(saved ? [['ratchet.play-session.owner-metadata.v1', JSON.stringify(saved)]] : []);
   const providerEvents = new Map(), windowEvents = new Map(), documentEvents = new Map();
-  let session, responseMode = postMode, readinessMode = preflightMode;
+  let session = initialSession, responseMode = postMode, readinessMode = preflightMode;
   const provider = {publicKey: wallet, connect: async () => ({publicKey: provider.publicKey}), disconnect: async () => {},
     on: (name, fn) => providerEvents.set(name, fn), removeListener: name => providerEvents.delete(name),
     signMessage: async (bytes, encoding) => {signed.push({payload: new TextDecoder().decode(bytes), encoding}); return signReply ? signReply(provider) : {signature: new Uint8Array(64), publicKey: provider.publicKey};}};
@@ -97,10 +98,25 @@ function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, post
           session = {wallet: payload.wallet, id: payload.id, expiresAt: payload.expiresAt, revokedAt: null,
             limits: payload.limits, budgetRule: payload.budgetRule, attempts: 0, grossCredits: 0, pending: null, requests: {}};
           data = {ok: true, id: payload.id};
+        } else if (body.op === 'owner-discover') {
+          assert.equal(JSON.stringify(payload), JSON.stringify(server.canonicalDiscovery(payload, payload.issuedAt)));
+          assert.equal(Object.hasOwn(payload, 'id'), false, 'discovery requires no session ID');
+          assert.equal(Object.hasOwn(init.headers, 'Authorization'), false, 'owner signatures never attach bearer');
+          data = {ok: true, readOnly: true, discovery: 'latest-retained-session-v1', wallet: payload.wallet,
+            nonce: payload.nonce, observedAt: Date.now(), session};
+          if (discoveryMode === 'wrong-wallet') data.wallet = wallet2;
+          else if (discoveryMode === 'wrong-nonce') data.nonce = '0'.repeat(32);
+          else if (discoveryMode === 'missing-session') delete data.session;
+          else if (discoveryMode === 'stale-time') data.observedAt -= 600000;
+          else if (discoveryMode === 'wrong-session-wallet') data.session = {...session, wallet: wallet2};
+          else if (discoveryMode === 'wrong-id') data.session = {...session, id: '<invalid>'};
+          else if (discoveryMode === 'bad-limits') data.session = {...session, limits: {...session.limits, maxAttempts: '1'}};
+          else assert.equal(discoveryMode, 'ok');
         } else if (body.op === 'owner-status') data = {ok: true, session};
         else if (body.op === 'recover') {session.pending = null; data = {ok: true, recovered: true};}
         else if (body.op === 'revoke') {session.revokedAt = Date.now(); data = {ok: true, revoked: true};}
         else assert.fail('unexpected op');
+        if (postHook) await postHook({body, data, nodes, provider, providerEvents, windowEvents, storage, requests});
       }
       return {ok: true, headers: {get: key => key === 'date' ? new Date().toUTCString() : null}, json: async () => {
         if ((!body && readinessMode === 'bad-json') || (body && responseMode === 'bad-json')) throw new Error('Invalid JSON');
@@ -115,7 +131,7 @@ function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, post
     assert.equal(nodes.connectWallet.disabled, false, 'controller completes within the fixture deadline');
   }
   return {nodes, requests, signed, clipboard, storage, dispatch, provider, providerEvents, windowEvents,
-    session: () => session, responseMode: value => {responseMode = value;}, preflightMode: value => {readinessMode = value;}};
+    session: () => session, setSession: value => {session = value;}, responseMode: value => {responseMode = value;}, preflightMode: value => {readinessMode = value;}};
 }
 
 const f = fixture();
@@ -284,5 +300,102 @@ const local = fixture({origin: 'http://localhost:8080'});
 await local.dispatch('connectWallet'); assert.equal(local.signed.length, 0); assert.equal(local.requests.length, 0);
 assert.match(local.nodes.actionStatus.textContent, /official setup page/);
 await local.dispatch('checkApi'); assert.equal(local.requests.length, 1, 'unsigned local preflight is testable');
+
+// Fresh device, no storage and no bearer: explicit scoped discovery only.
+const sampleSession = () => ({wallet, id: 'd'.repeat(32), expiresAt: Date.now() + 1800000, revokedAt: null,
+  limits: options.limits, budgetRule: 'gross-reserved-attempts-v1', attempts: 0, grossCredits: 0, pending: null, requests: {},
+  tokenHash: 'hidden-token-hash', token: 'hidden-credential', revision: 'hidden-revision'});
+const otherDevice = fixture({initialSession: sampleSession()});
+assert.equal(otherDevice.nodes.findSession.disabled, true);
+await otherDevice.dispatch('connectWallet');
+assert.equal(otherDevice.nodes.findSession.disabled, false, 'same wallet can discover without any local ID');
+assert.equal(otherDevice.nodes.revokeSession.disabled, true, 'revoke still needs an exact selected ID');
+assert.equal(otherDevice.signed.length, 0, 'connect never discovers with a hidden signature');
+assert.match(otherDevice.nodes.ownerReadiness.textContent, /another device/);
+await otherDevice.dispatch('findSession');
+assert.deepEqual(otherDevice.requests.filter(r => r.body).map(r => r.body.op), ['owner-discover']);
+assert.equal(otherDevice.signed.length, 1);
+assert.equal(otherDevice.nodes.sessionId.value, 'd'.repeat(32));
+assert.equal(otherDevice.nodes.sessionIdSummary.textContent, 'd'.repeat(32));
+assert.equal(otherDevice.nodes.sessionState.textContent, 'ACTIVE');
+assert.equal(otherDevice.nodes.revokeSession.disabled, false);
+assert.equal(otherDevice.nodes.grantSession.disabled, true, 'discovery does not imply grant consent');
+assert.equal(otherDevice.nodes.credential.value, '');
+assert.equal(otherDevice.nodes.credentialPanel.hidden, true);
+assert.equal(otherDevice.storage.size, 0, 'discovery does not automatically persist metadata');
+assert.doesNotMatch(otherDevice.nodes.sessionDetails.textContent, /hidden-token|hidden-credential|hidden-revision/);
+assert.match(otherDevice.nodes.ownerRecord.attributes.href, /^\/api\/agent\?id=/);
+await otherDevice.dispatch('copySessionId');
+assert.deepEqual(otherDevice.clipboard, ['d'.repeat(32)], 'copy ID is separate from credential copy');
+await otherDevice.dispatch('revokeSession');
+assert.equal(otherDevice.signed.length, 2, 'revocation needs its own new signature');
+assert.deepEqual(otherDevice.requests.filter(r => r.body).map(r => r.body.op), ['owner-discover', 'revoke']);
+await otherDevice.dispatch('findSession');
+assert.equal(otherDevice.nodes.sessionState.textContent, 'REVOKED');
+assert.equal(otherDevice.nodes.revokeSession.disabled, true, 'confirmed revoked record does not invite another revoke');
+
+for (const [patch, state] of [[{expiresAt: Date.now() - 10000}, 'EXPIRED'],
+  [{attempts: 1, grossCredits: 100}, 'ALLOWANCE USED'], [{pending: 'a'.repeat(32), attempts: 1, grossCredits: 100}, 'PENDING']]) {
+  const f = fixture({initialSession: {...sampleSession(), ...patch}});
+  await f.dispatch('connectWallet'); await f.dispatch('findSession');
+  assert.equal(f.nodes.sessionState.textContent, state);
+  assert.equal(f.nodes.recoveryPanel.hidden, state !== 'PENDING');
+  assert.deepEqual(f.requests.filter(r => r.body).map(r => r.body.op), ['owner-discover']);
+}
+
+const absent = fixture({initialSession: sampleSession()});
+await absent.dispatch('connectWallet'); await absent.dispatch('findSession');
+absent.setSession(null);
+await absent.dispatch('findSession');
+assert.match(absent.nodes.actionStatus.textContent, /No retained session was found/);
+assert.equal(absent.nodes.sessionId.value, '');
+assert.equal(absent.nodes.sessionPanel.hidden, true);
+assert.equal(absent.nodes.recoveryPanel.hidden, true);
+assert.equal(absent.nodes.revokeSession.disabled, true);
+assert.equal(absent.requests.filter(r => r.body?.op === 'grant').length, 0);
+
+for (const discoveryMode of ['wrong-wallet', 'wrong-nonce', 'missing-session', 'stale-time', 'wrong-session-wallet', 'wrong-id', 'bad-limits']) {
+  const f = fixture({initialSession: sampleSession(), discoveryMode});
+  await f.dispatch('connectWallet'); await f.dispatch('findSession');
+  assert.equal(f.nodes.sessionPanel.hidden, true, discoveryMode);
+  assert.equal(f.nodes.sessionId.value, '', discoveryMode + ': untrusted response cannot populate an ID');
+  assert.equal(f.storage.size, 0);
+  assert.match(f.nodes.actionStatus.textContent, /signed read did not return a valid owner-matched result/);
+  assert.equal(f.requests.filter(r => r.body).length, 1, 'no retry after mismatched read');
+}
+for (const postMode of ['network-error', 'bad-json']) {
+  const f = fixture({postMode, initialSession: sampleSession()});
+  await f.dispatch('connectWallet'); await f.dispatch('findSession');
+  assert.match(f.nodes.actionStatus.textContent, /signed read/);
+  assert.doesNotMatch(f.nodes.actionStatus.textContent, /action may have completed/);
+  assert.equal(f.nodes.sessionPanel.hidden, true);
+  assert.equal(f.requests.filter(r => r.body).length, 1);
+}
+for (const event of ['disconnect', 'accountChanged', 'pagehide']) {
+  const f = fixture({initialSession: sampleSession(), postHook: ({body, providerEvents, windowEvents}) => {
+    if (body.op === 'owner-discover') (event === 'pagehide' ? windowEvents : providerEvents).get(event)();
+  }});
+  await f.dispatch('connectWallet'); await f.dispatch('findSession');
+  assert.equal(f.nodes.sessionPanel.hidden, true, event + ': late response cannot restore a stale owner lifecycle');
+  assert.equal(f.nodes.sessionId.value, '');
+  assert.equal(f.storage.size, 0);
+  assert.match(f.nodes.actionStatus.textContent, /wallet account changed/);
+}
+const lostOwner = fixture({initialSession: sampleSession(), signReply: provider => {
+  provider.publicKey = wallet2; return {signature: new Uint8Array(64), publicKey: wallet2};
+}});
+await lostOwner.dispatch('connectWallet'); await lostOwner.dispatch('findSession');
+assert.equal(lostOwner.requests.filter(r => r.body).length, 0, 'wallet switch at discovery signature prevents POST');
+
+const replaced = fixture();
+await replaced.dispatch('connectWallet'); replaced.nodes.consent.checked = true;
+await replaced.dispatch('grantForm', 'submit');
+assert.match(replaced.nodes.credential.value, /^rxp1\./);
+replaced.setSession(sampleSession());
+await replaced.dispatch('findSession');
+assert.equal(replaced.nodes.credential.value, '', 'finding another latest session clears the old visible bearer');
+assert.equal(replaced.nodes.sessionId.value, 'd'.repeat(32));
+assert.equal(new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1])).size,
+  [...html.matchAll(/\bid="([^"]+)"/g)].length, 'reordered management UI has unique IDs');
 
 console.log('PASS bounded session page: read-only connect readiness, failure/retry/disconnect gates, exact signed contracts, consent, private credential lifecycle, metadata isolation, owner recovery/revoke and failure guards');

@@ -29,7 +29,9 @@ paid infrastructure or background scheduler changes. Existing credits and
 outcomes remain server-canonical using validated Pyth PriceUpdateV2 on Solana
 mainnet. `independentPythReplay:false` remains explicit.
 
-## Completed pilot versus remaining test
+## Pre-release pilot versus then-remaining test
+
+Historical release baseline; see the post-release evidence below for the new pilot.
 
 The prior owner-session pilot used wallet
 HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM and shot 16c371304581.
@@ -43,7 +45,7 @@ second HTTP POST. Bankr later returned HTTP401 SESSION_REVOKED. Do not reuse
 the old capability, restore its allowance or create a replacement on the user's
 behalf. This release does not spend credits or authorize another live attempt.
 
-## Next user-approved acceptance
+## Acceptance procedure prepared at release
 
 Read the installed skill's `references/owner-session-test.md`. The owner creates
 one new 30-minute permission, ideally 1 attempt / 100 per-attempt / 100 gross;
@@ -128,7 +130,7 @@ Workspace knowledge reference88 is indexed; Solana skill-lint passes. The
 optional Python frontmatter validator remains unavailable without PyYAML;
 discovery/version tests validate the changed skill's frontmatter and exact digest.
 
-### Message to Bankr before authorizing a new pilot
+### Historical readiness message before the new pilot
 
 Update the RatchetX skill from 3esign/ratchetx to1.2.1. Read the linked
 owner-session-test.md and locate session-smoke.mjs in the installed skill.
@@ -137,3 +139,62 @@ and a persistent private journal in this runtime. Do not print the secret.
 Do not execute a forecast yet: the previous grant was revoked. No demo
 fallback, replacement grant, transfers or reloads. Report readiness and the
 runtime; I will create and explicitly authorize the next bounded session.
+
+## Post-release owner pilot: 2026-08-30
+
+Two runs must remain separate. The completed run is shot `6cce3cd29ed6`, not
+the prior pilot `16c371304581` or the subsequent stopped preflight.
+
+Bankr reported protected exact-key readiness and the deployed runner SHA256
+`1b6592079a27a912de796d3aa035e67540b7514f982b5cbd850d7998efcc98b5`.
+After owner approval, it reported session `f1ffe81cfcf79d1c6c3a0d54e4f0c72a`,
+target `H496698Q0` (SOL higher in five minutes), YES/p0.55/stake100,
+submit HTTP200 and immediate identical replay HTTP200 with idempotent:true.
+Its reported receipt hash is
+`8ead305b5d0852cf88e22dbc6ad1d6e0f8e5f9dd06dce932f87e2026e50f2fd8`.
+The private wire journal was not independently inspected. Label wire replay
+Bankr-reported PASS, not independently captured HTTP evidence.
+
+Independent unauthenticated public checks, server dates 18:18:12-13UTC:
+
+- [Shot proof](https://ratchetx.xyz/api/shot?w=HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM&id=6cce3cd29ed6):
+  HTTP200, HIT, stake100, return170, rounded entry106.08/exit106.25;
+  settlement sample 2026-08-30T18:15:43.000Z; RATCHET SERVER authority and
+  pyth-first-observed-after-v3 rule. SHA256 of its published v2 preimage
+  exactly matches `68c5080d72d14a03f17eacde4f1cb19f585ac6750ed31ad835e97f5216a964ba`.
+- [Owner report](https://ratchetx.xyz/api/agent?id=HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM):
+  HTTP200, latest settled shot6cce3cd29ed6, statedCalls15, Brier0.2945,
+  PROVISIONAL. Total76 calls describe cumulative owner history, not76 Bankr runs.
+- Bankr's balance1452112 ->1452012 ->1452182 is consistent with100 stake and
+  170 return (+70 net). HIT/p0.55 contributes squared error0.2025.
+  Prior rounded Brier0.3011 across14 calls is compatible with0.2945 across15;
+  rounded public aggregates do not independently reveal the exact raw sum.
+
+The public commitment binds wallet, shot ID, side and salt; it does not alone
+bind p/stake, prove Bankr authorship or prove HTTP replay. The report's legacy
+`not-yet-replayed` is an AgentRun receipt status, with HTTP replay explicitly
+`not-assessed`; it does not contradict this separately reported wire test.
+No token transfer/reload or new on-chain canonical game settlement is shown.
+One owner-scoped Bankr pilot is not global availability to all X users and one
+HIT is not evidence of forecasting skill.
+
+### Separate stopped preflight
+
+User then relayed another run: FAILED / ORACLE_STALE / phase:preflight,
+journalRetained:false, immediateWireReplayVerified:false, debitObserved:false.
+This means the new run reported no shot dispatch; those false values are not
+a revision of the completed run's evidence. Preserve its original private
+journal. The stopped report supplies no independently checked session identity.
+
+In the pinned runner, age>45s is checked before authenticated session status
+and again after status but before journal creation. Thus this output does not
+prove the grant is active, unused or usable. It also does not identify whether
+publisher cadence, RPC observation or shared relay freshness caused the age.
+Do not relax the45s boundary, force an oracle refresh per agent, retry with a
+fresh ID, create a grant or switch to demo to obtain another green result.
+
+Closure: preserve completed evidence; owner revokes the latest permission.
+Revocation of this new grant is not yet confirmed (the earlier grant was revoked).
+This documentation update made no authenticated requests, forecasts, balance
+writes, runtime changes or deployment. Reassess onboarding friction separately
+from the completed bounded acceptance test.

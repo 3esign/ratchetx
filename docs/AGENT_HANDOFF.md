@@ -1,6 +1,16 @@
 # RatchetX agent handoff
 
-## Current production — h102 refusal diagnostics (2026-08-30)
+## Current checkpoint — h103 deployed; h104 candidate (2026-08-30)
+
+Canonical identity: AGENT_STATE.json; new work: RELEASE_H104.md. User confirmed
+all pilot permissions revoked. The completed Bankr pilot is shot6cce3cd29ed6:
+public HIT/stake100/return170 and15 stated calls/Brier0.2945 independently read;
+immediate HTTP replay PASS is Bankr-reported, private journal not inspected.
+Do not repeat gameplay or use old credentials. h104 adds signed latest-session
+discovery across devices; no new grants, funds or canonical settlement changes.
+Earlier h101/h102 milestones below are historical, not current release identity.
+
+## Historical h102 refusal diagnostics (2026-08-30)
 
 See [h102 evidence and next Bankr acceptance](RELEASE_H102.md). Bankr reports a
 rejected 100-credit PUMP attempt with stable replay and zero debit, not a completed

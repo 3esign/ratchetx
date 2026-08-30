@@ -1,5 +1,15 @@
 # Bounded Bankr play sessions
 
+Current addition: h104 candidate adds `owner-discover`; see RELEASE_H104.md.
+POST uses the existing signed owner envelope, action `owner_discover`, exact
+field order domain/network/version/action/wallet/issuedAt/nonce. No ID or bearer;
+the128-bit nonce is echoed with wallet and observedAt. Fresh signed reads may
+repeat without nonce consumption. One strict wallet-key read returns latest
+retained session or null; invalid/unreadable storage returns503, never absence.
+Expired/revoked/pending records remain inspectable. No player access or settlement.
+The current h103 pilot completed and user reports all grants revoked; earlier
+deployment/acceptance paragraphs below preserve historical implementation context.
+
 2026-08-30 — h102 is deployed and publicly verified. Migration 003 is installed.
 The HTTP adapter, canonical shot bridge, owner recovery and private consent page
 are live. See RELEASE_H102.md for the current artifact and RELEASE_H101.md for
