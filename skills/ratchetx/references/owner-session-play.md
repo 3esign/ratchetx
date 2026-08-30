@@ -94,10 +94,10 @@ node scripts/session-play.mjs --resume --wallet OWNER --session-id SESSION_ID --
 
 Do not sleep beyond runtime limits. If interrupted, retain the journal and use
 status-only resume in a later user-requested turn. No scheduler is installed.
-Never create a new journal/ID to replay uncertain execution. Refused or uncertain
+Never create a new journal/ID to replay uncertain execution.
 If the original journal is unavailable, stop execution and offer status-only
 inspection; it cannot recover missing immediate wire-replay evidence.
-reserved attempts can consume gross session allowance without spending credits;
+Refused or uncertain reserved attempts can consume gross session allowance without spending credits;
 a VOID refund does not restore that allowance.
 
 ## Reporting and stop rules
