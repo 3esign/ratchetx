@@ -34,7 +34,9 @@ grant acknowledgement, never saved by the page or placed in a URL.
 
 Bankr's documented Settings → Env Vars is the intended protected per-user entry
 surface. Suggested name: `RATCHET_PLAY_SESSION`. User enters the value ONLY in
-the private form, not a chat/prompt/tweet. The runtime must inject it server-side
+the private form, not a chat/prompt/tweet. This is a Bankr per-user CLIENT secret,
+not a Ratchet/Vercel server environment variable or shared application credential.
+The runtime must inject it server-side
 for ratchetx.xyz only, refuse redirects, redact logs and never fall back to an
 app owner's secret for another viewer. Those hosted Bankr properties still need
 a real private-runtime acceptance test; this page cannot verify them.

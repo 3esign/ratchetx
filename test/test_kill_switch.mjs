@@ -122,7 +122,19 @@ for (const d of DOCS) {
   for (const m of read(d).matchAll(/`(RATCHET_[A-Z0-9_]{3,})`/g)) named.add(m[1]);
 }
 ok(named.size >= 5, `documents name at least a few env vars (found ${named.size})`);
+// This name belongs to each Bankr user's protected CLIENT secret store, not
+// Ratchet/Vercel configuration. A server-side read would create a dangerous
+// shared-owner fallback. Pin the one external name and test that inverse rule;
+// do not suppress unknown RATCHET_* variables with a broad exemption.
+const CLIENT_ONLY = new Set(['RATCHET_PLAY_SESSION']);
+for (const name of CLIENT_ONLY) {
+  ok(named.has(name) && read('play-session.html').includes(name),
+    `${name} must remain documented in the owner setup flow`);
+  ok(!code.includes('process.env.' + name),
+    `${name} is per-user client authority, never a shared Ratchet server credential`);
+}
 for (const name of [...named].sort()) {
+  if (CLIENT_ONLY.has(name)) continue;
   ok(code.includes('process.env.' + name),
     `the docs tell an operator to set ${name}, but no code reads it`);
 }
