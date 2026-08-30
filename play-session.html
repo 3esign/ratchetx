@@ -24,7 +24,7 @@
 
       <section class="card" aria-labelledby="readyTitle">
         <div class="row between"><h2 id="readyTitle">01 · CHECK & CONNECT</h2><button id="checkApi" type="button">CHECK AVAILABILITY</button></div>
-        <p>This check is public and unsigned. It does not connect a wallet, create a session, or play.</p>
+        <p>This check is public and unsigned. It also runs automatically after you connect a wallet. It does not create a session or play.</p>
         <div id="preflightStatus" class="message" role="status">Availability has not been checked.</div>
         <p id="clockNote" class="note" hidden></p>
         <div class="actions"><button class="primary" id="connectWallet" type="button">CONNECT SOLANA WALLET</button><button id="disconnectWallet" type="button" disabled>DISCONNECT</button></div>
@@ -46,7 +46,9 @@
           <div class="summary" id="grantSummary" aria-live="polite"></div>
           <div class="warning"><p><strong>The budget counts gross reserved attempts, not successful shots.</strong> A rejected or uncertain attempt can use the allowance without spending game credits. A VOID credit refund does not restore session allowance.</p><p>Revoking blocks new reservations. An attempt reserved before revocation may still finish. An unresolved attempt blocks new attempts and replacement sessions until recovery.</p></div>
           <label class="consent"><input type="checkbox" id="consent" required><span>I approve these limits for the connected wallet. I understand the credential can spend existing play-credits and affect this wallet’s public record, including after revocation for an already-reserved attempt. It cannot transfer tokens, reload credits, create another grant, or access my private keys.</span></label>
-          <button class="primary" id="grantSession" type="submit" disabled>SIGN & CREATE SESSION</button>
+          <button class="primary" id="grantSession" type="submit" aria-describedby="grantReadiness" disabled>SIGN & CREATE SESSION</button>
+          <p id="grantReadiness" class="note" role="status" aria-live="polite">Connect your wallet and check availability before signing.</p>
+          <button id="checkApiNearGrant" type="button" hidden>CHECK AVAILABILITY</button>
           <p class="note">One canonical message signature; no transaction or network fee. Creating a new session replaces this wallet’s previous session if no attempt is unresolved. We never ask for a seed phrase or private key.</p>
         </form>
         <details><summary>Inspect the exact message being signed</summary><pre id="signedPayload">No signature requested yet. The grant contains a credential hash, never the credential itself.</pre></details>

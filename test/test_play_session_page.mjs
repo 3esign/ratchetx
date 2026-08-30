@@ -48,10 +48,13 @@ assert.match(html, /ratchetx.xyz only/);
 assert.match(html, /Never paste this in chat/);
 assert.match(html, /href="\/"/);
 assert.match(html, /href="\/agents"/);
+assert.match(html, /id="grantSession"[^>]*aria-describedby="grantReadiness"/);
+assert.match(html, /id="grantReadiness"[^>]*role="status"[^>]*aria-live="polite"/);
+assert.match(html, /id="checkApiNearGrant" type="button" hidden/);
 assert.doesNotMatch(source, /console\.|innerHTML|sessionStorage|URLSearchParams|history\.|signTransaction|signAndSendTransaction/);
 assert.equal((source.match(/localStorage\.setItem/g) || []).length, 1, 'only one explicitly allowlisted metadata write');
 
-function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, postMode = 'ok'} = {}) {
+function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, postMode = 'ok', preflightMode = 'ok', preflightHook} = {}) {
   const ids = [...html.matchAll(/\bid="([^"]+)"/g)].map(match => match[1]);
   const nodes = Object.fromEntries(ids.map(id => [id, {value: defaults[id] || '', checked: false,
     hidden: false, disabled: false, textContent: '', type: id === 'credential' ? 'password' : 'text',
@@ -59,7 +62,7 @@ function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, post
     setAttribute(key, value) {this.attributes[key] = value;}}]));
   const requests = [], signed = [], clipboard = [], storage = new Map(saved ? [['ratchet.play-session.owner-metadata.v1', JSON.stringify(saved)]] : []);
   const providerEvents = new Map(), windowEvents = new Map(), documentEvents = new Map();
-  let session, responseMode = postMode;
+  let session, responseMode = postMode, readinessMode = preflightMode;
   const provider = {publicKey: wallet, connect: async () => ({publicKey: provider.publicKey}), disconnect: async () => {},
     on: (name, fn) => providerEvents.set(name, fn), removeListener: name => providerEvents.delete(name),
     signMessage: async (bytes, encoding) => {signed.push({payload: new TextDecoder().decode(bytes), encoding}); return signReply ? signReply(provider) : {signature: new Uint8Array(64), publicKey: provider.publicKey};}};
@@ -76,6 +79,15 @@ function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, post
       assert.equal(init.mode, 'same-origin'); assert.equal(init.credentials, 'omit'); assert.equal(init.redirect, 'error');
       assert.equal(init.cache, 'no-store'); assert.equal(init.referrerPolicy, 'no-referrer');
       let data = {ok: true, enabled: true, network: 'solana:mainnet', rights: ['shot', 'status']};
+      if (!body) {
+        assert.equal(init.method, 'GET', 'availability is a read-only GET');
+        if (preflightHook) await preflightHook({nodes, provider, providerEvents, requests});
+        if (readinessMode === 'network-error') throw new Error('Network failed');
+        else if (readinessMode === 'disabled') data.enabled = false;
+        else if (readinessMode === 'wrong-network') data.network = 'solana:devnet';
+        else if (readinessMode === 'wrong-contract') data.rights = ['shot', 'status', 'transfer'];
+        else assert.equal(readinessMode, 'ok', 'known preflight fixture mode');
+      }
       if (body) {
         if (responseMode === 'network-error') throw new Error('Network failed');
         const payload = JSON.parse(body.payload);
@@ -99,22 +111,32 @@ function fixture({origin = 'https://ratchetx.xyz', saved = null, signReply, post
     assert.equal(nodes.connectWallet.disabled, false, 'controller completes within the fixture deadline');
   }
   return {nodes, requests, signed, clipboard, storage, dispatch, provider, providerEvents, windowEvents,
-    session: () => session, responseMode: value => {responseMode = value;}};
+    session: () => session, responseMode: value => {responseMode = value;}, preflightMode: value => {readinessMode = value;}};
 }
 
 const f = fixture();
 assert.equal(f.requests.length, 0, 'loading never automatically connects, signs, checks or plays');
 assert.equal(f.nodes.grantSession.disabled, true);
-await f.dispatch('checkApi');
-assert.equal(f.signed.length, 0);
+assert.equal(f.nodes.checkApiNearGrant.hidden, true, 'nearby retry is hidden until a wallet is connected');
 await f.dispatch('connectWallet');
+assert.equal(f.requests.length, 1, 'connecting without a manual check automatically checks availability exactly once');
+assert.equal(f.requests[0].init.method, 'GET');
+assert.equal(f.requests.filter(req => req.body).length, 0, 'connecting sends no grant or play request');
 assert.equal(f.signed.length, 0, 'connecting is not a hidden grant');
 assert.equal(f.nodes.grantSession.disabled, true, 'explicit consent is still required');
+assert.equal(f.nodes.consent.checked, false);
+assert.match(f.nodes.grantReadiness.textContent, /Availability passed.*consent checkbox/);
+assert.equal(f.nodes.checkApiNearGrant.hidden, true, 'successful readiness hides the nearby retry');
 await f.dispatch('grantForm', 'submit');
 assert.equal(f.signed.length, 0, 'submitting without consent cannot sign');
+assert.equal(f.requests.length, 1, 'submitting without consent does not even recheck availability');
 f.nodes.consent.checked = true;
 await f.dispatch('consent', 'change');
+assert.equal(f.nodes.grantSession.disabled, false, 'wallet plus passed readiness plus explicit consent enables signing');
+assert.match(f.nodes.grantReadiness.textContent, /^Ready\./);
+assert.equal(f.requests.length, 1, 'consent itself performs no network action');
 await f.dispatch('grantForm', 'submit');
+assert.equal(f.requests.filter(req => req.init.method === 'GET').length, 2, 'explicit submission rechecks availability before signing');
 assert.equal(f.signed.length, 1);
 assert.equal(f.nodes.credentialPanel.hidden, false);
 assert.equal(f.nodes.credential.type, 'password');
@@ -144,6 +166,66 @@ await f.dispatch('revokeSession');
 assert.equal(f.nodes.credential.value, ''); assert.equal(f.nodes.credentialPanel.hidden, true);
 assert.match(f.nodes.actionStatus.textContent, /previously reserved attempt may still finish/);
 assert.equal(f.requests.some(req => req.body && req.body.op === 'shot'), false, 'setup has no shot transport');
+
+for (const mode of ['disabled', 'network-error', 'wrong-network', 'wrong-contract']) {
+  const unavailable = fixture({preflightMode: mode});
+  await unavailable.dispatch('connectWallet');
+  unavailable.nodes.consent.checked = true;
+  await unavailable.dispatch('consent', 'change');
+  assert.equal(unavailable.requests.length, 1, mode + ': failed readiness is not automatically retried');
+  assert.equal(unavailable.requests.filter(req => req.body).length, 0, mode + ': failed readiness cannot send a POST');
+  assert.equal(unavailable.signed.length, 0, mode + ': failed readiness never requests a signature');
+  assert.equal(unavailable.nodes.grantSession.disabled, true, mode + ': consent cannot override failed readiness');
+  assert.equal(unavailable.nodes.checkApiNearGrant.hidden, false, mode + ': nearby retry is visible');
+  assert.equal(unavailable.nodes.checkApiNearGrant.disabled, false, mode + ': nearby retry is usable');
+  assert.match(unavailable.nodes.grantReadiness.textContent, /Availability has not passed.*CHECK AVAILABILITY/);
+  assert.equal(unavailable.nodes.grantReadiness.textContent.includes(unavailable.nodes.preflightStatus.textContent), true,
+    mode + ': the nearby explanation includes the actual readiness failure');
+  assert.match(unavailable.nodes.preflightStatus.textContent, mode === 'network-error' ? /Availability check failed/ : /unavailable or its contract does not match/);
+  unavailable.preflightMode('ok');
+  await unavailable.dispatch('checkApiNearGrant');
+  assert.equal(unavailable.requests.length, 2, mode + ': explicit retry makes exactly one more GET');
+  assert.equal(unavailable.requests.every(req => req.init.method === 'GET' && !req.body), true);
+  assert.equal(unavailable.signed.length, 0, mode + ': retry never signs automatically');
+  assert.equal(unavailable.nodes.walletAddress.textContent, wallet, mode + ': retry preserves the connected owner');
+  assert.equal(unavailable.nodes.consent.checked, true, mode + ': retry preserves explicit consent for unchanged limits');
+  assert.equal(unavailable.nodes.grantSession.disabled, false, mode + ': a successful retry unlocks signing');
+  assert.equal(unavailable.nodes.checkApiNearGrant.hidden, true);
+
+  unavailable.preflightMode(mode);
+  await unavailable.dispatch('grantForm', 'submit');
+  assert.equal(unavailable.requests.length, 3, mode + ': submission rechecks newly changed availability');
+  assert.equal(unavailable.requests.every(req => req.init.method === 'GET' && !req.body), true);
+  assert.equal(unavailable.signed.length, 0, mode + ': readiness loss before submission fails before wallet signing');
+  assert.equal(unavailable.nodes.grantSession.disabled, true);
+  assert.equal(unavailable.nodes.credentialPanel.hidden, true);
+  assert.match(unavailable.nodes.actionStatus.textContent, /Session creation is not currently available/);
+}
+
+for (const disconnectAt of [1, 2]) {
+  const disconnected = fixture({preflightHook: ({nodes, providerEvents, requests}) => {
+    assert.equal(nodes.grantSession.disabled, true, 'signing stays disabled while readiness is checking');
+    assert.equal(nodes.checkApiNearGrant.disabled, true, 'readiness cannot be dispatched concurrently');
+    assert.match(nodes.grantReadiness.textContent, /Checking availability.*read-only/);
+    if (requests.length === disconnectAt) providerEvents.get('disconnect')();
+  }});
+  await disconnected.dispatch('connectWallet');
+  if (disconnectAt === 2) {
+    disconnected.nodes.consent.checked = true;
+    await disconnected.dispatch('consent', 'change');
+    assert.equal(disconnected.nodes.grantSession.disabled, false);
+    await disconnected.dispatch('grantForm', 'submit');
+  }
+  assert.equal(disconnected.requests.length, disconnectAt);
+  assert.equal(disconnected.requests.every(req => req.init.method === 'GET' && !req.body), true,
+    'a disconnect during either readiness gate sends no POST');
+  assert.equal(disconnected.signed.length, 0, 'a completed readiness response cannot sign for a disconnected wallet');
+  assert.equal(disconnected.nodes.walletAddress.textContent, 'No wallet connected.');
+  assert.equal(disconnected.nodes.consent.checked, false, 'disconnect clears consent even during a pending readiness check');
+  assert.equal(disconnected.nodes.grantSession.disabled, true, 'late successful readiness cannot unlock a disconnected wallet');
+  assert.equal(disconnected.nodes.checkApiNearGrant.hidden, true);
+  assert.match(disconnected.nodes.grantReadiness.textContent, /Connect your Solana wallet/);
+}
 
 const restored = fixture({saved: {wallet: wallet2, id: 'c'.repeat(32)}});
 assert.equal(restored.nodes.sessionId.value, 'c'.repeat(32));
@@ -193,4 +275,4 @@ await local.dispatch('connectWallet'); assert.equal(local.signed.length, 0); ass
 assert.match(local.nodes.actionStatus.textContent, /official setup page/);
 await local.dispatch('checkApi'); assert.equal(local.requests.length, 1, 'unsigned local preflight is testable');
 
-console.log('PASS bounded session page: exact signed contracts, consent, private credential lifecycle, metadata isolation, owner recovery/revoke and failure guards');
+console.log('PASS bounded session page: read-only connect readiness, failure/retry/disconnect gates, exact signed contracts, consent, private credential lifecycle, metadata isolation, owner recovery/revoke and failure guards');

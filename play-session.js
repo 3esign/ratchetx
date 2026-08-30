@@ -100,6 +100,7 @@
   function mount(win, doc) {
     const el = id => doc.getElementById(id);
     let provider = null, connectedWallet = '', busy = false, apiEnabled = false, clockOffset = 0;
+    let apiCheckState = 'unchecked';
     let lastSession = null, rememberedOwner = '', visibleCredential = '';
     let accountHandler = null, disconnectHandler = null;
     const limitIds = ['maxAttempts', 'maxStakeCredits', 'maxGrossCredits', 'durationMinutes', 'minIntervalSeconds'];
@@ -123,7 +124,18 @@
       el('connectWallet').disabled = busy;
       el('disconnectWallet').disabled = busy || !connectedWallet;
       el('checkApi').disabled = busy;
+      el('checkApiNearGrant').disabled = busy;
+      el('checkApiNearGrant').hidden = !connectedWallet || apiEnabled;
       el('grantSession').disabled = busy || !connectedWallet || !apiEnabled || !el('consent').checked;
+      el('grantReadiness').textContent = apiCheckState === 'checking'
+        ? 'Checking availability. This is read-only; no signature or play permission is requested.'
+        : busy ? 'Finish the current wallet or server request before continuing.'
+        : !connectedWallet ? 'Connect your Solana wallet above. Availability is checked automatically after connecting.'
+        : !apiEnabled ? (apiCheckState === 'unchecked'
+          ? 'Check availability below to enable signing. This check cannot create a session or spend credits.'
+          : 'Availability has not passed. Use CHECK AVAILABILITY below to retry. ' + el('preflightStatus').textContent)
+        : !el('consent').checked ? 'Availability passed. Review the limits and tick the consent checkbox to enable signing.'
+        : 'Ready. SIGN & CREATE SESSION will request one wallet message signature for the displayed limits.';
       el('ownerStatus').disabled = busy || !connectedWallet || !hasId;
       el('revokeSession').disabled = busy || !connectedWallet || !hasId;
       el('recoverSession').disabled = busy || !connectedWallet || !lastSession || !HEX32.test(lastSession.pending || '');
@@ -180,18 +192,21 @@
       } finally { win.clearTimeout(timer); }
     }
     async function checkApi() {
+      apiEnabled = false; apiCheckState = 'checking';
       el('preflightStatus').textContent = 'Checking the same-origin session API…';
+      updateControls();
       try {
         const data = await request('GET');
         apiEnabled = data.enabled === true && data.network === NETWORK && Array.isArray(data.rights)
           && data.rights.length === 2 && data.rights.includes('shot') && data.rights.includes('status');
+        apiCheckState = apiEnabled ? 'passed' : 'unavailable';
         el('preflightStatus').className = 'message' + (apiEnabled ? ' success' : '');
         el('preflightStatus').textContent = apiEnabled
           ? 'Available · Solana mainnet · shot + status only · existing admitted arena agent and credits required. This check did not grant any authority.'
           : 'Session creation is unavailable or its contract does not match this page. Owner controls remain available; no permission was granted.';
         return apiEnabled;
       } catch (error) {
-        apiEnabled = false; el('preflightStatus').className = 'message error';
+        apiEnabled = false; apiCheckState = 'failed'; el('preflightStatus').className = 'message error';
         el('preflightStatus').textContent = 'Availability check failed. ' + safeError(error);
         return false;
       } finally { updateControls(); }
@@ -270,6 +285,7 @@
       el('signedPayload').textContent = 'No current signed payload.'; updateControls();
     }
     el('checkApi').addEventListener('click', () => run(checkApi));
+    el('checkApiNearGrant').addEventListener('click', () => run(checkApi));
     el('connectWallet').addEventListener('click', () => run(async () => {
       if (win.location.origin !== 'https://' + DOMAIN) throw new Error('WRONG_ORIGIN');
       const candidate = win.phantom && win.phantom.solana || win.solana;
@@ -284,7 +300,8 @@
         disconnectHandler = () => { dropWallet(); setMessage('Wallet disconnected. The credential was cleared here; an existing grant is not revoked.'); };
         provider.on('accountChanged', accountHandler); provider.on('disconnect', disconnectHandler);
       }
-      setMessage('Wallet connected. Review availability and limits before granting; connecting did not create permission.', 'success');
+      setMessage('Wallet connected. Checking availability without signing or creating permission.', 'success');
+      await checkApi();
     }));
     el('disconnectWallet').addEventListener('click', () => run(async () => {
       const previous = provider; dropWallet();
