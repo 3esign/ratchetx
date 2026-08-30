@@ -1,8 +1,8 @@
 {
-  "productionRelease": "h98-2026-08-30",
-  "candidateRelease": "h99-2026-08-30",
-  "productionDeployment": "dpl_aUSupktX6fEXcDcgN14PqALNSXq1",
-  "productionCodeCommit": "263836c",
+  "productionRelease": "h99-2026-08-30",
+  "candidateRelease": null,
+  "productionDeployment": "dpl_5SZi4uRvaepFPtXE5ugnbMQaGBi8",
+  "productionCodeCommit": "29adfc2",
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.2.0",
@@ -30,13 +30,13 @@
     "canonicalSettlement": "ratchet-server",
     "independentPythReplay": false
   },
-  "lastVerifiedDeploy": "2026-08-30T08:49:39.847Z",
+  "lastVerifiedDeploy": "2026-08-30T09:14:15.283Z",
   "localRecoveryDeployment": "deployed",
   "productionStatus": {
     "core": "healthy",
     "premiumProof": "retained PriceUpdateV2 evidence is fully prevalidated; invalid or expired evidence fails before payment",
     "pythAgentLayer": "atomically ordered shared accepted snapshot on all seven feeds; bounded observed path; agent reads do not trigger new oracle requests",
-    "playerActivity": "75 rows live after bounded recovery; house Fleet excluded before retention; read-only activity-feed inspection available",
+    "playerActivity": "78 rows verified: 75 player events including 17 registered-agent events, plus 3 separately labeled Bankr demos; gold agent text, proof links, no demo payouts or player-retention eviction; house Fleet excluded",
     "rankedEconomy": "Pyth reads consume no RCX; accepted seals stake play credits; VOID refunds; RCX remains the ranked reload rail"
   }
 }

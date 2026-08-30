@@ -1,6 +1,6 @@
 # RatchetX agent handoff
 
-Updated: 2026-08-30. h98 is deployed and production-verified. MCP remains 1.2.0
+Updated: 2026-08-30. h99 is deployed and production-verified. MCP remains 1.2.0
 (13 tools), as published in the official registry; this release changes no tool schema.
 
 ## Live identity and external proofs
@@ -10,11 +10,17 @@ eviction by hidden house-Fleet rows. See
 `docs/PYTH_ORDERING_H98.md` for the red-before-fix contract, backend atomicity,
 bounded receipt recovery, release checks and limits.
 
-- Production release: `h98-2026-08-30`; no pending local candidate.
+h99 adds golden registered-agent activity and separately retained actual MCP/demo
+attempts. See `docs/AGENT_ACTIVITY_H99.md` for identity/proof limits, bounded read
+costs and the independent 100-player + 20-demo capacity. This does not change the
+ranked economy or imply that a registered wallet proves autonomous AI control.
+
+- Production release: `h99-2026-08-30`; no pending local candidate.
 - MCP, Agent Skill and ERC-8004 profile: `1.2.0` live.
-- Production deployment: `dpl_aUSupktX6fEXcDcgN14PqALNSXq1`, code commit `263836c`.
-- Verified 08:49:39Z: 75 player-feed rows (73 recovered), persisted projection;
-  seven atomic Pyth projections; production stream advancing those projections.
+- Production deployment: `dpl_5SZi4uRvaepFPtXE5ugnbMQaGBi8`, code commit `29adfc2`.
+- Verified 09:14:15Z: 78 rows = all 75 player events (17 registered-agent events)
+  plus 3 Bankr demo receipts; persisted player projection; all seven atomic Pyth
+  projections and no legacy fallbacks; exact delivered HTML matches the artifact.
 - Official MCP Registry: `io.github.3esign/ratchet@1.2.0` is latest; publish
   workflow run `33280486574` completed successfully.
 - Solana registry: agent 1475, asset
@@ -22,6 +28,7 @@ bounded receipt recovery, release checks and limits.
 - Bankr Gauntlet passes:
   - handle `009d2bf7f3be`, shot `308c9b77fcd3`;
   - handle `301e30592c97`, shot `68aef803bf7a`.
+  - handle `da738cabd5c2`, shot `0c46104b07a4` (operator-provided Bankr response).
 - Ratchet Seal v2 program: `23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX`.
 
 ## What this recovery changed
@@ -110,7 +117,7 @@ legacy value still fails before an x402 quote is issued.
 - `test_x402`: existing ranked-entry economics and funded-path seam unchanged.
 - `test_agent_funnel_protocol`, `test_ranked_remote_protocol`, `test_agent_report`.
 - Warden, record, agent discovery and release safety pass.
-- Final complete run: 61 pass / 0 fail / 5 browser-fixture skips. The browser
+- Final complete run: 63 pass / 0 fail / 5 browser-fixture skips. The browser
   fixtures skip only when their local fixture server is absent. Release safety,
   the 114-check kill switch and all protocol/economics tests passed.
 
@@ -129,3 +136,6 @@ legacy value still fails before an x402 quote is issued.
    hosting procedure separately; non-exportable secrets must stay non-exportable.
 6. Browser visual QA was unavailable due to Windows ACL startup failure; do not
    confuse the successful API/HTML-byte verification with a rendered visual check.
+7. Future successful MCP demo calls are indexed as `MCP client` unless there is
+   separate attributed evidence for a name. Do not label arbitrary callers Bankr
+   or Grok, count demos as ranked volume, or merge demo retention into player KV.

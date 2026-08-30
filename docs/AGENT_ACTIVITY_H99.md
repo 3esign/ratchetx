@@ -1,7 +1,7 @@
 # h99: real agent activity, separate demo retention
 
-Status: local candidate, 2026-08-30. Production remains h98 until the exact
-committed h99 artifact passes the protected production-environment canary.
+Status: deployed and verified on 2026-08-30 at 09:14:15.283Z. The exact committed
+artifact passed its protected production-environment canary before promotion.
 
 ## Contract
 
@@ -72,5 +72,22 @@ one player row instead of the required player + real demo, before implementation
 
 ## Release evidence
 
-Pending protected canary, exact HTML verification and promotion. Do not claim live
-golden rows or a production count until those checks have completed.
+- Code: `29adfc25b7b4e504862deb6dfc52486de808d43d` (clean worktree, complete tests
+  rerun after commit). Red baseline: `e780f0f`.
+- Deployment: `dpl_5SZi4uRvaepFPtXE5ugnbMQaGBi8`,
+  `https://ratchetx-8zmeo0qqm-3esigns-projects.vercel.app`.
+- Built with `vercel deploy --prod --skip-domain --yes`, checked with authenticated
+  `vercel curl` on read-only activity/context and MCP initialize/tools/list. No
+  secrets were exported and no synthetic mainnet/demo activity was generated.
+- Candidate returned 78 actual rows: 75 existing player events, 17 of those
+  registered-agent events, plus all 3 validated Bankr demo receipts. MCP stayed
+  1.2.0 with 13 tools; all seven Pyth projections remained atomic, no legacy feeds,
+  and `requestTriggeredOracleRead` remained false.
+- Promoted the same deployment to `ratchetx.xyz`. Public readback at
+  `2026-08-30T09:14:15.283Z` reproduced those counts, labels, proof links, projection
+  and Pyth assertions. Player projection remains persisted and player-only.
+- Delivered index.html matches the committed page after CRLF normalization and
+  removal of trailing line endings. SHA-256:
+  `49ae32c3e28b6b4daa5b954ea7e7935adf39933e8d03df0aa2079ec746674165`.
+- Browser rendering is still unverified due to the recorded Windows ACL failure;
+  the actual renderer has VM-based escaping/type/color/link regression coverage.
