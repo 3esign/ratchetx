@@ -156,10 +156,10 @@ const TOOLS = [
     inputSchema: { type:'object', required:['feed','from'], properties:{
       feed:{ type:'string', enum:['SOL','BTC','ETH','BONK','PUMP','JUP','WIF'] },
       from:{ type:'integer', description:'Unix milliseconds; maximum window 26 hours.' },
-      to:{ type:'integer', description:'Unix milliseconds; defaults to now.' },
+      to:{ type:'integer', description:'Unix milliseconds; defaults to now on the first page, then stays frozen by its cursor.' },
       source:{ type:'string', enum:['all','stream','poll'], default:'all' },
       limit:{ type:'integer', minimum:1, maximum:500, default:240 },
-      cursor:{ type:'string', description:'Opaque nextCursor from the previous page; keep feed/from/to/source unchanged.' },
+      cursor:{ type:'string', description:'Opaque nextCursor from the previous page. Prefer copying nextRequest unchanged; explicit feed/from/to/source changes are rejected.' },
     } } },
   { name: 'ratchet_board',
     description: 'The current hourly board after ratchet_pyth_context: targets, live Pyth prices and ages, ranked credit economics, stake rule and settlement rule. The board rotates hourly.',

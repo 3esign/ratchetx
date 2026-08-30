@@ -42,10 +42,10 @@ const TOOLS = [
     inputSchema: { type:'object', required:['feed','from'], properties:{
       feed:{ type:'string', enum:['SOL','BTC','ETH','BONK','PUMP','JUP','WIF'] },
       from:{ type:'integer', description:'Unix milliseconds; window may not exceed 26 hours.' },
-      to:{ type:'integer', description:'Unix milliseconds; defaults to now.' },
+      to:{ type:'integer', description:'Unix milliseconds; defaults to now on the first page, then stays frozen by its cursor.' },
       source:{ type:'string', enum:['all','stream','poll'], default:'all' },
       limit:{ type:'integer', minimum:1, maximum:500, default:240 },
-      cursor:{ type:'string', description:'Opaque nextCursor from the previous page; keep feed/from/to/source unchanged.' },
+      cursor:{ type:'string', description:'Opaque nextCursor from the previous page. Prefer copying nextRequest unchanged; explicit feed/from/to/source changes are rejected.' },
     } } },
   { name: 'ratchet_board',
     description: 'Read the live board after ratchet_pyth_context: target ids, horizons, Pyth prices and ages, sealing and settlement rules, ranked credit economics, arena scoring, and entry doors.',
@@ -262,22 +262,9 @@ async function callTool(req, name, args = {}) {
     case 'ratchet_challenges': return invoke(game, req, { query:{ action:'challenges' } });
     
     case 'ratchet_agent_record': {
-      const agentMod = require('./agent.js');
-      const mockReq = { method: 'GET', query: { id: args.id } };
-      let outObj;
-      const mockRes = {
-        setHeader: () => {},
-        status: (code) => mockRes,
-        json: (obj) => { outObj = obj; return obj; },
-        end: () => {}
-      };
-      await agentMod(mockReq, mockRes);
-      if (!outObj.ok) {
-        const error = new Error(outObj.reason);
-        error.code = 'AGENT_RECORD_ERROR';
-        throw error;
-      }
-      return outObj;
+      // The public /api/agent rewrite and MCP must execute the same read-only
+      // handler; api/agent.js was removed when routes were consolidated.
+      return invoke(game, req, {query:{action:'agent-report',id:args.id}});
     }
     case 'ratchet_demo_state': {
       const handle = demoHandle(args.handle);
