@@ -1,6 +1,6 @@
 # RatchetX agent handoff
 
-## Current work — h102 refusal diagnostics (2026-08-30)
+## Current production — h102 refusal diagnostics (2026-08-30)
 
 See [h102 evidence and next Bankr acceptance](RELEASE_H102.md). Bankr reports a
 rejected 100-credit PUMP attempt with stable replay and zero debit, not a completed
@@ -9,7 +9,12 @@ inner cause. Synthetic exact-intent controls pass when fresh and reject stale /
 wide-confidence data. h102 adds safe persistent codes, preserves gross attempt
 accounting and never retries a terminal rejection. The one-attempt grant is used;
 another pilot needs a fresh owner signature/private secret replacement.
-Production remains h101 until the h102 release evidence below is filled.
+DEPLOYED and public-verified at 2026-08-30T15:40:34.862Z. Exact artifact
+1362d541d9c53561baceaed4cb86c7c2419cf1e9; production deployment
+dpl_Ms76fJAEbzhwpB5691o8QayRGJ68. Final 17-check focused batch and eight
+non-spending public checks passed. Owner-recovered receipts keep their distinct
+RECOVERED_NO_DISPATCH label. No new pilot shot, funding or historical receipt
+rewrite was performed. The exact prior refusal reason remains unknown.
 
 ## Previous h101 release (historical)
 

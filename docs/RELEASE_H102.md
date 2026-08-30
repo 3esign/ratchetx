@@ -1,6 +1,6 @@
 # h102 — retain the actual session refusal
 
-Candidate: 2026-08-30. Production verification is recorded below only after deploy.
+DEPLOYED and public-verified: 2026-08-30T15:40:34.862Z.
 Scope: additive diagnostic codes in the existing game and bounded-session adapter.
 No oracle thresholds, credit rules, session allowance, signatures, database schema,
 Solana program, token transfer, collector or MCP tool changed. MCP stays 1.2.0.
@@ -90,6 +90,44 @@ public secret output. Identify the runtime used; do not claim global X support.
 
 ## Release verification
 
-Pending exact-artifact test batch, production deployment and public read-back.
+Deployment: dpl_Ms76fJAEbzhwpB5691o8QayRGJ68, READY, production, aliased to
+https://ratchetx.xyz. Immutable URL:
+https://ratchetx-asr4unrv4-3esigns-projects.vercel.app
+
+Clean artifact commit: 1362d541d9c53561baceaed4cb86c7c2419cf1e9.
+329 tracked files; ordered source-tree SHA-256 (same definition as h101):
+b923eab28d2cf8a615e6b36b3cf687338429e946d6568cdefca8f5ec131ffb9f.
+Existing guarded database build prerequisite PASS. No migration reapplied.
+
+Final exact-artifact batch: 17 checks passed (15 focused suites plus release
+safety and protocol-version gates), zero failed. Suites: play_session,
+play_session_kv, play_session_atomicity, play_session_http, play_session_page,
+critical_paths, harness, balance, settle, warden, ranked_remote_protocol,
+player_write_fencing, player_commit_recovery, release_identity and canon.
+The first candidate batch's Warden failure was an incorrect test working
+directory (ENOENT), not a game failure; rerun from test/ passed, then the final
+batch used each suite's correct directory. No full-suite success is implied.
+The regression also kills a process-memory mutant restoring the old lossy code.
+
+Eight public read-back checks passed in one non-spending batch: exact root HTML,
+consent HTML and JS bytes; h102 enabled private/no-store session discovery and
+refusal dictionary; h102 core board; h102 shared Pyth context; private 401 without
+a credential; private 403 for the wrong browser Origin. No real session token,
+grant, forecast, credits or wallet transaction was used during this verification.
+
+Static SHA-256 (unchanged from h101-ui1):
+
+| File | SHA-256 |
+|---|---|
+| index.html | 3894669b36547ec8a74b7c98642eb5ffddf3fdbfc27abf761b0e308894969f67 |
+| play-session.html | f020f7dbb80069ca2f4f37211e1ec032b3cf9b098564f2003b1f76b09ebb4cb7 |
+| play-session.js | 7df309d594874da723e6d05b77bb8446030a343987ff14d64a593dac8813b32a |
+
+Workspace lesson: skills/solana/references/83-session-refusal-evidence-and-replay.md,
+linked in that skill. Its existing frontmatter was unchanged; the optional
+quick_validate.py check could not run because bundled Python lacks PyYAML.
+Reference/path and runtime verification were completed without installing a new
+dependency. This is not a failed runtime test.
+
 Forward-only recovery remains required: never roll back to pre-guarded h100
 writers or remove migration 003's guard trigger. h101 can read the new codes.
