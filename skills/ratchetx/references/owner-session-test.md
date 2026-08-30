@@ -44,6 +44,10 @@ Use the companion [session-smoke.mjs](../scripts/session-smoke.mjs), installed
 with this skill. If the skill loader omitted executable companions, retrieve
 that exact file from <https://ratchetx.xyz/skills/ratchetx/scripts/session-smoke.mjs>
 without any credential; refuse redirects. Keep it in the private workspace.
+Resolve the companion relative to the installed SKILL.md location; installers
+do not necessarily use the repository layout below. Substitute that actual
+script path in both commands. A Bun-only runtime can use `bun` instead of `node`;
+the release tests execute Node, so Bun/runtime execution remains a pilot check.
 
 After explicit approval, substitute public IDs/intent and a NEW private journal
 path in this command (do not put the credential in the command):
