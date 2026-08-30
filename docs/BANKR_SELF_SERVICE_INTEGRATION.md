@@ -4,10 +4,10 @@
 feature. User direction: work with Bankr's existing self-service surfaces; fund
 only the Bankr pilot if needed. Do not subsidize other players.
 
-**h101 candidate update:** The bounded HTTP adapter, owner consent page, atomic
+**h101 live update:** The bounded HTTP adapter, owner consent page, atomic
 player/acceptance receipt and signed recovery are implemented. [Current session
 contract](PLAY_SESSION_DESIGN.md) supersedes the historical proposal below. Check
-AGENT_HANDOFF.md for actual deployment verification. Bankr reports protected
+RELEASE_H101.md for production verification at 2026-08-30T13:47:30.236Z. Bankr reports protected
 per-user HTTP secrets, not a native Solana message signer. A hosted private-user
 pilot still must be demonstrated; no globally enabled X flow is claimed.
 The historical accepted-call-only budget below is NOT the implemented conservative

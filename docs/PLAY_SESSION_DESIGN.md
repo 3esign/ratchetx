@@ -1,9 +1,10 @@
 # Bounded Bankr play sessions
 
-2026-08-30 — h101 release candidate. Migration 003 is installed. The HTTP
-adapter, canonical shot bridge, owner recovery and private consent page are now
-implemented. Check AGENT_HANDOFF.md / AGENT_STATE.json for the actual deployed
-commit; code or a green fixture alone is not a hosted Bankr execution proof.
+2026-08-30 — h101 is deployed and publicly verified. Migration 003 is installed.
+The HTTP adapter, canonical shot bridge, owner recovery and private consent page
+are live. See RELEASE_H101.md for exact artifact and acceptance evidence.
+A deployed adapter is not a hosted Bankr execution proof; that pilot still needs
+the owner's signature and protected per-user secret setup.
 
 ## What the owner authorizes
 

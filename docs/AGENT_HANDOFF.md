@@ -1,8 +1,8 @@
 # RatchetX agent handoff
 
-Updated: 2026-08-30. Production remains h100; h101 is an implemented, tested
-release CANDIDATE, not yet deployed. MCP remains 1.2.0 (13 tools), as published
-in the official registry; the candidate adds no MCP tool or function slot.
+Updated: 2026-08-30T13:47:30.236Z. h101 is DEPLOYED and public-verified.
+MCP remains 1.2.0 (13 tools), as published in the official registry; this release
+adds no MCP tool or function slot. See [release evidence](RELEASE_H101.md).
 
 ## Live identity and external proofs
 
@@ -21,12 +21,12 @@ The restored-database test caught a real legacy INCR race (125 instead of 105);
 was modified. Supabase quota usage and exposed-credential rotation remain open;
 do not infer a paid upgrade is required or put secrets into this handoff.
 
-**Latest local work:** [Guarded player writes](GUARDED_PLAYER_WRITES.md). The real
+**Latest shipped work:** [Guarded player writes](GUARDED_PLAYER_WRITES.md). The real
 handler stale-write test is now green; queue consumption and settlement delivery
 are crash-recoverable in local fixtures, including executable PostgreSQL rollback
 tests. Migration 003 is APPLIED; h101 includes the connected session HTTP adapter,
 canonical shot/receipt commit, owner recovery and private consent UI. Production
-is still h100. Existing Vercel CLI authentication was found in Windows
+now serves h101. Existing Vercel CLI authentication was found in Windows
 `%APPDATA%\xdg.data\com.vercel.cli\auth.json` and verified by a read-only API call
 against the exact Ratchet project/team. Deployment access is no longer a blocker;
 never copy that private file or its values into this repository.
@@ -47,7 +47,7 @@ The [canonical session contract](PLAY_SESSION_DESIGN.md) now describes the h101
 implementation at `/api/game?action=play-session` and `/play-session.html`.
 Focused service, atomicity, HTTP and consent-page tests pass. Acceptance stores
 the canonical credit debit/shot and session receipt in one guarded commit;
-owner recovery fences delayed work. These routes are not yet deployed. The
+owner recovery fences delayed work. Both routes are deployed and public-verified. The
 budget counts reserved attempts, not accepted calls, including refused or
 uncertain attempts; reservation itself never debits play credits.
 Do not treat docs or the named Bankr wallet as funding authority.
@@ -55,7 +55,7 @@ Priority: enable people to play RatchetX through Bankr on X, using each caller's
 authenticated wallet and bounded RCX budget. User offered to fund a pilot, but no
 address or amount is selected. Confirm signing capabilities and wallet control
 first. Preserve equal Pyth reads and existing economics; distinguish funded tests,
-organic RCX use and USDC revenue. The candidate is implemented, but an actual
+organic RCX use and USDC revenue. The integration is deployed, but an actual
 owner-approved private Bankr runtime/X pilot remains unverified.
 Funding is only for Bankr's test if needed; ordinary users are not subsidized.
 See [Solana preflight](SOLANA_BANKR_PREFLIGHT_2026-08-30.md): historical suite 65/0/5,
@@ -78,14 +78,24 @@ optional `to` was omitted. Complete continuation arguments are returned as
 `docs/BANKR_RETEST_H100.md` for controls, release evidence and the next resolution
 contract. No new settler, worker, payment or synthetic demo run was introduced.
 
-- Production release: `h100-2026-08-30`. Database migration 003 is applied;
-  h101 guarded/session application candidate remains local. Last complete
-  pre-session suite: 73 passed / 0 failed / 5 browser skips; h101 focused tests
-  and the live isolated session probe pass. The final release batch is pending.
-  Session API and consent screen are implemented; no funded Bankr test occurred.
+- Production release: `h101-2026-08-30`. Database migration 003 is applied;
+  guarded writes, session API and consent screen are live. No funded Bankr test occurred.
+- Production deployment: `dpl_CQfeCv7FAWgL1sHocBWYzmkgXYUk`; artifact commit
+  `1b503da6c759cf37c70fc87229c2ab6d98a4e1c0` (application code `9be7c0e`).
+  Clean artifact: 327 files; tree SHA-256
+  `c19b0742304807795fe01ab669616a24ab921e27b502fbf8f1a9ccfb03307035`.
+- Verified 13:47:30.236Z: root HTML, consent page and JavaScript public hashes
+  match the artifact; board/session/Pyth report h101; sessions enabled; MCP has
+  13 tools. Missing/bad auth returns 401, wrong Origin 403, scope 400, all no-store;
+  private paths return 404. No owner capability or real-player mutation was used.
+- All 76 runnable suites validated: initial batch 75 pass / 1 documentation-env
+  scanner failure / 5 browser skips; corrected client-vs-server-name scanner passes
+  all 126 checks. Subsequent changes were tests/docs and output-directory config;
+  readiness/output-gate test passes. Isolated consent desktop/mobile QA passes;
+  the five skipped broad browser suites remain skipped. See RELEASE_H101.md.
 - MCP, Agent Skill and ERC-8004 profile: `1.2.0` live.
-- Production deployment: `dpl_EyHicrnAA5E9F6Pv7taxoD6G1dez`, code commit `9b3e7f0`.
-- Verified 09:43:05Z: actual MCP scorecards execute; five pages return all 14
+- Historical h100 deployment: `dpl_EyHicrnAA5E9F6Pv7taxoD6G1dez`, code commit `9b3e7f0`.
+- Historical h100 verification at 09:43:05Z: actual MCP scorecards execute; five pages return all 14
   observations in a fixed test window exactly matching the reference read. Omitted
   `to` continuation also passes. All seven atomic Pyth projections remain present.
 - Feed has 80 rows: all 75 player events plus 5 demos. HTML is unchanged from h99.
@@ -195,16 +205,22 @@ legacy value still fails before an x402 quote is issued.
   fixtures skip only when their local fixture server is absent. Release safety,
   the 114-check kill switch and all protocol/economics tests passed.
 - Later guarded-database complete run: 73 pass / 0 fail / 5 browser skips.
-  h101 focused session tests pass; do not present the older total as the final
-  h101 release batch. The 19-request live session probe is isolated store evidence.
+  h101 subsequently validated all 76 runnable suites using the batch plus corrected
+  scanner rerun described above, not a second all-green full batch. The 19-request
+  live session probe is isolated store evidence.
 
 ## Exact next actions and boundaries
 
-Immediate next actions: finish the exact-artifact h101 release batch, deploy and
-read back the release, then perform the separately owner-approved private Bankr
+Immediate next action: perform the separately owner-approved private Bankr
 pilot in [PLAY_SESSION_DESIGN.md](PLAY_SESSION_DESIGN.md). The owner signs the
 bounded grant and stores its bearer only in Bankr's private per-user secret form;
 no chat, public prompt or generic wallet signer receives the credential.
+
+The first h101 deployment passed its database gate but failed because Vercel
+expected a `public` output directory. It never replaced production. Explicit
+`outputDirectory: "."` fixed the packaging contract; the second build is READY
+and the exact artifact was verified publicly. Keep this setting and guarded
+writer on recovery; do not revert to h100's unconditional player writes.
 
 The earlier demo-state resolution-envelope improvement remains follow-up work,
 not a missing session bridge: terminal HIT/MISS/VOID, retained exit, balances,

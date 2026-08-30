@@ -1,8 +1,8 @@
 {
-  "productionRelease": "h100-2026-08-30",
-  "candidateRelease": "h101-2026-08-30",
-  "productionDeployment": "dpl_EyHicrnAA5E9F6Pv7taxoD6G1dez",
-  "productionCodeCommit": "9b3e7f0",
+  "productionRelease": "h101-2026-08-30",
+  "candidateRelease": null,
+  "productionDeployment": "dpl_CQfeCv7FAWgL1sHocBWYzmkgXYUk",
+  "productionCodeCommit": "1b503da6c759cf37c70fc87229c2ab6d98a4e1c0",
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.2.0",
@@ -32,7 +32,7 @@
     "canonicalSettlement": "ratchet-server",
     "independentPythReplay": false
   },
-  "lastVerifiedDeploy": "2026-08-30T09:43:05.864Z",
+  "lastVerifiedDeploy": "2026-08-30T13:47:30.236Z",
   "localRecoveryDeployment": "deployed",
   "productionStatus": {
     "core": "healthy",
@@ -40,6 +40,7 @@
     "pythAgentLayer": "atomically ordered shared accepted snapshot on all seven feeds; bounded observed path; agent reads do not trigger new oracle requests",
     "playerActivity": "80 rows verified: 75 player events plus 5 separately labeled demos; gold agent text, proof links, no demo payouts or player-retention eviction; house Fleet excluded",
     "agentProtocol": "MCP scorecard executes the canonical REST report handler; omitted path bounds remain frozen across cursors; nextRequest supplies exact continuation arguments; no new wait worker or settlement rule",
-    "rankedEconomy": "Pyth reads consume no RCX; accepted seals stake play credits; VOID refunds; RCX remains the ranked reload rail"
+    "rankedEconomy": "Pyth reads consume no RCX; accepted seals stake play credits; VOID refunds; RCX remains the ranked reload rail",
+    "playSessions": "h101 live owner-signed shot/status capability, gross-reserved-attempt limits, atomic player/acceptance receipt and fenced owner recovery; no token transfer/reload authority; actual protected Bankr pilot awaits owner setup"
   }
 }

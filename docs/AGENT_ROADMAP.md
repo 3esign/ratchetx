@@ -15,16 +15,17 @@ multi-user play through Bankr on X, an Agent League, and repeat RCX use before n
 service fees. These are plans, not deployed tools or changes to frozen economics.
 
 **Immediate Bankr safety gate:** [PLAY_SESSION_DESIGN.md](PLAY_SESSION_DESIGN.md).
-Bankr reports protected secret transport in web and X. The h101 candidate now
+Bankr reports protected secret transport in web and X. The deployed h101 release now
 implements owner-signed grants, `/api/game?action=play-session`, private consent
 at `/play-session.html`, atomic canonical debit/shot/session receipts and fenced
-owner recovery. Focused tests pass; production still serves h100, not this API.
+owner recovery. Production was public-verified at 2026-08-30T13:47:30.236Z;
+the session API is enabled. See [RELEASE_H101.md](RELEASE_H101.md).
 [Guarded writes](GUARDED_PLAYER_WRITES.md) and migration 003 are complete with a
 restore-verified backup and passing live concurrency tests. The live isolated
 session probe also passes: 19 HTTP requests, exact CAS/atomicity/replay checks and
 cleanup, zero real-player reads or chain calls
-([evidence](GUARDED_DATABASE_CUTOVER.md)). Remaining acceptance is the release
-batch/deployment and an owner-approved actual private Bankr runtime/X pilot.
+([evidence](GUARDED_DATABASE_CUTOVER.md)). Remaining acceptance is an
+owner-approved actual private Bankr runtime/X pilot.
 The green fixture and database probe do not prove hosted Bankr secret isolation.
 
 ## North star and non-negotiable boundaries
@@ -58,8 +59,11 @@ evidence and settlement code as every other player.
 
 ## Verified production baseline
 
-- Production release marker: `h100-2026-08-30`, live-verified on
-  `ratchetx.xyz`; h101 guarded/session candidate is pending release.
+- Production release marker: `h101-2026-08-30`, public-verified at
+  2026-08-30T13:47:30.236Z. Deployment `dpl_CQfeCv7FAWgL1sHocBWYzmkgXYUk`;
+  artifact commit `1b503da6c759cf37c70fc87229c2ab6d98a4e1c0`.
+  Root HTML/consent-page/JavaScript hashes match; board/session/Pyth report h101.
+  Private auth/origin/scope guards and private-path 404 canaries pass.
 - MCP/Agent Skill/ERC-8004 surfaces: `1.2.0`, checked bidirectionally; the
   official MCP Registry lists `io.github.3esign/ratchet@1.2.0` as latest.
 - MCP advertises 13 tools in Pyth-first order. `ratchet_pyth_context` exposes
@@ -82,19 +86,22 @@ evidence and settlement code as every other player.
 - Release gate pins the restored v2 source SHA-256 and rejects tracked secret,
   private-key and investigation-artifact patterns.
 
-## Immediate next acceptance task — h101 release and private Bankr pilot
+## Immediate next acceptance task — private Bankr pilot
 
-Finish the exact-artifact release batch and deployment, verify h101 from both
-production domains, then follow the owner-signature/private-secret/pilot gates in
+The exact-artifact h101 deployment and public readback are complete. Follow the
+owner-signature/private-secret/pilot gates in
 [PLAY_SESSION_DESIGN.md](PLAY_SESSION_DESIGN.md). Existing Vercel authentication
 was found under Windows `%APPDATA%\xdg.data\com.vercel.cli\auth.json` and its exact
 Ratchet project/team access was verified read-only. No new credential is needed
 for routine deployment; do not export the private session file.
 
-The latest complete pre-session suite is 73 passed / 0 failed / 5 browser skips;
-new focused session suites pass. Do not label those older totals a completed
-h101 release batch. The actual Bankr pilot still requires owner consent and a
-protected per-user bearer, not a public prompt or implied funding authority.
+All 76 runnable h101 suites are validated: the initial batch was 75 pass / one
+documentation-env scanner failure / five browser skips; the corrected
+client-vs-server-name scanner then passed 126 checks. This was not a second full
+batch. Readiness/output-gate tests and isolated consent desktop/mobile QA pass;
+five broad browser tests remain skipped. The actual Bankr pilot still requires
+owner consent and a protected per-user bearer, not a public prompt or implied
+funding authority. Full evidence is in RELEASE_H101.md.
 
 ## Historical h100 resolution evidence and follow-up
 
@@ -123,10 +130,13 @@ refunds and a live confidence-expansion event are not established by these runs.
 1. Rotate the Supabase/Postgres credential that appeared in Git history. Deleting
    the file from the tip does not un-leak a password. Update the production secret
    atomically and prove state reads/writes before revoking the old credential.
-2. Run the complete h101 suite, deployment preflight and a production preview.
-3. Deploy with the verified existing Vercel session; verify both domains report
-   one release. Preserve the guarded writer during recovery, not an h100 rollback.
-4. Live contract checks:
+2. h101 regression/preflight evidence is complete as recorded above; preserve it.
+3. h101 deployment and public readback are complete. The first build's missing
+   `public` output-directory failure left old production intact; explicit
+   `outputDirectory: "."` produced the verified READY build. Preserve this
+   packaging contract and guarded writer during recovery, not an h100 rollback.
+4. Continuing live contract and pilot acceptance checks (historical funded flows
+   are not automatically re-executed by a release smoke):
    - MCP initialize and `tools/list` return `1.2.0` and all 13 tools;
    - both Pyth tools return Pyth attribution and `requestTriggeredOracleRead:false`;
    - a ranked seal records its exact Pyth snapshot hash, stale refusal debits
@@ -137,7 +147,7 @@ refunds and a live confidence-expansion event are not established by these runs.
    - `/api/agent?id=...` reports durable receipt provenance;
    - `/api/a2a/*` is absent rather than pretending conformance;
    - state, proof, record, feeds, x402 entry and Gauntlet stay healthy.
-   - the session route and consent page report the deployed candidate; private
+   - the session route and consent page report deployed h101; private
      auth/origin/scope errors stay no-store, and no new MCP tool/function is added.
    - an owner-approved private Bankr pilot proves one accepted intent, identical
      replay without a second debit, terminal status and revoked new-authority refusal.

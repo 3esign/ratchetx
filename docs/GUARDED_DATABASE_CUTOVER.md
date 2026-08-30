@@ -1,8 +1,8 @@
 # Guarded database cutover — 2026-08-30
 
 Status: migration 003 APPLIED to the existing Ratchet Supabase project.
-h101 application/session candidate is implemented but NOT deployed; production
-remains h100. An actual owner-approved private Bankr pilot has not run.
+h101 application/session release is DEPLOYED and public-verified at
+2026-08-30T13:47:30.236Z. An actual owner-approved private Bankr pilot has not run.
 
 ## Evidence
 
@@ -25,7 +25,7 @@ remains h100. An actual owner-approved private Bankr pilot has not run.
 - Post-installation HTTPS Data API/build gate passed with the opaque service
   key; HEAD returned 200 and the exact application prerequisite returned PASS.
   No player rows were read by these readiness checks.
-- Public board still reports h100; profile and MCP tool discovery return 200
+- At the original database-only checkpoint, public board reported h100; profile and MCP discovery returned 200
   with the existing 13 tools. The observatory `/api/feeds` returns HTML by design;
   JSON requires `?format=json`. No new session tool is exposed.
 - Last complete pre-session application batch: 73 passed, 0 failed, 5 browser tests skipped
@@ -36,6 +36,17 @@ remains h100. An actual owner-approved private Bankr pilot has not run.
   Exact fixture cleanup passed. Zero real-player reads and zero chain calls;
   no actual owner grant, forecast, activity event or funded Bankr gameplay.
   This complements the earlier SQL batch; it is not a deployed HTTP session test.
+- h101 deployment: `dpl_CQfeCv7FAWgL1sHocBWYzmkgXYUk`, artifact commit
+  `1b503da6c759cf37c70fc87229c2ab6d98a4e1c0`. Public root/page/JS hashes match;
+  board/session/Pyth report h101, session enabled, MCP 13. Auth/origin/scope errors
+  and private-path 404s pass. See [RELEASE_H101.md](RELEASE_H101.md).
+- All 76 runnable suites validated: initial batch 75 pass / one documentation-env
+  scanner failure / five browser skips, followed by the corrected scanner's
+  126-check pass. Readiness/output-gate tests and isolated consent desktop/mobile
+  QA pass; the broad browser skips were not silently counted as passes.
+- First deployment passed the database readiness gate but failed Vercel's
+  `public` output-directory expectation; old production remained untouched.
+  Explicit `outputDirectory: "."` produced the second, verified READY deployment.
 
 ## Race caught before deployment
 
@@ -81,9 +92,9 @@ replace the corrected increment). Recover forward with evidence and exact scope.
 
 ## Outstanding
 
-The h101 release batch/deployment and actual owner-approved private Bankr pilot
-remain. Atomic session/shot receipts, fenced recovery, consent UI and focused
-HTTP/page tests are implemented; see the complete contract in
+The actual owner-approved private Bankr pilot remains. The h101 application is
+deployed; atomic session/shot receipts, fenced recovery, consent UI and focused
+HTTP/page tests are complete. See the complete contract in
 [PLAY_SESSION_DESIGN.md](PLAY_SESSION_DESIGN.md).
 
 Vercel access is resolved: existing CLI authentication at Windows

@@ -1,6 +1,6 @@
-# Guarded player writes — database live, h101 candidate NOT deployed
+# Guarded player writes — database and h101 application LIVE
 
-Verified locally: 2026-08-30. Production remains `h100-2026-08-30`.
+Production `h101-2026-08-30` public-verified at 2026-08-30T13:47:30.236Z.
 h101 now includes the connected session HTTP adapter, atomic shot/receipt bridge,
 owner recovery and private consent page. No actual owner grant, token transfer,
 RCX reload or funded Bankr pilot; the live database probe used isolated fixtures only.
@@ -51,7 +51,7 @@ could instead duplicate credits. Reading those queues is now non-destructive.
 - Vercel build runs `lib/check_store_schema.js`. Its read-only readiness RPC
   requires migration 003 and the enabled guard trigger. Missing configuration or
   schema BLOCKS the build; there is no unsafe fallback to old player writes.
-- `/api/game?action=play-session` and `/play-session.html` are implemented in h101.
+- `/api/game?action=play-session` and `/play-session.html` are live in h101.
   A private, exact-intent permit reaches the canonical shot path; its player
   debit/shot and expected-session terminal receipt commit together. Owner recovery
   uses the same player lease and session CAS to fence delayed dispatch. The
@@ -87,13 +87,18 @@ could instead duplicate credits. Reading those queues is now non-destructive.
   `test_play_session_atomicity.mjs`, `test_play_session_http.mjs` and
   `test_play_session_page.mjs`. They cover signed scope/budgets, atomic acceptance,
   lost acknowledgements, delayed-worker recovery, canonical HTTP settlement,
-  private consent/owner controls and lease cleanup. Final full release count is pending.
+  private consent/owner controls and lease cleanup.
+- All 76 runnable h101 suites validated: initial batch 75 pass / one documentation-env
+  scanner failure / five browser skips; the corrected client-vs-server-name
+  scanner passed 126 checks. No second full-batch pass is claimed. Subsequent
+  changes were tests/docs and output-directory config; readiness/output-gate tests
+  pass. Isolated consent desktop/mobile QA passes, not the five skipped broad suites.
 - The live isolated session probe passed 19 HTTP requests: exactly one PostgREST
   CAS winner, stale rejection, atomic guarded player/receipt, stale-session rollback,
   exact commit replay, changed-commit refusal and exact cleanup. No real-player
   reads, chain calls, owner grant or funded gameplay. See the cutover evidence.
 
-## Completed database cutover and remaining application release
+## Completed database cutover and application release
 
 Migration 003 was applied on 2026-08-30 after full backup restore verification and
 real local concurrency tests. Service role can execute; anon/authenticated cannot.
@@ -103,22 +108,28 @@ See [cutover evidence and recovery boundaries](GUARDED_DATABASE_CUTOVER.md).
 
 Existing Vercel CLI authentication was found at Windows
 `%APPDATA%\xdg.data\com.vercel.cli\auth.json` and exact Ratchet project/team access
-was verified with a read-only API request. Access is resolved; the production
-application still remains h100 until the release is deployed and read back.
+was verified with a read-only API request. Production now serves h101 from
+`dpl_CQfeCv7FAWgL1sHocBWYzmkgXYUk`, artifact commit
+`1b503da6c759cf37c70fc87229c2ab6d98a4e1c0` (application code `9be7c0e`).
 Supplied credentials must be rotated; do not repeat, export or commit them.
 
-1. Run the readiness gate, exact-artifact release checks
-   and browser fixtures; assign a new release marker only for the verified build.
-2. Deploy the tested artifact. Verify real public reads/MCP and an explicitly
-   isolated demo loop. Preserve this guarded writer on rollback; never disable
-   the trigger merely to make h100 overwrite guarded records again.
+1. Exact clean artifact: 327 files, tree SHA-256
+   `c19b0742304807795fe01ab669616a24ab921e27b502fbf8f1a9ccfb03307035`.
+   Public root HTML, consent page and JavaScript hashes match; board/session/Pyth
+   report h101, sessions enabled, MCP 13. Auth/origin/scope/private-path checks pass.
+2. First deploy passed the database gate but failed a `public` output-directory
+   expectation, leaving old production intact. Explicit `outputDirectory: "."`
+   produced the verified second READY build. Preserve this guarded writer and
+   packaging contract; never disable the trigger to let h100 overwrite guarded rows.
 3. Redis Lua and rolling Redis writers remain an unexecuted backend gate. This
-   candidate's production build deliberately requires the Supabase backend.
+   release's production build deliberately requires the Supabase backend.
+
+Full release identity and evidence: [RELEASE_H101.md](RELEASE_H101.md).
 
 ## Remaining release and authority boundaries
 
-- The exact-artifact release batch, deployment and production readback remain;
-  implemented routes and passing local tests are not a production release claim.
+- The exact-artifact deployment and public readback are complete. These checks
+  do not establish an actual owner grant or hosted Bankr execution.
 - Actual owner consent and the Bankr private-runtime/X pilot remain. The consent
   UI and private HTTP contract exist, but Bankr's hosted per-user secret injection,
   redirect/log protection and viewer isolation need an external acceptance test.
