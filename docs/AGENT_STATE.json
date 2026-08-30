@@ -1,6 +1,6 @@
 {
   "productionRelease": "h100-2026-08-30",
-  "candidateRelease": null,
+  "candidateRelease": "h101-2026-08-30",
   "productionDeployment": "dpl_EyHicrnAA5E9F6Pv7taxoD6G1dez",
   "productionCodeCommit": "9b3e7f0",
   "versions": {
@@ -18,7 +18,9 @@
     "pythPath": "https://ratchetx.xyz/api/game?action=pyth-path&feed=SOL&from=<unix_ms>&to=<unix_ms>",
     "erc8004": "https://ratchetx.xyz/.well-known/agent-registration.json",
     "reportCard": "https://ratchetx.xyz/api/agent?id=<wallet-or-demo>",
-    "proofBundle": "https://ratchetx.xyz/api/agent-proof-bundle"
+    "proofBundle": "https://ratchetx.xyz/api/agent-proof-bundle",
+    "playSession": "https://ratchetx.xyz/api/game?action=play-session",
+    "playSessionSetup": "https://ratchetx.xyz/play-session.html"
   },
   "identities": {
     "solanaAgentRegistry": "1475"

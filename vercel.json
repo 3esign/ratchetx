@@ -1,4 +1,5 @@
 {
+  "buildCommand": "node lib/check_store_schema.js",
   "regions": [
     "dub1"
   ],

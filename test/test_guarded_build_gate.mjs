@@ -1,0 +1,19 @@
+import assert from 'node:assert/strict';
+import {createRequire} from 'node:module';
+import {readFileSync} from 'node:fs';
+const require=createRequire(import.meta.url),{check}=require('../lib/check_store_schema.js');
+const env={SUPABASE_URL:'https://fixture.supabase.co',SUPABASE_SERVICE_KEY:'fixture-only'};
+let calls=0;
+const fetchImpl=async(url,options)=>{
+  calls++;assert.equal(url,'https://fixture.supabase.co/rest/v1/rpc/ratchet_kv_guarded_ready');
+  assert.equal(options.redirect,'error');assert.equal(options.body,'{}');
+  return new Response(JSON.stringify({schema:'guarded-player-v1',ready:true}));
+};
+assert.equal(await check({env,fetchImpl}),true);assert.equal(calls,1);
+await assert.rejects(()=>check({env:{},fetchImpl}),/configured Supabase/);
+await assert.rejects(()=>check({env:{...env,SUPABASE_URL:'http://fixture.supabase.co'},fetchImpl}),/Invalid database/);
+await assert.rejects(()=>check({env,fetchImpl:async()=>new Response('{}',{status:404})}),/migration 003/);
+await assert.rejects(()=>check({env,fetchImpl:async()=>new Response('{"schema":"guarded-player-v1","ready":false}')}),/trigger/);
+const config=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
+assert.equal(config.buildCommand,'node lib/check_store_schema.js');
+console.log('Vercel build blocks absent/mismatched database migration; readiness probe is read-only and never follows redirects PASS');

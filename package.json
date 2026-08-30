@@ -16,6 +16,7 @@
     "test": "node scripts/check-release-safety.mjs && node scripts/check-versions.mjs && node scripts/run-tests.mjs"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
     "@x402/extensions": "2.24.0",
     "8004-solana": "^0.8.3",
     "pg": "^8.23.0",

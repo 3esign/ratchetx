@@ -41,12 +41,15 @@
 //      hits and misses alike. v0 heuristic, scored like everyone.
 // ============================================================
 const crypto = require('node:crypto');
+const playerWrites = require('../lib/player_writes.js');
 const { hashCommit } = require('../lib/commit.js');
 const { getJSON, getCached, getJSONStrict, getManyJSON, setJSON, setManyJSONAtomic, setnxJSON,
   acquireLease, releaseLease, delKey, scanKeys, durable, backend, zincr, zmax, ztop, incrFloat,
   takeNum, hincr, hincrMany, zincrManyOnce, applyOnce, hall, hseed, sweepExpired} = require('../lib/kv.js');
 const { verifyAuth, isDemo, isWalletShaped, b58decode } = require('../lib/verify.js');
 const rankedAuth = require('../lib/ranked.js');
+const sessionGame = require('../lib/play_session_game.js');
+const sessionHttp = require('../lib/play_session_http.js');
 const { getPrices } = require('../lib/prices.js');
 const { priceAt, priceCrossing, pathFor, evidencePathFor, latestSnapshot,
   sample: samplePx, ingestUpdate: ingestPxUpdate,
@@ -379,8 +382,10 @@ function rateLimited(ip, isPost) {
 
 async function loadPlayer(w) {
   let p = await getJSONStrict(`u:${w}`);   // strict: a flaky read must NOT mint a fresh record
+  const expected = p == null ? null : JSON.parse(JSON.stringify(p));
   const existed = !!p;
   if (!p) p = { w, xp:0, streak:0, best:0, hits:0, shots:0, bal:0, cr:WELCOME_GRANT, granted:true, burned:0, day:today(), open:[], closed:[] };
+  playerWrites.track(p, expected);
   if (p.cr == null) { p.cr = 0; p.burned = 0; }
   // migration: fold any legacy paper balance into credits, once, keeping what they had
   if (p.bal) { p.cr = (p.cr || 0) + p.bal; p.bal = 0; p.granted = true; }
@@ -404,16 +409,19 @@ async function loadPlayer(w) {
   // with no way to reclaim it. Those credits are now deposited into an atomic
   // counter and drained here, so a lost race delays a credit by one request
   // instead of erasing it.
-  const owed = await takeNum(`pend:${w}`);
+  // Reading a player never consumes queued value. Its snapshot is deducted
+  // only in the SAME guarded transaction that saves the credited player.
+  const amounts = await getManyJSON([`pend:${w}`, `c7:${w}`, `cs7:${w}`]);
+  if (!Array.isArray(amounts) || amounts.length !== 3) throw new Error('credit queue read incomplete');
+  playerWrites.creditSnapshot(p, amounts);
+  const [owed, owed7, self7] = amounts.map(v => v == null ? 0 : Number(v));
   if (owed > 0) { p.cr = (p.cr || 0) + owed; p._drained = (p._drained || 0) + owed; }
-  const owed7 = await takeNum(`c7:${w}`);
   if (owed7 > 0) {
     // Actual incoming RCX from somebody else's reload.
     p.champ7 = p.champ7 || {};
     p.champ7[today()] = (p.champ7[today()] || 0) + owed7;
     p._drained7 = (p._drained7 || 0) + owed7;
   }
-  const self7 = await takeNum(`cs7:${w}`);
   if (self7 > 0) {
     // A champion reloading their own wallet keeps their seat's route. It is
     // not an incoming transfer and never earns extra credits, but it is real
@@ -428,30 +436,10 @@ async function loadPlayer(w) {
   p._existed = existed;
   return p;
 }
-/** If the write fails after loadPlayer drained a queue, put it back rather
- *  than swallowing it. The deposit is atomic in both directions. */
-async function savePlayer(p) {
-  const q = playerRecord(p);
-  try {
-    await setJSON(`u:${p.w}`, q);
-  } catch (e) {
-    if (p._drained > 0)     { try { await incrFloat(`pend:${p.w}`, p._drained); } catch {} }
-    if (p._drained7 > 0)    { try { await incrFloat(`c7:${p.w}`, p._drained7); } catch {} }
-    if (p._drainedSelf7 > 0){ try { await incrFloat(`cs7:${p.w}`, p._drainedSelf7); } catch {} }
-    throw e;
-  }
-}
-function playerRecord(p) {
-  const q = { ...p };
-  delete q._existed; delete q._src; delete q._drained; delete q._drained7; delete q._drainedSelf7;
-  return q;
-}
-async function restoreDrains(players) {
-  for (const p of players) {
-    if (p._drained > 0)     { try { await incrFloat(`pend:${p.w}`, p._drained); } catch {} }
-    if (p._drained7 > 0)    { try { await incrFloat(`c7:${p.w}`, p._drained7); } catch {} }
-    if (p._drainedSelf7 > 0){ try { await incrFloat(`cs7:${p.w}`, p._drainedSelf7); } catch {} }
-  }
+/** Lease, expected player and queued credits are checked in the database. */
+async function savePlayer(p, extras=[]) {
+  await playerWrites.save([p],extras);
+  await flushSettlements(p);
 }
 // TOTALS ARE ATOMIC.
 // They were a JSON blob: read, mutate, write. Two stakes landing together
@@ -598,9 +586,9 @@ async function bumpLadder(w, xp, qualified) {
   try { await refreshLivePodium(true); } catch {}
 }
 /** Credit one settlement to daily, season and all-time ladders exactly once. */
-async function bumpLadderOnce(w, xp, qualified, shotId) {
+async function bumpLadderOnce(w, xp, qualified, shotId, period) {
   if (isDemo(w) || qualified === false) return false;
-  const season = seasonKey(), day = today();
+  const season = period?.season || seasonKey(), day = period?.day || today();
   await ensureAllTimeBoard();
   await migrateLadder('lb:', season);
   await migrateLadder('lbd:', day);
@@ -608,8 +596,10 @@ async function bumpLadderOnce(w, xp, qualified, shotId) {
     { w, shotId, xp, season, day, t:Date.now() }, [
       [zkey('lb:', season), w, xp],
       [zkey('lbd:', day), w, xp],
-      [ALLTIME_BOARD, w, xp],
     ]);
+  // The player is committed before delivery. Bootstrap may already have read
+  // its new XP, so adding XP again would double-count the first delivery.
+  await zmax(ALLTIME_BOARD,period.totalXp,w);
   if (won) try { await refreshLivePodium(true); } catch {}
   return won;
 }
@@ -761,7 +751,7 @@ async function refreshLivePodium(force = false) {
 async function challengeLease() {
   for (let a = 0; a < 30; a++) {
     const token = await acquireLease('lock:g:chal', 20);
-    if (token) return token;
+    if (token) { playerWrites.lease('lock:g:chal', token, 20); return token; }
     await new Promise(r => setTimeout(r, 20 + a * 5));
   }
   return null;
@@ -771,27 +761,31 @@ async function sweepChallenges() {
   const lease = await challengeLease();
   if (!lease) return;
   try {
-    const list = (await getJSONStrict('g:chal')) || [];
+    const expected = await getJSONStrict('g:chal');
+    const list = expected || [];
     const now = Date.now();
     const dead = list.filter(c => c && c.expiresAt <= now);
     if (!dead.length) return;
-    await setJSON('g:chal', list.filter(c => c && c.expiresAt > now));
     for (const c of dead) {
       // one refund per challenge, ever, whoever happens to sweep it. Deposit
       // into the atomic queue instead of racing a live player-record update.
       const a = stakeAllocation(c.stake);
-      try {
-        const won = await applyOnce(`chalref:${c.id}`, { t: now }, {
-          exSeconds: 7 * 86400,
-          counters: [[`pend:${c.by}`, c.stake]],
-          hashKey: STATS,
-          deltas: c.allocationRule === 'on-settle-v2'
-            ? {} : { burned:-a.burn, potD:-a.potD, pot:-a.pot },
-        });
-        if (!won) continue;
-        await append({ k:'chalexpire', id: c.id, by: c.by, stake: c.stake, refunded: true });
-      } catch {}
+      await applyOnce(`chalref:${c.id}`, { t: now }, {
+        counters: [[`pend:${c.by}`, c.stake]],
+        hashKey: STATS,
+        deltas: c.allocationRule === 'on-settle-v2'
+          ? {} : { burned:-a.burn, potD:-a.potD, pot:-a.pot },
+      });
+      await appendOnce(`chalexpire:${c.id}`, { k:'chalexpire', id: c.id, by: c.by, stake: c.stake, refunded: true });
     }
+    // Refund receipts are durable BEFORE removal. A failed delivery keeps the
+    // offer recoverable, while CAS prevents a late sweep erasing new offers.
+    const result = await require('../lib/kv.js').commitGuarded({
+      id:crypto.randomBytes(16).toString('hex'),debits:[],
+      leases:[{key:'lock:g:chal',token:lease,expiresAt:Number(lease.split('-')[0])+20000}],
+      entries:[{key:'g:chal',expected,value:list.filter(c => c && c.expiresAt > now)}],
+    });
+    if (!result.ok) throw Object.assign(new Error('challenge board changed'),{code:result.code});
   } finally {
     try { await releaseLease('lock:g:chal', lease); } catch {}
   }
@@ -1400,11 +1394,17 @@ function refund(p, s) { p.cr += s.stake; }
 // log stays the ground truth; this is the readable per-wallet view.
 async function pushHist(w, rec) {
   const k = `hist:${w}`;
-  const h = (await getJSONStrict(k)) || [];
-  if (h.some(x => x && x.id === rec.id)) return false;
-  h.unshift(rec);
-  await setJSON(k, h.slice(0, 200));
-  return true;
+  const {commitGuarded} = require('../lib/kv.js');
+  for (let attempt=0; attempt<4; attempt++) {
+    const expected = await getJSONStrict(k);
+    const h = expected || [];
+    if (h.some(x => x && x.id === rec.id)) return false;
+    const result = await commitGuarded({id:crypto.randomBytes(16).toString('hex'),
+      entries:[{key:k,expected,value:[rec,...h].sort((a,b)=>b.t-a.t).slice(0,200)}],debits:[],leases:[]});
+    if (result.ok) return true;
+    if (result.code !== 'WRITE_CONFLICT') throw new Error('history commit unavailable');
+  }
+  throw new Error('history commit busy');
 }
 
 // Human-readable, per-wallet receipts for every reload/podium effect. Several
@@ -1480,14 +1480,57 @@ function scoreStated(p, s, hit) {
 // control. Counters start empty and accumulate forward; the page says since
 // when. See lib/ledger.js and docs/LEDGER.md.
 const LDG_LO = 0.35, LDG_HI = 0.65;
-async function ledgerBand(s, hit) {
+async function ledgerBand(s, hit, w) {
   if (!Number.isFinite(s.sp) || s.sp < LDG_LO || s.sp > LDG_HI) return;
   const e = s.sp - (hit ? 1 : 0);
-  try {
-    await hincrMany('ldg:rx', { n: 1, sum: +(e * e).toFixed(6), hits: hit ? 1 : 0,
+  await applyOnce(`ledger:${w}:${s.id}`, {w,id:s.id}, {hashKey:'ldg:rx', deltas:{ n: 1, sum: +(e * e).toFixed(6), hits: hit ? 1 : 0,
       [`b${Math.min(9, Math.floor(s.sp * 10))}n`]: 1,
-      ...(hit ? { [`b${Math.min(9, Math.floor(s.sp * 10))}h`]: 1 } : {}) });
-  } catch {}                    // the ledger is a scoreboard, never a blocker
+      ...(hit ? { [`b${Math.min(9, Math.floor(s.sp * 10))}h`]: 1 } : {}) }});
+}
+
+// The player result and its delivery intent commit together. A process death
+// never requires re-deciding the oracle outcome; replay these exact effects.
+function queueSettlement(p, s, log, history) {
+  p.settlementOutbox = p.settlementOutbox || [];
+  if (!p.settlementOutbox.some(e => e.s.id === s.id))
+    p.settlementOutbox.push(JSON.parse(JSON.stringify({s,qualified:!!p.qualified,log,history,
+      period:{day:today(),season:seasonKey(),totalXp:p.xp}})));
+}
+async function flushSettlements(p) {
+  const pending = p.settlementOutbox || [];
+  if (!pending.length) return;
+  const delivered = new Set();
+  for (const e of pending) {
+    try {
+      const s = e.s, eventId = `${p.w}:${s.id}`;
+      if (s.res === 'void') {
+        if (s.allocationRule !== 'on-settle-v2') await reverseStake(s.stake,p.w,s.id);
+      } else {
+        await fundSettledStake(s,p.w);
+        await ledgerBand(s,s.res === 'hit',p.w);
+        await bumpLadderOnce(p.w,s.xp,e.qualified,s.id,e.period);
+        if (!isDemo(p.w)) {
+          if (s.res === 'hit') {
+            await seedStats();
+            await applyOnce(`hitpay:${eventId}`,{w:p.w,id:s.id,back:s.back,t:s.settledAt},
+              {hashKey:STATS,deltas:{hitPaid:s.back}});
+          }
+          await bumpFeed({id:`settle:${eventId}`,w:shortW(p.w),actorWallet:p.w,
+            a:s.res === 'hit' ? `HIT +${s.xp} XP - +${s.back.toLocaleString()} credits`
+              : `MISS - streak reset - +${s.xp} XP`,c:s.res});
+        }
+      }
+      await noteSettle(s.feed,s.res === 'void' ? 'void' : 'set',eventId);
+      if (s.feed2) await noteSettle(s.feed2,s.res === 'void' ? 'void' : 'set',eventId);
+      await appendOnce(`settle:${eventId}`,e.log);
+      await pushHist(p.w,e.history);
+      delivered.add(s.id);
+    } catch { /* Keep durable intent; the next player read retries it. */ }
+  }
+  if (!delivered.size) return;
+  p.settlementOutbox = pending.filter(e => !delivered.has(e.s.id));
+  try { await playerWrites.save([p]); }
+  catch { p.settlementOutbox = pending; } // safe at-least-once delivery
 }
 
 function brierOf(p) {
@@ -1533,8 +1576,6 @@ async function settle(p, prices) {
     if (at.expired || (at2 && at2.expired)
         || !Number.isFinite(px) || !Number.isFinite(px2)) {
       changed = true;
-      if (at.expired) await noteSettle(s.feed, 'void', eventId);
-      if (at2 && at2.expired) await noteSettle(s.feed2, 'void', eventId);
       refund(p, s); s.res = 'void'; s.settledAt = now; s.exitPx = null;
       s.skillXp = 0; s.settleXp = 0; s.xp = 0;
       // A race needs two comparable diagnostics; do not mislabel one feed as the other.
@@ -1544,8 +1585,6 @@ async function settle(p, prices) {
         s.indicativeAt = indicative.publishTime;
         s.indicativeGapSec = Math.round(indicative.gapMs / 1000);
       }
-      if (s.allocationRule !== 'on-settle-v2')
-        await reverseStake(s.stake, p.w, s.id);
       const voidReason = strict
         ? (at.reason || (at2 && at2.reason) || 'no-observed-update-in-window')
         : (at.expired ? 'no-oracle-sample-in-window' : 'feed-gone');
@@ -1554,17 +1593,18 @@ async function settle(p, prices) {
         : (s.settleRule || 'observed-sample-v1');
       s.voidReason = voidReason;
       s.settleRuleApplied = appliedSettleRule;
-      await appendOnce(`settle:${eventId}`, { k:'settle', w:p.w, id:s.id,
+      const log = { k:'settle', w:p.w, id:s.id,
         res:'void', reason:voidReason, commitV:s.commitV || 1,
         settleRuleApplied:appliedSettleRule,
         indicativePx:s.indicativePx ?? null, indicativeAt:s.indicativeAt ?? null,
-        indicativeGapSec:s.indicativeGapSec ?? null });
-      await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
+        indicativeGapSec:s.indicativeGapSec ?? null };
+      const history = { id:s.id, t:now, label:s.label, side:s.side,
         res:'void', xp:0, stake:s.stake, entry:s.entry, exit:null,
         kind:s.kind, thresh:s.thresh, pct:s.pct,
         reason:voidReason, settleRuleApplied:appliedSettleRule,
         indicativePx:s.indicativePx ?? null, indicativeAt:s.indicativeAt ?? null,
-        indicativeGapSec:s.indicativeGapSec ?? null });
+        indicativeGapSec:s.indicativeGapSec ?? null };
+      queueSettlement(p,s,log,history);
       p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
       continue;
     }
@@ -1574,10 +1614,7 @@ async function settle(p, prices) {
     if (outcome === 'VOID') {
       refund(p, s); s.res = 'void';
       s.skillXp = 0; s.settleXp = 0; s.xp = 0;
-      if (s.allocationRule !== 'on-settle-v2')
-        await reverseStake(s.stake, p.w, s.id);
     } else if (outcome === s.side) {
-      await fundSettledStake(s, p.w);
       p.shots++; s.res = 'hit'; p.hits++;
       const sm = streakMult(p.streak);
       s.xpBase = s.xp;
@@ -1587,29 +1624,14 @@ async function settle(p, prices) {
       s.xp = s.skillXp + s.settleXp;
       p.streak++; p.best = Math.max(p.best, p.streak);
       scoreStated(p, s, true);
-      await ledgerBand(s, true);
       p.xp += s.xp;
-      await bumpLadderOnce(p.w, s.xp, p.qualified, s.id);
       s.back = Math.floor(s.stake * HIT_PAYOUT);
       p.cr += s.back;
-      if (!isDemo(p.w)) {
-        await seedStats();
-        await applyOnce(`hitpay:${eventId}`, { w:p.w, id:s.id, back:s.back, t:now }, {
-          hashKey:STATS, deltas:{ hitPaid:s.back },
-        });
-        await bumpFeed({ id:`settle:${eventId}`, w:shortW(p.w), actorWallet:p.w,
-          a:`HIT +${s.xp} XP - +${s.back.toLocaleString()} credits`, c:'hit' });
-      }
     } else {
-      await fundSettledStake(s, p.w);
       p.shots++; s.res = 'miss'; p.streak = 0;
       scoreStated(p, s, false);
-      await ledgerBand(s, false);
       s.skillXp = 0; s.settleXp = SETTLE_XP; s.xp = SETTLE_XP;
       p.xp += s.xp;
-      await bumpLadderOnce(p.w, s.xp, p.qualified, s.id);
-      if (!isDemo(p.w)) await bumpFeed({ id:`settle:${eventId}`, actorWallet:p.w,
-        w:shortW(p.w), a:`MISS - streak reset - +${s.xp} XP`, c:'miss' });
     }
 
     s.settleRuleApplied = strict ? SETTLE_RULE : (s.settleRule || 'observed-sample-v1');
@@ -1632,9 +1654,7 @@ async function settle(p, prices) {
         s.exitSource2 = (at2.row && at2.row.src) || 'pyth-onchain';
       }
     }
-    await noteSettle(s.feed, 'set', eventId);
-    if (at2) await noteSettle(s.feed2, 'set', eventId);
-    await appendOnce(`settle:${eventId}`, { k:'settle', w:p.w, id:s.id,
+    const log = { k:'settle', w:p.w, id:s.id,
       res:s.res, exitPx:px, exitAt:s.exitAt, exitPx2:s.exitPx2,
       exitAt2:s.exitAt2, prevExitAt:s.prevExitAt == null ? null : s.prevExitAt,
       prevExitAt2:s.prevExitAt2 == null ? null : s.prevExitAt2,
@@ -1652,12 +1672,13 @@ async function settle(p, prices) {
       settleRuleApplied:s.settleRuleApplied,
       outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1',
       allocationRule:s.allocationRule || 'upfront-v1', xp:s.xp || 0,
-      settleXp:s.settleXp || 0, skillXp:s.skillXp || 0 });
-    await pushHist(p.w, { id:s.id, t:now, label:s.label, side:s.side,
+      settleXp:s.settleXp || 0, skillXp:s.skillXp || 0 };
+    const history = { id:s.id, t:now, label:s.label, side:s.side,
       sp:s.sp, res:s.res, xp:s.res === 'void' ? 0 : (s.xp || 0), back:s.back || 0,
       settleXp:s.settleXp || 0, skillXp:s.skillXp || 0,
       stake:s.stake, entry:s.entry, exit:px, kind:s.kind,
-      thresh:s.thresh, pct:s.pct });
+      thresh:s.thresh, pct:s.pct };
+    queueSettlement(p,s,log,history);
     p.closed.unshift(s); p.closed = p.closed.slice(0, 20);
   }
   p.open = still;
@@ -1722,6 +1743,7 @@ function oracleSealSnapshot(prices, feeds) {
 }
 
 async function takeStake(p, stake) {
+  if ((p.settlementOutbox || []).length >= 32) return 'settlement delivery is pending; read state before opening another shot';
   if (badStake(stake)) return `stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}`;
   if (p.cr < stake) return `not enough credits - you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`;
   p.cr -= stake; p._src = 'cr';
@@ -1841,7 +1863,8 @@ async function oracleIngest(req, res) {
   return res.json({ ok:true, v:VERSION, accepted, duplicates, receivedAt });
 }
 
-module.exports = async (req, res) => {
+module.exports = async (req, res) => playerWrites.run(async () => {
+  const sessionSurface=req.query?.action==='play-session';
   // Public agent wallets may call the signed JSON API from a browser origin.
   // There are no cookie credentials to expose: every state-changing player
   // action verifies its own wallet signature. Keep x402's custom headers both
@@ -1852,6 +1875,8 @@ module.exports = async (req, res) => {
     res.setHeader('access-control-allow-headers', 'Content-Type, PAYMENT-SIGNATURE');
     res.setHeader('access-control-expose-headers', 'PAYMENT-REQUIRED, PAYMENT-RESPONSE');
   }
+  if(sessionSurface && !sessionHttp.privateHeaders(req,res))
+    return res.status(403).json({ok:false,code:'ORIGIN_REFUSED'});
   if (req.method === 'OPTIONS') {
     res.status(204);
     return typeof res.end === 'function' ? res.end() : res.json({});
@@ -1874,7 +1899,7 @@ module.exports = async (req, res) => {
     if (heldPlayerLocks.some(x => x.key === key)) return true;
     for (let a = 0; a < LOCK_TRIES; a++) {
       const token = await acquireLease(key, 30);
-      if (token) { heldPlayerLocks.push({ key, token }); return true; }
+      if (token) { heldPlayerLocks.push({ key, token }); playerWrites.lease(key, token, 30); return true; }
       await new Promise(r => setTimeout(r, LOCK_GAP_MS));
     }
     return false;
@@ -1884,7 +1909,7 @@ module.exports = async (req, res) => {
     // /api/gauntlet rewrites here so it does not consume a thirteenth Vercel
     // function slot. Preserve that destination action for every method; a
     // POST to the public GET-only route must not fall through to state.
-    const routed = new Set(['gauntlet', 'agent-report', 'agent-proof-bundle', 'activity-feed']);
+    const routed = new Set(['gauntlet', 'agent-report', 'agent-proof-bundle', 'activity-feed', 'play-session']);
     const action = routed.has(query.action)
       ? query.action
       : (req.method === 'GET' ? query.action : (req.body||{}).action) || 'state';
@@ -1896,6 +1921,17 @@ module.exports = async (req, res) => {
     const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
     const isPost = req.method !== 'GET';
     if (rateLimited(ip, isPost)) return res.status(429).json({ ok:false, reason:'slow down - too many requests from this address' });
+    if(action==='play-session')return await sessionHttp.handle(req,res,{
+      acquirePlayerLock,trackPlayer:playerWrites.track,game:module.exports,
+      resolvePlayer:async w=>{
+        // Same canonical settlement, without the broad state route's optional
+        // anchor scans, staking yield, enrollment or other unrelated effects.
+        const p=await loadPlayer(w);
+        if(!p._existed)throw Object.assign(new Error('existing agent required'),{code:'AGENT_ADMISSION_REQUIRED'});
+        await settle(p,await getPrices());await savePlayer(p);
+        return {wallet:w,credits:p.cr,...brierOf(p),
+          open:(p.open||[]).map(({side,salt,xp,sp,...s})=>s),closed:p.closed||[]};
+      }});
     // These public agent routes can scan durable history and, for a new proof,
     // query Pyth Benchmarks. Keep their stable public URLs, but do not let an
     // unauthenticated caller bypass the same per-IP budget as the core API.
@@ -2330,13 +2366,16 @@ module.exports = async (req, res) => {
       const w = b.auth && b.auth.wallet;
       if (!w || typeof w !== 'string') return res.status(400).json({ ok:false, reason:'no wallet' });
       const verifiedRanked = action === 'shot' && rankedAuth.isVerifiedRequest(req, b);
-      if (!isDemo(w) && !verifiedRanked) {
+      const verifiedSession = action === 'shot' && sessionGame.isVerifiedRequest(req,b);
+      if (!isDemo(w) && !verifiedRanked && !verifiedSession) {
         const v = verifyAuth(b.auth);
         if (!v.ok) return res.status(401).json({ ok:false, reason:v.reason });
       }
       const p = await loadPlayer(w);
+      if(verifiedSession && (!p._existed || !sessionHttp.admitted(p,w)))
+        return res.status(403).json({ok:false,code:'AGENT_ADMISSION_REQUIRED'});
       await settle(p, prices);
-      const requestId = verifiedRanked ? String(b.requestId) : null;
+      const requestId = verifiedRanked || verifiedSession ? String(b.requestId) : null;
       if (requestId) {
         const prior = [...(p.open || []), ...(p.closed || []), ...(p.history || [])]
           .find(row => row && row.requestId === requestId);
@@ -2456,7 +2495,7 @@ module.exports = async (req, res) => {
       if (sp != null) shot.sp = sp;
       shot.src = p._src || 'bal'; delete p._src;
       p.open.unshift(shot);
-      await savePlayer(p);
+      await savePlayer(p,verifiedSession?[await sessionGame.acceptanceExtra(req,shot)]:[]);
       await recordSealedShot(shot, w);
       // Crowd odds: count the sealed SIDE per board target, aggregate only —
       // bucketed by ten-minute window. A LIVE counter would leak: the public
@@ -2548,7 +2587,8 @@ module.exports = async (req, res) => {
       const lease = await challengeLease();
       if (!lease) return res.status(409).json({ ok:false, reason:'the challenge board is updating — retry' });
       try {
-        const list = ((await getJSONStrict('g:chal')) || []).filter(c => c && c.expiresAt > Date.now());
+        const expectedBoard = await getJSONStrict('g:chal');
+        const list = (expectedBoard || []).filter(c => c && c.expiresAt > Date.now());
         if (list.length >= CHAL_MAX_OPEN) return res.status(429).json({ ok:false, reason:'the challenge board is full — take one instead' });
         if (list.some(c => c.by === w)) return res.status(409).json({ ok:false, reason:'you already have a challenge waiting — one at a time' });
 
@@ -2565,16 +2605,8 @@ module.exports = async (req, res) => {
           pct: kind === 'dir' ? null : pct, side, stake, label,
           createdAt: Date.now(), expiresAt: Date.now() + CHAL_OPEN_MS,
           allocationRule:'on-settle-v2', outcomeRule:OUTCOME_RULE };
-        list.unshift(c);
-        try {
-          await setManyJSONAtomic([
-            [`u:${p.w}`, playerRecord(p)],
-            ['g:chal', list.slice(0, CHAL_MAX_OPEN)],
-          ]);
-        } catch (e) {
-          await restoreDrains([p]);
-          throw e;
-        }
+        await playerWrites.save([p], [{key:'g:chal', expected:expectedBoard,
+          value:[c,...(expectedBoard || [])]}]);
         await appendOnce(`chal:${c.id}`, { k:'chal', id: c.id, by: w, label, side, stake, mins });
         await bumpFeed({ id:`chal:${c.id}`, w: shortW(w), actorWallet:w,
           a: `challenges the room: ${label} - ${side}`, c: 'seal' });
@@ -2605,7 +2637,8 @@ module.exports = async (req, res) => {
       const lease = await challengeLease();
       if (!lease) return res.status(409).json({ ok:false, reason:'the challenge board is updating — retry' });
       try {
-      const list = ((await getJSONStrict('g:chal')) || []).filter(c => c && c.expiresAt > Date.now());
+      const expectedBoard = await getJSONStrict('g:chal');
+      const list = (expectedBoard || []).filter(c => c && c.expiresAt > Date.now());
       const c = list.find(x => x.id === id);
       if (!c) return res.status(404).json({ ok:false, reason:'that challenge is gone — taken or expired' });
       if (c.by === w) return res.status(400).json({ ok:false, reason:'you cannot take your own side of your own challenge' });
@@ -2627,28 +2660,22 @@ module.exports = async (req, res) => {
       const takerCap = Math.min(4, rankOf(taker.xp)+1) + 1;
       const authorCap = Math.min(4, rankOf(author.xp)+1) + 1;
       if (taker.open.length >= takerCap) {
-        await restoreDrains([taker, author]);
         return res.status(409).json({ ok:false, reason:`your ${takerCap} chambers are full` });
       }
       if (author.open.length >= authorCap) {
-        await restoreDrains([taker, author]);
         return res.status(409).json({ ok:false, reason:`the author's ${authorCap} chambers are full — retry after one settles` });
       }
 
-      // ATOMIC: exactly one acceptance wins, however many arrive together.
-      if (!(await setnxJSON(`chaltaken:${id}`, { w, t: Date.now() }, 86400))) {
-        await restoreDrains([taker, author]);
+      // Legacy replay gates remain respected. New gates are committed WITH
+      // both players and board removal, never consumed ahead of the debit.
+      if (await getJSONStrict(`chaltaken:${id}`)) {
         return res.status(409).json({ ok:false, reason:'somebody just took it' });
       }
 
       const bad = await takeStake(taker, c.stake);
       if (bad) {
-        // The acceptance gate was won before the balance check. Leaving it in
-        // place turns an underfunded click into a permanent denial of service
-        // against the author's offer.
-        await delKey(`chaltaken:${id}`);
+        // No acceptance gate is written for an underfunded request.
         await savePlayer(taker);
-        await restoreDrains([author]);
         return res.status(400).json({ ok:false, reason: bad });
       }
 
@@ -2677,17 +2704,10 @@ module.exports = async (req, res) => {
       // One accepted challenge owns three records. Commit them together: a
       // failed request cannot debit the taker while omitting one side, or
       // leave an already-taken offer visible in the room.
-      try {
-        await setManyJSONAtomic([
-          [`u:${taker.w}`, playerRecord(taker)],
-          [`u:${author.w}`, playerRecord(author)],
-          ['g:chal', list.filter(x => x.id !== id)],
-        ]);
-      } catch (e) {
-        await restoreDrains([taker, author]);
-        await delKey(`chaltaken:${id}`);
-        throw e;
-      }
+      await playerWrites.save([taker, author], [
+        {key:'g:chal', expected:expectedBoard, value:(expectedBoard || []).filter(x => x.id !== id)},
+        {key:`chaltaken:${id}`, expected:null, value:{w,t:Date.now()}},
+      ]);
       await appendOnce(`chaltake:${c.id}`, { k:'chaltake', id: c.id, by: c.by, taker: w, label: c.label,
         entry: px, exp, stake: c.stake });
       await recordSealedShot(authorShot, c.by);
@@ -3480,13 +3500,15 @@ module.exports = async (req, res) => {
 
     return res.status(400).json({ ok:false, reason:'unknown action' });
   } catch (e) {
+    if (['WRITE_CONFLICT','WRITE_LEASE_EXPIRED','CREDIT_QUEUE_CONFLICT'].includes(e.code))
+      return res.status(409).json({ok:false,code:e.code,reason:'player state changed; read state before retrying'});
     return res.status(500).json({ ok:false, reason: String(e.message || e) });
   } finally {
     for (const x of heldPlayerLocks.reverse()) {
       try { await releaseLease(x.key, x.token); } catch {}
     }
   }
-};
+});
 module.exports.champWindowSum = champWindowSum;   // pure, for the test harness
 module.exports.refreshLivePodium = refreshLivePodium;
 module.exports.parseMirrorSeal = parseMirrorSeal;

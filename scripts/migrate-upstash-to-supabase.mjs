@@ -5,6 +5,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import auth from '../lib/supabase_auth.js';
 
 const REDIS_URL = (process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL || '').replace(/\/$/, '');
 const REDIS_TOKEN = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN || '';
@@ -64,7 +65,7 @@ async function redisPipeline(commands, batchSize = 200) {
 }
 async function supa(name, args = {}) {
   const response = await fetch(`${SUPA_URL}/rest/v1/rpc/${name}`, {
-    method:'POST', headers:{ apikey:SUPA_TOKEN, Authorization:`Bearer ${SUPA_TOKEN}`,
+    method:'POST', redirect:'error', headers:{ ...auth.serverHeaders(SUPA_TOKEN),
       'Content-Type':'application/json', Accept:'application/json' },
     signal:AbortSignal.timeout(15000), body:JSON.stringify(args),
   });

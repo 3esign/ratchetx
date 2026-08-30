@@ -18,6 +18,7 @@ agent/
 ops/
 supabase/
 scripts/
+tools/
 *.cmd
 *.md
 # The public Agent Skill is executable discovery content, not repository docs.
