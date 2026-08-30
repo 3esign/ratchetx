@@ -16,4 +16,6 @@ await assert.rejects(()=>check({env,fetchImpl:async()=>new Response('{}',{status
 await assert.rejects(()=>check({env,fetchImpl:async()=>new Response('{"schema":"guarded-player-v1","ready":false}')}),/trigger/);
 const config=JSON.parse(readFileSync(new URL('../vercel.json',import.meta.url),'utf8'));
 assert.equal(config.buildCommand,'node lib/check_store_schema.js');
+assert.equal(config.outputDirectory,'.','the readiness-only build must publish the existing root static site, not a nonexistent public folder');
+assert.match(readFileSync(new URL('../index.html',import.meta.url),'utf8'),/<!doctype html>/i);
 console.log('Vercel build blocks absent/mismatched database migration; readiness probe is read-only and never follows redirects PASS');
