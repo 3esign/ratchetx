@@ -1,6 +1,8 @@
 {
-  "productionRelease": "h97-2026-08-30",
-  "candidateRelease": "h98-2026-08-30",
+  "productionRelease": "h98-2026-08-30",
+  "candidateRelease": null,
+  "productionDeployment": "dpl_aUSupktX6fEXcDcgN14PqALNSXq1",
+  "productionCodeCommit": "263836c",
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.2.0",
@@ -28,12 +30,13 @@
     "canonicalSettlement": "ratchet-server",
     "independentPythReplay": false
   },
-  "lastVerifiedDeploy": "2026-08-29T23:16:32Z",
+  "lastVerifiedDeploy": "2026-08-30T08:49:39.847Z",
   "localRecoveryDeployment": "deployed",
   "productionStatus": {
     "core": "healthy",
     "premiumProof": "retained PriceUpdateV2 evidence is fully prevalidated; invalid or expired evidence fails before payment",
-    "pythAgentLayer": "shared validated snapshot and bounded observed path; agent reads do not trigger new oracle requests",
+    "pythAgentLayer": "atomically ordered shared accepted snapshot on all seven feeds; bounded observed path; agent reads do not trigger new oracle requests",
+    "playerActivity": "75 rows live after bounded recovery; house Fleet excluded before retention; read-only activity-feed inspection available",
     "rankedEconomy": "Pyth reads consume no RCX; accepted seals stake play credits; VOID refunds; RCX remains the ranked reload rail"
   }
 }

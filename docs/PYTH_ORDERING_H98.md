@@ -1,6 +1,7 @@
 # h98: monotonic shared Pyth context
 
-Date: 2026-08-30. Status: candidate; production verification pending.
+Date: 2026-08-30. Status: deployed and production-verified at 08:49:39Z.
+Production code: 263836c. Deployment: dpl_aUSupktX6fEXcDcgN14PqALNSXq1.
 Regression contract: commit 8a15b83 (red against h97, before implementation).
 
 ## Reproduced defect
@@ -45,7 +46,7 @@ an application projection bug, not evidence of Pyth manipulation or credit loss.
   bounded contention and backend failure. The Redis fixture does not execute Lua.
 - Existing Pyth context/stream tests verify same-millisecond cursor completeness,
   zero per-reader oracle fetches, and canonical byte validation/capture retries.
-- Full suite after the kill-feed repair: 60 passed, 0 failed, 5 browser-fixture
+- Full suite after the kill-feed/read-only repair: 61 passed, 0 failed, 5 browser-fixture
   skips. Browser inspection could not start because its Windows sandbox failed
   its ACL setup; no claim of completed visual QA. Local production-secret export
   was blocked; Vercel also
@@ -59,6 +60,25 @@ postedSlot 442833129 to 1788078712 / 442834404. This verifies real insert/update
 paths, not a synthetic production concurrency test. The canary was not promoted:
 the user then reported the kill-feed defect below. Final combined deployment
 must be verified separately.
+
+Final combined candidate 263836c was verified independently: read-only activity
+inspection returned 75 rows (73 recovered), no Fleet rows, persisted:false as
+expected for a preview. MCP initialized at 1.2.0 / h98 and listed all 13 tools.
+Heartbeat sampled=true at 1788079673493; every feed advanced its atomic projection.
+The exact deployment was then promoted (not rebuilt).
+
+Production readback at 2026-08-30T08:49:39.847Z:
+
+- ratchetx.xyz served h98; homepage bytes matched the committed index.html after
+  newline normalization.
+- Activity returned 75 rows, 73 recovered, persisted:true. Normal application
+  traffic had initialized the player projection. No diagnostic settlement call
+  was used to trigger that migration.
+- Pyth context reported all seven atomic feeds, no legacy feeds. SOL's stream
+  advanced to publishTime 1788079774 / postedSlot 442837763, demonstrating that
+  the production capture worker uses the new writer, not only the canary poll.
+- Stream health was 4/7 fresh, 7/7 usable, none beyond the 900-second settlement
+  grace window. This is not a claim that every stream notification is captured.
 
 ## Kill-feed repair included before final release
 
@@ -81,6 +101,8 @@ Seal rows expose neither side nor salt. Rendered feed text is escaped.
 `test_activity_feed` pins retention before filtering; `test_activity_recovery`
 covers bounded restoration, immutable-entry precedence, duplicate receipts,
 outages/retry, rolling old writers, demo exclusion and safe rendering.
+`test_activity_readonly` pins the no-writes/no-oracle diagnostic boundary, including
+GET-only behavior and protection against POST query fallthrough.
 
 The opt-in `scripts/probe-ordered-kv.mjs` accepts runtime-provided credentials and
 touches only two random `test:pyth-order:*` TTL keys, then removes them. It prints

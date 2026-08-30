@@ -1,17 +1,20 @@
 # RatchetX agent handoff
 
-Updated: 2026-08-30. h97 Pyth agent layer is committed, deployed, live-verified
-and published as MCP 1.2.0 in the official registry.
+Updated: 2026-08-30. h98 is deployed and production-verified. MCP remains 1.2.0
+(13 tools), as published in the official registry; this release changes no tool schema.
 
 ## Live identity and external proofs
 
-Candidate h98 fixes shared Pyth-context regressions under late arrivals. See
+h98 fixes shared Pyth-context regressions under late arrivals and player kill-feed
+eviction by hidden house-Fleet rows. See
 `docs/PYTH_ORDERING_H98.md` for the red-before-fix contract, backend atomicity,
-release checks and limits. Production remains h97 until the candidate is promoted.
+bounded receipt recovery, release checks and limits.
 
-- Production release: `h97-2026-08-30`; no pending local candidate.
+- Production release: `h98-2026-08-30`; no pending local candidate.
 - MCP, Agent Skill and ERC-8004 profile: `1.2.0` live.
-- Production deployment: `dpl_Ea669LKXFCG1K66SDrhAxoMr6818`.
+- Production deployment: `dpl_aUSupktX6fEXcDcgN14PqALNSXq1`, code commit `263836c`.
+- Verified 08:49:39Z: 75 player-feed rows (73 recovered), persisted projection;
+  seven atomic Pyth projections; production stream advancing those projections.
 - Official MCP Registry: `io.github.3esign/ratchet@1.2.0` is latest; publish
   workflow run `33280486574` completed successfully.
 - Solana registry: agent 1475, asset
@@ -107,19 +110,22 @@ legacy value still fails before an x402 quote is issued.
 - `test_x402`: existing ranked-entry economics and funded-path seam unchanged.
 - `test_agent_funnel_protocol`, `test_ranked_remote_protocol`, `test_agent_report`.
 - Warden, record, agent discovery and release safety pass.
-- Final complete run: 55 pass / 0 fail / 5 browser-fixture skips. The browser
+- Final complete run: 61 pass / 0 fail / 5 browser-fixture skips. The browser
   fixtures skip only when their local fixture server is absent. Release safety,
   the 114-check kill switch and all protocol/economics tests passed.
 
-## Exact next actions
+## Exact next actions and boundaries
 
-1. Inspect `git diff --check`, staged release contents and repository status.
-2. Update public OpenAPI/discovery digests if any Agent Skill bytes change.
-3. Commit the recovery in reviewable commits; do not combine credential rotation
-   with unrelated feature changes.
-4. Rotate the leaked database credential and update the hosting secret atomically.
-5. Deploy through the repository's normal preflight/token path.
-6. Verify production MCP 1.2.0/13 tools, both Pyth reads, both x402 resources, report-card receipt,
-   core state/proof/record, 12-function limit and absence of `/api/a2a`.
-
-Do not call the work deployed or the credential safe until steps 4–6 are complete.
+1. Keep the current release evidence above; do not repeat a funded smoke merely
+   for deployment verification. `activity-feed`, Pyth context/path and MCP schemas
+   provide read-only checks. The legacy state GET can settle game state.
+2. Define a separate policy for conflicting payloads with identical complete
+   oracle clock tuples. h98 ordering does not settle fork/equivocation questions.
+3. Continue investigating capture gaps without calling the retained sampled path
+   a continuous archive or equating posted/RPC slot deltas with measured latency.
+4. Full independent Pyth replay remains false. No v3/Calibration PDA is deployed.
+5. Earlier recovery documented a leaked database credential. This turn did not
+   export, rotate, or certify that credential. Confirm rotation via the authorized
+   hosting procedure separately; non-exportable secrets must stay non-exportable.
+6. Browser visual QA was unavailable due to Windows ACL startup failure; do not
+   confuse the successful API/HTML-byte verification with a rendered visual check.
