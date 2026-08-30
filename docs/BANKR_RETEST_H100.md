@@ -1,6 +1,6 @@
 # h100: Bankr retest, stable continuation and executable scorecards
 
-2026-08-30. Local candidate; h99 remains production until canary/promotion checks.
+2026-08-30. Deployed and production-verified at 09:43:05.864Z.
 
 ## Findings and red baseline
 
@@ -70,10 +70,31 @@ A confidence-expansion case absent from observations remains `not exercised`.
 
 ## Verification and release
 
-Targeted tests now pass: five pagination cases, three MCP report cases, existing
-Pyth context + agent-report tests. The five-page fixture returns all 105 observations
-including same-millisecond neighbours exactly once. Complete suite and protected
-production-environment canary pending; no deployment claim yet.
+Targeted tests pass: five pagination cases, three MCP report cases, existing Pyth
+context + agent-report tests. The five-page fixture returns all 105 observations
+including same-millisecond neighbours exactly once. Complete suite on committed
+code: **65 passed, 0 failed, 5 browser-fixture skips**. No rendered visual QA is
+claimed; this release changes no HTML. No credentials were exported.
+
+- Code `9b3e7f0`; clean release worktree; red baseline `6983e55`.
+- Deployment `dpl_EyHicrnAA5E9F6Pv7taxoD6G1dez`,
+  `https://ratchetx-6fnw5dr8m-3esigns-projects.vercel.app`.
+- Protected production-environment canary used actual MCP tools/call: old Bankr WIF
+  report returned Brier 0.2116; three pages of a 16-point path returned six unique
+  observations, with frozen omitted-to bounds and nextRequest working. This canary
+  did not claim a full traversal. The exact deployment was then promoted.
+- Public-domain readback at `2026-08-30T09:43:05.864Z`: MCP report passed for all
+  three tested handles; invalid IDs returned structured tool errors. The old WIF
+  run still scored 0.2116. Both new handles still had zero scored calls/null Brier;
+  these read-only probes did not trigger their lazy settlement.
+- Public path probe traversed a complete fixed 14-observation window in **five
+  pages**, exactly matching the single-page reference, without duplication. A
+  separate omitted-to continuation also succeeded. This is a live bounded control,
+  not proof of continuous capture, every historical cursor, or future concurrency.
+- All seven atomic Pyth feeds remained present; requestTriggeredOracleRead=false.
+  Activity retained all 75 players plus five demos (80 rows total). Delivered HTML
+  remained unchanged; normalized SHA-256
+  `49ae32c3e28b6b4daa5b954ea7e7935adf39933e8d03df0aa2079ec746674165`.
 
 Design reference: [MCP list pagination](https://modelcontextprotocol.io/specification/2025-11-25/server/utilities/pagination)
 uses opaque cursors and recommends stable continuations. Ratchet's path is a custom

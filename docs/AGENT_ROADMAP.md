@@ -34,7 +34,7 @@ evidence and settlement code as every other player.
 
 ## Verified production baseline
 
-- Production release marker: `h97-2026-08-30`, live-verified on
+- Production release marker: `h100-2026-08-30`, live-verified on
   `ratchetx.xyz`; no pending candidate.
 - MCP/Agent Skill/ERC-8004 surfaces: `1.2.0`, checked bidirectionally; the
   official MCP Registry lists `io.github.3esign/ratchet@1.2.0` as latest.
@@ -57,6 +57,26 @@ evidence and settlement code as every other player.
   URLs through rewrites into `api/game.js`; the fake A2A surface is removed.
 - Release gate pins the restored v2 source SHA-256 and rejects tracked secret,
   private-key and investigation-artifact patterns.
+
+## Immediate next acceptance task — Bankr resolution contract
+
+h100 repaired two real integration breaks: MCP scorecard import drift and a moving
+default `to` invalidating path cursors. Full tests: 65/0/5 browser skips. Exact
+release controls and remaining limits are in `BANKR_RETEST_H100.md`.
+
+Next, expose one predictable per-shot result through the existing demo-state flow:
+identity/target, pending or terminal state, retry timing, retained exit evidence,
+credit balance, Brier and proof URLs. The current route already invokes canonical
+settlement after expiry; a second worker or long-held request is not required to
+repair its response contract. Acceptance must cover HIT, MISS, pending inside the
+grace window, VOID/refund outside it, and idempotent repeat polls. VOID ends a shot
+but does not complete the Gauntlet's non-void objective. Do not assume every
+post-expiry request can immediately finalize without a valid oracle observation.
+
+Before asking Bankr to create more demos, have it finish the already-reported
+handles `41ea35bc740d` and `55fe7753034f` through `ratchet_demo_state`, then inspect
+`ratchet_agent_record`. Both existed but remained unscored in the read-only h100
+release check. No complete retest or confidence-expansion event is claimed yet.
 
 ## Phase A — production convergence and security closure (now)
 

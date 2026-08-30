@@ -1,6 +1,6 @@
 # RatchetX agent handoff
 
-Updated: 2026-08-30. h99 is deployed and production-verified. MCP remains 1.2.0
+Updated: 2026-08-30. h100 is deployed and production-verified. MCP remains 1.2.0
 (13 tools), as published in the official registry; this release changes no tool schema.
 
 ## Live identity and external proofs
@@ -15,12 +15,22 @@ attempts. See `docs/AGENT_ACTIVITY_H99.md` for identity/proof limits, bounded re
 costs and the independent 100-player + 20-demo capacity. This does not change the
 ranked economy or imply that a registered wallet proves autonomous AI control.
 
-- Production release: `h99-2026-08-30`; no pending local candidate.
+h100 fixes Bankr's broken MCP scorecard route and a reproduced cursor failure when
+optional `to` was omitted. Complete continuation arguments are returned as
+`nextRequest`; receipt provenance no longer falsely says Pyth Benchmarks. See
+`docs/BANKR_RETEST_H100.md` for controls, release evidence and the next resolution
+contract. No new settler, worker, payment or synthetic demo run was introduced.
+
+- Production release: `h100-2026-08-30`; no pending local candidate.
 - MCP, Agent Skill and ERC-8004 profile: `1.2.0` live.
-- Production deployment: `dpl_5SZi4uRvaepFPtXE5ugnbMQaGBi8`, code commit `29adfc2`.
-- Verified 09:14:15Z: 78 rows = all 75 player events (17 registered-agent events)
-  plus 3 Bankr demo receipts; persisted player projection; all seven atomic Pyth
-  projections and no legacy fallbacks; exact delivered HTML matches the artifact.
+- Production deployment: `dpl_EyHicrnAA5E9F6Pv7taxoD6G1dez`, code commit `9b3e7f0`.
+- Verified 09:43:05Z: actual MCP scorecards execute; five pages return all 14
+  observations in a fixed test window exactly matching the reference read. Omitted
+  `to` continuation also passes. All seven atomic Pyth projections remain present.
+- Feed has 80 rows: all 75 player events plus 5 demos. HTML is unchanged from h99.
+- New Bankr-reported handles `41ea35bc740d` and `55fe7753034f` exist, but both still
+  had zero scored calls/null Brier in read-only inspection. Do not claim completed
+  retests. Only Bankr's older WIF run had the verified 0.2116 Brier.
 - Official MCP Registry: `io.github.3esign/ratchet@1.2.0` is latest; publish
   workflow run `33280486574` completed successfully.
 - Solana registry: agent 1475, asset
@@ -117,11 +127,18 @@ legacy value still fails before an x402 quote is issued.
 - `test_x402`: existing ranked-entry economics and funded-path seam unchanged.
 - `test_agent_funnel_protocol`, `test_ranked_remote_protocol`, `test_agent_report`.
 - Warden, record, agent discovery and release safety pass.
-- Final complete run: 63 pass / 0 fail / 5 browser-fixture skips. The browser
+- Final complete run: 65 pass / 0 fail / 5 browser-fixture skips. The browser
   fixtures skip only when their local fixture server is absent. Release safety,
   the 114-check kill switch and all protocol/economics tests passed.
 
 ## Exact next actions and boundaries
+
+Immediate next implementation: a per-shot resolution envelope on the existing
+canonical `ratchet_demo_state` flow. Include terminal HIT/MISS/VOID, exact retained
+exit, balances/Brier, direct proof URLs, pending reason and retry timing. Keep VOID
+terminality separate from Gauntlet non-void completion; no forced post-expiry result,
+second settler, five-minute serverless wait or invented confidence-expansion test.
+Acceptance and existing progress-selector limitation: `docs/BANKR_RETEST_H100.md`.
 
 1. Keep the current release evidence above; do not repeat a funded smoke merely
    for deployment verification. `activity-feed`, Pyth context/path and MCP schemas
