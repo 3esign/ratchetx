@@ -400,12 +400,35 @@ try {
       assert.deepEqual(await player(f),savedPlayer,fixture.name+' replay cannot mutate the player');
       assert.deepEqual(await record(f),stored,fixture.name+' replay cannot replenish authority');
       safeResponse(replay,f);
+
+      if(fixture.state==='reserved') {
+        // Recovery can close an unresolved attempt while the grant is still
+        // active. Its known owner-recovery receipt is not a game refusal.
+        const recovered=await invoke({body:ownerBody(f,'recover',pilotIntent.requestId)});
+        assert.equal(recovered.status,200);
+        assert.deepEqual(recovered.body.request.result,{state:'rejected',code:'RECOVERED_NO_DISPATCH'});
+        const afterRecovery=await record(f);
+        assert.equal(afterRecovery.revokedAt,null,'recovery does not require revocation');
+        assert.equal(afterRecovery.pending,null);
+        assert.equal(afterRecovery.attempts,1);
+        assert.equal(afterRecovery.grossCredits,100,'recovery cannot restore reserved authority');
+        const recoveredReplay=await invoke({body:{op:'shot',intent:pilotIntent},headers:bearer(f)});
+        assert.equal(recoveredReplay.status,200);
+        assert.equal(recoveredReplay.body.idempotent,true);
+        assert.deepEqual(recoveredReplay.body.request,recovered.body.request);
+        assert.equal(Object.hasOwn(recoveredReplay.body,'refusal'),false,'owner recovery must not be described as a game refusal');
+        assert.equal(dispatches,beforeDispatches+1,'owner-recovered replay must not redispatch');
+        assert.deepEqual(await player(f),savedPlayer,'owner recovery/replay cannot change credits or score');
+        assert.deepEqual(await record(f),afterRecovery,'owner-recovered replay cannot restore allowance');
+        safeResponse(recovered,f);
+        safeResponse(recoveredReplay,f);
+      }
     }
   } finally {
     gameModule.exports=originalGameExport;
     pumpAge=0;pumpConfidenceBps=1;pumpProvenance=true;
   }
-  console.log('HTTP exact 100-credit PUMP pilot: oracle boundaries, stable refusal codes, safe fallback, unresolved 503 and no-redispatch replay PASS');
+  console.log('HTTP exact 100-credit PUMP pilot: oracle boundaries, stable refusal codes, safe fallback, unresolved 503, owner recovery and no-redispatch replay PASS');
   assert.equal(networkAttempts,0,'fixture must not even attempt an external request');
 } finally {
   kv.backend=originalBackend;

@@ -44,7 +44,8 @@ gameplay. Status also carries the retained code in the session's request record.
 Known codes include ORACLE_STALE, ORACLE_CONFIDENCE_TOO_WIDE, FEED_UNAVAILABLE,
 TARGET_UNAVAILABLE, CHAMBERS_FULL, INSUFFICIENT_CREDITS, PLAYER_BUSY and RATE_LIMITED.
 The full dictionary is published in the public session discovery contract.
-5xx/ambiguous outcomes remain reserved for fenced owner recovery. No retry,
+Owner-recovered receipts retain RECOVERED_NO_DISPATCH without an added game
+refusal label. 5xx/ambiguous outcomes remain reserved for fenced owner recovery. No retry,
 replacement grant, allowance refund or second forecast is performed automatically.
 
 ## Next owner-approved acceptance
