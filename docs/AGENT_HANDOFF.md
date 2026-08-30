@@ -1,8 +1,20 @@
 # RatchetX agent handoff
 
-Updated: 2026-08-30T13:47:30.236Z. h101 is DEPLOYED and public-verified.
+Updated: 2026-08-30T15:02:28.056Z. h101 with UI hotfix h101-ui1 is DEPLOYED and public-verified.
 MCP remains 1.2.0 (13 tools), as published in the official registry; this release
 adds no MCP tool or function slot. See [release evidence](RELEASE_H101.md).
+
+Mobile owner setup fix: wallet connection now performs one unsigned availability
+GET automatically. Failed prerequisites and an explicit read-only retry appear
+beside SIGN & CREATE SESSION. Successful readiness never replaces consent or
+automatically signs a grant. The original mobile report had a connected wallet
+and consent, but apiEnabled was false because the separate top check had not
+passed. Focused connect-first, failed/retried/mismatched readiness and disconnect
+tests plus isolated mobile390 browser checks passed. API, signing payloads,
+database, economics and program code were not changed. Next owner action: refresh
+/play-session.html, connect, review limits/consent, sign, then privately configure
+the Bankr per-user credential. A successful owner grant/Bankr shot is not yet
+proven by this UI fix.
 
 ## Live identity and external proofs
 

@@ -1,5 +1,45 @@
 # h101 production release — bounded owner-approved play
 
+Latest public verification: 2026-08-30T15:02:28.056Z (h101-ui1).
+
+## UI-only mobile readiness hotfix
+
+- Deployment: dpl_eq1opEjU2aKbGS3mnakFeYEQGDMw, READY and aliased to ratchetx.xyz.
+- Immutable URL: https://ratchetx-7gfm0z8rh-3esigns-projects.vercel.app
+- Clean isolated artifact: be553c742e66f04786f857c7a731c90a8001cad2.
+- 328 tracked source files; same ordered-hash definition below:
+  9af036f5f9dd1a55ea147cdf104077567869d614164d17fea1a27e725120e0c7.
+- API build remains h101; only play-session.html/js and the focused page test
+  changed. No signing contract, database, game, economic or program change.
+- Mobile screenshots exposed a UX gate: apiEnabled started false, but connect
+  did not run the separate top-of-page availability check. Connected wallet and
+  checked consent therefore still left signing disabled without a nearby reason.
+- Connect now makes one unsigned same-origin GET. Failed readiness is explained
+  beside the disabled action with explicit read-only retry. Consent and the
+  pre-signature contract recheck remain required. No automatic grant retry.
+- Focused page suite, release safety and version checks passed on the exact clean
+  artifact. No repeated full suite or live database mutation was needed.
+- Independent mobile390 synthetic browser cases passed connect/consent/ready and
+  unavailable/inline-retry/ready: zero signatures, zero POSTs, no page errors or
+  horizontal overflow. Browser plugin bootstrap was blocked by Windows ACLs;
+  isolated Playwright fixtures were used, not the user's wallet/browser profile.
+- Four production GET checks passed: both modified assets match exact bytes,
+  session API enabled and no-store/private with shot/status rights, core board OK.
+- Build-time guarded database prerequisite PASS. No new credentials or migration.
+
+Updated static SHA-256:
+
+| File | SHA-256 |
+|---|---|
+| play-session.html | f020f7dbb80069ca2f4f37211e1ec032b3cf9b098564f2003b1f76b09ebb4cb7 |
+| play-session.js | 7df309d594874da723e6d05b77bb8446030a343987ff14d64a593dac8813b32a |
+
+The root game and vercel.json hashes remain as recorded below. Actual owner
+grant and private Bankr gameplay remain user-driven acceptance, not claims of
+this UI verification. Lesson recorded in workspace Solana reference 82.
+
+## Initial full h101 release (historical evidence)
+
 Verified: 2026-08-30T13:47:30.236Z.
 
 - Release: h101-2026-08-30.

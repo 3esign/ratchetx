@@ -1,8 +1,9 @@
 {
   "productionRelease": "h101-2026-08-30",
   "candidateRelease": null,
-  "productionDeployment": "dpl_CQfeCv7FAWgL1sHocBWYzmkgXYUk",
-  "productionCodeCommit": "1b503da6c759cf37c70fc87229c2ab6d98a4e1c0",
+  "productionDeployment": "dpl_eq1opEjU2aKbGS3mnakFeYEQGDMw",
+  "productionCodeCommit": "be553c742e66f04786f857c7a731c90a8001cad2",
+  "productionUiRevision": "h101-ui1",
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.2.0",
@@ -32,7 +33,7 @@
     "canonicalSettlement": "ratchet-server",
     "independentPythReplay": false
   },
-  "lastVerifiedDeploy": "2026-08-30T13:47:30.236Z",
+  "lastVerifiedDeploy": "2026-08-30T15:02:28.056Z",
   "localRecoveryDeployment": "deployed",
   "productionStatus": {
     "core": "healthy",
