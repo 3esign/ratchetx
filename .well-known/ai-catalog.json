@@ -206,7 +206,7 @@
         "Build a public calibration record for my trading agent",
         "Teach my coding agent how to play RatchetX safely"
       ],
-      "version": "1.2.1",
+      "version": "1.3.0",
       "updatedAt": "2026-08-30T00:00:00Z",
       "metadata": {
         "format": "agentskills.io",

@@ -398,4 +398,53 @@ assert.equal(replaced.nodes.sessionId.value, 'd'.repeat(32));
 assert.equal(new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1])).size,
   [...html.matchAll(/\bid="([^"]+)"/g)].length, 'reordered management UI has unique IDs');
 
-console.log('PASS bounded session page: read-only connect readiness, failure/retry/disconnect gates, exact signed contracts, consent, private credential lifecycle, metadata isolation, owner recovery/revoke and failure guards');
+// Public command helpers never copy bearer material, even from a rich server record.
+const publicCommand = ui.bankrCommand('play', sampleSession(), 'a'.repeat(32));
+assert.match(publicCommand, /ONE 100-play-credit forecast/);
+assert.match(publicCommand, /trusted signed-in Bankr user/);
+assert.match(publicCommand, /Command ID: a{32}/);
+assert.doesNotMatch(publicCommand, /hidden-token|hidden-credential|rxp1\./);
+assert.throws(() => ui.bankrCommand('play', sampleSession(), 'invalid'), /INVALID_REQUEST_ID/);
+assert.throws(() => ui.bankrCommand('play', {...sampleSession(), wallet: 'bad'}, 'a'.repeat(32)), /INVALID_SESSION_ID/);
+const commands = fixture({initialSession: sampleSession()});
+assert.equal(commands.nodes.bankrCommands.hidden, true);
+await commands.dispatch('connectWallet'); await commands.dispatch('findSession');
+const commandReads = commands.requests.length, commandSigns = commands.signed.length;
+await commands.dispatch('copyBankrStats');
+assert.match(commands.clipboard.at(-1), /--status/);
+assert.match(commands.clipboard.at(-1), /No new forecast/);
+await commands.dispatch('copyBankrPlay');
+const firstCommand = commands.clipboard.at(-1);
+await commands.dispatch('copyBankrPlay');
+assert.notEqual(commands.clipboard.at(-1), firstCommand, 'a new explicit copy produces a new public command nonce');
+assert.equal(commands.requests.length, commandReads, 'copying makes no API call');
+assert.equal(commands.signed.length, commandSigns, 'copying never signs');
+assert.doesNotMatch(commands.clipboard.join('\n'), /hidden-credential|rxp1\./);
+commands.nodes.consent.checked = true;
+await commands.dispatch('seriesPreset');
+assert.equal(commands.nodes.maxAttempts.value, '5');
+assert.equal(commands.nodes.maxStakeCredits.value, '100');
+assert.equal(commands.nodes.maxGrossCredits.value, '500');
+assert.equal(commands.nodes.durationMinutes.value, '60');
+assert.equal(commands.nodes.consent.checked, false, 'preset never supplies consent');
+await commands.dispatch('singlePreset');
+assert.equal(commands.nodes.maxAttempts.value, '1');
+assert.equal(commands.nodes.maxGrossCredits.value, '100');
+assert.equal(commands.requests.length, commandReads, 'presets never grant or play');
+await commands.dispatch('disconnectWallet');
+assert.equal(commands.nodes.bankrCommands.hidden, true);
+assert.equal(commands.nodes.bankrCommandText.textContent, '');
+for (const patch of [{revokedAt: Date.now()}, {expiresAt: Date.now() - 1000}, {pending: 'b'.repeat(32)}, {attempts: 1}, {grossCredits: 500}]) {
+  const c = fixture({initialSession: {...sampleSession(), ...patch}});
+  await c.dispatch('connectWallet'); await c.dispatch('findSession');
+  assert.equal(c.nodes.copyBankrPlay.disabled, true);
+  await c.dispatch('copyBankrPlay');
+  assert.equal(c.clipboard.length, 0, 'blocked grant cannot prepare a new play command');
+}
+const landing = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
+assert.match(landing, /id="bankrPlay"[^>]*href="\/play-session.html"/);
+assert.match(landing, /PLAY WITH BANKR/);
+assert.match(landing, /no play on click/);
+assert.match(landing, /\.bankr-play:focus-visible/);
+assert.match(landing, /@media\(max-width:640px\).*\.bankr-entry/);
+console.log('PASS bounded session page: signed owner controls, private credential lifecycle, Bankr presets/public commands, no copy authority and landing CTA');

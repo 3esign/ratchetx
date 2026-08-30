@@ -3,6 +3,14 @@
 Decision recorded: 2026-08-30. Requested by Semir. Status: ROADMAP, not an
 implemented migration, mainnet approval, or change to economic rules.
 
+Checkpoint update 2026-08-30: h104 is now deployed and verified. Guarded application
+cutover and the scoped Bankr owner pilot progressed beyond the historical h100
+baseline below; see AGENT_STATE.json and RELEASE_H104.md. That does not close all
+G0 inventory/operational items or any oracle-selection/program migration gate.
+Next hard engineering task remains G1, not repeating the completed owner pilot.
+Video and current hackathon instructions: BANKR_VIDEO_AND_CLAWRENA_PLAN.md.
+Historical status paragraphs below are not instructions to reapply migration003.
+
 ## Goal and definition of done
 
 The target is all authoritative game state and economic decisions on Solana:

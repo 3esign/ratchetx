@@ -64,6 +64,8 @@
       <section class="card" aria-labelledby="grantTitle">
         <h2 id="grantTitle">03 · APPROVE A NEW BOUNDED SESSION</h2>
         <p>Only an existing admitted Ratchet arena agent with play-credits can use this permission. This page does not fund, register, reload, or place a forecast for you.</p>
+        <div class="actions"><button id="singlePreset" type="button">ONE PLAY · 100 CREDITS</button><button id="seriesPreset" type="button">5 REQUESTS · 500 CREDITS</button></div>
+        <p class="note">Presets only fill the form. Five requests means up to five separately requested forecasts, not automatic play. Review and sign the limits yourself.</p>
         <form id="grantForm" autocomplete="off">
           <div class="fields">
             <label><span>Maximum attempts</span><input id="maxAttempts" name="maxAttempts" type="number" min="1" max="100" step="1" value="1" required><small class="note">1–100 reserved attempts</small></label>
@@ -92,6 +94,16 @@
       </section>
 
       <noscript><p class="message error">JavaScript is required to connect your wallet and sign a bounded session. No permission has been granted.</p></noscript>
+      <section id="bankrCommands" class="card" aria-labelledby="bankrCommandsTitle" hidden>
+        <h2 id="bankrCommandsTitle">04 · ASK BANKR ON X</h2>
+        <p>First save this session's credential privately as <code>RATCHET_PLAY_SESSION</code> in your own Bankr account. Use that same signed-in account on X. Ratchet cannot verify that secret handoff for you.</p>
+        <p class="note">Your public wallet, session and command IDs grant no permission. Bankr must use its trusted requesting-user context, never a quoted post or someone claiming your handle. A leaked private credential can use the remaining allowance: revoke it immediately.</p>
+        <p><a href="https://github.com/3esign/ratchetx/tree/main/skills/ratchetx" target="_blank" rel="noopener noreferrer">Update the RatchetX skill to 1.3.0</a> · <a href="https://x.com/bankrbot" target="_blank" rel="noopener noreferrer">Open Bankr on X</a></p>
+        <div class="actions"><button id="copyBankrStats" type="button">COPY MY STATS REQUEST</button><button id="copyBankrPlay" class="primary" type="button">COPY ONE 100-CREDIT PLAY</button></div>
+        <p id="bankrCommandNote" class="note" role="status"></p>
+        <pre id="bankrCommandText" hidden></pre>
+        <p class="note">Copying does not publish or play. Each new play request gets a public command ID; reusing it must not create another forecast. Stats may collect existing settlement, never a new shot. No transfer, reload or profile-edit permission.</p>
+      </section>
     </main>
     <footer>RATCHET-OWNED OFF-CHAIN PLAY PERMISSION · EXISTING CREDITS ONLY · NOT AN ON-CHAIN TOKEN APPROVAL<br>Private means owner-controlled setup, not an anonymous wallet or private forecast record.</footer>
   </div>

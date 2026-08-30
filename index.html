@@ -422,6 +422,11 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
 .tgt.pick{background:linear-gradient(145deg,rgba(216,172,82,.11),#15171b);box-shadow:inset 0 0 0 1px rgba(216,172,82,.10),0 14px 36px rgba(0,0,0,.22)}
 .fire{border-radius:9px;background:linear-gradient(135deg,#e0b85e,#c99638);box-shadow:0 10px 24px rgba(0,0,0,.22)}
 .stk,.cin,.stakeCustom input{border-radius:8px}.foot{line-height:1.9}
+.bankr-entry{display:flex;align-items:center;justify-content:space-between;gap:20px;margin:0 0 22px;padding:18px 20px;border:1px solid rgba(216,172,82,.32);border-radius:14px;background:linear-gradient(115deg,rgba(216,172,82,.10),#111319 70%)}
+.bankr-entry p{margin:0;color:var(--ink2);font:12px/1.5 var(--sans)}.bankr-entry strong{display:block;color:var(--ink);font:700 16px/1.4 var(--sans);margin-bottom:3px}
+.bankr-play{display:inline-flex;align-items:center;justify-content:center;gap:13px;flex-shrink:0;min-height:48px;padding:14px 20px;border:1px solid #e9c779;border-radius:10px;background:linear-gradient(125deg,#efcc80,#c99638);color:#171107;text-decoration:none;font:800 11px/1.3 var(--mono);letter-spacing:.08em;box-shadow:0 5px 24px rgba(216,172,82,.14);transition:filter .15s,box-shadow .15s}
+.bankr-play:hover{filter:brightness(1.08);box-shadow:0 6px 28px rgba(216,172,82,.25)}.bankr-play:focus-visible{outline:3px solid var(--ice);outline-offset:4px}.bankr-play svg{width:19px;height:19px}
+@media(max-width:640px){.bankr-entry{align-items:stretch;flex-direction:column;gap:13px;padding:16px}.bankr-play{width:100%;box-sizing:border-box}}
 @media(max-width:640px){.wrap{padding-left:16px;padding-right:16px}.machine{padding:22px 16px}.panel{padding:16px}}
 .splitOut { min-height: 32px; display: flex; align-items: center; justify-content: center; }</style><script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"RatchetX","applicationCategory":"GameApplication","operatingSystem":"Web","url":"https://ratchetx.xyz","description":"A keyless prediction market arcade on Solana. Sealed commit-reveal shots settled on Pyth oracle prices, 70% of every stake burned, 30% paid to players peer-to-peer, 0% to the team.","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"sameAs":["https://github.com/3esign/ratchetx","https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump"]}</script>
 </head><body>
@@ -469,7 +474,12 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
 </div></div>
 <div class="mode" id="mode" style="display:none"></div>
 
-<section id="play" class="on"><div class="wrap"><div class="playgrid">
+<section id="play" class="on"><div class="wrap">
+  <div class="bankr-entry">
+    <div><strong>Your agent. Your limits.</strong><p id="bankrEntryNote">Approve a session, then ask Bankr to forecast on X.<br>Existing play credits · private setup required · no play on click.</p></div>
+    <a id="bankrPlay" class="bankr-play" href="/play-session.html" aria-describedby="bankrEntryNote"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="4" y="7" width="16" height="13" rx="4" stroke="currentColor" stroke-width="1.7"/><path d="M12 3v4M8 16h8M8 11v2M16 11v2" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>PLAY WITH BANKR <span aria-hidden="true">↗</span></a>
+  </div>
+<div class="playgrid">
   <div><div class="machine">
     <div class="mcap">THE MACHINE · MODELED FLOOR · NOT REDEEMABLE</div>
     <div class="bigcog"><div class="pulse"></div>
