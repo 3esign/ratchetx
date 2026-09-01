@@ -202,7 +202,15 @@ export function resolveIntent(text,{board,context,limits,session,player,override
     target=candidates.find(t=>t.mins===horizon);
     if(!target){target=[...candidates].sort((a,b)=>Math.abs(a.mins-horizon)-Math.abs(b.mins-horizon)||a.mins-b.mins)[0];
       notes.push('requested '+horizon+' min horizon unavailable for that asset; nearest is '+target.mins+' min');}
-  }else target=[...candidates].sort((a,b)=>a.mins-b.mins)[0];
+  }else{
+    // No asset named: shortest target, but never one whose feed is already
+    // near its seal-age limit (JUP/ETH publish every ~30 s; SOL/BTC every second).
+    const age=t=>{const c=context?.feeds?.find(row=>row.feed===t.feed)?.current;return finite(c?.ageNowS)?c.ageNowS:0;};
+    const limit=t=>Math.min(60,Math.max(30,Math.round(0.15*t.mins*60)));
+    const fresh=candidates.filter(t=>age(t)<=limit(t)-15);
+    target=[...(fresh.length?fresh:candidates)].sort((a,b)=>a.mins-b.mins||age(a)-age(b))[0];
+    if(!fresh.length)notes.push('no fresh feed on the board; oracle may refuse');
+  }
   if(asset&&!horizon&&target.mins>60)notes.push('that asset settles in '+target.mins+' min on this board');
   const feed=context?.feeds?.find(row=>row.feed===target.feed),ema=feed?.current?.priceVsEmaBps;
   if(!asset&&!overrides.asset){
@@ -420,6 +428,13 @@ export async function runPlay(options={},dependencies={}){
       // Same seal rule as api/game.js maxSealAge: slow feeds (JUP, ETH) on long
       // windows get 60 s; the 5-minute flash keeps 45 s.
       const maxSealAge=Math.min(60,Math.max(30,Math.round(0.15*target.mins*60)));
+      // A slow feed can be one publish away from fresh: re-read the shared
+      // context (read-only) up to twice before refusing locally.
+      for(let again=0;again<2&&!(finite(freshness())&&freshness()<=maxSealAge);again++){
+        await sleep(4000);context=await request(URLS.context);
+        const nf=context.body?.feeds?.find(row=>row.feed===target.feed);
+        if(nf?.current&&finite(nf.current.ageNowS)&&finite(nf.current.publishTime)){Object.assign(feed,nf);Object.assign(q,nf.current);}
+      }
       need(finite(freshness())&&freshness()<=maxSealAge,'ORACLE_STALE');
       need(finite(q.confidenceBps)&&q.confidenceBps>=0&&q.confidenceBps<=200,'ORACLE_CONFIDENCE_TOO_WIDE');
       start={schema:SCHEMA,kind:'start',wallet:options.wallet,sessionId:options.sessionId,commandId,intent,horizonMs:target.mins*60000,

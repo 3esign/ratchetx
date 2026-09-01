@@ -1,4 +1,4 @@
-# Bankr play and stats (skill 1.4.0) — the binary contract
+# Bankr play and stats (skill 1.5.0) — the binary contract
 
 RatchetX play on X is one command and one reply. You never choose a target,
 side, probability or stake, never wait for settlement, never write your own

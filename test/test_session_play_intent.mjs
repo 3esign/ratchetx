@@ -90,6 +90,13 @@ assert.deepEqual(R('play 1h'),['JUP',60,'YES',0.55,100]);
 assert.deepEqual(R('sol in 1 hour'),['SOL',5,'YES',0.55,100]);
 assert.match(resolveIntent('sol in 1 hour',env).resolution.notes.join(),/60 min horizon unavailable for that asset/);
 assert.deepEqual(R('5 min btc 500'),['BTC',15,'NO',0.55,500]);
+// No asset: the shortest FRESH feed wins; a slow feed on a short window is skipped.
+{const b2={stakeRule:board.stakeRule,targets:[{id:'H1J5',kind:'dir',feed:'JUP',mins:5},{id:'H1S10',kind:'dir',feed:'SOL',mins:10}]};
+  const c2={feeds:[{feed:'JUP',current:{price:1,ageNowS:40}},{feed:'SOL',current:{price:1,ageNowS:1}}]};
+  assert.deepEqual(R('play',{board:b2,context:c2}),['SOL',10,'YES',0.55,100]);
+  assert.deepEqual(R('jup',{board:b2,context:c2}),['JUP',5,'YES',0.55,100],'a named asset is still honoured');
+  const c3={feeds:[{feed:'JUP',current:{price:1,ageNowS:5}},{feed:'SOL',current:{price:1,ageNowS:1}}]};
+  assert.deepEqual(R('play',{board:b2,context:c3}),['JUP',5,'YES',0.55,100]);}
 // Unknown assets fall back with a note that names no asset.
 {const r=resolveIntent('$PEPE moon',env);assert.deepEqual([r.resolution.feed,r.side],['SOL','YES']);
   assert.match(r.resolution.notes.join(),/not on this board/);assert.doesNotMatch(r.resolution.notes.join(),/PEPE/);}

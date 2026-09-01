@@ -28,6 +28,7 @@ tools/
 # Only these exact portable public companions ship; other helpers stay private.
 !skills/ratchetx/references/owner-session-test.md
 !skills/ratchetx/references/owner-session-play.md
+!skills/ratchetx/references/agent-modes.md
 !skills/ratchetx/scripts/
 skills/ratchetx/scripts/*
 !skills/ratchetx/scripts/session-smoke.mjs
