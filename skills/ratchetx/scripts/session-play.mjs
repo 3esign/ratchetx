@@ -25,8 +25,8 @@ const need=(condition,code)=>{if(!condition)stop(code);};
 const safeCode=code=>CODES.has(code)?code:'SHOT_REFUSED';
 function bounds(value){
   need(value&&integer(value.maxAttempts)&&value.maxAttempts>=1&&value.maxAttempts<=100
-    &&integer(value.maxStakeCredits)&&value.maxStakeCredits>=100&&value.maxStakeCredits<=10000
-    &&integer(value.maxGrossCredits)&&value.maxGrossCredits>=value.maxStakeCredits&&value.maxGrossCredits<=100000
+    &&integer(value.maxStakeCredits)&&value.maxStakeCredits>=100&&value.maxStakeCredits<=10000000
+    &&integer(value.maxGrossCredits)&&value.maxGrossCredits>=value.maxStakeCredits&&value.maxGrossCredits<=100000000
     &&integer(value.minIntervalMs)&&value.minIntervalMs>=5000&&value.minIntervalMs<=600000,'INVALID_SESSION');
   return {maxAttempts:value.maxAttempts,maxStakeCredits:value.maxStakeCredits,
     maxGrossCredits:value.maxGrossCredits,minIntervalMs:value.minIntervalMs};
@@ -183,7 +183,7 @@ export async function runPlay(options={},dependencies={}){
           ...(old.state==='rejected'?{refusalCode:safeCode(old.result?.code)}:{}),next:'Use the original private journal with --resume; never change command ID to retry this instruction.'});
       }
       if(s.pending)return result('PENDING','PRIOR_ATTEMPT_UNRESOLVED');
-      need(p.open.length===0,'EXISTING_OPEN_SHOTS');
+      need(p.open.length < (p.chambers || 1), 'EXISTING_OPEN_SHOTS');
       if(s.attempts>=l.maxAttempts||intent.stake>l.maxStakeCredits||s.grossCredits+intent.stake>l.maxGrossCredits)
         return result('REFUSED','SESSION_BUDGET_EXHAUSTED');
       if(nextAttemptAt!==null&&nextAttemptAt>serverNow())return result('REFUSED','SESSION_RATE_LIMIT',
@@ -200,7 +200,7 @@ export async function runPlay(options={},dependencies={}){
         &&finite(board.body.flipsAt)&&board.body.flipsAt>serverNow()&&finite(board.body.stakeRule?.hitPayout)
         &&board.body.stakeRule.hitPayout>0&&board.body.stakeRule.min<=intent.stake&&board.body.stakeRule.max>=intent.stake,'BOARD_REFUSED');
       const target=board.body.targets?.find(row=>row.id===intent.target);
-      need(target&&target.kind==='dir'&&target.mins===5&&!target.feed2,'TARGET_NOT_FIVE_MINUTES');
+      need(target&&target.kind==='dir'&&!target.feed2,'TARGET_NOT_DIRECTIONAL');
       need(context.http===200&&context.body.ok===true&&context.body.schema==='ratchetx-pyth-context-v1'
         &&context.body.access?.mode==='shared-read'&&context.body.validation?.fullVerificationRequired===true
         &&context.body.validation?.ownerFeedIdAndDiscriminatorChecked===true
@@ -208,7 +208,7 @@ export async function runPlay(options={},dependencies={}){
       const feed=context.body.feeds?.find(row=>row.feed===target.feed),q=feed?.current;
       need(finite(context.body.generatedAt)&&context.body.generatedAt<=serverNow()+2000&&q
         &&finite(q.price)&&q.price>0&&finite(q.ageNowS)&&q.ageNowS>=0&&finite(q.publishTime)&&finite(q.prevPublishTime)
-        &&feed.activeTargets?.some(row=>row.id===intent.target&&row.horizonMinutes===5),'CONTEXT_REFUSED');
+        &&feed.activeTargets?.some(row=>row.id===intent.target),'CONTEXT_REFUSED');
       const freshness=()=>Math.max(q.ageNowS,(serverNow()-q.publishTime*1000)/1000,
         q.ageNowS+Math.max(0,serverNow()-context.body.generatedAt)/1000);
       need(finite(freshness())&&freshness()<=45,'ORACLE_STALE');

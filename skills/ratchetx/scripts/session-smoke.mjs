@@ -39,15 +39,15 @@ function ids(rows){need(Array.isArray(rows)&&rows.every(s=>s&&/^[a-z0-9]{4,16}$/
 function baseline(p,payout){
   need(p&&finite(p.credits)&&p.credits>=STAKE&&integer(p.stated),'INVALID_PLAYER');
   need(p.stated===0?p.brier===null:finite(p.brier)&&p.brier>=0&&p.brier<=1,'INVALID_PLAYER');
-  need(Array.isArray(p.open)&&p.open.length===0,'EXISTING_OPEN_SHOTS');
+  need(Array.isArray(p.open)&&p.open.length < (p.chambers || 1),'EXISTING_OPEN_SHOTS');
   return {credits:p.credits,stated:p.stated,brier:p.brier,closedIds:ids(p.closed),hitPayout:payout};
 }
 function receipt(r,intent){return !!(r&&r.state==='accepted'&&r.result?.state==='accepted'
   &&SHOT.test(r.result.shotId)&&same(r.intent,intent)&&r.stake===STAKE
   &&integer(r.reservedAt)&&integer(r.finishedAt)&&r.finishedAt>=r.reservedAt);}
 function limits(value){
-  need(value&&value.maxAttempts===1&&integer(value.maxStakeCredits)&&value.maxStakeCredits>=100&&value.maxStakeCredits<=10000
-    &&integer(value.maxGrossCredits)&&value.maxGrossCredits>=value.maxStakeCredits&&value.maxGrossCredits<=100000
+  need(value&&value.maxAttempts===1&&integer(value.maxStakeCredits)&&value.maxStakeCredits>=100&&value.maxStakeCredits<=10000000
+    &&integer(value.maxGrossCredits)&&value.maxGrossCredits>=value.maxStakeCredits&&value.maxGrossCredits<=100000000
     &&integer(value.minIntervalMs)&&value.minIntervalMs>=5000&&value.minIntervalMs<=600000,'INVALID_SESSION');
   return {maxAttempts:1,maxStakeCredits:value.maxStakeCredits,maxGrossCredits:value.maxGrossCredits,minIntervalMs:value.minIntervalMs};
 }
@@ -159,7 +159,7 @@ export async function runSmoke(options={},dependencies={}){
         &&finite(board.body.flipsAt)&&board.body.flipsAt>serverNow()&&finite(board.body.stakeRule?.hitPayout)
         &&board.body.stakeRule.hitPayout>0&&board.body.stakeRule.min<=STAKE&&board.body.stakeRule.max>=STAKE,'BOARD_REFUSED');
       const target=board.body.targets?.find(t=>t.id===intent.target);
-      need(target&&target.kind==='dir'&&target.mins===5&&!target.feed2,'TARGET_NOT_FIVE_MINUTES');
+      need(target&&target.kind==='dir'&&!target.feed2,'TARGET_NOT_DIRECTIONAL');
       const current=context.body.feeds?.find(f=>f.feed===target.feed);
       need(context.http===200&&context.body.ok===true&&context.body.schema==='ratchetx-pyth-context-v1'
         &&context.body.access?.mode==='shared-read'&&context.body.validation?.fullVerificationRequired===true
