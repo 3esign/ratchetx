@@ -147,13 +147,37 @@ Call SOL, BTC or ETH higher or lower over minutes, sealed before the move, settl
 Every call carries your probability; Brier scoring builds a public calibration record. Hits earn XP, XP climbs rank and the daily podium.
 Every $RCX reload burns 70% and pays 30% straight to the podium, 0% to the team.
 One flywheel: play -> XP -> podium -> $RCX -> reload -> burn + podium -> play. Humans and agents on one board. ratchetx.xyz`;
-const EXPLAIN_PATTERN=/\b(what|whats|what's|how does|how do|explain|tell me|describe|why|wtf|wat)\b.*\b(ratchet|ratchetx|rcx|this|it|game|arcade|arena|podium|flywheel|rewards?)\b|\b(ratchet|ratchetx|rcx)\b\s*\?|\b(explain|help|info|about|intro|pitch)\b/;
+const EXPLAIN_PATTERN=/\b(what|whats|what's|how does|how do|explain|tell me|describe|why|wtf|wat)\b.*\b(ratchet|ratchetx|rcx|this|it|game|arcade|arena|podium|flywheel|rewards?)\b|\b(ratchet|ratchetx|rcx)\b\s*\?|\b(explain|info|about|intro|pitch)\b/;
+export const HELP=`RatchetX commands (mention @bankrbot):
+- ratchetx put 500 on sol higher - sealed forecast: asset, higher/lower, credits, optional 70%
+- ratchetx play - quickest board target, 100 credits
+- ratchetx board - what can be played right now
+- ratchetx stats - credits, XP, Brier, session
+- ratchetx result - your latest settled forecast
+- ratchetx what is this - how the flywheel works
+Setup: ratchetx.xyz/play-session.html`;
+const HELP_PATTERN=/\b(help|menu|commands?|options|usage|how to play|how do i play|instructions)\b/;
+const BOARD_PATTERN=/\b(board|games?|targets?|markets?|what can i play|what'?s (?:on|open|live)|whats (?:on|open|live)|list|available|open now)\b/;
+const mins=m=>m%60===0?(m/60)+' h':m+' min';
+/** Public board -> the shortest playable targets, one line each. Reveals nothing. */
+export function boardReply(board,now=Date.now()){
+  const dirs=(board?.targets||[]).filter(t=>t&&t.kind==='dir'&&!t.feed2&&integer(t.mins)).sort((a,b)=>a.mins-b.mins).slice(0,5);
+  if(!dirs.length)return 'No playable target on the board right now. Try again in a minute.\n\n'+FOOTER;
+  const left=finite(board.flipsAt)?Math.max(1,Math.round((board.flipsAt-now)/60000)):null;
+  const head='On the board now'+(left?' (new board in '+mins(left)+')':'')+':';
+  const rows=dirs.map((t,i)=>'- '+t.feed+(i===0?' higher or lower':'')+' in '+mins(t.mins));
+  const ex=dirs[1]||dirs[0];
+  return head+'\n'+rows.join('\n')+'\nPlay: "ratchetx put 500 on '+ex.feed.toLowerCase()+' lower"\n\n'+FOOTER;
+}
 /** Status-only when the words ask about numbers and name nothing to play;
  * explain when they ask what RatchetX is; otherwise one shot. */
 export function classifyCommand(text){
   const words=tokens(String(text??'').slice(0,SAY_MAX));
   const verb=words.some(w=>PLAY_VERBS.includes(w)),dir=findDirection(words,false)!==null,stake=findStake(text).stake!==null;
   const status=words.some(w=>STATUS_WORDS.includes(w));
+  const plain=norm(String(text??''));
+  if(HELP_PATTERN.test(plain)&&!dir&&!stake)return 'help';
+  if(BOARD_PATTERN.test(plain)&&!dir&&!stake&&!/^(?:\$?\w+\s+)?(?:ratchetx?\s+)?(?:play|shoot|fire|bet|put|spend|wager|predict)\b/.test(plain))return 'board';
   if(status&&!verb&&!dir&&!stake)return 'status';
   const asked=EXPLAIN_PATTERN.test(norm(String(text??'')))||/^\W*\$?(ratchet|ratchetx|rcx)\W*\?\W*$/i.test(String(text??''));
   if(asked&&!dir&&!stake&&!verb)return 'explain';
@@ -486,7 +510,7 @@ export async function runPlay(options={},dependencies={}){
 }
 
 // ---- One reply per result. The agent posts `reply` verbatim; nothing else. --
-const FOOTER='ratchetx.xyz - solana prediction arcade. Earn XP, climb the podium, and get rewarded with real $RCX.';
+const FOOTER='ratchetx.xyz - solana prediction arcade rewarding $RCX';
 const NEW_SESSION='Approve a new play session at ratchetx.xyz/play-session.html.';
 const REFUSALS={
   SESSION_RATE_LIMIT:r=>'Cooldown active. Please retry in '+(r.retryAfterSeconds??'a few')+' s.',
@@ -547,10 +571,10 @@ export function parseArgs(args){
     need(typeof options.say==='string'&&!['target','side','p','asset','direction','horizon'].some(key=>key in options),'AUTO_REQUIRES_SAY');
     const kind=classifyCommand(options.say);
     if(kind==='status'){options.mode='status';for(const key of ['commandId','say','stake'])delete options[key];file=undefined;}
-    else if(kind==='explain'){options.mode='explain';file=undefined;}
+    else if(kind==='explain'||kind==='help'||kind==='board'){options.mode=kind;file=undefined;}
     else options.mode='execute';
   }
-  if(options.mode!=='execute'&&options.mode!=='explain')need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
+  if(!['execute','explain','help','board'].includes(options.mode))need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
   return {options,file};
 }
 async function main(){
@@ -566,6 +590,14 @@ async function main(){
   try{const {options,file}=parseArgs(process.argv.slice(2));
     const auto=process.argv.includes('--auto');
     if(options.mode==='explain'){const r={ok:true,category:'EXPLAIN',code:'EXPLAIN',pitch:PITCH};console.log(JSON.stringify(auto?{ok:true,code:'EXPLAIN',reply:replyFor(r)}:r));return;}
+    if(options.mode==='help'){console.log(JSON.stringify({ok:true,code:'HELP',reply:HELP+'\n\n'+FOOTER}));return;}
+    if(options.mode==='board'){
+      // Public board read, no bearer, no journal. Same fixed URL as play.
+      let board=null;
+      try{const res=await fetch(URLS.board,{headers:{Accept:'application/json'},redirect:'error',cache:'no-store',signal:AbortSignal.timeout(10000)});
+        if(res.status===200){const body=await res.json();if(body&&body.ok===true)board=body;}}catch{}
+      console.log(JSON.stringify({ok:!!board,code:board?'BOARD':'BOARD_UNAVAILABLE',reply:boardReply(board)}));return;
+    }
     if(auto){
       // Binary contract: one line, ok + code + the exact text to post. No
       // events, no identifiers, no intent. Never waits for settlement.

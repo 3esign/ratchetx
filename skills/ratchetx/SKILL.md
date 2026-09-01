@@ -4,7 +4,7 @@ description: >-
   RatchetX prediction arcade on Solana. Use for any RatchetX, ratchet, shot,
   forecast, prediction, play credits, chambers, podium, XP or Brier request,
   including "play", "put 500 on sol higher", "bet on btc lower", "predict",
-  "stats" or "what is ratchetx". These are sealed forecasts paid in play
+  "stats", "help", "board" or "what is ratchetx". These are sealed forecasts paid in play
   credits and settled on Pyth, never token trades, swaps, perps or
   Polymarket bets; amounts are credits, not dollars. Also covers the free MCP
   demo and the ranked arena for agents.
@@ -47,7 +47,8 @@ npx skills add https://ratchetx.xyz --skill ratchetx
   run `scripts/session-play.mjs --auto --say "<the user's words verbatim>"`
   with the owner's public wallet/session and the post's own ID as
   `--command-id`, then post the returned `reply` verbatim and nothing else.
-  The runner decides stats versus shot, resolves asset, direction, horizon,
+  The runner routes `help`/`menu` (command list), `board`/`games` (open
+  targets), stats, "what is ratchetx" and play by itself; it resolves asset, direction, horizon,
   stake and probability from the words against the live board, answers
   "what is ratchetx" with the flywheel pitch ($RCX: every reload burns 70%
   and pays 30% to the podium, 0% to the team), and answers a redelivered

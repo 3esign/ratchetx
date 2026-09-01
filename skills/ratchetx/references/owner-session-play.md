@@ -31,7 +31,7 @@ node scripts/session-play.mjs --auto --say "USER WORDS VERBATIM" --wallet OWNER 
 The runner prints exactly one JSON line:
 
 ```json
-{"ok":true,"code":"SEALED","reply":"Prediction sealed on-chain.\nProof: https://ratchetx.xyz/api/shot?w=...&id=...\n\nratchetx.xyz - solana prediction arcade. Earn XP, climb the podium, and get rewarded with real $RCX."}
+{"ok":true,"code":"SEALED","reply":"Prediction sealed on-chain.\nProof: https://ratchetx.xyz/api/shot?w=...&id=...\n\nratchetx.xyz - solana prediction arcade rewarding $RCX"}
 ```
 
 **Post `reply` verbatim. Nothing else.** This includes `code:"EXPLAIN"`: the
@@ -51,8 +51,10 @@ you pass `--max-wait-seconds N`, the runner polls status after sealing and
 returns ONE reply with seal + result (HIT/MISS/VOID). Use that only when the
 words ask for it; a long-running tool that gets cut off posts nothing.
 
-The runner decides everything from the words: stats questions read status;
-"what is ratchetx" returns the flywheel pitch; anything else plays once on
+The runner decides everything from the words: `help`/`menu` lists the
+commands; `board`/`games`/`what can i play` lists the targets open right now;
+stats questions read status; "what is ratchetx" returns the flywheel pitch;
+anything else plays once on
 the shortest directional target unless the words name an asset, direction,
 horizon, stake or probability. It reads the live board and the signed grant,
 clamps the stake to the allowance, uses the same command ID to answer a

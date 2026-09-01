@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {spawnSync} from 'node:child_process';
-import {runPlay,parseArgs,resolveIntent,classifyCommand,replyFor,PITCH,URLS} from '../skills/ratchetx/scripts/session-play.mjs';
+import {runPlay,parseArgs,resolveIntent,classifyCommand,replyFor,boardReply,PITCH,HELP,URLS} from '../skills/ratchetx/scripts/session-play.mjs';
 
 // Words -> one directional shot. Pure fixtures: no network, keys or files.
 // Board mirrors the live h105 shape: one directional target per feed, each
@@ -22,6 +22,16 @@ for(const t of ['status','stats','how am i doing','my xp','credits','balance?','
 for(const t of ['play','shot','ratchetx','take a shot','hi','gm','spend 1000','put 500 on SOL','call ETH','higher','lower','yes','no',
   'stats then play sol','play and status','spend credits','another one','buy sol','ratchetx put 500 on sol higher','@bankrbot ratchetx play','ratchetx sol'])assert.equal(classifyCommand(t),'execute',t);
 
+// Help and board are read-only menus; they never fire a shot.
+for(const t of ['ratchetx help','help','ratchetx menu','ratchetx commands','how do i play ratchetx','@bankrbot ratchetx help'])assert.equal(classifyCommand(t),'help',t);
+for(const t of ['ratchetx board','ratchetx games','what can i play','ratchetx targets','ratchetx what is on the board'])assert.equal(classifyCommand(t),'board',t);
+for(const t of ['ratchetx play','play the board','ratchetx put 500 on the board leader'])assert.equal(classifyCommand(t),'execute',t);
+assert.ok(HELP.includes('ratchetx put 500 on sol higher')&&HELP.includes('ratchetx result')&&HELP.includes('play-session'));
+{const b=boardReply({flipsAt:Date.now()+23*60000,targets:board.targets});
+  assert.match(b,/^On the board now \(new board in 23 min\):\n- SOL higher or lower in 5 min\n- BONK in 10 min\n- BTC in 15 min\n- ETH in 30 min\n- JUP in 1 h\nPlay: "ratchetx put 500 on bonk lower"/);
+  assert.ok(!b.includes('WIF')&&!b.includes('race')&&b.endsWith('rewarding $RCX'));
+  assert.match(boardReply(null),/No playable target/);}
+for(const r of [replyFor({code:'SEALED',proofUrl:'U'}),replyFor({code:'WEIRD'}),HELP+'\n\nratchetx.xyz - solana prediction arcade rewarding $RCX'])assert.ok(r.endsWith('ratchetx.xyz - solana prediction arcade rewarding $RCX'),r);
 // Questions about the game explain; they never fire a shot.
 for(const t of ['what is ratchetx','what is ratchetx?','how does this work','explain the flywheel','tell me about rcx rewards','ratchetx?','$RCX?','wtf is this','ratchetx what is this?','@bankrbot ratchetx explain'])
   assert.equal(classifyCommand(t),'explain',t);
@@ -177,7 +187,7 @@ assert.throws(()=>parseArgs(['--auto','--wallet',wallet,'--session-id',sessionId
 assert.throws(()=>parseArgs(['--auto','--say','play','--target','H1Q0','--wallet',wallet,'--session-id',sessionId,'--command-id',commandId,'--journal','j']));
 assert.throws(()=>parseArgs(['--status','--say','stats','--wallet',wallet,'--session-id',sessionId]));
 // Binary reply contract: every result maps to one postable text with the footer; no identifiers leak.
-{const footer='real $RCX';
+{const footer='rewarding $RCX';
   const sealed=replyFor({ok:true,code:'SEALED',proofUrl:'https://ratchetx.xyz/api/shot?w=W&id=abc',notes:['stake 9 clamped to allowed 5']});
   assert.match(sealed,/^Prediction sealed on-chain\.\nProof: https:\/\/ratchetx\.xyz\/api\/shot\?w=W&id=abc\nStake 9 clamped to allowed 5\./);assert.ok(sealed.includes(footer));
   assert.equal(replyFor({ok:false,code:'COMMAND_ALREADY_RECORDED',proofUrl:'https://ratchetx.xyz/api/shot?w=W&id=abc'}).split('\n')[1],'Proof: https://ratchetx.xyz/api/shot?w=W&id=abc');
