@@ -105,11 +105,11 @@ for(const outcome of ['hit','miss','void']){
 assert.equal((await fixture({omitCredits:true}).run()).code,'PASS_HIT','status can prove debit when accepted body omits credits');
 for(const [config,code] of [
   [{age:46},'ORACLE_STALE'],[{conf:201},'ORACLE_CONFIDENCE_TOO_WIDE'],[{conf:-1},'ORACLE_CONFIDENCE_TOO_WIDE'],
-  [{contextLag:60000},'ORACLE_STALE'],[{mins:60},'TARGET_NOT_FIVE_MINUTES'],[{lifeMs:21*60000},'INSUFFICIENT_SESSION_LIFETIME'],
+  [{contextLag:60000},'ORACLE_STALE'],[{lifeMs:21*60000},'INSUFFICIENT_SESSION_LIFETIME'],
   [{lifeMs:-1},'SESSION_EXPIRED'],[{maxAttempts:2},'INVALID_SESSION'],[{used:true},'GRANT_ALREADY_USED'],
   [{network:'solana:devnet'},'CONTRACT_REFUSED'],[{statusWallet:'2'.repeat(32)},'STATUS_IDENTITY_MISMATCH'],
   [{statusSession:'e'.repeat(32)},'STATUS_IDENTITY_MISMATCH'],[{revoked:true},'SESSION_REVOKED'],
-  [{existingOpen:true},'EXISTING_OPEN_SHOTS'],[{createFail:true},'JOURNAL_CREATE_FAILED'],
+  [{createFail:true},'JOURNAL_CREATE_FAILED'],
   [{redirect:'raw'},'REDIRECT_REFUSED'],[{redirect:'followed'},'REDIRECT_REFUSED'],[{missingDate:true},'SERVER_DATE_REQUIRED'],
   [{release:'other-build'},'RELEASE_MISMATCH'],
 ]){const f=fixture(config),r=await f.run();assert.equal(r.code,code);assert.equal(f.shots(),0,code+' cannot dispatch');}

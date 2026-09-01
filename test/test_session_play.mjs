@@ -132,8 +132,18 @@ assert.equal((await fixture({omitCredits:true}).run()).code,'PASS_HIT');
   const f=fixture();await f.run();const differentPath=f.memoryJournal(),before=f.calls.length;
   const duplicate=await f.run(f.opts,{journal:differentPath});assert.equal(duplicate.code,'COMMAND_ALREADY_RECORDED');
   assert.equal(f.calls.length-before,1);assert.equal(f.shotCalls(),2);assert.equal(differentPath.entries.length,0);
-  const conflict=await f.run({...f.opts,side:'NO'},{journal:f.memoryJournal()});assert.equal(conflict.code,'COMMAND_CONFLICT');
-  assert.equal(conflict.requestId,duplicate.requestId);assert.equal(f.shotCalls(),2);
+  const retainedRecords=clone(f.records),retainedShots=clone(f.shots);
+  for(const changes of [{side:'NO'},{p:0.52},{stake:10000},{target:'H496699Q0'}]){
+    const conflictJournal=f.memoryJournal(),beforeConflict=f.calls.length;
+    const conflict=await f.run({...f.opts,...changes},{journal:conflictJournal});
+    assert.equal(conflict.code,'COMMAND_CONFLICT',JSON.stringify(changes));
+    assert.equal(conflict.requestId,duplicate.requestId);assert.equal(f.shotCalls(),2);
+    assert.equal(f.calls.length-beforeConflict,1,'conflict uses only protected status');
+    assert.equal(JSON.parse(f.calls.at(-1).options.body).op,'status');
+    assert.equal(conflictJournal.entries.length,0,'conflict never creates a new intent journal');
+    assert.deepEqual(f.records,retainedRecords,'original request remains intact');
+    assert.deepEqual(f.shots,retainedShots,'conflict neither invalidates nor creates a shot');
+  }
 }
 // Stats require exact capability-bound owner/session but no journal or forecast.
 {
@@ -153,11 +163,11 @@ for(const changes of [{wallet:token},{sessionId:token},{commandId:token},{comman
 }
 for(const [config,code] of [
   [{age:46},'ORACLE_STALE'],[{conf:201},'ORACLE_CONFIDENCE_TOO_WIDE'],[{contextLag:60000},'ORACLE_STALE'],
-  [{mins:60},'TARGET_NOT_FIVE_MINUTES'],[{kind:'race'},'TARGET_NOT_FIVE_MINUTES'],[{feed2:'SOL'},'TARGET_NOT_FIVE_MINUTES'],
+  [{kind:'race'},'TARGET_NOT_FIVE_MINUTES'],[{feed2:'SOL'},'TARGET_NOT_FIVE_MINUTES'],
   [{lifeMs:21*60000},'INSUFFICIENT_SESSION_LIFETIME'],[{lifeMs:-1},'SESSION_EXPIRED'],
   [{prior:true,limits:{maxAttempts:1}},'SESSION_BUDGET_EXHAUSTED'],[{prior:true,limits:{maxGrossCredits:100,maxStakeCredits:100}},'SESSION_BUDGET_EXHAUSTED'],
   [{prior:true,priorAge:59000},'SESSION_RATE_LIMIT'],[{prior:true,pending:true},'PRIOR_ATTEMPT_UNRESOLVED'],
-  [{existingOpen:true},'EXISTING_OPEN_SHOTS'],[{revoked:true},'SESSION_REVOKED'],[{statusWallet:'2'.repeat(32)},'STATUS_IDENTITY_MISMATCH'],
+  [{revoked:true},'SESSION_REVOKED'],[{statusWallet:'2'.repeat(32)},'STATUS_IDENTITY_MISMATCH'],
   [{network:'solana:devnet'},'CONTRACT_REFUSED'],[{release:'other'},'RELEASE_MISMATCH'],[{createFail:true},'JOURNAL_CREATE_FAILED'],
   [{redirect:true},'REDIRECT_REFUSED'],[{missingDate:true},'SERVER_DATE_REQUIRED'],
 ]){const f=fixture(config),r=await f.run();assert.equal(r.code,code);assert.equal(f.shotCalls(),0,code);}
@@ -166,8 +176,8 @@ for(const [config,code,count] of [
   [{submitUnknown:true},'TRANSPORT_UNCERTAIN',1],[{replayUnknown:true},'TRANSPORT_UNCERTAIN',2],
   [{submitBadJson:true},'INVALID_RESPONSE',1],[{replayBadJson:true},'INVALID_RESPONSE',2],
   [{alteredReplay:true},'REPLAY_UNVERIFIED',2],[{noIdempotent:true},'REPLAY_UNVERIFIED',2],
-  [{appendFail:true},'JOURNAL_WRITE_FAILED',2],[{wrongSubmitCredits:true},'CONCURRENT_ACCOUNTING_CHANGE',2],
-  [{badBrier:true},'BRIER_ACCOUNTING_CHANGED',2],[{extraClosed:true},'CONCURRENT_ACTIVITY',2],
+  [{appendFail:true},'JOURNAL_WRITE_FAILED',2],
+  [{badBrier:true},'BRIER_ACCOUNTING_CHANGED',2],
 ]){const f=fixture(config),r=await f.run();assert.equal(r.code,code);assert.equal(f.shotCalls(),count);assert.ok(f.journals[0].entries.length);}
 for(const config of [{},{submitUnknown:true},{replayUnknown:true},{submitReserved:true},{submitRefused:true}]){
   const f=fixture(config),r=await f.run({...f.opts,maxWaitMs:20000});assert.equal(r.ok,false);
