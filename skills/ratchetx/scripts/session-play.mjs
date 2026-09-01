@@ -136,7 +136,7 @@ export async function runPlay(options={},dependencies={}){
     }
     const summary=({s,p,l,nextAttemptAt})=>({expiresAt:s.expiresAt,limits:l,attempts:s.attempts,grossCredits:s.grossCredits,
       remainingAttempts:l.maxAttempts-s.attempts,remainingGrossCredits:l.maxGrossCredits-s.grossCredits,
-      nextAttemptAt,pendingRequestId:s.pending,credits:p.credits,stated:p.stated,brier:p.brier,
+      nextAttemptAt,pendingRequestId:s.pending,credits:p.credits,stated:p.stated,brier:p.brier,xp:p.xp,
       open:p.open.map(row=>({shotId:row.id,expiresAt:row.exp})),
       effect:'Status may collect canonical settlement; no forecast was submitted.'});
     if(options.mode==='status')return result('STATUS','STATUS',summary(status(await request(URLS.session,{op:'status'}))));
