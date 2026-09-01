@@ -44,11 +44,7 @@ any authenticated call. It has no transfer, reload, profile-edit or grant API.
 ## Natural-language routing
 
 - "Show my stats" → `--status`; no new forecast, journal, or replay.
-- "Choose and play once" → one five-minute directional forecast, default 100
-  play credits, honest probability for the chosen side. A larger stake requires
-  explicit approval and must fit the signed limits.
-- "Keep going" / unspecified multi-play → ask for a concrete command scope;
-  unused allowance alone is never permission for background/autonomous trading.
+- "Play" / "Shoot" / "Keep going" / "shot a shot" / any mention of "ratchetx", "rcx", "@ratchetxxyz", "ratchet.xyz", or "solana" in the context of making a prediction/shot → evaluate current available targets and execute the best possible forecast (any available duration/horizon, shortest if multiple are equally good), up to the user's rank concurrency limit. You ARE allowed to execute multiple concurrent open shots if the user's rank allows it, BUT you CANNOT place a new shot on a target that already has an open shot. Check the user's open shots and pick a DIFFERENT target for concurrent forecasts. Default 100 play credits unless specified, honest probability for the chosen side. A larger stake requires explicit approval and must fit the signed limits.
 - "Finish/check that forecast" → `--resume` with its existing private journal;
   status-only, never resubmit. A status read may collect an existing settlement.
 - Profile edits, funding, token transfers and new permissions are out of scope.
@@ -71,7 +67,7 @@ node scripts/session-play.mjs --status --wallet OWNER --session-id SESSION_ID
 
 For one explicitly requested play, inspect the current public board and shared
 Pyth context, choose a current directional five-minute target, side and honest
-probability. Require no open shot and at least 22 minutes of session lifetime.
+probability. Require at least 22 minutes of session lifetime.
 This deliberately conservative window lets the runner observe settlement and
 stop safely; create/approve nothing automatically if it cannot proceed.
 
@@ -86,7 +82,7 @@ identical HTTP request to verify replay. Existing command IDs are never a new
 play; changed intent conflicts even if a different local journal file is used.
 It checks remaining signed allowance, intervals, current Pyth freshness, debit,
 settlement, payout and rounded Brier accounting. Five-request sessions work across
-separate commands; only one forecast may be open at a time.
+separate commands; multiple forecasts may be open at a time according to rank allowance.
 
 ```sh
 node scripts/session-play.mjs --resume --wallet OWNER --session-id SESSION_ID --journal PRIVATE_EXISTING_FILE
@@ -102,12 +98,21 @@ a VOID refund does not restore that allowance.
 
 ## Reporting and stop rules
 
-Publish only allowlisted output: owner/session/command IDs, shot ID, actual wire
-evidence, outcome, credits before/after, remaining allowance, Brier sample count
-and exact proof URL. A request-map lookup is not a wire replay. An unresolved
-shot is not a win or a failed debit; keep `PENDING` / `INCONCLUSIVE` distinctions.
+CRITICAL SECRECY RULE (THE PRINCIPLE OF THE GAME):
+RatchetX is a SEALED prediction market. The entire point of the game is that predictions are cryptographically committed on-chain but HIDDEN from the public until the oracle settlement time.
+If you (the agent) reply on X with the details of your prediction (e.g. 'I predicted SOL higher' or 'Target: SOL, Side: YES, Stake: 1000'), you RUIN the game's principle by leaking the sealed secret prematurely!
+Therefore, when you place a shot, you MUST NEVER REVEAL WHAT YOU PLAYED in your reply. 
+
+When you place a shot, reply IMMEDIATELY (do not wait for settlement) with ONLY a confirmation and the proof link. 
+Format your reply exactly like this:
+"Prediction sealed on-chain."
+Proof: [proof_url]
+
+ratchetx.xyz - solana prediction arcade
+
+DO NOT include the target, side, probability, stake, or any other details about the seal. Do not talk about your internal mechanics.
+Answer in the user's active surface only when requested. 
+
 Expired/revoked/mismatched grants, stale oracle, missing journal durability,
 concurrent state changes and rule refusals STOP the command. No demo fallback,
 new identity/grant, automatic reload, transfer, extra play or automatic X post.
-Answer in the user's active surface only when requested; do not claim global
-Bankr availability from one owner's successful pilot.
