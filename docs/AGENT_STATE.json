@@ -1,8 +1,8 @@
 {
-  "productionRelease": "h105-2026-08-30",
-  "productionDeployment": "dpl_7N2qiE6Q7kfDAVmzWJeoGtxNenUs",
-  "productionCodeCommit": "235e0b31c9a2963de07ff20a98f189ab55eb83b0",
-  "productionUiRevision": "h105-session-allowance-guidance",
+  "productionRelease": "h106-2026-09-01",
+  "productionDeployment": "dpl_BtceLS33DLCehRwCucwD5PB5uaZg",
+  "productionCodeCommit": "e9ab25f",
+  "productionUiRevision": "h106-bankr-binary-contract",
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.4.0",
@@ -37,7 +37,7 @@
   },
   "lastVerifiedDeploy": "2026-08-30T19:53:15.234Z",
   "nextPlan": "docs/NEXT_BANKR_PLAN.md",
-  "bankrCommands": "h105 deployed: landing CTA, explicit presets, public copy commands and skill1.3.0 reusable session-play runner. 14 isolated gates and17 production readbacks pass. New Bankr/X pilot remains untested; manual private env handoff required, no cryptographic X binding or automatic pairing. Public IDs never authorize play. Prior pilot details below are historical.",
+  "bankrCommands": "h106 deployed 2026-09-01 (dpl_BtceLS33DLCehRwCucwD5PB5uaZg, main e9ab25f): play-session status carries xp and chambers; grant bounds 10M/100M/1s; skill 1.4.0 binary contract - `--auto --say` prints one line {ok,code,reply}, Bankr posts reply verbatim; runner resolves words (asset/direction/horizon/stake/p), EXPLAIN pitch names $RCX podium flywheel, redelivered post returns original proof. Bankr own router still reads bare \"put 500 on sol\" as a trade: users must say ratchetx. Live Bankr retest of 1.4.0 pending. Historical: h105 deployed: landing CTA, explicit presets, public copy commands and skill1.3.0 reusable session-play runner. 14 isolated gates and17 production readbacks pass. New Bankr/X pilot remains untested; manual private env handoff required, no cryptographic X binding or automatic pairing. Public IDs never authorize play. Prior pilot details below are historical.",
   "localRecoveryDeployment": "deployed",
   "ownerPilotClosure": "Owner reports all grants revoked on 2026-08-30; no further authenticated verification or gameplay attempted.",
   "productionStatus": {
