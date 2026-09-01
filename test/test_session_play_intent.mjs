@@ -17,7 +17,7 @@ const env={board,context,limits:{maxStakeCredits:5000,maxGrossCredits:20000},ses
 const R=(text,extra={})=>{const r=resolveIntent(text,{...env,...extra});return [r.resolution.feed,r.resolution.horizonMinutes,r.side,r.p,r.stake];};
 
 // Routing: status only when the words ask about numbers and start nothing.
-for(const t of ['status','stats','how am i doing','my xp','credits','balance?','podium','rank','did i win','results','resume',
+for(const t of ['status','stats','how am i doing','my xp','credits','balance?','podium','rank','did i win','results','resume','ratchetx result','ratchetx did i win?',
   'what is my brier','check my shot','check sol','sol status','how much did i win on sol','ratchetx stats','@bankrbot ratchetx stats','ratchet status','ratchetx how am i doing','ratchetx my xp'])assert.equal(classifyCommand(t),'status',t);
 for(const t of ['play','shot','ratchetx','take a shot','hi','gm','spend 1000','put 500 on SOL','call ETH','higher','lower','yes','no',
   'stats then play sol','play and status','spend credits','another one','buy sol','ratchetx put 500 on sol higher','@bankrbot ratchetx play','ratchetx sol'])assert.equal(classifyCommand(t),'execute',t);
@@ -183,6 +183,11 @@ assert.throws(()=>parseArgs(['--status','--say','stats','--wallet',wallet,'--ses
   assert.equal(replyFor({ok:false,code:'COMMAND_ALREADY_RECORDED',proofUrl:'https://ratchetx.xyz/api/shot?w=W&id=abc'}).split('\n')[1],'Proof: https://ratchetx.xyz/api/shot?w=W&id=abc');
   const st=replyFor({ok:true,code:'STATUS',credits:1649078,stated:12,brier:0.2116,open:[{}],remainingAttempts:60,remainingGrossCredits:90000});
   assert.match(st,/Play Credits: 1,649,078/);assert.match(st,/XP: n\/a/);assert.match(st,/Brier: 0\.2116/);assert.match(st,/Open Chambers: 1/);
+  assert.match(replyFor({code:'SEALED',proofUrl:'U',settlesInMinutes:5}),/Settles in 5 min - ask "ratchetx result"/);
+  assert.match(replyFor({code:'SEALED',proofUrl:'U',settled:{result:'hit',back:850}}),/Result: HIT - \+850 credits/);
+  assert.match(replyFor({code:'SEALED',proofUrl:'U',settled:{result:'void'}}),/VOID - stake refunded/);
+  assert.match(replyFor({code:'STATUS',credits:1,stated:1,brier:0.2,open:[],remainingAttempts:1,remainingGrossCredits:1,closed:[{result:'miss'}]}),/Last result: MISS/);
+  assert.ok(PITCH.length<=700,'pitch stays short: '+PITCH.length);assert.ok(PITCH.startsWith('RatchetX - sealed prediction arcade on Solana. $RCX launched on pump.fun, CA FQb2'));
   assert.match(replyFor({code:'SESSION_RATE_LIMIT',retryAfterSeconds:3}),/retry in 3 s/);
   assert.match(replyFor({category:'PENDING',code:'SUBMIT_UNRESOLVED'}),/may have been sealed/);
   assert.match(replyFor({code:'MISSING_OR_INVALID_CAPABILITY'}),/No RatchetX play session/);

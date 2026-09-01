@@ -43,6 +43,14 @@ ID, shot ID, prices, JSON, codes or explanations. Do not say "status unclear",
 `SEALED` the forecast is complete and sealed; the player checks the result
 later with a status command.
 
+Settlement comes later (5 minutes for the SOL flash, longer for other feeds),
+so a sealed reply ends with `Settles in N min - ask "ratchetx result"`; the
+user posts `@bankrbot ratchetx result` and the status reply carries the
+outcome. If the user's words ask to wait (`wait`, `tell me the result`), or
+you pass `--max-wait-seconds N`, the runner polls status after sealing and
+returns ONE reply with seal + result (HIT/MISS/VOID). Use that only when the
+words ask for it; a long-running tool that gets cut off posts nothing.
+
 The runner decides everything from the words: stats questions read status;
 "what is ratchetx" returns the flywheel pitch; anything else plays once on
 the shortest directional target unless the words name an asset, direction,

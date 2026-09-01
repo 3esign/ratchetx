@@ -142,13 +142,11 @@ function findHorizon(text){
   return null;
 }
 /** One canonical explanation. Questions about RatchetX get this, not a shot. */
-export const PITCH=`RatchetX is a sealed prediction arcade on Solana, and one flywheel.
-- The shot: a short directional call (SOL higher in 5 minutes, BTC in 15...) sealed before the move and settled against a verified Pyth price on Solana. No discretion, no vote.
-- The score: every call carries your win probability (0.01-0.99). Brier scoring rewards honest confidence and punishes confident misses quadratically; that record is public and verifiable.
-- The climb: hits earn XP, XP raises rank, rank opens more forecast chambers, and the daily podium is the highest settled XP.
-- The reward: real $RCX. Every RCX reload burns 70% forever and sends 30% straight to the podium - 0% to the team. Paid agent entries also pay the podium.
-- The loop: play -> XP -> podium -> $RCX -> reloads -> burn + podium -> play. Humans and AI agents fire on the same board under the same rule.
-Built on Solana. $RCX launched on pump.fun, CA FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump. Free demo via MCP, ranked play with a wallet. ratchetx.xyz`;
+export const PITCH=`RatchetX - sealed prediction arcade on Solana. $RCX launched on pump.fun, CA FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump.
+Call SOL, BTC or ETH higher or lower over minutes, sealed before the move, settled on a verified Pyth price - no vote, no discretion.
+Every call carries your probability; Brier scoring builds a public calibration record. Hits earn XP, XP climbs rank and the daily podium.
+Every $RCX reload burns 70% and pays 30% straight to the podium, 0% to the team.
+One flywheel: play -> XP -> podium -> $RCX -> reload -> burn + podium -> play. Humans and agents on one board. ratchetx.xyz`;
 const EXPLAIN_PATTERN=/\b(what|whats|what's|how does|how do|explain|tell me|describe|why|wtf|wat)\b.*\b(ratchet|ratchetx|rcx|this|it|game|arcade|arena|podium|flywheel|rewards?)\b|\b(ratchet|ratchetx|rcx)\b\s*\?|\b(explain|help|info|about|intro|pitch)\b/;
 /** Status-only when the words ask about numbers and name nothing to play;
  * explain when they ask what RatchetX is; otherwise one shot. */
@@ -290,6 +288,7 @@ export async function runPlay(options={},dependencies={}){
       remainingAttempts:l.maxAttempts-s.attempts,remainingGrossCredits:l.maxGrossCredits-s.grossCredits,
       nextAttemptAt,pendingRequestId:s.pending,credits:p.credits,stated:p.stated,brier:p.brier,xp:p.xp,
       open:p.open.map(row=>({shotId:row.id,expiresAt:row.exp})),
+      closed:p.closed.slice(0,5).map(row=>({shotId:row.id,result:row.res,stake:row.stake,back:row.back??null,settledAt:row.settledAt??null})),
       effect:'Status may collect canonical settlement; no forecast was submitted.'});
     if(options.mode==='status')return result('STATUS','STATUS',summary(status(await request(URLS.session,{op:'status'}))));
 
@@ -509,16 +508,20 @@ const REFUSALS={
   COMMAND_CONFLICT:()=>'That post was already used for a different forecast. Send a new post for a new forecast.',
 };
 const n=v=>v===null||v===undefined?'n/a':typeof v!=='number'?String(v):Number.isInteger(v)?v.toLocaleString('en-US'):String(+v.toFixed(4));
+const outcomeLine=c=>c.result==='hit'?'Result: HIT - +'+n(c.back)+' credits.':c.result==='miss'?'Result: MISS.':c.result==='void'?'Result: VOID - stake refunded.':null;
 export function replyFor(r){
   if(!r||typeof r!=='object')return 'RatchetX could not take that command right now.\n\n'+FOOTER;
   if(r.code==='EXPLAIN')return r.pitch||PITCH;
   const note=Array.isArray(r.notes)&&r.notes.length?'\n'+r.notes[0].charAt(0).toUpperCase()+r.notes[0].slice(1)+'.':'';
-  if(r.code==='SEALED'||(r.code==='COMMAND_ALREADY_RECORDED'&&r.proofUrl))
-    return 'Prediction sealed on-chain.\nProof: '+r.proofUrl+note+'\n\n'+FOOTER;
+  if(r.code==='SEALED'||(r.code==='COMMAND_ALREADY_RECORDED'&&r.proofUrl)){
+    const tail=r.settled?'\n'+outcomeLine(r.settled):finite(r.settlesInMinutes)?'\nSettles in '+r.settlesInMinutes+' min - ask "ratchetx result".':'';
+    return 'Prediction sealed on-chain.\nProof: '+r.proofUrl+note+tail+'\n\n'+FOOTER;
+  }
   if(r.code==='STATUS')return 'RatchetX Player Status:\n'
     +'\u2022 Play Credits: '+n(r.credits)+'\n\u2022 XP: '+n(r.xp)+'\n\u2022 Open Chambers: '+n(Array.isArray(r.open)?r.open.length:null)
     +'\n\u2022 Forecasts Stated: '+n(r.stated)+' (Brier: '+n(r.brier)+')'
-    +'\n\u2022 Session: '+n(r.remainingAttempts)+' attempts / '+n(r.remainingGrossCredits)+' credits left\n\n'+FOOTER;
+    +'\n\u2022 Session: '+n(r.remainingAttempts)+' attempts / '+n(r.remainingGrossCredits)+' credits left'
+    +(Array.isArray(r.closed)&&r.closed[0]?'\n\u2022 Last '+outcomeLine(r.closed[0]).replace('Result: ','result: '):'')+'\n\n'+FOOTER;
   if(r.code==='COMMAND_ALREADY_RECORDED')return (REFUSALS[r.refusalCode]?.(r)??'That post was already processed.')+'\n\n'+FOOTER;
   if(r.category==='PENDING')return 'Your forecast may have been sealed; it will not be resent. Ask for status in a minute.\n\n'+FOOTER;
   const text=REFUSALS[r.code]?.(r);
@@ -554,6 +557,7 @@ async function main(){
   if(process.argv.length===3&&process.argv[2]==='--help'){
     console.log('Status: node session-play.mjs --status --wallet OWNER --session-id SESSION_ID');
     console.log('Play from words: node session-play.mjs --auto --say "USER TEXT" --wallet OWNER --session-id SESSION_ID --command-id X_POST_ID_OR_32HEX_NONCE --journal NEW_PRIVATE_FILE');
+    console.log('  --auto optionally waits for the outcome (--max-wait-seconds N, or words like "wait"/"tell me the result") and then replies once with seal + result.');
     console.log('  --auto answers "what is ratchetx" questions with the canonical pitch (no request), reads status when the words only ask about stats; otherwise it resolves asset/direction/horizon/stake/probability from the words against the live board and plays ONCE. Optional overrides: --asset SOL --direction up|down --horizon 5 --stake 500 --p 0.6');
     console.log('Play exact: node session-play.mjs --execute --wallet OWNER --session-id SESSION_ID --command-id X_POST_ID_OR_32HEX_NONCE --target BOARD_TARGET_ID --side YES|NO --p 0.55 --journal NEW_PRIVATE_FILE [--stake 100] [--max-wait-seconds 1260]');
     console.log('Resume status only: node session-play.mjs --resume --wallet OWNER --session-id SESSION_ID --journal EXISTING_PRIVATE_FILE');
@@ -565,7 +569,23 @@ async function main(){
     if(auto){
       // Binary contract: one line, ok + code + the exact text to post. No
       // events, no identifiers, no intent. Never waits for settlement.
-      const r=await runPlay({...options,waitSettle:undefined},{...(file?{journal:createFileJournal(file)}:{})});
+      const {maxWaitMs,...play}=options;
+      const r=await runPlay({...play,waitSettle:undefined},{...(file?{journal:createFileJournal(file)}:{})});
+      // Optional smart wait: only when asked (--max-wait-seconds or words like
+      // "wait"/"tell me the result"). Polls the audited status path until this
+      // shot settles or the budget ends, then ONE reply carries seal + result.
+      const asked=/\b(wait|until|tell me (?:the )?(?:result|outcome)|report (?:the )?(?:result|outcome)|and (?:the )?result)\b/i.test(String(play.say||''));
+      const budget=finite(maxWaitMs)?maxWaitMs:asked&&finite(r.settlesInMinutes)?r.settlesInMinutes*60000+90000:0;
+      if(r.code==='SEALED'&&budget>0){
+        const deadline=Date.now()+Math.min(budget,25*60000);
+        while(Date.now()<deadline){
+          await new Promise(res=>setTimeout(res,Math.max(1000,Math.min(20000,deadline-Date.now()))));
+          const st=await runPlay({mode:'status',wallet:play.wallet,sessionId:play.sessionId});
+          const hit=st.ok&&Array.isArray(st.closed)&&st.closed.find(row=>row.shotId===r.shotId);
+          if(hit){r.settled=hit;break;}
+          if(!st.ok&&!['STATUS_UNAVAILABLE','TRANSPORT_UNCERTAIN','WAIT_LIMIT'].includes(st.code))break;
+        }
+      }
       console.log(JSON.stringify({ok:r.ok,code:r.code,reply:replyFor(r)}));process.exitCode=r.ok?0:1;return;
     }
     const output=await runPlay(options,{...(file?{journal:createFileJournal(file)}:{}),onEvent:event=>console.log(JSON.stringify(event))});
