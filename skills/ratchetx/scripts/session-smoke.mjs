@@ -48,7 +48,7 @@ function receipt(r,intent){return !!(r&&r.state==='accepted'&&r.result?.state===
 function limits(value){
   need(value&&value.maxAttempts===1&&integer(value.maxStakeCredits)&&value.maxStakeCredits>=100&&value.maxStakeCredits<=10000000
     &&integer(value.maxGrossCredits)&&value.maxGrossCredits>=value.maxStakeCredits&&value.maxGrossCredits<=100000000
-    &&integer(value.minIntervalMs)&&value.minIntervalMs>=5000&&value.minIntervalMs<=600000,'INVALID_SESSION');
+    &&integer(value.minIntervalMs)&&value.minIntervalMs>=1000&&value.minIntervalMs<=600000,'INVALID_SESSION');
   return {maxAttempts:1,maxStakeCredits:value.maxStakeCredits,maxGrossCredits:value.maxGrossCredits,minIntervalMs:value.minIntervalMs};
 }
 
