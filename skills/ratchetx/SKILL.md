@@ -62,7 +62,8 @@ npx skills add https://ratchetx.xyz --skill ratchetx
   means STOP, not a new demo, identity, grant, transfer or reload. A previous
   grant is not authorization for a replacement. A status-only request stays
   status-only; possession of a credential alone is not permission to forecast.
-- For an explicitly requested free demo, use the remote MCP at
+- Only when the user literally writes "demo" (never as a fallback for a
+  missing session, a refusal, a timeout or an unclear command), use the remote MCP at
   `https://ratchetx.xyz/api/mcp`. It is
   unauthenticated and requires no installation, token, payment, or wallet.
 - Use `mcp/ratchet-mcp.mjs` from the RatchetX repository only when ranked play is

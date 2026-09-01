@@ -538,7 +538,7 @@ export function replyFor(r){
   if(r.code==='EXPLAIN')return r.pitch||PITCH;
   const note=Array.isArray(r.notes)&&r.notes.length?'\n'+r.notes[0].charAt(0).toUpperCase()+r.notes[0].slice(1)+'.':'';
   if(r.code==='SEALED'||(r.code==='COMMAND_ALREADY_RECORDED'&&r.proofUrl)){
-    const tail=r.settled?'\n'+outcomeLine(r.settled):finite(r.settlesInMinutes)?'\nSettles in '+r.settlesInMinutes+' min - ask "ratchetx result".':'';
+    const tail=r.settled?'\n'+outcomeLine(r.settled):finite(r.settlesInMinutes)?'\nSettles in '+mins(r.settlesInMinutes)+'. Check: reply "ratchetx result" or open the proof.':'';
     return 'Prediction sealed on-chain.\nProof: '+r.proofUrl+note+tail+'\n\n'+FOOTER;
   }
   if(r.code==='STATUS')return 'RatchetX Player Status:\n'
@@ -547,7 +547,11 @@ export function replyFor(r){
     +'\n\u2022 Session: '+n(r.remainingAttempts)+' attempts / '+n(r.remainingGrossCredits)+' credits left'
     +(Array.isArray(r.closed)&&r.closed[0]?'\n\u2022 Last '+outcomeLine(r.closed[0]).replace('Result: ','result: '):'')+'\n\n'+FOOTER;
   if(r.code==='COMMAND_ALREADY_RECORDED')return (REFUSALS[r.refusalCode]?.(r)??'That post was already processed.')+'\n\n'+FOOTER;
-  if(r.category==='PENDING')return 'Your forecast may have been sealed; it will not be resent. Ask for status in a minute.\n\n'+FOOTER;
+  // Only a failure AFTER the shot was dispatched can mean "maybe sealed".
+  // Before submit nothing was sent, so say so and invite a retry.
+  if(r.category==='PENDING'&&['submit','replay','settlement'].includes(r.phase))
+    return 'Your forecast may have been sealed; it will not be resent. Ask "ratchetx result" in a minute.\n\n'+FOOTER;
+  if(r.category==='PENDING')return 'RatchetX did not answer in time ('+(r.code||'TIMEOUT')+'). Nothing was sealed - send the command again.\n\n'+FOOTER;
   const text=REFUSALS[r.code]?.(r);
   return (text??'RatchetX could not take that forecast right now ('+(r.code||'ERROR')+').')+'\n\n'+FOOTER;
 }
@@ -602,7 +606,14 @@ async function main(){
       // Binary contract: one line, ok + code + the exact text to post. No
       // events, no identifiers, no intent. Never waits for settlement.
       const {maxWaitMs,...play}=options;
-      const r=await runPlay({...play,waitSettle:undefined},{...(file?{journal:createFileJournal(file)}:{})});
+      // Preflight is read-only, so a transport hiccup before dispatch is
+      // retried here (up to 3 tries); anything at or after submit never is.
+      let r;
+      for(let attempt=1;attempt<=3;attempt++){
+        r=await runPlay({...play,waitSettle:undefined},{...(file?{journal:createFileJournal(file)}:{})});
+        if(!(r.category==='PENDING'&&['preflight','status'].includes(r.phase)&&attempt<3))break;
+        await new Promise(res=>setTimeout(res,2000*attempt));
+      }
       // Optional smart wait: only when asked (--max-wait-seconds or words like
       // "wait"/"tell me the result"). Polls the audited status path until this
       // shot settles or the budget ends, then ONE reply carries seal + result.

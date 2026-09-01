@@ -66,7 +66,9 @@ redelivered post with the original proof, and never sends a second shot.
 - Run only inside the environment that holds the owner's
   `RATCHET_PLAY_SESSION`. Never load, request or print anyone's environment;
   a missing secret is answered by the runner's own `reply`.
-- No demo fallback, no free MCP demo for X commands, no new grant, no reload,
+- No demo, ever, unless the user literally writes "demo". A timeout, refusal,
+  missing session or unclear command is answered with the runner's `reply`,
+  never with a demo shot. No new grant, no reload,
   no transfer, no scheduler, no `--wait-settle`, no `--execute` with
   hand-picked values.
 - Never say RatchetX was built with AI or agents.
