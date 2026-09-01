@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {runPlay,parseArgs,resolveIntent,classifyCommand,URLS} from '../skills/ratchetx/scripts/session-play.mjs';
+import {runPlay,parseArgs,resolveIntent,classifyCommand,PITCH,URLS} from '../skills/ratchetx/scripts/session-play.mjs';
 
 // Words -> one directional shot. Pure fixtures: no network, keys or files.
 // Board mirrors the live h105 shape: one directional target per feed, each
@@ -21,6 +21,12 @@ for(const t of ['status','stats','how am i doing','my xp','credits','balance?','
 for(const t of ['play','shot','ratchetx','take a shot','hi','gm','spend 1000','put 500 on SOL','call ETH','higher','lower','yes','no',
   'stats then play sol','play and status','spend credits','another one','buy sol'])assert.equal(classifyCommand(t),'execute',t);
 
+// Questions about the game explain; they never fire a shot.
+for(const t of ['what is ratchetx','what is ratchetx?','how does this work','explain the flywheel','tell me about rcx rewards','ratchetx?','$RCX?','wtf is this'])
+  assert.equal(classifyCommand(t),'explain',t);
+for(const t of ['play ratchetx','describe the game and play 500','what is my xp','why did i lose'])assert.notEqual(classifyCommand(t),'explain',t);
+for(const must of ['Pyth','Brier','XP','podium','$RCX','70%','30%','0% to the team','flywheel','ratchetx.xyz'])assert.ok(PITCH.includes(must),must);
+assert.doesNotMatch(PITCH,/\b(AI-built|built with AI|agents built|guaranteed)\b/i);
 // Bare intent: shortest directional target, trend side, honest default p, minimum stake.
 for(const t of ['play','shot','ratchetx','take a shot','hi','gm','play again','another one','something quick','flash'])
   assert.deepEqual(R(t),['SOL',5,'YES',0.55,100],t);
@@ -164,6 +170,8 @@ const base={mode:'execute',wallet,sessionId,commandId};
   assert.equal(a.options.mode,'status');assert.equal(a.file,undefined);assert.equal('say' in a.options,false);assert.equal('commandId' in a.options,false);}
 {const a=parseArgs(['--auto','--say','put 500 on sol','--wallet',wallet,'--session-id',sessionId,'--command-id',commandId,'--journal','j']);
   assert.equal(a.options.mode,'execute');assert.equal(a.options.say,'put 500 on sol');assert.equal(a.file,'j');}
+{const a=parseArgs(['--auto','--say','what is ratchetx','--wallet',wallet,'--session-id',sessionId,'--command-id',commandId,'--journal','j']);
+  assert.equal(a.options.mode,'explain');assert.equal(a.file,undefined);}
 assert.throws(()=>parseArgs(['--auto','--wallet',wallet,'--session-id',sessionId,'--command-id',commandId,'--journal','j']));
 assert.throws(()=>parseArgs(['--auto','--say','play','--target','H1Q0','--wallet',wallet,'--session-id',sessionId,'--command-id',commandId,'--journal','j']));
 assert.throws(()=>parseArgs(['--status','--say','stats','--wallet',wallet,'--session-id',sessionId]));

@@ -76,7 +76,7 @@ const DOWN_WORDS=['lower','down','downward','downside','dump','dumps','dumping',
   'falling','bear','bearish','red','below','under','crash','crashes','tank','tanks','sink','sinks','dip','dips','no','decrease','decline','declines'];
 const NEGATIONS=['not','no','never','wont','won\'t','isnt','isn\'t','doesnt','doesn\'t','dont','don\'t','cant','can\'t','nope'];
 const STATUS_WORDS=['status','stats','stat','balance','credits','xp','score','brier','rank','ranking','podium','leaderboard','standing',
-  'chambers','history','results','result','settled','settle','resume','check','doing','progress','summary','won','win','lost','record'];
+  'chambers','history','results','result','settled','settle','resume','check','doing','progress','summary','won','win','lost','lose','losing','record'];
 // Verbs start a play. Nouns (shot, call, forecast) also appear in status
 // questions ("check my shot"), so they never override a status word alone.
 const PLAY_VERBS=['play','shoot','fire','bet','wager','spend','put','predict','gamble','yolo','ape','stake','again','another',
@@ -140,12 +140,24 @@ function findHorizon(text){
   if(/\b(day|daily|24h|tomorrow)\b/.test(t))return 1440;
   return null;
 }
-/** Status-only when the words ask about numbers and name nothing to play. */
+/** One canonical explanation. Questions about RatchetX get this, not a shot. */
+export const PITCH=`RatchetX is a sealed prediction arcade on Solana, and one flywheel.
+- The shot: a short directional call (SOL higher in 5 minutes, BTC in 15...) sealed before the move and settled against a verified Pyth price on Solana. No discretion, no vote.
+- The score: every call carries your win probability (0.01-0.99). Brier scoring rewards honest confidence and punishes confident misses quadratically; that record is public and verifiable.
+- The climb: hits earn XP, XP raises rank, rank opens more forecast chambers, and the daily podium is the highest settled XP.
+- The reward: real $RCX. Every RCX reload burns 70% forever and sends 30% straight to the podium - 0% to the team. Paid agent entries also pay the podium.
+- The loop: play -> XP -> podium -> $RCX -> reloads -> burn + podium -> play. Humans and AI agents fire on the same board under the same rule.
+Free demo via MCP, ranked play with a wallet. ratchetx.xyz`;
+const EXPLAIN_PATTERN=/\b(what|whats|what's|how does|how do|explain|tell me|describe|why|wtf|wat)\b.*\b(ratchet|ratchetx|rcx|this|it|game|arcade|arena|podium|flywheel|rewards?)\b|\b(ratchet|ratchetx|rcx)\b\s*\?/;
+/** Status-only when the words ask about numbers and name nothing to play;
+ * explain when they ask what RatchetX is; otherwise one shot. */
 export function classifyCommand(text){
   const words=tokens(String(text??'').slice(0,SAY_MAX));
   const verb=words.some(w=>PLAY_VERBS.includes(w)),dir=findDirection(words,false)!==null,stake=findStake(text).stake!==null;
   const status=words.some(w=>STATUS_WORDS.includes(w));
   if(status&&!verb&&!dir&&!stake)return 'status';
+  const asked=EXPLAIN_PATTERN.test(norm(String(text??'')))||/^\W*\$?(ratchet|ratchetx|rcx)\W*\?\W*$/i.test(String(text??''));
+  if(asked&&!dir&&!stake&&!words.some(w=>PLAY_VERBS.includes(w)&&!['ratchet','ratchetx'].includes(w)))return 'explain';
   return 'execute';
 }
 /** Resolve words into one directional intent on the current board. Pure. */
@@ -491,22 +503,25 @@ export function parseArgs(args){
   if(options.mode==='auto'){
     // Words decide: status-only questions read; everything else plays once.
     need(typeof options.say==='string'&&!['target','side','p','asset','direction','horizon'].some(key=>key in options),'AUTO_REQUIRES_SAY');
-    if(classifyCommand(options.say)==='status'){options.mode='status';for(const key of ['commandId','say','stake'])delete options[key];file=undefined;}
+    const kind=classifyCommand(options.say);
+    if(kind==='status'){options.mode='status';for(const key of ['commandId','say','stake'])delete options[key];file=undefined;}
+    else if(kind==='explain'){options.mode='explain';file=undefined;}
     else options.mode='execute';
   }
-  if(options.mode!=='execute')need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
+  if(options.mode!=='execute'&&options.mode!=='explain')need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
   return {options,file};
 }
 async function main(){
   if(process.argv.length===3&&process.argv[2]==='--help'){
     console.log('Status: node session-play.mjs --status --wallet OWNER --session-id SESSION_ID');
     console.log('Play from words: node session-play.mjs --auto --say "USER TEXT" --wallet OWNER --session-id SESSION_ID --command-id X_POST_ID_OR_32HEX_NONCE --journal NEW_PRIVATE_FILE');
-    console.log('  --auto reads status when the words only ask about stats; otherwise it resolves asset/direction/horizon/stake/probability from the words against the live board and plays ONCE. Optional overrides: --asset SOL --direction up|down --horizon 5 --stake 500 --p 0.6');
+    console.log('  --auto answers "what is ratchetx" questions with the canonical pitch (no request), reads status when the words only ask about stats; otherwise it resolves asset/direction/horizon/stake/probability from the words against the live board and plays ONCE. Optional overrides: --asset SOL --direction up|down --horizon 5 --stake 500 --p 0.6');
     console.log('Play exact: node session-play.mjs --execute --wallet OWNER --session-id SESSION_ID --command-id X_POST_ID_OR_32HEX_NONCE --target BOARD_TARGET_ID --side YES|NO --p 0.55 --journal NEW_PRIVATE_FILE [--stake 100] [--max-wait-seconds 1260]');
     console.log('Resume status only: node session-play.mjs --resume --wallet OWNER --session-id SESSION_ID --journal EXISTING_PRIVATE_FILE');
     console.log('Protected RATCHET_PLAY_SESSION env only. Public IDs never authorize play or prove X identity. One approved five-minute forecast, one open shot, remaining signed limits, 22min session lifetime. Reuse the command ID for the SAME instruction; never change it to retry. No grant, signer, transfer, reload, scheduler or demo.');return;
   }
   try{const {options,file}=parseArgs(process.argv.slice(2));
+    if(options.mode==='explain'){console.log(JSON.stringify({ok:true,category:'EXPLAIN',code:'EXPLAIN',pitch:PITCH,effect:'No request was made; reply with the pitch.'}));return;}
     const output=await runPlay(options,{...(file?{journal:createFileJournal(file)}:{}),onEvent:event=>console.log(JSON.stringify(event))});
     console.log(JSON.stringify(output));process.exitCode=output.ok?0:output.category==='PENDING'?2:1;
   }catch{console.log(JSON.stringify({ok:false,category:'FAILED',code:'INVALID_ARGUMENTS'}));process.exitCode=1;}
