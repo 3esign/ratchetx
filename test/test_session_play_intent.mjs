@@ -18,15 +18,15 @@ const R=(text,extra={})=>{const r=resolveIntent(text,{...env,...extra});return [
 
 // Routing: status only when the words ask about numbers and start nothing.
 for(const t of ['status','stats','how am i doing','my xp','credits','balance?','podium','rank','did i win','results','resume',
-  'what is my brier','check my shot','check sol','sol status','how much did i win on sol'])assert.equal(classifyCommand(t),'status',t);
+  'what is my brier','check my shot','check sol','sol status','how much did i win on sol','ratchetx stats','@bankrbot ratchetx stats','ratchet status','ratchetx how am i doing','ratchetx my xp'])assert.equal(classifyCommand(t),'status',t);
 for(const t of ['play','shot','ratchetx','take a shot','hi','gm','spend 1000','put 500 on SOL','call ETH','higher','lower','yes','no',
-  'stats then play sol','play and status','spend credits','another one','buy sol'])assert.equal(classifyCommand(t),'execute',t);
+  'stats then play sol','play and status','spend credits','another one','buy sol','ratchetx put 500 on sol higher','@bankrbot ratchetx play','ratchetx sol'])assert.equal(classifyCommand(t),'execute',t);
 
 // Questions about the game explain; they never fire a shot.
-for(const t of ['what is ratchetx','what is ratchetx?','how does this work','explain the flywheel','tell me about rcx rewards','ratchetx?','$RCX?','wtf is this'])
+for(const t of ['what is ratchetx','what is ratchetx?','how does this work','explain the flywheel','tell me about rcx rewards','ratchetx?','$RCX?','wtf is this','ratchetx what is this?','@bankrbot ratchetx explain'])
   assert.equal(classifyCommand(t),'explain',t);
 for(const t of ['play ratchetx','describe the game and play 500','what is my xp','why did i lose'])assert.notEqual(classifyCommand(t),'explain',t);
-for(const must of ['Pyth','Brier','XP','podium','$RCX','70%','30%','0% to the team','flywheel','ratchetx.xyz'])assert.ok(PITCH.includes(must),must);
+for(const must of ['Pyth','Brier','XP','podium','$RCX','70%','30%','0% to the team','flywheel','ratchetx.xyz','Solana','pump.fun','FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump'])assert.ok(PITCH.includes(must),must);
 assert.doesNotMatch(PITCH,/\b(AI-built|built with AI|agents built|guaranteed)\b/i);
 // Bare intent: shortest directional target, trend side, honest default p, minimum stake.
 for(const t of ['play','shot','ratchetx','take a shot','hi','gm','play again','another one','something quick','flash'])

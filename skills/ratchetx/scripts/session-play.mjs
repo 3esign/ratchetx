@@ -79,8 +79,9 @@ const STATUS_WORDS=['status','stats','stat','balance','credits','xp','score','br
   'chambers','history','results','result','settled','settle','resume','check','doing','progress','summary','won','win','lost','lose','losing','record'];
 // Verbs start a play. Nouns (shot, call, forecast) also appear in status
 // questions ("check my shot"), so they never override a status word alone.
+// "ratchet"/"ratchetx" is the trigger word in every command, never a verb.
 const PLAY_VERBS=['play','shoot','fire','bet','wager','spend','put','predict','gamble','yolo','ape','stake','again','another',
-  'ratchet','ratchetx','go','send','take','make','degen','buy','sell'];
+  'go','send','take','make','degen','buy','sell'];
 const PLAY_NOUNS=['shot','shots','forecast','prediction','call'];
 const norm=text=>String(text).toLowerCase().replace(/[‘’]/g,'\'').replace(/[^a-z0-9$%.'\s-]/g,' ').replace(/\s+/g,' ').trim();
 const tokens=text=>norm(text).split(' ').filter(Boolean).map(t=>t.replace(/^[.'-]+|[.'-]+$/g,''));
@@ -147,8 +148,8 @@ export const PITCH=`RatchetX is a sealed prediction arcade on Solana, and one fl
 - The climb: hits earn XP, XP raises rank, rank opens more forecast chambers, and the daily podium is the highest settled XP.
 - The reward: real $RCX. Every RCX reload burns 70% forever and sends 30% straight to the podium - 0% to the team. Paid agent entries also pay the podium.
 - The loop: play -> XP -> podium -> $RCX -> reloads -> burn + podium -> play. Humans and AI agents fire on the same board under the same rule.
-Free demo via MCP, ranked play with a wallet. ratchetx.xyz`;
-const EXPLAIN_PATTERN=/\b(what|whats|what's|how does|how do|explain|tell me|describe|why|wtf|wat)\b.*\b(ratchet|ratchetx|rcx|this|it|game|arcade|arena|podium|flywheel|rewards?)\b|\b(ratchet|ratchetx|rcx)\b\s*\?/;
+Built on Solana. $RCX launched on pump.fun, CA FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump. Free demo via MCP, ranked play with a wallet. ratchetx.xyz`;
+const EXPLAIN_PATTERN=/\b(what|whats|what's|how does|how do|explain|tell me|describe|why|wtf|wat)\b.*\b(ratchet|ratchetx|rcx|this|it|game|arcade|arena|podium|flywheel|rewards?)\b|\b(ratchet|ratchetx|rcx)\b\s*\?|\b(explain|help|info|about|intro|pitch)\b/;
 /** Status-only when the words ask about numbers and name nothing to play;
  * explain when they ask what RatchetX is; otherwise one shot. */
 export function classifyCommand(text){
@@ -157,7 +158,7 @@ export function classifyCommand(text){
   const status=words.some(w=>STATUS_WORDS.includes(w));
   if(status&&!verb&&!dir&&!stake)return 'status';
   const asked=EXPLAIN_PATTERN.test(norm(String(text??'')))||/^\W*\$?(ratchet|ratchetx|rcx)\W*\?\W*$/i.test(String(text??''));
-  if(asked&&!dir&&!stake&&!words.some(w=>PLAY_VERBS.includes(w)&&!['ratchet','ratchetx'].includes(w)))return 'explain';
+  if(asked&&!dir&&!stake&&!verb)return 'explain';
   return 'execute';
 }
 /** Resolve words into one directional intent on the current board. Pure. */
