@@ -547,6 +547,10 @@ export function replyFor(r){
     +'\n\u2022 Session: '+n(r.remainingAttempts)+' attempts / '+n(r.remainingGrossCredits)+' credits left'
     +(Array.isArray(r.closed)&&r.closed[0]?'\n\u2022 Last '+outcomeLine(r.closed[0]).replace('Result: ','result: '):'')+'\n\n'+FOOTER;
   if(r.code==='COMMAND_ALREADY_RECORDED')return (REFUSALS[r.refusalCode]?.(r)??'That post was already processed.')+'\n\n'+FOOTER;
+  // A known refusal (expired session, no admission, stale oracle...) keeps its
+  // own sentence whatever category carried it; the status path reports
+  // server refusals under PENDING.
+  if(REFUSALS[r.code]&&!['submit','replay','settlement'].includes(r.phase))return REFUSALS[r.code](r)+'\n\n'+FOOTER;
   // Only a failure AFTER the shot was dispatched can mean "maybe sealed".
   // Before submit nothing was sent, so say so and invite a retry.
   if(r.category==='PENDING'&&['submit','replay','settlement'].includes(r.phase))

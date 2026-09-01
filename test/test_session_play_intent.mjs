@@ -203,6 +203,9 @@ assert.throws(()=>parseArgs(['--status','--say','stats','--wallet',wallet,'--ses
   assert.match(replyFor({category:'PENDING',code:'REPLAY_UNVERIFIED',phase:'replay'}),/may have been sealed/);
   assert.match(replyFor({category:'PENDING',code:'TRANSPORT_UNCERTAIN',phase:'preflight'}),/Nothing was sealed - send the command again/);
   assert.match(replyFor({category:'PENDING',code:'WAIT_LIMIT',phase:'status'}),/Nothing was sealed/);
+  assert.match(replyFor({category:'PENDING',code:'SESSION_EXPIRED',phase:'preflight'}),/session has expired/);
+  assert.match(replyFor({category:'PENDING',code:'AGENT_ADMISSION_REQUIRED',phase:'preflight'}),/not admitted/);
+  assert.match(replyFor({category:'PENDING',code:'STATUS_UNAVAILABLE',phase:'preflight'}),/Nothing was sealed/);
   assert.match(replyFor({code:'MISSING_OR_INVALID_CAPABILITY'}),/No RatchetX play session/);
   assert.match(replyFor({code:'WEIRD'}),/\(WEIRD\)/);assert.equal(replyFor({code:'EXPLAIN',pitch:PITCH}),PITCH);
   for(const r of [{ok:true,code:'SEALED',proofUrl:'u',wallet,sessionId,requestId:'r'.repeat(32)}])assert.ok(!replyFor(r).includes(sessionId));
