@@ -80,7 +80,7 @@ export async function runPlay(options={},dependencies={}){
   const append=async value=>{try{await journal.append(value);}catch{stop('JOURNAL_WRITE_FAILED');}};
   try{
     need(['status','execute','resume'].includes(options.mode),'EXPLICIT_MODE_REQUIRED');
-    need(Object.keys(options).every(key=>['mode','wallet','sessionId','commandId','target','side','p','stake','maxWaitMs','pollMs'].includes(key)),'INVALID_OPTIONS');
+    need(Object.keys(options).every(key=>['mode','wallet','sessionId','commandId','target','side','p','stake','maxWaitMs','pollMs','waitSettle'].includes(key)),'INVALID_OPTIONS');
     if(options.mode!=='execute')need(!['commandId','target','side','p','stake'].some(key=>key in options),'STATUS_ONLY_MODE');
     need(typeof options.wallet==='string'&&WALLET.test(options.wallet)
       &&typeof options.sessionId==='string'&&HEX32.test(options.sessionId),'EXPECTED_IDENTITY_REQUIRED');
@@ -236,6 +236,15 @@ export async function runPlay(options={},dependencies={}){
       wire={kind:'wire',shotId,receiptHash:hash(replay.body.request),submitHttp:200,replayHttp:200,idempotent:true,debitObserved:debit};
       await append(wire);wirePersisted=true;emit('IMMEDIATE_WIRE_REPLAY_VERIFIED');
       if(finite(submitted.body.credits)&&!debit)stop('CONCURRENT_ACCOUNTING_CHANGE','INCONCLUSIVE');
+      if(!options.waitSettle){
+        return result('PASS','SEALED',{
+          status:'SEALED',
+          shotId,
+          proofUrl:ORIGIN+'/api/shot?w='+encodeURIComponent(options.wallet)+'&id='+shotId,
+          creditsRemaining:submitted.body.credits,
+          message:'Prediction sealed on-chain.'
+        });
+      }
     }
 
     phase='settlement';let first=options.mode==='resume',nextPoll=wire&&debit?null:0;
@@ -299,6 +308,7 @@ export function parseArgs(args){
   for(let i=0;i<args.length;i++){
     const flag=args[i];need(!seen.has(flag),'INVALID_ARGUMENTS');seen.add(flag);
     if(['--status','--execute','--resume'].includes(flag)){need(!options.mode,'INVALID_ARGUMENTS');options.mode=flag.slice(2);continue;}
+    if(flag==='--wait-settle'){options.waitSettle=true;continue;}
     need(values.has(flag)&&typeof args[i+1]==='string'&&!args[i+1].startsWith('--'),'INVALID_ARGUMENTS');const value=args[++i];
     if(flag==='--journal')file=value;
     else if(flag==='--session-id')options.sessionId=value;

@@ -183,7 +183,7 @@ try {
     if (index) await advance(f, 6000);
     shotStart = time; currentPrice = 100; await capture();
     const beforeDispatch = dispatched.length, beforeCommit = acceptedCommits.length;
-    const executed = await run(f, {mode: 'execute', commandId, ...intent});
+    const executed = await run(f, {mode: 'execute', commandId, waitSettle: true, ...intent});
     results.push(executed.result);
     assert.equal(executed.result.code, 'PASS_HIT', JSON.stringify(executed.result));
     assert.equal(executed.result.immediateWireReplayVerified, true);

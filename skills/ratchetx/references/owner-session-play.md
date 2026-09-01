@@ -1,4 +1,4 @@
-﻿# Owner-approved Bankr play and stats (skill 1.3.0)
+# Owner-approved Bankr play and stats (skill 1.3.0)
 
 This controller uses an existing wallet-approved play session. It is not a
 Solana signer, Bankr login, global X integration or automatic credential pairing.
@@ -117,8 +117,12 @@ RatchetX is a SEALED prediction market. Predictions are cryptographically commit
 If you (the agent) reply on X with details of your prediction (e.g. 'I predicted SOL higher' or 'Target: SOL, Side: YES, Stake: 1000'), you RUIN the game's principle by leaking the sealed secret prematurely!
 Therefore, when placing a shot, you MUST NEVER REVEAL WHAT YOU PLAYED in your reply.
 
+### Lifecycle & Timing Understanding:
+- **Phase 1: Sealing (Instantaneous, < 1s):** Calling `--execute` immediately commits and seals the prediction on-chain/in the engine. The tool returns `ok: true`, `code: "SEALED"`, and a verified `proofUrl` in milliseconds. This is a 100% complete and successful transaction. You MUST report this immediately as a success. NEVER say "status unclear" or "settlement not visible".
+- **Phase 2: Settlement (~5 minutes later):** Oracle settlement occurs after the target's duration (5 minutes). Do NOT wait for settlement in the play command. The player can check their settled results, won XP, and Brier score anytime after 5 minutes with a status check (`--status`).
+
 ### 1. Reply Format When a Shot is Sealed:
-Reply IMMEDIATELY once the shot is sealed (do not wait 5 minutes for settlement):
+Reply IMMEDIATELY once the shot is sealed:
 
 ```
 Prediction sealed on-chain.

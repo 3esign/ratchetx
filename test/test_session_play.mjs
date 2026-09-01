@@ -12,7 +12,7 @@ function fixture(config={}){
   const epoch=Date.UTC(2026,7,30,15,18,7),expiresAt=epoch+(config.lifeMs??3600000);
   const records={},shots={},calls=[],events=[],journals=[];
   const server=()=>epoch+Math.floor(elapsed),limits={maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1000,minIntervalMs:60000,...config.limits};
-  const opts={mode:'execute',wallet,sessionId,commandId,target:'H496695Q0',side:'YES',p:0.55,maxWaitMs:1260000};
+  const opts={mode:'execute',wallet,sessionId,commandId,target:'H496695Q0',side:'YES',p:0.55,maxWaitMs:1260000,waitSettle:true};
   function memoryJournal(){
     const entries=[];
     const j={entries,async create(value){if(config.createFail||entries.length)throw new Error(token);entries.push(clone(value));},
