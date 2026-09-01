@@ -604,7 +604,15 @@ async function main(){
   }
   try{const {options,file}=parseArgs(process.argv.slice(2));
     const auto=process.argv.includes('--auto');
-    if(options.mode==='explain'){const r={ok:true,category:'EXPLAIN',code:'EXPLAIN',pitch:PITCH};console.log(JSON.stringify(auto?{ok:true,code:'EXPLAIN',reply:replyFor(r)}:r));return;}
+    if(options.mode==='explain'){
+      const r={ok:true,category:'EXPLAIN',code:'EXPLAIN',pitch:PITCH};
+      // The $RCX mint as tool data with its source, so a platform that only
+      // repeats verified contract addresses has something to verify against.
+      let token=null;
+      try{const res=await fetch(URLS.board,{headers:{Accept:'application/json'},redirect:'error',cache:'no-store',signal:AbortSignal.timeout(8000)});
+        if(res.status===200){const body=await res.json();if(body?.ok===true&&body.token?.mint)token=body.token;}}catch{}
+      console.log(JSON.stringify(auto?{ok:true,code:'EXPLAIN',reply:replyFor(r),...(token?{token}:{})}:{...r,...(token?{token}:{})}));return;
+    }
     if(options.mode==='help'){console.log(JSON.stringify({ok:true,code:'HELP',reply:HELP+'\n\n'+FOOTER}));return;}
     if(options.mode==='meta'){console.log(JSON.stringify({ok:false,code:'NOT_A_GAME_COMMAND',reply:META_REPLY+'\n\n'+FOOTER}));process.exitCode=1;return;}
     if(options.mode==='board'){

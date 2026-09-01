@@ -2931,6 +2931,11 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         prices: { src: prices.src, ages: prices.ages || null,
           ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x))) },
         stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP, settleXp: SETTLE_XP },
+        // Token facts as data, not prose: agents that refuse to repeat an
+        // unverified contract address can cite this field and the mint URL.
+        token: MINT ? { symbol:'RCX', mint:MINT, chain:'solana:mainnet', standard:'Token-2022',
+          launch:'pump.fun', launchUrl:'https://pump.fun/coin/'+MINT,
+          explorerUrl:'https://solscan.io/token/'+MINT, source:'https://ratchetx.xyz/api/game?action=board' } : null,
         rankedEconomy: {
           oracleRead:'shared Pyth context is read-only and never consumes RCX',
           stakeUnit:'Ratchet play credits',
