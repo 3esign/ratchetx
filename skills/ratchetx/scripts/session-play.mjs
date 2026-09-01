@@ -310,7 +310,7 @@ export async function runPlay(options={},dependencies={}){
     }
     const summary=({s,p,l,nextAttemptAt})=>({expiresAt:s.expiresAt,limits:l,attempts:s.attempts,grossCredits:s.grossCredits,
       remainingAttempts:l.maxAttempts-s.attempts,remainingGrossCredits:l.maxGrossCredits-s.grossCredits,
-      nextAttemptAt,pendingRequestId:s.pending,credits:p.credits,stated:p.stated,brier:p.brier,xp:p.xp,
+      nextAttemptAt,pendingRequestId:s.pending,credits:p.credits,stated:p.stated,brier:p.brier,xp:p.xp,sessionEndsInMinutes:Math.max(0,Math.floor((s.expiresAt-serverNow())/60000)),
       open:p.open.map(row=>({shotId:row.id,expiresAt:row.exp})),
       closed:p.closed.slice(0,5).map(row=>({shotId:row.id,result:row.res,stake:row.stake,back:row.back??null,settledAt:row.settledAt??null})),
       effect:'Status may collect canonical settlement; no forecast was submitted.'});
@@ -447,7 +447,7 @@ export async function runPlay(options={},dependencies={}){
           shotId,
           proofUrl:ORIGIN+'/api/shot?w='+encodeURIComponent(options.wallet)+'&id='+shotId,
           creditsRemaining:submitted.body.credits,
-          stakeCredits:intent.stake,settlesInMinutes:target.mins,
+          stakeCredits:intent.stake,settlesInMinutes:target.mins,sessionEndsInMinutes:Math.max(0,Math.floor((s.expiresAt-serverNow())/60000)),
           ...(resolution?{notes:resolution.notes}:{}),
           message:'Prediction sealed on-chain.'
         });
@@ -532,6 +532,7 @@ const REFUSALS={
   COMMAND_CONFLICT:()=>'That post was already used for a different forecast. Send a new post for a new forecast.',
 };
 const n=v=>v===null||v===undefined?'n/a':typeof v!=='number'?String(v):Number.isInteger(v)?v.toLocaleString('en-US'):String(+v.toFixed(4));
+const endsSoon=r=>finite(r.sessionEndsInMinutes)&&r.sessionEndsInMinutes<=30?'\nSession ends in '+mins(Math.max(1,r.sessionEndsInMinutes))+' - approve a new one at ratchetx.xyz/play-session.html.':'';
 const outcomeLine=c=>c.result==='hit'?'Result: HIT - +'+n(c.back)+' credits.':c.result==='miss'?'Result: MISS.':c.result==='void'?'Result: VOID - stake refunded.':null;
 export function replyFor(r){
   if(!r||typeof r!=='object')return 'RatchetX could not take that command right now.\n\n'+FOOTER;
@@ -539,12 +540,12 @@ export function replyFor(r){
   const note=Array.isArray(r.notes)&&r.notes.length?'\n'+r.notes[0].charAt(0).toUpperCase()+r.notes[0].slice(1)+'.':'';
   if(r.code==='SEALED'||(r.code==='COMMAND_ALREADY_RECORDED'&&r.proofUrl)){
     const tail=r.settled?'\n'+outcomeLine(r.settled):finite(r.settlesInMinutes)?'\nSettles in '+mins(r.settlesInMinutes)+'. Check: reply "ratchetx result" or open the proof.':'';
-    return 'Prediction sealed on-chain.\nProof: '+r.proofUrl+note+tail+'\n\n'+FOOTER;
+    return 'Prediction sealed on-chain.\nProof: '+r.proofUrl+note+tail+endsSoon(r)+'\n\n'+FOOTER;
   }
   if(r.code==='STATUS')return 'RatchetX Player Status:\n'
     +'\u2022 Play Credits: '+n(r.credits)+'\n\u2022 XP: '+n(r.xp)+'\n\u2022 Open Chambers: '+n(Array.isArray(r.open)?r.open.length:null)
     +'\n\u2022 Forecasts Stated: '+n(r.stated)+' (Brier: '+n(r.brier)+')'
-    +'\n\u2022 Session: '+n(r.remainingAttempts)+' attempts / '+n(r.remainingGrossCredits)+' credits left'
+    +'\n\u2022 Session: '+n(r.remainingAttempts)+' attempts / '+n(r.remainingGrossCredits)+' credits left'+(finite(r.sessionEndsInMinutes)?', ends in '+mins(Math.max(1,r.sessionEndsInMinutes)):'')
     +(Array.isArray(r.closed)&&r.closed[0]?'\n\u2022 Last '+outcomeLine(r.closed[0]).replace('Result: ','result: '):'')+'\n\n'+FOOTER;
   if(r.code==='COMMAND_ALREADY_RECORDED')return (REFUSALS[r.refusalCode]?.(r)??'That post was already processed.')+'\n\n'+FOOTER;
   // A known refusal (expired session, no admission, stale oracle...) keeps its

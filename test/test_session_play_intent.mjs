@@ -198,6 +198,9 @@ assert.throws(()=>parseArgs(['--status','--say','stats','--wallet',wallet,'--ses
   assert.match(replyFor({code:'SEALED',proofUrl:'U',settled:{result:'void'}}),/VOID - stake refunded/);
   assert.match(replyFor({code:'STATUS',credits:1,stated:1,brier:0.2,open:[],remainingAttempts:1,remainingGrossCredits:1,closed:[{result:'miss'}]}),/Last result: MISS/);
   assert.ok(PITCH.length<=700,'pitch stays short: '+PITCH.length);assert.ok(PITCH.startsWith('RatchetX - sealed prediction arcade on Solana. $RCX launched on pump.fun, CA FQb2'));
+  assert.match(replyFor({code:'SEALED',proofUrl:'U',settlesInMinutes:5,sessionEndsInMinutes:12}),/Session ends in 12 min - approve a new one/);
+  assert.doesNotMatch(replyFor({code:'SEALED',proofUrl:'U',settlesInMinutes:5,sessionEndsInMinutes:120}),/Session ends/);
+  assert.match(replyFor({code:'STATUS',credits:1,stated:0,brier:null,open:[],remainingAttempts:3,remainingGrossCredits:500,sessionEndsInMinutes:200}),/credits left, ends in 200 min/);
   assert.match(replyFor({code:'SESSION_RATE_LIMIT',retryAfterSeconds:3}),/retry in 3 s/);
   assert.match(replyFor({category:'PENDING',code:'SUBMIT_UNRESOLVED',phase:'submit'}),/may have been sealed/);
   assert.match(replyFor({category:'PENDING',code:'REPLAY_UNVERIFIED',phase:'replay'}),/may have been sealed/);
