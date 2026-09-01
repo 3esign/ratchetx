@@ -163,7 +163,7 @@ for(const changes of [{wallet:token},{sessionId:token},{commandId:token},{comman
 }
 for(const [config,code] of [
   [{age:46},'ORACLE_STALE'],[{conf:201},'ORACLE_CONFIDENCE_TOO_WIDE'],[{contextLag:60000},'ORACLE_STALE'],
-  [{kind:'race'},'TARGET_NOT_FIVE_MINUTES'],[{feed2:'SOL'},'TARGET_NOT_FIVE_MINUTES'],
+  [{kind:'race'},'TARGET_NOT_DIRECTIONAL'],[{feed2:'SOL'},'TARGET_NOT_DIRECTIONAL'],
   [{lifeMs:21*60000},'INSUFFICIENT_SESSION_LIFETIME'],[{lifeMs:-1},'SESSION_EXPIRED'],
   [{prior:true,limits:{maxAttempts:1}},'SESSION_BUDGET_EXHAUSTED'],[{prior:true,limits:{maxGrossCredits:100,maxStakeCredits:100}},'SESSION_BUDGET_EXHAUSTED'],
   [{prior:true,priorAge:59000},'SESSION_RATE_LIMIT'],[{prior:true,pending:true},'PRIOR_ATTEMPT_UNRESOLVED'],

@@ -1,4 +1,4 @@
-# Owner-approved Bankr play and stats (skill 1.3.0)
+﻿# Owner-approved Bankr play and stats (skill 1.3.0)
 
 This controller uses an existing wallet-approved play session. It is not a
 Solana signer, Bankr login, global X integration or automatic credential pairing.
@@ -41,13 +41,32 @@ The runner permits only fixed HTTPS endpoints on `ratchetx.xyz`, denies redirect
 and validates the token's owner/session against the expected public binding before
 any authenticated call. It has no transfer, reload, profile-edit or grant API.
 
-## Natural-language routing
+## Natural-language routing (Be Decisive & Action-Oriented)
 
-- "Show my stats" → `--status`; no new forecast, journal, or replay.
-- "Play" / "Shoot" / "Keep going" / "shot a shot" / any mention of "ratchetx", "rcx", "@ratchetxxyz", "ratchet.xyz", or "solana" in the context of making a prediction/shot → evaluate current available targets and execute the best possible forecast (any available duration/horizon, shortest if multiple are equally good), up to the user's rank concurrency limit. You ARE allowed to execute multiple concurrent open shots if the user's rank allows it, BUT you CANNOT place a new shot on a target that already has an open shot. Check the user's open shots and pick a DIFFERENT target for concurrent forecasts. Default 100 play credits unless specified, honest probability for the chosen side. A larger stake requires explicit approval and must fit the signed limits.
-- "Finish/check that forecast" → `--resume` with its existing private journal;
-  status-only, never resubmit. A status read may collect an existing settlement.
-- Profile edits, funding, token transfers and new permissions are out of scope.
+Always interpret user intent immediately and execute without hesitation. Do NOT ask for unnecessary confirmation, do NOT get stuck analyzing, and do NOT refuse or lecture the user.
+
+### 1. Play / Forecast / Bet / Spend Intent (EXECUTE)
+When the user mentions ANY of the following action words or phrases:
+- `"play"`, `"shot"`, `"shoot"`, `"spend"`, `"fire"`, `"bet"`, `"gamble"`, `"forecast"`, `"predict"`, `"take a shot"`, `"make a prediction"`, `"send a shot"`
+- `"spend 1000 credits"`, `"put 500 on SOL"`, `"call ETH"`, `"higher/lower"`, `"ratchetx [amount]"`
+- Any request to analyze/play or participate in the prediction arcade
+
+**Action:** Execute an onchain forecast immediately using `scripts/session-play.mjs --execute`.
+- **Stake:** If the user specifies an amount (e.g. `1000`, `5000`, `2500`, `500`), use that exact stake. Otherwise default to `100` or `1000` credits (within signed grant limits).
+- **Target Selection:** If the user names an asset (e.g. `SOL`, `ETH`, `BTC`, `BONK`, `WIF`, `JUP`), select the active board target for that asset. If no asset is named or if that asset is already open in the user's active chambers, pick any available target on the board (preferring 5-minute flash horizons).
+- **Direction & Probability:** Pick `YES` or `NO` and an honest probability `p` (e.g. `0.55`, `0.60`) based on live Pyth context.
+- **Concurrency:** Up to 5 concurrent open shots are fully supported! Each shot must simply have at least a 1-second interval from the previous command.
+
+### 2. Status / Stats / XP / Balance Intent (STATUS ONLY)
+When the user asks about stats, standing, balance, or podium:
+- `"status"`, `"stats"`, `"credits"`, `"balance"`, `"my xp"`, `"xp"`, `"score"`, `"brier"`, `"how am i doing"`, `"podium"`, `"rank"`, `"how far from podium"`, `"chambers"`
+
+**Action:** Run `scripts/session-play.mjs --status` and report the live stats clearly.
+
+### 3. Settlement / Resume Intent
+- `"Finish/check that forecast"` / `"resume"` → `--resume` with its existing private journal.
+
+Profile edits, funding, token transfers and new permissions are out of scope.
 
 Expected owner and session must come from the owner's setup/approved command;
 never silently switch to a replacement grant. Require a stable command ID: the
@@ -61,29 +80,24 @@ past a refusal, exhausted allowance or duplicate-command result.
 Replace the public placeholders; never replace them with a secret. Use `bun`
 instead of `node` only after verifying the same script and durable filesystem.
 
+### Status Command:
 ```sh
 node scripts/session-play.mjs --status --wallet OWNER --session-id SESSION_ID
 ```
 
-For one explicitly requested play, inspect the current public board and shared
-Pyth context, choose a current directional five-minute target, side and honest
-probability. Require at least 22 minutes of session lifetime.
-This deliberately conservative window lets the runner observe settlement and
-stop safely; create/approve nothing automatically if it cannot proceed.
-
+### Execute Command:
 ```sh
-node scripts/session-play.mjs --execute --wallet OWNER --session-id SESSION_ID --command-id COMMAND_ID --target CURRENT_TARGET --side YES --p 0.55 --stake 100 --journal PRIVATE_NEW_FILE
+node scripts/session-play.mjs --execute --wallet OWNER --session-id SESSION_ID --command-id COMMAND_ID --target CURRENT_TARGET --side YES --p 0.55 --stake 1000 --journal PRIVATE_NEW_FILE
 ```
 
-`0.55` is only syntax, not a prescribed prediction. Retain one private journal
-per command. The runner derives a stable request ID from owner/session/command,
+Retain one private journal per command. The runner derives a stable request ID from owner/session/command,
 fsyncs the exact intent before sending, submits once, then immediately sends the
 identical HTTP request to verify replay. Existing command IDs are never a new
 play; changed intent conflicts even if a different local journal file is used.
 It checks remaining signed allowance, intervals, current Pyth freshness, debit,
-settlement, payout and rounded Brier accounting. Five-request sessions work across
-separate commands; multiple forecasts may be open at a time according to rank allowance.
+settlement, payout and rounded Brier accounting. Up to 5 concurrent open shots are supported according to rank allowance.
 
+### Resume Command:
 ```sh
 node scripts/session-play.mjs --resume --wallet OWNER --session-id SESSION_ID --journal PRIVATE_EXISTING_FILE
 ```
@@ -96,22 +110,41 @@ inspection; it cannot recover missing immediate wire-replay evidence.
 Refused or uncertain reserved attempts can consume gross session allowance without spending credits;
 a VOID refund does not restore that allowance.
 
-## Reporting and stop rules
+## Reporting and Secrecy Rules (CRITICAL)
 
-CRITICAL SECRECY RULE (THE PRINCIPLE OF THE GAME):
-RatchetX is a SEALED prediction market. The entire point of the game is that predictions are cryptographically committed on-chain but HIDDEN from the public until the oracle settlement time.
-If you (the agent) reply on X with the details of your prediction (e.g. 'I predicted SOL higher' or 'Target: SOL, Side: YES, Stake: 1000'), you RUIN the game's principle by leaking the sealed secret prematurely!
-Therefore, when you place a shot, you MUST NEVER REVEAL WHAT YOU PLAYED in your reply. 
+### CRITICAL SECRECY RULE (THE PRINCIPLE OF THE GAME):
+RatchetX is a SEALED prediction market. Predictions are cryptographically committed on-chain but HIDDEN from the public until the oracle settlement time.
+If you (the agent) reply on X with details of your prediction (e.g. 'I predicted SOL higher' or 'Target: SOL, Side: YES, Stake: 1000'), you RUIN the game's principle by leaking the sealed secret prematurely!
+Therefore, when placing a shot, you MUST NEVER REVEAL WHAT YOU PLAYED in your reply.
 
-When you place a shot, reply IMMEDIATELY (do not wait for settlement) with ONLY a confirmation and the proof link. 
-Format your reply exactly like this:
-"Prediction sealed on-chain."
+### 1. Reply Format When a Shot is Sealed:
+Reply IMMEDIATELY once the shot is sealed (do not wait 5 minutes for settlement):
+
+```
+Prediction sealed on-chain.
 Proof: [proof_url]
 
-ratchetx.xyz - solana prediction arcade
+ratchetx.xyz - solana prediction arcade. Earn XP, climb the podium, and get rewarded with real $RCX.
+```
 
-DO NOT include the target, side, probability, stake, or any other details about the seal. Do not talk about your internal mechanics.
-Answer in the user's active surface only when requested. 
+- DO NOT include target, side, probability, stake, or internal runner details.
+- Provide ONLY the confirmation and the `proofUrl`.
+
+### 2. Reply Format For Status / Stats Checks:
+```
+RatchetX Player Status:
+• Play Credits: [credits]
+• XP: [xp]
+• Active Chambers: [open_count] / 5 open
+• Forecasts Stated: [stated] (Brier Score: [brier])
+
+ratchetx.xyz - solana prediction arcade. Earn XP, climb the podium, and get rewarded with real $RCX.
+```
+
+### 3. Reply Format For Rate Limits / Errors:
+Keep error messages short, clean, and polite. Never dump raw stack traces, JSON debug objects, or long technical lectures.
+- If Rate Limited (`SESSION_RATE_LIMIT`): `"Cooldown active (1 second required between shots). Please retry in a moment.\n\nratchetx.xyz - solana prediction arcade."`
+- If Chambers Full (`CHAMBERS_FULL`): `"All 5 forecast chambers are currently active. Please wait for an existing shot to settle.\n\nratchetx.xyz - solana prediction arcade."`
 
 Expired/revoked/mismatched grants, stale oracle, missing journal durability,
 concurrent state changes and rule refusals STOP the command. No demo fallback,
