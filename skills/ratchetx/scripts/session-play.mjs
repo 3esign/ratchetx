@@ -156,6 +156,8 @@ export const HELP=`RatchetX commands (mention @bankrbot):
 - ratchetx result - your latest settled forecast
 - ratchetx what is this - how the flywheel works
 Setup: ratchetx.xyz/play-session.html`;
+const META_PATTERN=/\b(update|upgrade|install|reinstall|uninstall|refresh|sync|latest version|github|skill|skills|repo|repository)\b/;
+export const META_REPLY='That is a Bankr skill command, not a RatchetX play - nothing was sealed. Ask Bankr: "update the ratchetx skill from https://github.com/3esign/ratchetx".';
 const HELP_PATTERN=/\b(help|menu|commands?|options|usage|how to play|how do i play|instructions)\b/;
 const BOARD_PATTERN=/\b(board|games?|targets?|markets?|what can i play|what'?s (?:on|open|live)|whats (?:on|open|live)|list|available|open now)\b/;
 const mins=m=>m%60===0?(m/60)+' h':m+' min';
@@ -176,6 +178,7 @@ export function classifyCommand(text){
   const verb=words.some(w=>PLAY_VERBS.includes(w)),dir=findDirection(words,false)!==null,stake=findStake(text).stake!==null;
   const status=words.some(w=>STATUS_WORDS.includes(w));
   const plain=norm(String(text??''));
+  if(META_PATTERN.test(plain)&&!dir&&!stake)return 'meta';
   if(HELP_PATTERN.test(plain)&&!dir&&!stake)return 'help';
   if(BOARD_PATTERN.test(plain)&&!dir&&!stake&&!/^(?:\$?\w+\s+)?(?:ratchetx?\s+)?(?:play|shoot|fire|bet|put|spend|wager|predict)\b/.test(plain))return 'board';
   if(status&&!verb&&!dir&&!stake)return 'status';
@@ -580,10 +583,10 @@ export function parseArgs(args){
     need(typeof options.say==='string'&&!['target','side','p','asset','direction','horizon'].some(key=>key in options),'AUTO_REQUIRES_SAY');
     const kind=classifyCommand(options.say);
     if(kind==='status'){options.mode='status';for(const key of ['commandId','say','stake'])delete options[key];file=undefined;}
-    else if(kind==='explain'||kind==='help'||kind==='board'){options.mode=kind;file=undefined;}
+    else if(['explain','help','board','meta'].includes(kind)){options.mode=kind;file=undefined;}
     else options.mode='execute';
   }
-  if(!['execute','explain','help','board'].includes(options.mode))need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
+  if(!['execute','explain','help','board','meta'].includes(options.mode))need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
   return {options,file};
 }
 async function main(){
@@ -600,6 +603,7 @@ async function main(){
     const auto=process.argv.includes('--auto');
     if(options.mode==='explain'){const r={ok:true,category:'EXPLAIN',code:'EXPLAIN',pitch:PITCH};console.log(JSON.stringify(auto?{ok:true,code:'EXPLAIN',reply:replyFor(r)}:r));return;}
     if(options.mode==='help'){console.log(JSON.stringify({ok:true,code:'HELP',reply:HELP+'\n\n'+FOOTER}));return;}
+    if(options.mode==='meta'){console.log(JSON.stringify({ok:false,code:'NOT_A_GAME_COMMAND',reply:META_REPLY+'\n\n'+FOOTER}));process.exitCode=1;return;}
     if(options.mode==='board'){
       // Public board read, no bearer, no journal. Same fixed URL as play.
       let board=null;

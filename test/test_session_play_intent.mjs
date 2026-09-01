@@ -22,6 +22,10 @@ for(const t of ['status','stats','how am i doing','my xp','credits','balance?','
 for(const t of ['play','shot','ratchetx','take a shot','hi','gm','spend 1000','put 500 on SOL','call ETH','higher','lower','yes','no',
   'stats then play sol','play and status','spend credits','another one','buy sol','ratchetx put 500 on sol higher','@bankrbot ratchetx play','ratchetx sol'])assert.equal(classifyCommand(t),'execute',t);
 
+// Skill maintenance words are Bankr's, not ours: never a shot, never status.
+for(const t of ['ratchetx update github version','update ratchetx skill','ratchetx install latest version','ratchetx upgrade','@bankrbot ratchetx refresh skill from github'])assert.equal(classifyCommand(t),'meta',t);
+for(const t of ['ratchetx put 500 on sol higher','ratchetx stats','ratchetx play'])assert.notEqual(classifyCommand(t),'meta',t);
+{const a=parseArgs(['--auto','--say','ratchetx update github version','--wallet',wallet,'--session-id',sessionId,'--command-id',commandId,'--journal','j']);assert.equal(a.options.mode,'meta');}
 // Help and board are read-only menus; they never fire a shot.
 for(const t of ['ratchetx help','help','ratchetx menu','ratchetx commands','how do i play ratchetx','@bankrbot ratchetx help'])assert.equal(classifyCommand(t),'help',t);
 for(const t of ['ratchetx board','ratchetx games','what can i play','ratchetx targets','ratchetx what is on the board'])assert.equal(classifyCommand(t),'board',t);

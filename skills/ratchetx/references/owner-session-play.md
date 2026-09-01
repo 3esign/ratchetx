@@ -15,6 +15,15 @@ words name a board asset with a direction or amount (`put 500 on sol higher`),
 this skill handles it. Amounts are credits, never dollars. Do not check a
 wallet balance, do not propose a trade instead, do not fund anything.
 
+## Not ours: skill maintenance
+
+`update`, `upgrade`, `install`, `refresh`, `latest version`, `github`, `skill`
+are commands to Bankr about this skill, not RatchetX play. Do not run the
+runner for them; perform the skill update from
+`https://github.com/3esign/ratchetx` (stage `scripts/session-play.mjs` AND
+`scripts/session-smoke.mjs`) and confirm the version from `SKILL.md`. If the
+runner is invoked anyway it answers `NOT_A_GAME_COMMAND` and seals nothing.
+
 ## The command
 
 ```sh

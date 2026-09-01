@@ -53,7 +53,9 @@ npx skills add https://ratchetx.xyz --skill ratchetx
   "what is ratchetx" with the flywheel pitch ($RCX: every reload burns 70%
   and pays 30% to the podium, 0% to the team), and answers a redelivered
   post with the original proof. A RatchetX command is a forecast in play
-  credits, never a token trade. Never pick values yourself, never wait for
+  credits, never a token trade. "update/install/upgrade the skill" or
+  "github version" is a Bankr command about this skill, not a play: update
+  the skill, do not run the runner. Never pick values yourself, never wait for
   settlement, never reveal what was played, never fall back to the demo,
   never load another user's environment.
 - If the user requests an owner-session / Bankr session test, preserve that mode
