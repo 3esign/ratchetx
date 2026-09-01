@@ -17,9 +17,9 @@
   }
   function readLimits(values) {
     const maxAttempts = boundedInteger(values.maxAttempts, 1, 100, 'attempts');
-    const maxStakeCredits = boundedInteger(values.maxStakeCredits, 100, 10000, 'per-attempt credits');
-    const maxGrossCredits = boundedInteger(values.maxGrossCredits, maxStakeCredits, 100000, 'total credits');
-    const minIntervalMs = boundedInteger(values.minIntervalSeconds, 5, 600, 'interval') * 1000;
+    const maxStakeCredits = boundedInteger(values.maxStakeCredits, 100, 10000000, 'per-attempt credits');
+    const maxGrossCredits = boundedInteger(values.maxGrossCredits, maxStakeCredits, 100000000, 'total credits');
+    const minIntervalMs = boundedInteger(values.minIntervalSeconds, 1, 600, 'interval') * 1000;
     const durationMs = boundedInteger(values.durationMinutes, 1, 1440, 'duration') * 60000;
     return {limits: {maxAttempts, maxStakeCredits, maxGrossCredits, minIntervalMs}, durationMs};
   }
@@ -287,9 +287,9 @@
         || (session.pending !== null && !HEX32.test(session.pending || ''))) throw new Error('BAD_RESPONSE');
       const l = session.limits;
       if (!Number.isSafeInteger(l.maxAttempts) || l.maxAttempts < 1 || l.maxAttempts > 100
-        || !Number.isSafeInteger(l.maxStakeCredits) || l.maxStakeCredits < 100 || l.maxStakeCredits > 10000
-        || !Number.isSafeInteger(l.maxGrossCredits) || l.maxGrossCredits < l.maxStakeCredits || l.maxGrossCredits > 100000
-        || !Number.isSafeInteger(l.minIntervalMs) || l.minIntervalMs < 5000 || l.minIntervalMs > 600000) throw new Error('BAD_RESPONSE');
+        || !Number.isSafeInteger(l.maxStakeCredits) || l.maxStakeCredits < 100 || l.maxStakeCredits > 10000000
+        || !Number.isSafeInteger(l.maxGrossCredits) || l.maxGrossCredits < l.maxStakeCredits || l.maxGrossCredits > 100000000
+        || !Number.isSafeInteger(l.minIntervalMs) || l.minIntervalMs < 1000 || l.minIntervalMs > 600000) throw new Error('BAD_RESPONSE');
     }
     function showSession(session, observedAt = now()) {
       const owner = assertOwner(), id = el('sessionId').value.trim();
@@ -398,7 +398,7 @@
     limitIds.forEach(id => el(id).addEventListener('input', () => {
       el('consent').checked = false; summary(); updateControls();
     }));
-    for (const [id, values] of [['singlePreset', [1, 100, 100, 30, 60]], ['seriesPreset', [5, 100, 500, 60, 60]], ['largePreset', [10, 10000, 100000, 240, 60]]]) {
+    for (const [id, values] of [['singlePreset', [1, 100, 100, 30, 60]], ['seriesPreset', [5, 100, 500, 60, 60]], ['largePreset', [10, 10000000, 100000000, 240, 1]]]) {
       el(id).addEventListener('click', () => {
         if (busy) return;
         limitIds.forEach((key, i) => { el(key).value = String(values[i]); });

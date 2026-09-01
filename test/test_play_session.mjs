@@ -29,7 +29,7 @@ const hash = s => crypto.createHash('sha256').update(s).digest('hex');
 function grant(n, overrides = {}, signer = a) {
   const token = `rxp1.${signer.wallet}.${id(n)}.${crypto.randomBytes(32).toString('hex')}`;
   const obj = mod.canonicalGrant({wallet:signer.wallet,id:id(n),tokenHash:hash(token),issuedAt:time,
-    expiresAt:time+3600000,limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1000,minIntervalMs:5000},...overrides},time);
+    expiresAt:time+3600000,limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1000,minIntervalMs:30000},...overrides},time);
   const payload = JSON.stringify(obj);
   return {obj,payload,signature:signer.sign(payload),token};
 }
@@ -54,7 +54,7 @@ for (const change of [o=>o.domain='attacker.invalid',o=>o.network='solana:devnet
 const tampered = JSON.stringify({...g.obj,limits:{...g.obj.limits,maxGrossCredits:5000}});
 await rejects(service.grant(tampered,g.signature),'INVALID_SIGNATURE');
 assert.throws(()=>mod.canonicalGrant({...g.obj,wallet:'demo-123456789abc'},time),/INVALID_WALLET/);
-for (const limits of [{maxAttempts:101},{maxStakeCredits:99},{maxGrossCredits:499},{minIntervalMs:4999}])
+for (const limits of [{maxAttempts:101},{maxStakeCredits:99},{maxGrossCredits:499},{minIntervalMs:999}])
   assert.throws(()=>mod.canonicalGrant({...g.obj,limits:{...g.obj.limits,...limits}},time),/INVALID_LIMITS/);
 for (const change of [{p:0.525},{p:'0.52'},{stake:500.2},{stake:'500'},{auth:{wallet:b.wallet}},
   {action:'reload'},{recipient:b.wallet},{requestId:[id(20)]}])
@@ -90,11 +90,11 @@ assert.equal((await service.finish(one.permit,{state:'rejected',code:'NO_CHAMBER
 await rejects(service.finish(one.permit,{state:'rejected',code:'ORACLE_STALE'}),'OUTCOME_CONFLICT');
 assert.equal((await service.authorize(h.token,intent(30))).dispatch,false);
 await rejects(service.authorize(h.token,intent(31)),'SESSION_RATE_LIMIT');
-time+=5000;
+time+=30000;
 const two = await service.authorize(h.token,intent(31));
 await service.finish(two.permit,{state:'rejected',code:'ORACLE_STALE'});
 assert.equal((await service.status(h.token)).grossCredits,1000,'rejection never replenishes gross authority');
-time+=5000;
+time+=30000;
 await rejects(service.authorize(h.token,intent(32)),'SESSION_BUDGET_EXHAUSTED');
 
 // jsonb may return fields in a different order: grant and receipt replay still match.
@@ -112,7 +112,7 @@ assert.equal((await service.revoke(...rev(h,b))).idempotent,true);
 
 // Expiry and replacement do not resurrect prior grants. Only owner signs new limits.
 time++;
-const next = grant(6,{expiresAt:time+60000,limits:{maxAttempts:1,maxStakeCredits:500,maxGrossCredits:1000,minIntervalMs:5000}},b);
+const next = grant(6,{expiresAt:time+60000,limits:{maxAttempts:1,maxStakeCredits:500,maxGrossCredits:1000,minIntervalMs:30000}},b);
 await install(next);
 await rejects(install(h),'STALE_GRANT');
 await rejects(service.status(h.token),'INVALID_CAPABILITY');
@@ -129,11 +129,11 @@ await rejects(service.authorize(expires.token,intent(42)),'SESSION_EXPIRED');
 
 // Definitive grant with max-attempt cap separate from gross cap.
 time++;
-const calls = grant(8,{limits:{maxAttempts:1,maxStakeCredits:500,maxGrossCredits:1000,minIntervalMs:5000}},b);
+const calls = grant(8,{limits:{maxAttempts:1,maxStakeCredits:500,maxGrossCredits:1000,minIntervalMs:30000}},b);
 await install(calls);
 const four = await service.authorize(calls.token,intent(50));
 await service.finish(four.permit,{state:'rejected',code:'NO_CHAMBER'});
-time+=5000;
+time+=30000;
 await rejects(service.authorize(calls.token,intent(51)),'SESSION_BUDGET_EXHAUSTED');
 
 // Lost acknowledgement after a committed reservation: NEVER dispatch on retry.

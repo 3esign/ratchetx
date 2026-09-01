@@ -81,7 +81,7 @@ thirteenth Vercel function. MCP / skill versions remain 1.2.0.
   Body `{op:"status"}`, or
   `{op:"shot",intent:{requestId,target,side,p,stake}}`.
 - requestId: 32 lowercase hex; target: exact live board target ID; side YES/NO;
-  p: 0.01–0.99 at 0.01 precision; stake: integer 100–10,000 AND within the grant.
+  p: 0.01–0.99 at 0.01 precision; stake: integer 100–10,000,000 AND within the grant.
 - A request ID must be retained and reused only for the identical intent. Never
   invent a new ID to work around an ambiguous response.
 - Status uses canonical settlement / savePlayer, returning credits, open/closed

@@ -29,7 +29,7 @@ async function install(f){
   const token=`rxp1.${f.wallet}.${id(++sequence)}.${crypto.randomBytes(32).toString('hex')}`;
   const grant=sessions.canonicalGrant({wallet:f.wallet,id:id(sequence),issuedAt:time,expiresAt:time+3600000,
     tokenHash:crypto.createHash('sha256').update(token).digest('hex'),
-    limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1500,minIntervalMs:5000}},time);
+    limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1500,minIntervalMs:30000}},time);
   const payload=JSON.stringify(grant);await bridge.service.grant(payload,f.sign(payload));return {token,grant};
 }
 function body(f,overrides={}){

@@ -40,7 +40,7 @@ export async function probe({kv, table, onStart = () => {}}) {
     const grant = sessions.canonicalGrant({wallet,id:sessionId,issuedAt:startedAt,
       expiresAt:startedAt+120000,
       tokenHash:createHash('sha256').update('not-a-capability:'+probeId).digest('hex'),
-      limits:{maxAttempts:1,maxStakeCredits:100,maxGrossCredits:100,minIntervalMs:5000}},startedAt);
+      limits:{maxAttempts:1,maxStakeCredits:100,maxGrossCredits:100,minIntervalMs:30000}},startedAt);
     const initialSession = {grant,revokedAt:null,attempts:0,grossCredits:0,lastReservedAt:null,
       pending:null,requests:{},revision:hex(),[marker]:probeId};
     assert.equal(await kv.casPlaySession(sessionKey,null,initialSession),true);

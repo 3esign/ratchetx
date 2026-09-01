@@ -1933,7 +1933,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         if(!p._existed)throw Object.assign(new Error('existing agent required'),{code:'AGENT_ADMISSION_REQUIRED'});
         await settle(p,await getPrices());await savePlayer(p);
         return {wallet:w,credits:p.cr,...brierOf(p),
-          open:(p.open||[]).map(({side,salt,xp,sp,...s})=>s),closed:p.closed||[]};
+          xp:p.xp||0,chambers:Math.min(4, rankOf(p.xp)+1) + 1,open:(p.open||[]).map(({side,salt,xp,sp,...s})=>s),closed:p.closed||[]};
       }});
     // These public agent routes can scan durable history and, for a new proof,
     // query Pyth Benchmarks. Keep their stable public URLs, but do not let an

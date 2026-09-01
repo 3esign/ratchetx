@@ -76,7 +76,7 @@ function owner(limits={}) {
   const token = `rxp1.${wallet}.${sessionId}.${crypto.randomBytes(32).toString('hex')}`;
   const sign = payload => crypto.sign(null,Buffer.from(payload),privateKey).toString('base64');
   const grant = sessions.canonicalGrant({wallet,id:sessionId,tokenHash:hash(token),issuedAt:time,
-    expiresAt:time+3600000,limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1500,minIntervalMs:5000,...limits}},time);
+    expiresAt:time+3600000,limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1500,minIntervalMs:30000,...limits}},time);
   const payload = JSON.stringify(grant);
   return {wallet,sessionId,token,sign,grant,body:{op:'grant',payload,signature:sign(payload)}};
 }

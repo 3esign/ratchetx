@@ -33,7 +33,7 @@ async function fixture() {
   const service = sessions.createService({kv,now:()=>time});
   const bridge = createBridge({service});
   const grant = sessions.canonicalGrant({wallet,id:sessionId,tokenHash:hash(token),issuedAt:time,
-    expiresAt:time+60000,limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1500,minIntervalMs:5000}},time);
+    expiresAt:time+60000,limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1500,minIntervalMs:30000}},time);
   const payload = JSON.stringify(grant);
   assert.deepEqual(service.verifyGrant(payload,sign(payload)),grant);
   await service.grant(payload,sign(payload));
@@ -154,7 +154,7 @@ try {
     assert.equal((await player(f)).cr,before.cr);
     assert.deepEqual((await player(f)).open,before.open);
     assert.equal((await recover(f,id(100))).idempotent,true);
-    time+=5000;
+    time+=30000;
     await reserve(f,101);
     assert.equal((await status(f)).grossCredits,1000,'recovery never refunds reserved authority');
   }

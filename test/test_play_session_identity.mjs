@@ -28,7 +28,7 @@ async function owner(n){
   const sessionId=id(n),token=`rxp1.${wallet}.${sessionId}.${crypto.randomBytes(32).toString('hex')}`;
   const grant=sessions.canonicalGrant({wallet,id:sessionId,issuedAt:time,expiresAt:time+1800000,
     tokenHash:crypto.createHash('sha256').update(token).digest('hex'),
-    limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1500,minIntervalMs:5000}},time);
+    limits:{maxAttempts:3,maxStakeCredits:500,maxGrossCredits:1500,minIntervalMs:30000}},time);
   const payload=JSON.stringify(grant),signature=crypto.sign(null,Buffer.from(payload),privateKey).toString('base64');
   await bridge.service.grant(payload,signature);
   await kv.setJSON('u:'+wallet,{w:wallet,cr:1000,bal:0,granted:true,qualified:true,agent:{name:'identity fixture'},

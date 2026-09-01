@@ -1,5 +1,11 @@
 # Bankr continuation plan — 2026-08-30
 
+Scope freeze, 2026-08-30: the user stopped product expansion. The active execution
+plan is OPERATOR_INDEPENDENCE_PLAN.md. Existing-core correctness and necessary
+on-chain adapter parity remain in scope; optional autoplay, automatic pairing,
+profile editing and other new features below are parked, not current tasks.
+Historical pilot evidence remains useful; it does not authorize funded retests.
+
 ## Start here / current evidence
 
 h105 adds the landing CTA, owner-session presets, public copy commands and skill

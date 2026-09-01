@@ -1,6 +1,21 @@
 # RatchetX agent handoff
 
-## Current checkpoint — h104 deployed (2026-08-30)
+## Current checkpoint — h105 recorded; scope frozen (2026-08-30)
+
+Use AGENT_STATE.json and RELEASE_H105.md for recorded deployment coordinates.
+The active work plan is [OPERATOR_INDEPENDENCE_PLAN.md](OPERATOR_INDEPENDENCE_PLAN.md):
+38 tasks, 10 decision gates; no new optional features/integrations. No canonical
+on-chain migration has shipped. This checkpoint is not a fresh live verification.
+
+Latest bounded close-out: [Bankr command conflict](BANKR_COMMAND_CONFLICT_CLOSEOUT.md).
+Two offline test files pass after covering all four changed intent fields; runtime
+runner bytes are unchanged. Duplicate/changed-intent guards are verified locally,
+but the reported X incident's invocation/phase is not established. G0-03 remains
+partial, not completed. Do not use old credentials or submit new bets to investigate.
+Next: G0-01 authority inventory and G1-01 oracle specification; preserve all local
+plan/test changes and collect only existing sanitized Bankr artifacts if available.
+
+## Historical checkpoint — h104 deployed (2026-08-30)
 
 Canonical identity: AGENT_STATE.json; deployment evidence: RELEASE_H104.md. User confirmed
 all pilot permissions revoked. The completed Bankr pilot is shot6cce3cd29ed6:

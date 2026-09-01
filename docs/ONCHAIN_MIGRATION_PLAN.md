@@ -3,6 +3,14 @@
 Decision recorded: 2026-08-30. Requested by Semir. Status: ROADMAP, not an
 implemented migration, mainnet approval, or change to economic rules.
 
+Founder-independence companion: [OPERATOR_INDEPENDENCE_PLAN.md](OPERATOR_INDEPENDENCE_PLAN.md).
+It adds cost ownership and server-off acceptance for making the founder optional.
+The companion now contains stable task IDs, decision questions, dependencies,
+test batches, stop conditions and the user's product-expansion freeze. Follow
+those controls; old optional integration plans are not active implementation scope.
+Local AGENT_STATE.json now records h105; h100/h104 status paragraphs below are
+historical, not instructions to repeat completed migrations or proof G1-G6 shipped.
+
 Checkpoint update 2026-08-30: h104 is now deployed and verified. Guarded application
 cutover and the scoped Bankr owner pilot progressed beyond the historical h100
 baseline below; see AGENT_STATE.json and RELEASE_H104.md. That does not close all
