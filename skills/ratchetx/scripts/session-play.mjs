@@ -40,7 +40,7 @@ export function commandRequestId(wallet,sessionId,commandId){
 }
 function validIntent(i){return !!(i&&HEX32.test(i.requestId)&&/^[A-Za-z0-9:_-]{3,96}$/.test(i.target)
   &&['YES','NO'].includes(i.side)&&finite(i.p)&&i.p>=0.01&&i.p<=0.99
-  &&Math.abs(i.p*100-Math.round(i.p*100))<1e-9&&integer(i.stake)&&i.stake>=100&&i.stake<=10000
+  &&Math.abs(i.p*100-Math.round(i.p*100))<1e-9&&integer(i.stake)&&i.stake>=100&&i.stake<=10000000
   &&Object.keys(i).sort().join(',')==='p,requestId,side,stake,target');}
 function intentHash(i){return digest(JSON.stringify({requestId:i.requestId,target:i.target,side:i.side,p:i.p,stake:i.stake}));}
 function validReceipt(r,intent){return !!(r&&validIntent(r.intent)&&same(r.intent,intent)&&r.stake===intent.stake
