@@ -145,6 +145,11 @@ assert.equal((await fixture({omitCredits:true}).run()).code,'PASS_HIT');
     assert.deepEqual(f.shots,retainedShots,'conflict neither invalidates nor creates a shot');
   }
 }
+// Seal freshness follows the server rule min(60,max(30,0.15*window)): 45 s for the
+// five-minute flash, 60 s for a six-hour JUP target where Pyth publishes slowly.
+assert.equal((await fixture({age:55,mins:360}).run({...fixture().opts,waitSettle:false})).code,'SEALED');
+assert.equal((await fixture({age:61,mins:360}).run({...fixture().opts,waitSettle:false})).code,'ORACLE_STALE');
+assert.equal((await fixture({age:31,mins:1}).run({...fixture().opts,waitSettle:false})).code,'ORACLE_STALE');
 // Stats require exact capability-bound owner/session but no journal or forecast.
 {
   const f=fixture({prior:true}),r=await f.run({mode:'status',wallet,sessionId},{journal:undefined});

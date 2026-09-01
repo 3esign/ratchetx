@@ -417,7 +417,10 @@ export async function runPlay(options={},dependencies={}){
         &&feed.activeTargets?.some(row=>row.id===intent.target),'CONTEXT_REFUSED');
       const freshness=()=>Math.max(q.ageNowS,(serverNow()-q.publishTime*1000)/1000,
         q.ageNowS+Math.max(0,serverNow()-context.body.generatedAt)/1000);
-      need(finite(freshness())&&freshness()<=45,'ORACLE_STALE');
+      // Same seal rule as api/game.js maxSealAge: slow feeds (JUP, ETH) on long
+      // windows get 60 s; the 5-minute flash keeps 45 s.
+      const maxSealAge=Math.min(60,Math.max(30,Math.round(0.15*target.mins*60)));
+      need(finite(freshness())&&freshness()<=maxSealAge,'ORACLE_STALE');
       need(finite(q.confidenceBps)&&q.confidenceBps>=0&&q.confidenceBps<=200,'ORACLE_CONFIDENCE_TOO_WIDE');
       start={schema:SCHEMA,kind:'start',wallet:options.wallet,sessionId:options.sessionId,commandId,intent,horizonMs:target.mins*60000,
         ...(resolution?{resolution}:{}),createdAt:Math.floor(serverNow()),expiresAt:s.expiresAt,limits:l,baseline:{credits:p.credits,stated:p.stated,brier:p.brier,
@@ -425,7 +428,7 @@ export async function runPlay(options={},dependencies={}){
           requestHashes:Object.fromEntries(Object.entries(s.requests).map(([id,r])=>[id,hash(r)]))}};
       try{await journal.create(start);retained=true;}catch{stop('JOURNAL_CREATE_FAILED');}
       need(start.expiresAt-serverNow()>=MIN_ROOM,'INSUFFICIENT_SESSION_LIFETIME');
-      need(freshness()<=45,'ORACLE_STALE');
+      need(freshness()<=maxSealAge,'ORACLE_STALE');
       phase='submit';emit('SUBMIT_ONCE');const body={op:'shot',intent};
       const submitted=await request(URLS.session,body);
       if(submitted.body.request?.state==='rejected'&&validReceipt(submitted.body.request,intent))
