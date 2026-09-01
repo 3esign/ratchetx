@@ -60,7 +60,7 @@ const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 assert.ok(frontmatter, 'the Agent Skill needs YAML frontmatter');
 assert.match(frontmatter[1], /^description:\s*[>|]/m,
   'description must use a YAML block scalar so colon-space cannot break installation');
-assert.match(frontmatter[1], /^\s+version:\s+"1\.2\.1"$/m);
+assert.match(frontmatter[1], /^\s+version:\s+"1\.4\.0"$/m);
 
 assert.deepEqual(domainRegistration, registration,
   'the well-known domain proof must mirror the primary ERC-8004 registration file');

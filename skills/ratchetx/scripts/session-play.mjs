@@ -7,6 +7,9 @@ import {ORIGIN,URLS,canonical,createFileJournal} from './session-smoke.mjs';
 export {ORIGIN,URLS,canonical,createFileJournal};
 
 const SCHEMA='ratchetx-session-play-v1', MIN_ROOM=22*60000, HORIZON=300000;
+// Server chamber cap is min(4,rank+1)+1, never below 2. Used only when the
+// status reply does not publish `chambers` (h105 does not).
+const MIN_CHAMBERS=2;
 const WALLET=/^[1-9A-HJ-NP-Za-km-z]{32,44}$/, HEX32=/^[a-f0-9]{32}$/, HEX64=/^[a-f0-9]{64}$/;
 const SHOT=/^[a-f0-9]{12}$/, COMMAND=/^(?:[0-9]{1,32}|[a-f0-9]{32})$/;
 const TOKEN=/^rxp1\.([1-9A-HJ-NP-Za-km-z]{32,44})\.([a-f0-9]{32})\.[a-f0-9]{64}$/;
@@ -59,6 +62,142 @@ function playerShape(p){
   need(p.open.every(row=>integer(row.exp)),'INVALID_PLAYER');
 }
 
+// ---- Natural-language intent resolution -------------------------------------
+// Deterministic: the same words against the same board always give the same
+// intent, so a redelivered command cannot "re-decide" itself. The agent passes
+// the user's words; the runner decides target, side, p and stake from the live
+// board/context and the signed grant. Explicit flags still override any field.
+const SAY_MAX=500;
+const ASSET_WORDS={SOL:['sol','solana'],BTC:['btc','bitcoin'],ETH:['eth','ethereum','ether'],BONK:['bonk'],
+  WIF:['wif','dogwifhat'],JUP:['jup','jupiter'],PUMP:['pumpfun','pump.fun','pumptoken','pumpcoin']};
+const UP_WORDS=['higher','up','upward','upside','moon','mooning','moons','long','rise','rises','rising','bull','bullish','green',
+  'above','over','climb','climbs','rally','rallies','yes','breakout','gain','gains','increase','outperform','pumps','pumping'];
+const DOWN_WORDS=['lower','down','downward','downside','dump','dumps','dumping','short','drop','drops','dropping','fall','falls',
+  'falling','bear','bearish','red','below','under','crash','crashes','tank','tanks','sink','sinks','dip','dips','no','decrease','decline','declines'];
+const NEGATIONS=['not','no','never','wont','won\'t','isnt','isn\'t','doesnt','doesn\'t','dont','don\'t','cant','can\'t','nope'];
+const STATUS_WORDS=['status','stats','stat','balance','credits','xp','score','brier','rank','ranking','podium','leaderboard','standing',
+  'chambers','history','results','result','settled','settle','resume','check','doing','progress','summary','won','win','lost','record'];
+// Verbs start a play. Nouns (shot, call, forecast) also appear in status
+// questions ("check my shot"), so they never override a status word alone.
+const PLAY_VERBS=['play','shoot','fire','bet','wager','spend','put','predict','gamble','yolo','ape','stake','again','another',
+  'ratchet','ratchetx','go','send','take','make','degen','buy','sell'];
+const PLAY_NOUNS=['shot','shots','forecast','prediction','call'];
+const norm=text=>String(text).toLowerCase().replace(/[‘’]/g,'\'').replace(/[^a-z0-9$%.'\s-]/g,' ').replace(/\s+/g,' ').trim();
+const tokens=text=>norm(text).split(' ').filter(Boolean).map(t=>t.replace(/^[.'-]+|[.'-]+$/g,''));
+function findAsset(words,feeds){
+  const joined=' '+words.join(' ')+' ';
+  if(/\$pump\b|\bpump(?:\.fun|fun| token| coin)\b|\bon pump\b|\bpump (?:higher|lower|up|down|goes|will|to)\b/.test(joined)&&feeds.includes('PUMP'))return 'PUMP';
+  for(const [feed,aliases] of Object.entries(ASSET_WORDS)){
+    if(feed==='PUMP')continue;
+    if(aliases.some(a=>words.includes(a)||words.includes('$'+a)))return feeds.includes(feed)?feed:{unavailable:feed.toUpperCase()};
+  }
+  for(const w of words){const up=w.replace(/^\$/,'').toUpperCase();if(/^[A-Z]{2,6}$/.test(up)&&feeds.includes(up)&&up!=='PUMP'&&up!=='NO')return up;}
+  return null;
+}
+function findDirection(words,assetIsPump){
+  let score=0,seen=0;
+  for(let i=0;i<words.length;i++){
+    const w=words[i];let sign=0;
+    if(UP_WORDS.includes(w)||(!assetIsPump&&w==='pump'))sign=1;else if(DOWN_WORDS.includes(w))sign=-1;
+    if(!sign)continue;
+    if(w==='no'&&i+1<words.length&&['way','chance','shot','idea'].includes(words[i+1]))continue;
+    if(w==='no'&&words[i+1]&&(UP_WORDS.includes(words[i+1])||DOWN_WORDS.includes(words[i+1])))continue; // "no higher" handled as negation
+    const before=words.slice(Math.max(0,i-3),i);
+    if(before.some(b=>NEGATIONS.includes(b)))sign=-sign;
+    score+=sign;seen++;
+  }
+  return seen?(score>0?'YES':score<0?'NO':null):null;
+}
+function findProbability(text){
+  const t=norm(text);let m;
+  if((m=/(\d{1,3})\s*(?:%|percent|pct)/.exec(t)))return {p:Number(m[1])/100,source:'percent'};
+  if((m=/\bp\s*[=:]?\s*(0?\.\d{1,2})\b/.exec(t)))return {p:Number(m[1]),source:'explicit'};
+  if((m=/\b(0\.\d{1,2})\b/.exec(t)))return {p:Number(m[1]),source:'decimal'};
+  if(/\b(certain|sure|definitely|guaranteed|confident|lock|obviously|clearly)\b/.test(t))return {p:0.75,source:'word'};
+  if(/\b(likely|probably|think|expect|believe|should)\b/.test(t))return {p:0.60,source:'word'};
+  return {p:0.55,source:'default'};
+}
+function findStake(text){
+  const t=norm(text);let m;
+  if(/\b(all in|all-in|allin|max|maximum|everything|full send|whole)\b/.test(t))return {stake:'max',source:'word'};
+  if(/\bhalf\b/.test(t))return {stake:'half',source:'word'};
+  if(/\b(minimum|smallest|tiny|small)\b/.test(t))return {stake:100,source:'word'};
+  const re=/(?:^|[^$\w.])(\d+(?:\.\d+)?)\s*(k|thousand|credits?|cr|c)?\b(?!\s*(?:%|percent|pct|m\b|min|mins|minute|h\b|hr|hour|day|x\b))/g;
+  let best=null;
+  while((m=re.exec(t))){
+    const before=t.slice(Math.max(0,m.index-12),m.index+1);
+    if(/(?:to|at|above|below|over|under|past|hits?|reach(?:es)?|target|price|\$)\s*$/.test(before))continue;
+    let n=Number(m[1]);if(m[2]==='k'||m[2]==='thousand')n*=1000;
+    if(!Number.isFinite(n)||n<100)continue;
+    n=Math.floor(n);if(best===null||m[2])best=n;
+  }
+  return best===null?{stake:null,source:'default'}:{stake:best,source:'number'};
+}
+function findHorizon(text){
+  const t=norm(text);let m;
+  if((m=/(\d+)\s*(?:m|min|mins|minute|minutes)\b/.exec(t)))return Number(m[1]);
+  if((m=/(\d+)\s*(?:h|hr|hrs|hour|hours)\b/.exec(t)))return Number(m[1])*60;
+  if(/\b(day|daily|24h|tomorrow)\b/.test(t))return 1440;
+  return null;
+}
+/** Status-only when the words ask about numbers and name nothing to play. */
+export function classifyCommand(text){
+  const words=tokens(String(text??'').slice(0,SAY_MAX));
+  const verb=words.some(w=>PLAY_VERBS.includes(w)),dir=findDirection(words,false)!==null,stake=findStake(text).stake!==null;
+  const status=words.some(w=>STATUS_WORDS.includes(w));
+  if(status&&!verb&&!dir&&!stake)return 'status';
+  return 'execute';
+}
+/** Resolve words into one directional intent on the current board. Pure. */
+export function resolveIntent(text,{board,context,limits,session,player,overrides={}}){
+  const raw=String(text??'').slice(0,SAY_MAX),words=tokens(raw),notes=[];
+  const dirs=(board?.targets||[]).filter(t=>t&&t.kind==='dir'&&!t.feed2&&typeof t.id==='string'&&integer(t.mins)&&t.mins>=1);
+  need(dirs.length>0,'TARGET_UNAVAILABLE');
+  const feeds=[...new Set(dirs.map(t=>t.feed))];
+  let asset=overrides.asset?String(overrides.asset).toUpperCase():findAsset(words,feeds);
+  if(asset&&(typeof asset==='object'||!feeds.includes(asset))){notes.push('requested asset is not on this board; played the shortest board target');asset=null;}
+  let candidates=asset?dirs.filter(t=>t.feed===asset):dirs;
+  const horizon=overrides.horizon??findHorizon(raw);
+  let target;
+  if(overrides.target){target=dirs.find(t=>t.id===overrides.target);need(target,'TARGET_UNAVAILABLE');}
+  else if(horizon){
+    target=candidates.find(t=>t.mins===horizon);
+    if(!target){target=[...candidates].sort((a,b)=>Math.abs(a.mins-horizon)-Math.abs(b.mins-horizon)||a.mins-b.mins)[0];
+      notes.push('requested '+horizon+' min horizon unavailable for that asset; nearest is '+target.mins+' min');}
+  }else target=[...candidates].sort((a,b)=>a.mins-b.mins)[0];
+  if(asset&&!horizon&&target.mins>60)notes.push('that asset settles in '+target.mins+' min on this board');
+  const feed=context?.feeds?.find(row=>row.feed===target.feed),ema=feed?.current?.priceVsEmaBps;
+  if(!asset&&!overrides.asset){
+    const ticker=String(raw).match(/\$([A-Za-z]{2,6})\b|\b([A-Z]{3,6})\b/);
+    if(ticker&&!feeds.includes((ticker[1]||ticker[2]).toUpperCase())&&!['YES','NO','MAX','ALL'].includes((ticker[1]||ticker[2]).toUpperCase()))
+      notes.push('requested asset is not on this board; played the shortest board target');
+  }
+  let side=overrides.direction?(/^(yes|up|higher|long)$/i.test(overrides.direction)?'YES':'NO'):findDirection(words,asset==='PUMP');
+  let sideSource=side?'user':null;
+  const price=feed?.current?.price,level=/(?:\bto|\bat|\bhits?|\breach(?:es)?|\btouch(?:es)?|\bcross(?:es)?)\s*\$?(\d+(?:\.\d+)?)\s*(k|m)?\b/i.exec(norm(raw));
+  if(!side&&level&&finite(price)&&price>0){
+    const value=Number(level[1])*(level[2]==='k'?1e3:level[2]==='m'?1e6:1);
+    if(finite(value)&&value>0&&value!==price){side=value>price?'YES':'NO';sideSource='price-level';}
+  }
+  if(!side){side=finite(ema)&&ema<0?'NO':'YES';sideSource=finite(ema)?'ema-trend':'default';}
+  let {p,source:pSource}=overrides.p!==undefined?{p:overrides.p,source:'flag'}:findProbability(raw);
+  p=Math.round(p*100)/100;
+  // A stated direction is never flipped. A number under 50% next to a
+  // direction is usually a size ("up 20%"), not a confidence, so it is dropped.
+  if(p<0.5&&pSource!=='flag'){notes.push('number under 50% ignored as confidence');p=0.55;pSource='default';}
+  p=Math.min(0.99,Math.max(0.01,p));
+  const remainingGross=limits.maxGrossCredits-session.grossCredits;
+  const ceiling=Math.max(0,Math.min(limits.maxStakeCredits,remainingGross,Math.floor(player.credits),board?.stakeRule?.max??Infinity));
+  let {stake,source:stakeSource}=overrides.stake!==undefined?{stake:overrides.stake,source:'flag'}:findStake(raw);
+  let requested=stake;
+  if(stake==='max')stake=ceiling;else if(stake==='half')stake=Math.floor(player.credits/2/100)*100;else if(stake===null)stake=100;
+  stake=Math.floor(stake);
+  if(stake>ceiling){notes.push('stake '+stake+' clamped to allowed '+ceiling);stake=ceiling;}
+  if(stake<100)stake=100;
+  return {target:target.id,side,p,stake,resolution:{feed:target.feed,horizonMinutes:target.mins,asset,sideSource,pSource,
+    stakeSource,requestedStake:typeof requested==='number'?requested:requested??null,notes}};
+}
+
 /** Injected dependencies permit offline fixtures. Only the protected env var
  * supplies a capability. Output is allowlisted; journal intent stays private.
  * Distinct commands still require explicit requester approval in the caller.
@@ -80,8 +219,8 @@ export async function runPlay(options={},dependencies={}){
   const append=async value=>{try{await journal.append(value);}catch{stop('JOURNAL_WRITE_FAILED');}};
   try{
     need(['status','execute','resume'].includes(options.mode),'EXPLICIT_MODE_REQUIRED');
-    need(Object.keys(options).every(key=>['mode','wallet','sessionId','commandId','target','side','p','stake','maxWaitMs','pollMs','waitSettle'].includes(key)),'INVALID_OPTIONS');
-    if(options.mode!=='execute')need(!['commandId','target','side','p','stake'].some(key=>key in options),'STATUS_ONLY_MODE');
+    need(Object.keys(options).every(key=>['mode','wallet','sessionId','commandId','target','side','p','stake','say','asset','direction','horizon','maxWaitMs','pollMs','waitSettle'].includes(key)),'INVALID_OPTIONS');
+    if(options.mode!=='execute')need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
     need(typeof options.wallet==='string'&&WALLET.test(options.wallet)
       &&typeof options.sessionId==='string'&&HEX32.test(options.sessionId),'EXPECTED_IDENTITY_REQUIRED');
     need(integer(maxWait)&&maxWait>=5000&&maxWait<=25*60000&&integer(pollMs)&&pollMs>=5000&&pollMs<=30000,'INVALID_WAIT');
@@ -148,7 +287,8 @@ export async function runPlay(options={},dependencies={}){
       need(start?.schema===SCHEMA&&start.kind==='start'&&start.wallet===options.wallet&&start.sessionId===options.sessionId
         &&COMMAND.test(start.commandId||'')&&validIntent(start.intent)&&integer(start.createdAt)&&integer(start.expiresAt),'INVALID_JOURNAL');
       commandId=start.commandId;requestId=commandRequestId(options.wallet,options.sessionId,commandId);
-      need(requestId===start.intent.requestId&&same(bounds(start.limits),start.limits),'INVALID_JOURNAL');
+      need(requestId===start.intent.requestId&&same(bounds(start.limits),start.limits)
+        &&(start.horizonMs===undefined||integer(start.horizonMs)&&start.horizonMs>=60000&&start.horizonMs<=86400000),'INVALID_JOURNAL');
       const b=start.baseline;
       need(b&&finite(b.credits)&&b.credits>=start.intent.stake&&integer(b.stated)
         &&(b.stated===0?b.brier===null:finite(b.brier)&&b.brier>=0&&b.brier<=1)
@@ -170,27 +310,54 @@ export async function runPlay(options={},dependencies={}){
       }
     }else{
       requestId=commandRequestId(options.wallet,options.sessionId,commandId);
-      const intent={requestId,target:options.target,side:options.side,p:options.p,stake:options.stake??100};
-      need(validIntent(intent),'EXPLICIT_INTENT_REQUIRED');
+      // Two ways to state intent: exact flags (target/side/p/stake), or the
+      // user's words (--say, optionally --asset/--direction/--horizon) which the
+      // runner resolves against the live board AFTER authenticating.
+      const resolving=typeof options.say==='string'||['asset','direction','horizon'].some(key=>key in options);
+      let intent=null,resolution=null;
+      if(!resolving){
+        intent={requestId,target:options.target,side:options.side,p:options.p,stake:options.stake??100};
+        need(validIntent(intent),'EXPLICIT_INTENT_REQUIRED');
+      }else need((options.say===undefined||typeof options.say==='string'&&options.say.length<=SAY_MAX)
+        &&(options.asset===undefined||/^\$?[A-Za-z]{2,8}$/.test(options.asset))
+        &&(options.direction===undefined||/^(yes|no|up|down|higher|lower|long|short)$/i.test(options.direction))
+        &&(options.horizon===undefined||integer(options.horizon)&&options.horizon>=1&&options.horizon<=1440)
+        &&(options.target===undefined||/^[A-Za-z0-9:_-]{3,96}$/.test(options.target))
+        &&(options.side===undefined||['YES','NO'].includes(options.side))
+        &&(options.p===undefined||finite(options.p))&&(options.stake===undefined||integer(options.stake)),'EXPLICIT_INTENT_REQUIRED');
       // Authenticate first. Duplicate public command IDs stop here, even when
       // delivered with another journal path, and never consume another attempt.
       const before=status(await request(URLS.session,{op:'status'})),{s,p,l,nextAttemptAt}=before;
       const old=s.requests[requestId];
       if(old){
-        if(!same(old.intent,intent))return result('REFUSED','COMMAND_CONFLICT');
+        // Words resolve against a board that flips hourly, so a redelivered
+        // --say command is answered by its retained receipt, never a conflict.
+        if(intent&&!same(old.intent,intent))return result('REFUSED','COMMAND_CONFLICT');
         if(old.state==='accepted')shotId=old.result.shotId;
         return result('DUPLICATE','COMMAND_ALREADY_RECORDED',{requestState:old.state,
           ...(old.state==='rejected'?{refusalCode:safeCode(old.result?.code)}:{}),next:'Use the original private journal with --resume; never change command ID to retry this instruction.'});
       }
       if(s.pending)return result('PENDING','PRIOR_ATTEMPT_UNRESOLVED');
-      need(p.open.length < (p.chambers || 1), 'EXISTING_OPEN_SHOTS');
+      // Local pre-check saves gross allowance: a server CHAMBERS_FULL refusal
+      // would still reserve an attempt.
+      if(p.open.length>=(integer(p.chambers)&&p.chambers>=1?p.chambers:MIN_CHAMBERS))
+        return result('REFUSED','CHAMBERS_FULL',{openShots:p.open.length});
+      let contract,context,board;
+      const read=async()=>{contract=await request(URLS.session);context=await request(URLS.context);board=await request(URLS.board);};
+      if(resolving){
+        await read();
+        const r=resolveIntent(options.say??'',{board:board.body,context:context.body,limits:l,session:s,player:p,
+          overrides:{asset:options.asset,direction:options.direction??options.side,horizon:options.horizon,target:options.target,p:options.p,stake:options.stake}});
+        resolution=r.resolution;intent={requestId,target:r.target,side:r.side,p:r.p,stake:r.stake};
+        need(validIntent(intent),'EXPLICIT_INTENT_REQUIRED');
+      }
       if(s.attempts>=l.maxAttempts||intent.stake>l.maxStakeCredits||s.grossCredits+intent.stake>l.maxGrossCredits)
         return result('REFUSED','SESSION_BUDGET_EXHAUSTED');
       if(nextAttemptAt!==null&&nextAttemptAt>serverNow())return result('REFUSED','SESSION_RATE_LIMIT',
         {retryAfterSeconds:Math.ceil((nextAttemptAt-serverNow())/1000)});
       need(p.credits>=intent.stake,'INSUFFICIENT_CREDITS');
       need(s.expiresAt-serverNow()>=MIN_ROOM,'INSUFFICIENT_SESSION_LIFETIME');
-      const contract=await request(URLS.session),context=await request(URLS.context),board=await request(URLS.board);
+      if(!resolving)await read();
       need(contract.http===200&&contract.body.ok===true&&contract.body.enabled===true&&contract.body.network==='solana:mainnet'
         &&same(contract.body.rights,['shot','status'])&&contract.body.requiresExistingAdmittedAgent===true
         &&contract.body.endpoint===URLS.session&&contract.body.budgetRule==='gross-reserved-attempts-v1'
@@ -200,7 +367,7 @@ export async function runPlay(options={},dependencies={}){
         &&finite(board.body.flipsAt)&&board.body.flipsAt>serverNow()&&finite(board.body.stakeRule?.hitPayout)
         &&board.body.stakeRule.hitPayout>0&&board.body.stakeRule.min<=intent.stake&&board.body.stakeRule.max>=intent.stake,'BOARD_REFUSED');
       const target=board.body.targets?.find(row=>row.id===intent.target);
-      need(target&&target.kind==='dir'&&!target.feed2,'TARGET_NOT_DIRECTIONAL');
+      need(target&&target.kind==='dir'&&!target.feed2&&integer(target.mins)&&target.mins>=1&&target.mins<=1440,'TARGET_NOT_DIRECTIONAL');
       need(context.http===200&&context.body.ok===true&&context.body.schema==='ratchetx-pyth-context-v1'
         &&context.body.access?.mode==='shared-read'&&context.body.validation?.fullVerificationRequired===true
         &&context.body.validation?.ownerFeedIdAndDiscriminatorChecked===true
@@ -213,8 +380,8 @@ export async function runPlay(options={},dependencies={}){
         q.ageNowS+Math.max(0,serverNow()-context.body.generatedAt)/1000);
       need(finite(freshness())&&freshness()<=45,'ORACLE_STALE');
       need(finite(q.confidenceBps)&&q.confidenceBps>=0&&q.confidenceBps<=200,'ORACLE_CONFIDENCE_TOO_WIDE');
-      start={schema:SCHEMA,kind:'start',wallet:options.wallet,sessionId:options.sessionId,commandId,intent,
-        createdAt:Math.floor(serverNow()),expiresAt:s.expiresAt,limits:l,baseline:{credits:p.credits,stated:p.stated,brier:p.brier,
+      start={schema:SCHEMA,kind:'start',wallet:options.wallet,sessionId:options.sessionId,commandId,intent,horizonMs:target.mins*60000,
+        ...(resolution?{resolution}:{}),createdAt:Math.floor(serverNow()),expiresAt:s.expiresAt,limits:l,baseline:{credits:p.credits,stated:p.stated,brier:p.brier,
           closedIds:ids(p.closed),hitPayout:board.body.stakeRule.hitPayout,attempts:s.attempts,grossCredits:s.grossCredits,
           requestHashes:Object.fromEntries(Object.entries(s.requests).map(([id,r])=>[id,hash(r)]))}};
       try{await journal.create(start);retained=true;}catch{stop('JOURNAL_CREATE_FAILED');}
@@ -237,22 +404,26 @@ export async function runPlay(options={},dependencies={}){
       await append(wire);wirePersisted=true;emit('IMMEDIATE_WIRE_REPLAY_VERIFIED');
       if(finite(submitted.body.credits)&&!debit)stop('CONCURRENT_ACCOUNTING_CHANGE','INCONCLUSIVE');
       if(!options.waitSettle){
+        // Sealed output never carries target, side or p: the reply on X must
+        // not leak the sealed call. Stake and horizon are safe to state.
         return result('PASS','SEALED',{
           status:'SEALED',
           shotId,
           proofUrl:ORIGIN+'/api/shot?w='+encodeURIComponent(options.wallet)+'&id='+shotId,
           creditsRemaining:submitted.body.credits,
+          stakeCredits:intent.stake,settlesInMinutes:target.mins,
+          ...(resolution?{notes:resolution.notes}:{}),
           message:'Prediction sealed on-chain.'
         });
       }
     }
 
-    phase='settlement';let first=options.mode==='resume',nextPoll=wire&&debit?null:0;
+    phase='settlement';let first=options.mode==='resume',nextPoll=wire&&debit?null:0;const horizonMs=start.horizonMs??HORIZON;
     while(now()-began<maxWait){
       if(clock&&serverNow()+5000>=start.expiresAt)return result('PENDING','SESSION_EXPIRING');
       if(!first){
         // With a directly observed debit, no pre-expiry status polling is needed.
-        const desired=nextPoll===null?start.createdAt+HORIZON:nextPoll||serverNow()+5000;
+        const desired=nextPoll===null?start.createdAt+horizonMs:nextPoll||serverNow()+5000;
         while(serverNow()<desired){
           const remaining=maxWait-(now()-began);if(remaining<=0)return result('PENDING','WAIT_LIMIT');
           await sleep(Math.min(30000,desired-serverNow(),remaining));
@@ -271,7 +442,7 @@ export async function runPlay(options={},dependencies={}){
         stop('SESSION_ACCOUNTING_CHANGED','INCONCLUSIVE');
       const openIds=ids(p.open),closedIds=ids(p.closed),closed=p.closed.find(row=>row.id===shotId),opened=p.open.find(row=>row.id===shotId),shot=closed||opened;
       need(shot&&shot.requestId===`session:${options.sessionId}:${requestId}`&&shot.stake===stake&&integer(shot.exp)
-        &&shot.exp>=r.reservedAt+HORIZON&&shot.exp<=r.finishedAt+HORIZON&&r.finishedAt<start.expiresAt,'SHOT_IDENTITY_MISMATCH');
+        &&shot.exp>=r.reservedAt+horizonMs&&shot.exp<=r.finishedAt+horizonMs&&r.finishedAt<start.expiresAt,'SHOT_IDENTITY_MISMATCH');
       if(!same(openIds,closed?[]:[shotId])||!same(closedIds,closed?[shotId,...b.closedIds].slice(0,20):b.closedIds))
         stop('CONCURRENT_ACTIVITY','INCONCLUSIVE');
       if(!closed){
@@ -304,26 +475,34 @@ export async function runPlay(options={},dependencies={}){
 
 export function parseArgs(args){
   const options={},seen=new Set();let file;
-  const values=new Set(['--wallet','--session-id','--command-id','--target','--side','--p','--stake','--journal','--max-wait-seconds']);
+  const values=new Set(['--wallet','--session-id','--command-id','--target','--side','--p','--stake','--say','--asset','--direction','--horizon','--journal','--max-wait-seconds']);
   for(let i=0;i<args.length;i++){
     const flag=args[i];need(!seen.has(flag),'INVALID_ARGUMENTS');seen.add(flag);
-    if(['--status','--execute','--resume'].includes(flag)){need(!options.mode,'INVALID_ARGUMENTS');options.mode=flag.slice(2);continue;}
+    if(['--status','--execute','--resume','--auto'].includes(flag)){need(!options.mode,'INVALID_ARGUMENTS');options.mode=flag.slice(2);continue;}
     if(flag==='--wait-settle'){options.waitSettle=true;continue;}
     need(values.has(flag)&&typeof args[i+1]==='string'&&!args[i+1].startsWith('--'),'INVALID_ARGUMENTS');const value=args[++i];
     if(flag==='--journal')file=value;
     else if(flag==='--session-id')options.sessionId=value;
     else if(flag==='--command-id')options.commandId=value;
     else if(flag==='--max-wait-seconds')options.maxWaitMs=Number(value)*1000;
-    else options[flag.slice(2)]=['--p','--stake'].includes(flag)?Number(value):value;
+    else options[flag.slice(2)]=['--p','--stake','--horizon'].includes(flag)?Number(value):value;
   }
   need(options.mode&&(options.mode==='status'?!file:!!file),'EXPLICIT_MODE_AND_JOURNAL_REQUIRED');
-  if(options.mode!=='execute')need(!['commandId','target','side','p','stake'].some(key=>key in options),'STATUS_ONLY_MODE');
+  if(options.mode==='auto'){
+    // Words decide: status-only questions read; everything else plays once.
+    need(typeof options.say==='string'&&!['target','side','p','asset','direction','horizon'].some(key=>key in options),'AUTO_REQUIRES_SAY');
+    if(classifyCommand(options.say)==='status'){options.mode='status';for(const key of ['commandId','say','stake'])delete options[key];file=undefined;}
+    else options.mode='execute';
+  }
+  if(options.mode!=='execute')need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
   return {options,file};
 }
 async function main(){
   if(process.argv.length===3&&process.argv[2]==='--help'){
     console.log('Status: node session-play.mjs --status --wallet OWNER --session-id SESSION_ID');
-    console.log('Play once: node session-play.mjs --execute --wallet OWNER --session-id SESSION_ID --command-id X_POST_ID_OR_32HEX_NONCE --target CURRENT_5M_TARGET --side YES|NO --p 0.55 --journal NEW_PRIVATE_FILE [--stake 100] [--max-wait-seconds 1260]');
+    console.log('Play from words: node session-play.mjs --auto --say "USER TEXT" --wallet OWNER --session-id SESSION_ID --command-id X_POST_ID_OR_32HEX_NONCE --journal NEW_PRIVATE_FILE');
+    console.log('  --auto reads status when the words only ask about stats; otherwise it resolves asset/direction/horizon/stake/probability from the words against the live board and plays ONCE. Optional overrides: --asset SOL --direction up|down --horizon 5 --stake 500 --p 0.6');
+    console.log('Play exact: node session-play.mjs --execute --wallet OWNER --session-id SESSION_ID --command-id X_POST_ID_OR_32HEX_NONCE --target BOARD_TARGET_ID --side YES|NO --p 0.55 --journal NEW_PRIVATE_FILE [--stake 100] [--max-wait-seconds 1260]');
     console.log('Resume status only: node session-play.mjs --resume --wallet OWNER --session-id SESSION_ID --journal EXISTING_PRIVATE_FILE');
     console.log('Protected RATCHET_PLAY_SESSION env only. Public IDs never authorize play or prove X identity. One approved five-minute forecast, one open shot, remaining signed limits, 22min session lifetime. Reuse the command ID for the SAME instruction; never change it to retry. No grant, signer, transfer, reload, scheduler or demo.');return;
   }

@@ -1,155 +1,152 @@
-# Owner-approved Bankr play and stats (skill 1.3.0)
+# Owner-approved Bankr play and stats (skill 1.4.0)
 
 This controller uses an existing wallet-approved play session. It is not a
 Solana signer, Bankr login, global X integration or automatic credential pairing.
 The separate `owner-session-test.md` / `session-smoke.mjs` still runs the original
 one-unused-attempt regression pilot. Do not substitute demo play for either mode.
 
-## Identity gate — before accessing a secret
+## The one rule
 
-Accept a command only in Bankr's trusted signed-in user execution context, bound
-to the same account that owns the protected environment. On X, use Bankr's
-verified requester metadata, never text saying "I am @someone", a quote, a reply
-from somebody else, a tag, a wallet address, a session ID, or a command ID.
-If that trusted actor/account binding is unavailable or mismatched, report
-`BLOCKED: REQUESTER_NOT_VERIFIED` and perform no authenticated request.
-Never load another user's environment to make a command work.
+Every message aimed at RatchetX becomes ONE runner call with the user's words
+passed through verbatim. You do not pick the target, side, probability or stake;
+the runner resolves them from the words against the live board and the signed
+grant, and it decides by itself whether the words ask for stats or for a shot.
 
-Ratchet authenticates the wallet-approved bearer, not the X identity. Anyone who
-steals that bearer can use the remaining grant. These instructions do not turn
-an X handle into cryptographic authentication. Do not claim that they do.
-Report suspected credential exposure and stop; the owner should revoke the grant.
+```sh
+node scripts/session-play.mjs --auto --say "USER WORDS VERBATIM" --wallet OWNER --session-id SESSION_ID --command-id COMMAND_ID --journal PRIVATE_NEW_FILE
+```
+
+- `USER WORDS VERBATIM`: the text of the post/message, unedited (max 500 chars).
+  Never add words of your own, never paraphrase, never translate.
+- `OWNER` / `SESSION_ID`: the public values from the owner's setup. Never a secret.
+- `COMMAND_ID`: the X post ID of the post that contains the command (the post
+  you are executing, not its parent, not a quoted post), or the 32-hex nonce
+  the owner copied from the session page. A retry or duplicate delivery keeps
+  the SAME ID. A new post is a new ID. Never invent an ID.
+- `PRIVATE_NEW_FILE`: a fresh private journal path per command.
+
+What the runner does with the words (so you can answer questions about it, not
+so you do it yourself): status words alone (`status`, `stats`, `xp`, `credits`,
+`balance`, `brier`, `rank`, `podium`, `did i win`, `check my shot`) read stats;
+anything else plays once. Asset names and tickers (`SOL`, `bitcoin`, `$JUP`,
+`wif`, `pump token`) pick that feed's directional target, whatever its horizon
+this hour; no asset means the shortest board target (usually a 5-minute SOL
+flash). Direction words (`higher/up/moon/long/above`, `lower/down/dump/short/
+below`, negations like `won't go up`, price levels like `to 120k`) pick the side;
+no direction means the runner follows the Pyth EMA trend. `80%`, `p=0.65`,
+`0.9`, `sure`, `probably` set the probability (default 0.55; a stated direction
+is never flipped). `500`, `2k`, `all in`, `half`, `max` set the stake (default
+100), clamped to the signed per-attempt cap, remaining gross allowance and
+credit balance. `in 15 minutes`, `1h`, `daily` pick a horizon when the board
+has it, otherwise the nearest. Non-directional board targets (race, box,
+threshold) are never played. Optional overrides exist (`--asset SOL
+--direction up --horizon 5 --stake 500 --p 0.6`) for a caller that already has
+structured intent; do not use them to second-guess the words.
+
+## Identity gate
+
+Run only for a signed-in Bankr user whose own protected environment holds
+`RATCHET_PLAY_SESSION`. The secret lives in the owner's environment, so a
+stranger's mention runs without it and stops at
+`MISSING_OR_INVALID_CAPABILITY`; do not load or request anyone else's
+environment to make a command work. A quote, tag, wallet address, session ID
+or "I am @someone" is never authorization. Ratchet authenticates the bearer,
+not the X identity; a stolen bearer can spend the remaining grant. Report
+suspected exposure and stop; the owner revokes on the session page.
 
 ## Private setup
 
 1. Owner opens `https://ratchetx.xyz/play-session.html`, connects the intended
    Solana wallet, selects limits and signs. Existing admitted identity and play
-   credits are required. A five-request preset means at most five separately
+   credits are required. A five-attempt preset means at most five separately
    requested attempts, not permission to auto-play five times.
 2. Owner stores the credential in their own Bankr **Agent tool environment** as
-   exactly `RATCHET_PLAY_SESSION`. New grant means a new private value. Bankr
-   cannot discover the secret from a public grant ID or recover it from Ratchet.
+   exactly `RATCHET_PLAY_SESSION`. New grant means a new private value.
 3. Install/update `skills/ratchetx` from `https://github.com/3esign/ratchetx`.
-   Stage BOTH `scripts/session-play.mjs` and `scripts/session-smoke.mjs` together;
-   the play runner imports the smoke runner's audited HTTP/journal primitives.
+   Stage BOTH `scripts/session-play.mjs` and `scripts/session-smoke.mjs`
+   together; the play runner imports the smoke runner's HTTP/journal primitives.
    Run `node scripts/session-play.mjs --help` without any authenticated request.
 4. Confirm private durable journal persistence across separate executions.
    Never print the credential, environment dump, authorization header or journal.
    Never put a credential in CLI args, URLs, X, chat or a public file.
 
-The runner permits only fixed HTTPS endpoints on `ratchetx.xyz`, denies redirects
-and validates the token's owner/session against the expected public binding before
-any authenticated call. It has no transfer, reload, profile-edit or grant API.
+The runner permits only fixed HTTPS endpoints on `ratchetx.xyz`, denies
+redirects and validates the token's owner/session against the expected public
+binding before any authenticated call. It has no transfer, reload, profile-edit
+or grant API. Profile edits, funding, token transfers and new permissions are
+out of scope.
 
-## Natural-language routing (Be Decisive & Action-Oriented)
+## Lifecycle
 
-Always interpret user intent immediately and execute without hesitation. Do NOT ask for unnecessary confirmation, do NOT get stuck analyzing, and do NOT refuse or lecture the user.
+- **Sealing (< 1 s):** `--auto` / `--execute` returns `ok:true`,
+  `code:"SEALED"`, a `proofUrl`, `stakeCredits` and `settlesInMinutes`. That
+  is a complete, successful, sealed forecast. Report it at once. Never say
+  "status unclear" or "settlement not visible" after SEALED.
+- **Settlement:** the oracle settles after `settlesInMinutes` (5 for the SOL
+  flash; other feeds carry their own horizon this hour). Do not wait for it.
+  The player checks results with a later status command.
+- **Chambers:** the owner may hold several open shots at once (two for a new
+  wallet, up to five with rank). The runner refuses locally with
+  `CHAMBERS_FULL` when the wallet has no free chamber, spending no allowance.
+- **Cooldown:** the signed grant's `minIntervalMs` (the site's presets use 5 s
+  or more) separates attempts; `SESSION_RATE_LIMIT` carries `retryAfterSeconds`.
+- One command = one forecast. Remaining allowance is a limit, never an
+  instruction to keep playing. There is no scheduler.
+- `--resume --journal FILE` is status-only recovery for one earlier command.
+  A missing journal means status only; it cannot recreate wire evidence.
+  Never create a new journal/ID to replay uncertain execution.
 
-### 1. Play / Forecast / Bet / Spend Intent (EXECUTE)
-When the user mentions ANY of the following action words or phrases:
-- `"play"`, `"shot"`, `"shoot"`, `"spend"`, `"fire"`, `"bet"`, `"gamble"`, `"forecast"`, `"predict"`, `"take a shot"`, `"make a prediction"`, `"send a shot"`
-- `"spend 1000 credits"`, `"put 500 on SOL"`, `"call ETH"`, `"higher/lower"`, `"ratchetx [amount]"`
-- Any request to analyze/play or participate in the prediction arcade
+## Secrecy (the principle of the game)
 
-**Action:** Execute an onchain forecast immediately using `scripts/session-play.mjs --execute`.
-- **Stake:** If the user specifies an amount (e.g. `1000`, `5000`, `2500`, `500`), use that exact stake. Otherwise default to `100` or `1000` credits (within signed grant limits).
-- **Target Selection:** If the user names an asset (e.g. `SOL`, `ETH`, `BTC`, `BONK`, `WIF`, `JUP`), select the active board target for that asset. If no asset is named or if that asset is already open in the user's active chambers, pick any available target on the board (preferring 5-minute flash horizons).
-- **Direction & Probability:** Pick `YES` or `NO` and an honest probability `p` (e.g. `0.55`, `0.60`) based on live Pyth context.
-- **Concurrency:** Up to 5 concurrent open shots are fully supported! Each shot must simply have at least a 1-second interval from the previous command.
+RatchetX is a SEALED prediction game: the call is committed but hidden until
+the oracle settles. Your reply must never reveal the target, asset, side,
+probability or internal runner fields. The runner's sealed output carries
+none of those on purpose; do not reconstruct them from the words either.
 
-### 2. Status / Stats / XP / Balance Intent (STATUS ONLY)
-When the user asks about stats, standing, balance, or podium:
-- `"status"`, `"stats"`, `"credits"`, `"balance"`, `"my xp"`, `"xp"`, `"score"`, `"brier"`, `"how am i doing"`, `"podium"`, `"rank"`, `"how far from podium"`, `"chambers"`
+## Reply formats
 
-**Action:** Run `scripts/session-play.mjs --status` and report the live stats clearly.
-
-### 3. Settlement / Resume Intent
-- `"Finish/check that forecast"` / `"resume"` → `--resume` with its existing private journal.
-
-Profile edits, funding, token transfers and new permissions are out of scope.
-
-Expected owner and session must come from the owner's setup/approved command;
-never silently switch to a replacement grant. Require a stable command ID: the
-public 32-hex nonce copied by the session page, or the trusted platform's X post
-ID. Retries and duplicate deliveries keep that ID AND the original intent.
-A genuinely new authorized play uses a new ID. Do not generate a new ID to get
-past a refusal, exhausted allowance or duplicate-command result.
-
-## Commands
-
-Replace the public placeholders; never replace them with a secret. Use `bun`
-instead of `node` only after verifying the same script and durable filesystem.
-
-### Status Command:
-```sh
-node scripts/session-play.mjs --status --wallet OWNER --session-id SESSION_ID
-```
-
-### Execute Command:
-```sh
-node scripts/session-play.mjs --execute --wallet OWNER --session-id SESSION_ID --command-id COMMAND_ID --target CURRENT_TARGET --side YES --p 0.55 --stake 1000 --journal PRIVATE_NEW_FILE
-```
-
-Retain one private journal per command. The runner derives a stable request ID from owner/session/command,
-fsyncs the exact intent before sending, submits once, then immediately sends the
-identical HTTP request to verify replay. Existing command IDs are never a new
-play; changed intent conflicts even if a different local journal file is used.
-It checks remaining signed allowance, intervals, current Pyth freshness, debit,
-settlement, payout and rounded Brier accounting. Up to 5 concurrent open shots are supported according to rank allowance.
-
-### Resume Command:
-```sh
-node scripts/session-play.mjs --resume --wallet OWNER --session-id SESSION_ID --journal PRIVATE_EXISTING_FILE
-```
-
-Do not sleep beyond runtime limits. If interrupted, retain the journal and use
-status-only resume in a later user-requested turn. No scheduler is installed.
-Never create a new journal/ID to replay uncertain execution.
-If the original journal is unavailable, stop execution and offer status-only
-inspection; it cannot recover missing immediate wire-replay evidence.
-Refused or uncertain reserved attempts can consume gross session allowance without spending credits;
-a VOID refund does not restore that allowance.
-
-## Reporting and Secrecy Rules (CRITICAL)
-
-### CRITICAL SECRECY RULE (THE PRINCIPLE OF THE GAME):
-RatchetX is a SEALED prediction market. Predictions are cryptographically committed on-chain but HIDDEN from the public until the oracle settlement time.
-If you (the agent) reply on X with details of your prediction (e.g. 'I predicted SOL higher' or 'Target: SOL, Side: YES, Stake: 1000'), you RUIN the game's principle by leaking the sealed secret prematurely!
-Therefore, when placing a shot, you MUST NEVER REVEAL WHAT YOU PLAYED in your reply.
-
-### Lifecycle & Timing Understanding:
-- **Phase 1: Sealing (Instantaneous, < 1s):** Calling `--execute` immediately commits and seals the prediction on-chain/in the engine. The tool returns `ok: true`, `code: "SEALED"`, and a verified `proofUrl` in milliseconds. This is a 100% complete and successful transaction. You MUST report this immediately as a success. NEVER say "status unclear" or "settlement not visible".
-- **Phase 2: Settlement (~5 minutes later):** Oracle settlement occurs after the target's duration (5 minutes). Do NOT wait for settlement in the play command. The player can check their settled results, won XP, and Brier score anytime after 5 minutes with a status check (`--status`).
-
-### 1. Reply Format When a Shot is Sealed:
-Reply IMMEDIATELY once the shot is sealed:
+Sealed:
 
 ```
 Prediction sealed on-chain.
-Proof: [proof_url]
+Proof: [proofUrl]
 
 ratchetx.xyz - solana prediction arcade. Earn XP, climb the podium, and get rewarded with real $RCX.
 ```
 
-- DO NOT include target, side, probability, stake, or internal runner details.
-- Provide ONLY the confirmation and the `proofUrl`.
+If `notes` is non-empty, add ONE short neutral line before the footer, e.g.
+"Stake adjusted to your session limit." or "That asset is not on this hour's
+board; played the shortest target." Never name the asset or side.
 
-### 2. Reply Format For Status / Stats Checks:
+Status (`code:"STATUS"`):
+
 ```
 RatchetX Player Status:
 • Play Credits: [credits]
-• XP: [xp]
-• Active Chambers: [open_count] / 5 open
-• Forecasts Stated: [stated] (Brier Score: [brier])
+• XP: [xp, or "n/a" when absent]
+• Open Chambers: [open.length]
+• Forecasts Stated: [stated] (Brier: [brier, or "n/a"])
+• Session: [remainingAttempts] attempts / [remainingGrossCredits] credits left
 
 ratchetx.xyz - solana prediction arcade. Earn XP, climb the podium, and get rewarded with real $RCX.
 ```
 
-### 3. Reply Format For Rate Limits / Errors:
-Keep error messages short, clean, and polite. Never dump raw stack traces, JSON debug objects, or long technical lectures.
-- If Rate Limited (`SESSION_RATE_LIMIT`): `"Cooldown active (1 second required between shots). Please retry in a moment.\n\nratchetx.xyz - solana prediction arcade."`
-- If Chambers Full (`CHAMBERS_FULL`): `"All 5 forecast chambers are currently active. Please wait for an existing shot to settle.\n\nratchetx.xyz - solana prediction arcade."`
+Duplicate (`COMMAND_ALREADY_RECORDED`): the same post was already executed.
+Reply with the retained proof exactly like Sealed; never re-run with a new ID.
 
-Expired/revoked/mismatched grants, stale oracle, missing journal durability,
-concurrent state changes and rule refusals STOP the command. No demo fallback,
-new identity/grant, automatic reload, transfer, extra play or automatic X post.
+Refusals: short, clean, polite; no stack traces, JSON dumps or lectures.
+
+- `SESSION_RATE_LIMIT`: "Cooldown active. Please retry in [retryAfterSeconds] s."
+- `CHAMBERS_FULL`: "All your forecast chambers are active. Wait for one to settle."
+- `SESSION_BUDGET_EXHAUSTED`: "This play session's allowance is used up. Approve a new session at ratchetx.xyz/play-session.html."
+- `INSUFFICIENT_CREDITS`: "Not enough play credits for that stake."
+- `SESSION_EXPIRED` / `SESSION_REVOKED` / `INSUFFICIENT_SESSION_LIFETIME`: "Your play session is no longer active. Approve a new one at ratchetx.xyz/play-session.html."
+- `ORACLE_STALE` / `ORACLE_CONFIDENCE_TOO_WIDE` / `FEED_UNAVAILABLE` / `TARGET_UNAVAILABLE`: "The oracle is not fresh enough right now. Try again in a minute."
+- `MISSING_OR_INVALID_CAPABILITY` / `CAPABILITY_IDENTITY_MISMATCH`: "No RatchetX play session is configured for this account."
+- `PENDING` category (`SUBMIT_UNRESOLVED`, `TRANSPORT_UNCERTAIN`, `REPLAY_UNVERIFIED`): "Your forecast may have been sealed; I will not resend it. Ask for status in a minute." Keep the journal; never retry with a new ID.
+- Anything else: "RatchetX could not take that forecast right now ([code])."
+
+Always end with the footer line. Expired/revoked/mismatched grants, stale
+oracle, missing journal durability, concurrent state changes and rule refusals
+STOP the command. No demo fallback, new identity/grant, automatic reload,
+transfer, extra play or automatic X post.
