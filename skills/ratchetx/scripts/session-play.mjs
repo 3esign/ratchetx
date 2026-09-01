@@ -485,6 +485,44 @@ export async function runPlay(options={},dependencies={}){
   }finally{try{await journal?.close?.();}catch{}}
 }
 
+// ---- One reply per result. The agent posts `reply` verbatim; nothing else. --
+const FOOTER='ratchetx.xyz - solana prediction arcade. Earn XP, climb the podium, and get rewarded with real $RCX.';
+const NEW_SESSION='Approve a new play session at ratchetx.xyz/play-session.html.';
+const REFUSALS={
+  SESSION_RATE_LIMIT:r=>'Cooldown active. Please retry in '+(r.retryAfterSeconds??'a few')+' s.',
+  CHAMBERS_FULL:()=>'All your forecast chambers are active. Wait for one to settle.',
+  SESSION_BUDGET_EXHAUSTED:()=>'This play session\'s allowance is used up. '+NEW_SESSION,
+  INSUFFICIENT_CREDITS:()=>'Not enough play credits for that stake.',
+  SESSION_EXPIRED:()=>'Your play session has expired. '+NEW_SESSION,
+  SESSION_REVOKED:()=>'Your play session was revoked. '+NEW_SESSION,
+  SESSION_INACTIVE:()=>'Your play session is no longer active. '+NEW_SESSION,
+  INSUFFICIENT_SESSION_LIFETIME:()=>'Your play session ends too soon for a new forecast. '+NEW_SESSION,
+  ORACLE_STALE:()=>'The oracle is not fresh enough right now. Try again in a minute.',
+  ORACLE_CONFIDENCE_TOO_WIDE:()=>'The oracle is not fresh enough right now. Try again in a minute.',
+  FEED_UNAVAILABLE:()=>'That feed is not on the board right now. Try again in a minute.',
+  TARGET_UNAVAILABLE:()=>'No playable target on the board right now. Try again in a minute.',
+  AGENT_ADMISSION_REQUIRED:()=>'This wallet is not admitted to ranked play yet. Register at ratchetx.xyz first.',
+  MISSING_OR_INVALID_CAPABILITY:()=>'No RatchetX play session is configured for this account. '+NEW_SESSION,
+  CAPABILITY_IDENTITY_MISMATCH:()=>'No RatchetX play session is configured for this account. '+NEW_SESSION,
+  PRIOR_ATTEMPT_UNRESOLVED:()=>'A previous forecast is still being confirmed. Ask for status in a minute.',
+  COMMAND_CONFLICT:()=>'That post was already used for a different forecast. Send a new post for a new forecast.',
+};
+const n=v=>v===null||v===undefined?'n/a':typeof v!=='number'?String(v):Number.isInteger(v)?v.toLocaleString('en-US'):String(+v.toFixed(4));
+export function replyFor(r){
+  if(!r||typeof r!=='object')return 'RatchetX could not take that command right now.\n\n'+FOOTER;
+  if(r.code==='EXPLAIN')return r.pitch||PITCH;
+  const note=Array.isArray(r.notes)&&r.notes.length?'\n'+r.notes[0].charAt(0).toUpperCase()+r.notes[0].slice(1)+'.':'';
+  if(r.code==='SEALED'||(r.code==='COMMAND_ALREADY_RECORDED'&&r.proofUrl))
+    return 'Prediction sealed on-chain.\nProof: '+r.proofUrl+note+'\n\n'+FOOTER;
+  if(r.code==='STATUS')return 'RatchetX Player Status:\n'
+    +'\u2022 Play Credits: '+n(r.credits)+'\n\u2022 XP: '+n(r.xp)+'\n\u2022 Open Chambers: '+n(Array.isArray(r.open)?r.open.length:null)
+    +'\n\u2022 Forecasts Stated: '+n(r.stated)+' (Brier: '+n(r.brier)+')'
+    +'\n\u2022 Session: '+n(r.remainingAttempts)+' attempts / '+n(r.remainingGrossCredits)+' credits left\n\n'+FOOTER;
+  if(r.code==='COMMAND_ALREADY_RECORDED')return (REFUSALS[r.refusalCode]?.(r)??'That post was already processed.')+'\n\n'+FOOTER;
+  if(r.category==='PENDING')return 'Your forecast may have been sealed; it will not be resent. Ask for status in a minute.\n\n'+FOOTER;
+  const text=REFUSALS[r.code]?.(r);
+  return (text??'RatchetX could not take that forecast right now ('+(r.code||'ERROR')+').')+'\n\n'+FOOTER;
+}
 export function parseArgs(args){
   const options={},seen=new Set();let file;
   const values=new Set(['--wallet','--session-id','--command-id','--target','--side','--p','--stake','--say','--asset','--direction','--horizon','--journal','--max-wait-seconds']);
@@ -521,7 +559,14 @@ async function main(){
     console.log('Protected RATCHET_PLAY_SESSION env only. Public IDs never authorize play or prove X identity. One approved five-minute forecast, one open shot, remaining signed limits, 22min session lifetime. Reuse the command ID for the SAME instruction; never change it to retry. No grant, signer, transfer, reload, scheduler or demo.');return;
   }
   try{const {options,file}=parseArgs(process.argv.slice(2));
-    if(options.mode==='explain'){console.log(JSON.stringify({ok:true,category:'EXPLAIN',code:'EXPLAIN',pitch:PITCH,effect:'No request was made; reply with the pitch.'}));return;}
+    const auto=process.argv.includes('--auto');
+    if(options.mode==='explain'){const r={ok:true,category:'EXPLAIN',code:'EXPLAIN',pitch:PITCH};console.log(JSON.stringify(auto?{ok:true,code:'EXPLAIN',reply:replyFor(r)}:r));return;}
+    if(auto){
+      // Binary contract: one line, ok + code + the exact text to post. No
+      // events, no identifiers, no intent. Never waits for settlement.
+      const r=await runPlay({...options,waitSettle:undefined},{...(file?{journal:createFileJournal(file)}:{})});
+      console.log(JSON.stringify({ok:r.ok,code:r.code,reply:replyFor(r)}));process.exitCode=r.ok?0:1;return;
+    }
     const output=await runPlay(options,{...(file?{journal:createFileJournal(file)}:{}),onEvent:event=>console.log(JSON.stringify(event))});
     console.log(JSON.stringify(output));process.exitCode=output.ok?0:output.category==='PENDING'?2:1;
   }catch{console.log(JSON.stringify({ok:false,category:'FAILED',code:'INVALID_ARGUMENTS'}));process.exitCode=1;}

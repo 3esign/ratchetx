@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
-import {runPlay,parseArgs,resolveIntent,classifyCommand,PITCH,URLS} from '../skills/ratchetx/scripts/session-play.mjs';
+import {spawnSync} from 'node:child_process';
+import {runPlay,parseArgs,resolveIntent,classifyCommand,replyFor,PITCH,URLS} from '../skills/ratchetx/scripts/session-play.mjs';
 
 // Words -> one directional shot. Pure fixtures: no network, keys or files.
 // Board mirrors the live h105 shape: one directional target per feed, each
@@ -175,4 +176,27 @@ const base={mode:'execute',wallet,sessionId,commandId};
 assert.throws(()=>parseArgs(['--auto','--wallet',wallet,'--session-id',sessionId,'--command-id',commandId,'--journal','j']));
 assert.throws(()=>parseArgs(['--auto','--say','play','--target','H1Q0','--wallet',wallet,'--session-id',sessionId,'--command-id',commandId,'--journal','j']));
 assert.throws(()=>parseArgs(['--status','--say','stats','--wallet',wallet,'--session-id',sessionId]));
+// Binary reply contract: every result maps to one postable text with the footer; no identifiers leak.
+{const footer='real $RCX';
+  const sealed=replyFor({ok:true,code:'SEALED',proofUrl:'https://ratchetx.xyz/api/shot?w=W&id=abc',notes:['stake 9 clamped to allowed 5']});
+  assert.match(sealed,/^Prediction sealed on-chain\.\nProof: https:\/\/ratchetx\.xyz\/api\/shot\?w=W&id=abc\nStake 9 clamped to allowed 5\./);assert.ok(sealed.includes(footer));
+  assert.equal(replyFor({ok:false,code:'COMMAND_ALREADY_RECORDED',proofUrl:'https://ratchetx.xyz/api/shot?w=W&id=abc'}).split('\n')[1],'Proof: https://ratchetx.xyz/api/shot?w=W&id=abc');
+  const st=replyFor({ok:true,code:'STATUS',credits:1649078,stated:12,brier:0.2116,open:[{}],remainingAttempts:60,remainingGrossCredits:90000});
+  assert.match(st,/Play Credits: 1,649,078/);assert.match(st,/XP: n\/a/);assert.match(st,/Brier: 0\.2116/);assert.match(st,/Open Chambers: 1/);
+  assert.match(replyFor({code:'SESSION_RATE_LIMIT',retryAfterSeconds:3}),/retry in 3 s/);
+  assert.match(replyFor({category:'PENDING',code:'SUBMIT_UNRESOLVED'}),/may have been sealed/);
+  assert.match(replyFor({code:'MISSING_OR_INVALID_CAPABILITY'}),/No RatchetX play session/);
+  assert.match(replyFor({code:'WEIRD'}),/\(WEIRD\)/);assert.equal(replyFor({code:'EXPLAIN',pitch:PITCH}),PITCH);
+  for(const r of [{ok:true,code:'SEALED',proofUrl:'u',wallet,sessionId,requestId:'r'.repeat(32)}])assert.ok(!replyFor(r).includes(sessionId));
+  for(const code of Object.keys({SESSION_EXPIRED:1,SESSION_REVOKED:1,CHAMBERS_FULL:1,INSUFFICIENT_CREDITS:1,ORACLE_STALE:1,COMMAND_CONFLICT:1}))assert.ok(replyFor({code}).includes(footer),code);
+}
+// --auto CLI prints exactly one line with ok/code/reply and no identifiers, even without a secret.
+{const run=args=>spawnSync(process.execPath,['../skills/ratchetx/scripts/session-play.mjs',...args],{encoding:'utf8',env:{PATH:process.env.PATH}});
+  const r=run(['--auto','--say','put 500 on sol higher','--wallet',wallet,'--session-id',sessionId,'--command-id',commandId,'--journal','/nonexistent/dir/j.json']);
+  const lines=r.stdout.trim().split('\n');assert.equal(lines.length,1,r.stdout);const out=JSON.parse(lines[0]);
+  assert.deepEqual(Object.keys(out).sort(),['code','ok','reply']);assert.equal(out.ok,false);assert.equal(out.code,'MISSING_OR_INVALID_CAPABILITY');
+  assert.ok(!r.stdout.includes(sessionId)&&!r.stdout.includes(wallet));assert.equal(r.status,1);
+  const e=JSON.parse(run(['--auto','--say','what is ratchetx?','--wallet',wallet,'--session-id',sessionId,'--command-id',commandId,'--journal','x']).stdout.trim());
+  assert.equal(e.code,'EXPLAIN');assert.equal(e.reply,PITCH);
+}
 console.log('Session play intent PASS: words route to status or one shot, asset/direction/horizon/stake/p resolve deterministically, redelivery never conflicts, chambers and stake clamp locally, horizon follows the target');

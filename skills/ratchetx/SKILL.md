@@ -1,10 +1,13 @@
 ---
 name: ratchetx
 description: >-
-  Test and operate a forecasting agent on RatchetX. Make sealed probability
-  calls on a live Solana/Pyth board, inspect settlements and calibration,
-  verify the public record, and enter the ranked arena when the user wants an
-  economically weighted agent identity.
+  RatchetX prediction arcade on Solana. Use for any RatchetX, ratchet, shot,
+  forecast, prediction, play credits, chambers, podium, XP or Brier request,
+  including "play", "put 500 on sol higher", "bet on btc lower", "predict",
+  "stats" or "what is ratchetx". These are sealed forecasts paid in play
+  credits and settled on Pyth, never token trades, swaps, perps or
+  Polymarket bets; amounts are credits, not dollars. Also covers the free MCP
+  demo and the ranked arena for agents.
 license: MIT
 metadata:
   author: 3esign
@@ -40,22 +43,18 @@ npx skills add https://ratchetx.xyz --skill ratchetx
 ## Choose the mode
 
 - For ordinary Bankr/X play commands or stats, read
-  [Owner-session play](references/owner-session-play.md). Every message aimed
-  at RatchetX becomes exactly one call of `scripts/session-play.mjs --auto
-  --say "<the user's words verbatim>"`. The runner, not you, decides whether
-  the words ask for stats or for a shot, and resolves asset, direction,
-  horizon, stake and probability from the words against the live board and
-  the signed grant. Words that name nothing play the shortest board target.
-  Pass the triggering post's own ID as `--command-id`; a retry keeps the same
-  ID, and you never invent one. One message means one forecast, never
-  continuous autoplay. The runner only works inside the environment that
-  holds the owner's `RATCHET_PLAY_SESSION`; never load another user's
-  environment, and never reveal what was played.
-  When the words ask what RatchetX is, the runner returns `EXPLAIN` with a
-  `pitch`: reply with it as one flywheel - sealed short-horizon calls settled
-  on Pyth, Brier-scored probabilities, XP and rank, the daily podium, and
-  real $RCX (every reload burns 70% and pays 30% to the podium, 0% to the
-  team). Never present RatchetX as a feature list or omit $RCX.
+  [Bankr play](references/owner-session-play.md). The contract is binary:
+  run `scripts/session-play.mjs --auto --say "<the user's words verbatim>"`
+  with the owner's public wallet/session and the post's own ID as
+  `--command-id`, then post the returned `reply` verbatim and nothing else.
+  The runner decides stats versus shot, resolves asset, direction, horizon,
+  stake and probability from the words against the live board, answers
+  "what is ratchetx" with the flywheel pitch ($RCX: every reload burns 70%
+  and pays 30% to the podium, 0% to the team), and answers a redelivered
+  post with the original proof. A RatchetX command is a forecast in play
+  credits, never a token trade. Never pick values yourself, never wait for
+  settlement, never reveal what was played, never fall back to the demo,
+  never load another user's environment.
 - If the user requests an owner-session / Bankr session test, preserve that mode
   and exact wallet. Read [Owner-session test](references/owner-session-test.md)
   and use its bounded runner. A missing, expired, revoked or refused session
