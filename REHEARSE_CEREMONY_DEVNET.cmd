@@ -71,9 +71,28 @@ where solana-verify >nul 2>&1
 if errorlevel 1 goto :noverify
 where docker >nul 2>&1
 if errorlevel 1 goto :nodocker
-echo Running: solana-verify verify-from-repo --remote --program-id %PROGRAM% %REPO% --library-name %LIBNAME% --mount-path %MOUNTPATH%
+rem  The --remote FLAG on verify-from-repo is deprecated upstream. Verification
+rem  is now two steps and both must pass before anything is revoked:
+rem    1. verify-from-repo  - rebuilds from source in the pinned docker image,
+rem       compares the hash to the deployed program, and writes the build data
+rem       to the program's PDA. This is the step that needs Docker, and the
+rem       step that needs the upgrade authority - which is exactly why it can
+rem       never be done after the authority is gone.
+rem    2. remote submit-job - asks OtterSec to rebuild it independently and
+rem       publish the verdict, so a stranger does not have to take our word.
+rem  The uploader is whoever signed the PDA write -- the upgrade authority, i.e.
+rem  this machine's configured wallet. Read it rather than hardcode it, so a
+rem  rehearsal run from a different keypair submits under that keypair.
+for /f "delims=" %%A in ('solana address') do set UPLOADER=%%A
+echo Uploader (upgrade authority): %UPLOADER%
+echo Uploader: %UPLOADER% >> "%REPORT%"
+echo Running: solana-verify verify-from-repo --program-id %PROGRAM% %REPO% --library-name %LIBNAME% --mount-path %MOUNTPATH%
 echo --- verify-from-repo --- >> "%REPORT%"
-call solana-verify verify-from-repo --remote --program-id %PROGRAM% %REPO% --library-name %LIBNAME% --mount-path %MOUNTPATH% >> "%REPORT%" 2>&1
+call solana-verify verify-from-repo --program-id %PROGRAM% %REPO% --library-name %LIBNAME% --mount-path %MOUNTPATH% >> "%REPORT%" 2>&1
+if errorlevel 1 goto :verifyfailed
+echo Build data written to the PDA. Submitting the remote job...
+echo --- remote submit-job --- >> "%REPORT%"
+call solana-verify remote submit-job --program-id %PROGRAM% --uploader %UPLOADER% >> "%REPORT%" 2>&1
 if errorlevel 1 goto :verifyfailed
 echo Verification registered.
 echo Verification registered. >> "%REPORT%"
@@ -122,12 +141,19 @@ echo. & echo STOPPED: could not read the RPC. Nothing was decided; just re-run.
 goto :end
 :noverify
 echo. & echo STOPPED before revoking: solana-verify is not installed.
-echo Install it (cargo install solana-verify) and re-run.
+echo   1. Install Rust if you have not:  https://rustup.rs  (no admin needed)
+echo   2. cargo install solana-verify --locked
+echo Then re-run this script.
 echo Rehearsing the revoke without the verify would teach the wrong order.
 goto :end
 :nodocker
 echo. & echo STOPPED before revoking: Docker is not available, and the verified
-echo build is a deterministic docker build. Start Docker Desktop and re-run.
+echo build is a deterministic docker build, and verify-from-repo runs it here to
+echo compare the hash against the deployed program before submitting anything.
+echo   Install Docker Desktop:  https://www.docker.com/products/docker-desktop
+echo   Then start it, wait for the whale icon to settle, and re-run this script.
+echo There is no way around this one: a verification nobody can reproduce is not
+echo a verification, and after the revoke it can never be produced at all.
 goto :end
 :verifyfailed
 echo. & echo STOPPED: verification did not register - so NOTHING was revoked.
