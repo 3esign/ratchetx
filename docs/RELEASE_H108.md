@@ -19,6 +19,15 @@ Also in this series (no server change): Core v1 second build after two LiteSVM
 findings (mint not `mut`; sqrt precision), the `svm-tests/` battery and the
 golden vectors — see `docs/CORE.md`.
 
+Site: `play-session.html` step 04 "ASK BANKR ON X" is now the per-account
+recipe — install the skill in THAT Bankr account (a new X account is a new
+Bankr user: without the skill Bankr answers "I don't recognize the ratchetx
+command" and offers trades), save the session there, then words starting with
+`ratchetx`. The copy buttons emit the 1.5.0 words (`@bankrbot ratchetx stats`,
+`@bankrbot ratchetx SOL up 5 min 100 credits`); no owner, session or command
+id in a public post any more (the post ID is the command ID). Measured
+2026-09-02 on a second X account.
+
 Verify after deploy: `board.v == h108-2026-09-02`, `board.token.mint ==
 FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump` (the h107 block, if h107 was
 skipped); then update `docs/AGENT_STATE.json` productionRelease /
