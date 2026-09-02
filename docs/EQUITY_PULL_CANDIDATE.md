@@ -104,3 +104,44 @@ compiled in forever). To adopt:
 
 The program change (steps 1–2) is the part that had to be right before freeze,
 and it is proven. Steps 3–5 are runtime wiring that ships with the build.
+
+## Pre-freeze verification: the five feed ids (2026-09-02)
+
+Checked against the same keyless Hermes mirror the crank posts from
+(`pyth.dourolabs.app/hermes/v2/price_feeds?asset_type=equity`). Every id
+compiled into the candidate resolves to a real Pyth feed, and every one is the
+**Equity.Index (24/7)** variant — deliberately, not the market-hours `Equity.US`
+variant, which also exists under the same ticker:
+
+| feed | id compiled in | resolves to |
+| --- | --- | --- |
+| TSLA | `e6da44bf…ae3fc0` | `Equity.Index.TSLA/USD` — "PYTH PRICE IN USD FOR TSLA 24/7" |
+| NVDA | `a470c4ac…27b852` | `Equity.Index.NVDA/USD` |
+| PLTR | `52c7c6b7…400bb9` | `Equity.Index.PLTR/USD` |
+| COIN | `49387483…7db1ac` | `Equity.Index.COIN/USD` |
+| HOOD | `4a4f9628…70a630` | `Equity.Index.HOOD/USD` |
+
+(For contrast, the market-hours ids are TSLA `16dad506…`, NVDA `b1073854…`,
+PLTR `11a70634…`, COIN `fee33f2a…`, HOOD `306736a4…`. Those are NOT in the table.)
+
+**Why 24/7 is the right table entry.** The machine seals shots around the clock.
+`Equity.US.*` publishes only inside US market hours, so an overnight or weekend
+equity shot would fail the freshness guard and void every time. The 24/7 index
+keeps a continuous mark, so the clock ring and the first-crossing rule work for
+equities exactly as they already do for SOL. No rule change needed.
+
+**Consequence for the runtime rule — not for the frozen table.** Because the mark
+is continuous there is no oracle-level "market closed": a shot outside US hours
+is settleable. The FINISH_PLAN gate as written ("refused outside hours, post-close
+expiry voids with refund") assumed the market-hours feed and does not describe
+this table. Two honest options, both leaving the frozen ids untouched:
+
+  a) allow 24/7 play and label every equity target **"Pyth 24/7 index"** (never
+     "NASDAQ"), stating plainly that outside US hours the mark is Pyth's synthetic
+     price and can diverge from the next open; or
+  b) keep the 24/7 feed but have the server and UI refuse equity seals outside a
+     declared market-hours window.
+
+This is a runtime/UI decision for Semir. It does not block the freeze.
+
+**Gate status: feed table VERIFIED — safe to compile.**
