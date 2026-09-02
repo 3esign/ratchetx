@@ -1,0 +1,38 @@
+/* ============================================================================
+   COLD MACHINE — token layer only (h110, 2026-09-02)
+   For every page that is NOT index/observatory. It remaps the shared token
+   names those pages already use (--bg/--card/--line/--ink/--gold/--ice ...) onto
+   the cold-metal palette, sets the ground and the type families, and stops.
+   Deliberately no component selectors: those pages own their own .panel/.card
+   rules, and a skin that reached into them would fight layouts it cannot see.
+   Load it AFTER the page's own <style>.
+   ========================================================================== */
+:root{
+  --void:#06070a;--graphite:#0e1116;--steel:#161b24;--inset:#0a0d12;
+  --chrome:#d3dcea;--silver:#98a3b4;--edge:rgba(210,220,236,.09);--bevel:rgba(0,0,0,.55);
+  --poison:#a3dd5c;--poison-ink:#cff2a0;--poison-glow:rgba(163,221,92,.26);--poison-haze:rgba(163,221,92,.10);
+  --ease:cubic-bezier(.4,0,.2,1);
+  --head:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --disp:"Chakra Petch",ui-sans-serif,system-ui,sans-serif;
+  /* the page's own names, remapped */
+  --bg:var(--void);--card:var(--graphite);--card2:var(--steel);--line:var(--edge);
+  --ink:var(--chrome);--ink2:var(--silver);--dim:#59626f;
+  --gold:#f5b83d;--goldD:#8a6516;      /* $RCX · burn · reward only */
+  --ice:var(--poison-ink);              /* sealed / on-chain / links */
+  --grn:var(--poison);--red:#ff5a5a;
+  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+  --sans:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+body{
+  background:var(--void);color:var(--chrome);
+  background-image:
+    radial-gradient(1200px 700px at 55% -10%,var(--poison-haze),transparent 62%),
+    radial-gradient(1000px 800px at 6% 100%,rgba(245,184,61,.04),transparent 60%),
+    radial-gradient(900px 700px at 96% 10%,rgba(211,220,234,.035),transparent 60%),
+    radial-gradient(140% 100% at 50% 50%,transparent 55%,rgba(0,0,0,.5) 100%);
+  background-attachment:fixed;
+}
+h1,h2{font-family:var(--head);font-weight:400;letter-spacing:-.01em}
+a{color:var(--poison-ink)}
+:focus-visible{outline:2px solid var(--poison);outline-offset:3px}
+button,input,select,textarea{font-family:inherit}

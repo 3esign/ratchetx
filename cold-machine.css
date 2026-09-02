@@ -71,7 +71,11 @@ h1{letter-spacing:-.01em;font-size:clamp(30px,4.8vw,44px);line-height:1.05}
 .hh{color:var(--silver);border-top-color:var(--edge)}
 .standing b{color:var(--chrome)}
 .hudstat b{color:var(--chrome)}
-#hRcxWrap b{color:var(--gold)}                      /* the one token stat stays gold */
+#hRcxWrap b{color:var(--gold)!important}             /* the one token stat stays gold */
+/* h110 cleanup: play-credits, shots, win and the model floor are not the token,
+   so they read as chrome. Only $RCX, burn, pot, podium and reward stay gold. */
+#hCr,#hShots,#hWin,#hFloor{color:var(--chrome)!important}
+.streakf{color:var(--poison)!important}
 /* ---- the live current: primary actions and selected state go poison ---- */
 .connect,nav button.on,.fire,.takeb,.bankr-play{
   background:linear-gradient(180deg,#b8e97a,#86bf46);color:#0b1204;border-color:rgba(163,221,92,.55);
