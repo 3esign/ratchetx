@@ -27,7 +27,7 @@ export const FEEDS = [
   { index: 6, symbol: 'PUMP', feedId: '7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9' },
 ];
 export const HORIZONS = [[5, 10], [10, 11], [15, 12], [30, 14], [60, 16], [360, 20], [1440, 24]];
-export const SETTLE_DEADLINE_SECS = 900;
+export const SETTLE_DEADLINE_SECS = 120;
 export const REVEAL_DEADLINE_SECS = 3600;
 export const STATE = { SEALED: 1, SETTLED: 2, REVEALED: 3, VOIDED: 4, FORFEITED: 5 };
 export const STATE_NAME = { 1: 'Sealed', 2: 'Settled', 3: 'Revealed', 4: 'Voided', 5: 'Forfeited' };

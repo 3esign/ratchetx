@@ -500,7 +500,9 @@ fn full_life_hit_miss_equality_deadline_and_forfeit() {
     w.set_clock(expiry4 + 10);
     assert_err(w.settle(&cranker, &p.pubkey(), 4, 0), "CrossingNotCheckpointed");
     assert_err(w.simple("void_shot", &cranker, &p.pubkey(), 4), "NotVoidable");
-    w.set_clock(expiry4 + 900);
+    w.set_clock(expiry4 + 119);
+    assert_err(w.simple("void_shot", &cranker, &p.pubkey(), 4), "NotVoidable");
+    w.set_clock(expiry4 + 120);
     assert_err(w.settle(&cranker, &p.pubkey(), 4, 0), "SettlementDeadlinePassed");
     w.simple("void_shot", &cranker, &p.pubkey(), 4).unwrap();
     let l = w.ledger(&p.pubkey());
@@ -682,7 +684,7 @@ fn ring_wrap_and_wrong_clock() {
     w.checkpoint(&cranker, 0).unwrap();
     w.set_clock(expiry + 70);
     assert_err(w.settle(&cranker, &p.pubkey(), 1, 0), "CrossingNotCheckpointed");
-    w.set_clock(expiry + 900);
+    w.set_clock(expiry + 120);
     w.simple("void_shot", &cranker, &p.pubkey(), 1).unwrap();
     assert_eq!(w.ledger(&p.pubkey()).credits, 1000);
 }

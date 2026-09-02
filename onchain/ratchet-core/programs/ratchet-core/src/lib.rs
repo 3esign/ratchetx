@@ -54,7 +54,13 @@ pub const RANK_XP: [u64; 5] = [0, 300, 900, 2200, 5000];
 /// (50/30/20), 0% to anyone else. Shares in thousandths.
 pub const BURN_PER_MILLE: u64 = 700;
 pub const PODIUM_CURVE_PER_MILLE: [u64; 3] = [500, 300, 200];
-pub const SETTLE_DEADLINE_SECS: i64 = 900;
+/// A shot with no captured crossing inside this window voids and refunds.
+/// Was 900 s (the G1 "checkpoint race" assumed a PvP counterparty racing to
+/// pin the price); with the credit pool as counterparty a long window is a
+/// free option for the player whenever no runner is live, so 2026-09-02 it
+/// became two minutes — longer than any sponsored feed's cadence, shorter
+/// than any option worth waiting for.
+pub const SETTLE_DEADLINE_SECS: i64 = 120;
 /// A settled shot that is never revealed forfeits after this long past expiry.
 pub const REVEAL_DEADLINE_SECS: i64 = 3_600;
 pub const MAX_CONF_BPS: u128 = 200;

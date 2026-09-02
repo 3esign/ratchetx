@@ -22,7 +22,7 @@ keeps that code path unchanged and adds everything the server used to decide.
 | XP: `max(1, round(base_xp(minutes) * min(20, sqrt(stake/100))))` at seal; on HIT `max(1, round(xp * min(2, 1 + 0.15*streak))) + 1`; on MISS `+1` — rounded exactly in integers, half up | `seal_xp`, `skill_xp` (golden vectors shared with the server) |
 | rank thresholds 0/300/900/2200/5000, chambers `min(4, rank+1)+1` | `rank_of`, `chambers_for` |
 | seal freshness `min(60, max(30, 0.15 * window))` s, confidence ≤ 200 bps | `max_seal_age`, `check_confidence` |
-| settle window `[expiry, expiry+900)`, void after | `settle`, `void_shot` |
+| settle window `[expiry, expiry+120)`, void and refund after (was 900; see the decision below) | `settle`, `void_shot` |
 | daily podium (UTC day), top 3 by XP earned today | `Podium` PDA, updated on every reveal |
 | referee table (7 Pyth feed ids) and horizons (5/10/15/30/60/360/1440 min) | constants |
 | $RCX mint | constant |
@@ -111,25 +111,22 @@ reveals — only the salt holder can — and never needs a player key. Several
 runners in parallel are harmless: a second checkpoint of the same update is a
 no-op, a second settle fails on state.
 
-## Open decision before freeze: the settlement window is a free option
+## Decided 2026-09-02: the settlement window is two minutes
 
 `settle` takes the earliest checkpointed observation at/after expiry (G1's
 "checkpoint race"). In the PvP design the winner had a reason to checkpoint
 at once; in Core v1 the counterparty is the credit pool, so nobody but the
-player and public runners has one. If no runner is live, a player may wait
-inside `[expiry, expiry+900)` and checkpoint only when the price has moved
-their way — a 15-minute option on every shot, worth far more than the 59%
-break-even. Runners close the option while they run; "nothing depends on us"
-means the rule must hold with none running.
+player and public runners has one. With a 15-minute window and no runner
+live, a player could wait and checkpoint only when the price had moved their
+way — a free option on every shot, worth far more than the 59% break-even.
 
-Recommendation: `SETTLE_DEADLINE_SECS` 900 → 120. A shot with no capture
-within two minutes voids and refunds — nobody gains, and two minutes is
-longer than any sponsored feed's cadence (the seal rule already assumes ≤ 60 s
-of staleness), so a single live runner still settles every shot. The residual
-two-minute option is bounded and public. This changes a published number in
-`docs/G1_DECISION_MEMO.md` and the LiteSVM battery's deadline cases, so it is
-the founder's call, not a silent edit; the program in the build record still
-carries 900.
+So `SETTLE_DEADLINE_SECS` is 120: a shot with no captured crossing within two
+minutes voids and refunds — nobody gains. Two minutes is longer than any
+sponsored feed's cadence (the seal rule already assumes ≤ 60 s of staleness),
+so a single live runner still settles every shot; the residual option is
+bounded, public, and closed entirely while any runner runs. This supersedes
+the 900 s in `docs/G1_DECISION_MEMO.md`; the LiteSVM deadline cases and the
+client carry 120.
 
 ## Tests, and how to run them
 
@@ -171,3 +168,11 @@ carries 900.
   `fddebb11e990f3a6a748b0f2222468986f527120b787ddc4080c540daa7d50f9`.
   Not deployed anywhere yet. Host unit tests 8/8, LiteSVM battery 8/8, golden
   vectors 8/8 against the server's `lib/core_rules.js`.
+- 2026-09-02 third build, same recipe, `Cargo.lock` unchanged: settlement
+  window 900 s → 120 s (`SETTLE_DEADLINE_SECS`), nothing else.
+  `artifacts/ratchet_core-v1-2026-09-02.so` — 414,360 bytes,
+  sha256 `1ba4371752cf1e5de39b87ea40f4be190166032dd319cc877eaa9ccf0ded61f6`,
+  executable hash (trailing zeros stripped)
+  `d73331461e50bf77f847ee9e3b9a6d467ffb6d1626ccbd8cee74f6e96f2bb0f3`.
+  Not deployed anywhere yet. Host 8/8, LiteSVM 8/8 (deadline cases at 119/120 s),
+  vectors 8/8, JS client 9/9. This is the candidate for the devnet deploy.

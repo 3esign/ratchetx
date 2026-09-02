@@ -130,7 +130,8 @@ test('the crank plans exactly the program\'s permissionless moves', () => {
   assert.deepEqual(plan([mk(1, 2000)], { 0: clock([{ prevPublishTime: 1900n, publishTime: 1990n }]) }, { 0: push(2003) }, 2005), ['checkpoint+settle']);
   assert.deepEqual(plan([mk(1, 2000)], { 0: clock([{ prevPublishTime: 1900n, publishTime: 1990n }]) }, { 0: push(1990) }, 2005), []);
   // Past the settlement window -> void; settled and unrevealed for an hour -> forfeit; final -> close only when asked.
-  assert.deepEqual(plan([mk(1, 2000)], { 0: null }, { 0: push(2950) }, 2900), ['void']);
+  assert.deepEqual(plan([mk(1, 2000)], { 0: null }, { 0: push(1990) }, 2119), [], 'inside the two-minute window with no post-expiry update yet: wait');
+  assert.deepEqual(plan([mk(1, 2000)], { 0: null }, { 0: push(2150) }, 2120), ['void']);
   assert.deepEqual(plan([mk(2, 2000)], {}, {}, 5599), []);
   assert.deepEqual(plan([mk(2, 2000)], {}, {}, 5600), ['forfeit']);
   assert.deepEqual(plan([mk(3, 2000), mk(4, 2000), mk(5, 2000)], {}, {}, 9000), []);
