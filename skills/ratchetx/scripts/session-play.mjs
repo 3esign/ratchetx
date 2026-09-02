@@ -77,6 +77,8 @@ const DOWN_WORDS=['lower','down','downward','downside','dump','dumps','dumping',
 const NEGATIONS=['not','no','never','wont','won\'t','isnt','isn\'t','doesnt','doesn\'t','dont','don\'t','cant','can\'t','nope'];
 const STATUS_WORDS=['status','stats','stat','balance','credits','xp','score','brier','rank','ranking','podium','leaderboard','standing',
   'chambers','history','results','result','settled','settle','resume','check','doing','progress','summary','won','win','lost','lose','losing','record'];
+const LEADERBOARD_WORDS=['leaderboard','leaderboards','standings'];
+const LEADERBOARD_PATTERN=/\b(leaderboard|leaderboards|standings|who.?s?\s+(?:winning|leading|first|ahead)|top\s+(?:players?|agents?|forecasters?|traders?|\d+))\b/i;
 // Verbs start a play. Nouns (shot, call, forecast) also appear in status
 // questions ("check my shot"), so they never override a status word alone.
 // "ratchet"/"ratchetx" is the trigger word in every command, never a verb.
@@ -153,6 +155,7 @@ export const HELP=`RatchetX commands (mention @bankrbot):
 - ratchetx play - quickest board target, 100 credits
 - ratchetx board - what can be played right now
 - ratchetx stats - credits, XP, Brier, session
+- ratchetx leaderboard - who is winning right now
 - ratchetx result - your latest settled forecast
 - ratchetx what is this - how the flywheel works
 Setup: ratchetx.xyz/play-session.html`;
@@ -171,6 +174,14 @@ export function boardReply(board,now=Date.now()){
   const ex=dirs[1]||dirs[0];
   return head+'\n'+rows.join('\n')+'\nPlay: "ratchetx put 500 on '+ex.feed.toLowerCase()+' lower"\n\n'+FOOTER;
 }
+/** Global standings from the public arena. Pure. */
+export function leaderboardReply(arena){
+  const all=Array.isArray(arena?.agents)?arena.agents:[];
+  const ranked=all.filter(a=>a&&a.listed&&finite(a.brier)).sort((a,b)=>(b.brierIndex??-1)-(a.brierIndex??-1)||(b.xp||0)-(a.xp||0));
+  if(!ranked.length)return 'No ranked forecasters yet - a Brier rank needs 10 stated-probability calls. Be first: play at ratchetx.xyz\n\n'+FOOTER;
+  const rows=ranked.slice(0,5).map((a,i)=>(i+1)+'. '+(a.name||a.w||'agent')+' - '+Number(a.xp||0).toLocaleString()+' XP, Brier '+Number(a.brier).toFixed(3)+(a.streak>0?', streak '+a.streak:''));
+  return 'RatchetX leaderboard - sharpest forecasters (lower Brier is better):\n'+rows.join('\n')+'\n\nRanked needs 10 stated calls. Play: ratchetx play\n\n'+FOOTER;
+}
 /** Status-only when the words ask about numbers and name nothing to play;
  * explain when they ask what RatchetX is; otherwise one shot. */
 export function classifyCommand(text){
@@ -181,6 +192,7 @@ export function classifyCommand(text){
   if(META_PATTERN.test(plain)&&!dir&&!stake)return 'meta';
   if(HELP_PATTERN.test(plain)&&!dir&&!stake)return 'help';
   if(BOARD_PATTERN.test(plain)&&!dir&&!stake&&!/^(?:\$?\w+\s+)?(?:ratchetx?\s+)?(?:play|shoot|fire|bet|put|spend|wager|predict)\b/.test(plain))return 'board';
+  if((LEADERBOARD_PATTERN.test(plain)||words.some(w=>LEADERBOARD_WORDS.includes(w)))&&!verb&&!dir&&!stake)return 'leaderboard';
   if(status&&!verb&&!dir&&!stake)return 'status';
   const asked=EXPLAIN_PATTERN.test(norm(String(text??'')))||/^\W*\$?(ratchet|ratchetx|rcx)\W*\?\W*$/i.test(String(text??''));
   if(asked&&!dir&&!stake&&!verb)return 'explain';
@@ -614,10 +626,10 @@ export function parseArgs(args){
     need(typeof options.say==='string'&&!['target','side','p','asset','direction','horizon'].some(key=>key in options),'AUTO_REQUIRES_SAY');
     const kind=classifyCommand(options.say);
     if(kind==='status'){options.mode='status';for(const key of ['commandId','say','stake'])delete options[key];file=undefined;}
-    else if(['explain','help','board','meta'].includes(kind)){options.mode=kind;file=undefined;}
+    else if(['explain','help','board','meta','leaderboard'].includes(kind)){options.mode=kind;file=undefined;}
     else options.mode='execute';
   }
-  if(!['execute','explain','help','board','meta'].includes(options.mode))need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
+  if(!['execute','explain','help','board','meta','leaderboard'].includes(options.mode))need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
   return {options,file};
 }
 async function main(){
@@ -649,6 +661,12 @@ async function main(){
       try{const res=await fetch(URLS.board,{headers:{Accept:'application/json'},redirect:'error',cache:'no-store',signal:AbortSignal.timeout(10000)});
         if(res.status===200){const body=await res.json();if(body&&body.ok===true)board=body;}}catch{}
       console.log(JSON.stringify({ok:!!board,code:board?'BOARD':'BOARD_UNAVAILABLE',reply:boardReply(board)}));return;
+    }
+    if(options.mode==='leaderboard'){
+      let arena=null;
+      try{const res=await fetch(ORIGIN+'/api/game?action=arena',{headers:{Accept:'application/json'},redirect:'error',cache:'no-store',signal:AbortSignal.timeout(10000)});
+        if(res.status===200){const body=await res.json();if(body&&body.ok===true)arena=body;}}catch{}
+      console.log(JSON.stringify({ok:!!arena,code:arena?'LEADERBOARD':'LEADERBOARD_UNAVAILABLE',reply:leaderboardReply(arena)}));return;
     }
     if(auto){
       // Binary contract: one line, ok + code + the exact text to post. No
