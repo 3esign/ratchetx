@@ -674,7 +674,7 @@ async function main(){
           const st=await runPlay({mode:'status',wallet:play.wallet,sessionId:play.sessionId});
           const hit=st.ok&&Array.isArray(st.closed)&&st.closed.find(row=>row.shotId===r.shotId);
           if(hit){r.settled=hit;break;}
-          if(!st.ok&&!['STATUS_UNAVAILABLE','TRANSPORT_UNCERTAIN','WAIT_LIMIT'].includes(st.code))break;
+          if(!st.ok&&!['STATUS_UNAVAILABLE','TRANSPORT_UNCERTAIN','WAIT_LIMIT','STATUS_THROTTLED'].includes(st.code))break;
         }
       }
       console.log(JSON.stringify({ok:r.ok,code:r.code,reply:replyFor(r)}));process.exitCode=r.ok?0:1;return;

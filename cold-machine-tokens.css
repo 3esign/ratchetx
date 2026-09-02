@@ -32,7 +32,7 @@ body{
     radial-gradient(140% 100% at 50% 50%,transparent 55%,rgba(0,0,0,.5) 100%);
   background-attachment:fixed;
 }
-h1,h2{font-family:var(--head);font-weight:400;letter-spacing:-.01em}
+h1{font-family:var(--head);font-weight:400;letter-spacing:-.01em}   /* h2 on these pages are step labels: they keep their own face */
 a{color:var(--poison-ink)}
 :focus-visible{outline:2px solid var(--poison);outline-offset:3px}
 button,input,select,textarea{font-family:inherit}
