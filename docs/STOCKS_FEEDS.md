@@ -44,9 +44,18 @@ Push account = `findProgramAddress([u16le(0), feed_id], pyt2F414BA6dPttK6RddPZUd
 Source: Pyth Hermes `GET /v2/price_feeds?query=<T>&asset_type=equity`.
 PDAs derived locally with `@solana/web3.js` — no network, reproducible.
 
-**Still to fetch:** the `Equity.Index` ids for PLTR, COIN and HOOD (the query
-above returned their `Equity.US` rows in this pass). Same endpoint; take the row
-whose `symbol` starts `Equity.Index.`.
+### The complete 24/7 Index set (what actually goes in the table)
+
+These are the sponsored `Equity.Index.*` feeds and their shard-0 push accounts —
+the ones a stock target would use, no market hours:
+
+| ticker | feed id (Index 24/7) | shard-0 push account |
+|---|---|---|
+| TSLA | `e6da44bff5b8b06897a3739dd331b440d6662595bb862e37046892c568ae3fc0` | `4js3tyQv7Ljb9kiWkB3zBaoUq689HF9qL6JTfamcbtig` |
+| NVDA | `a470c4ac46f44b547b2cba52338f311fb642b79375ce5f0cfd5cb5b99227b852` | `DrMQPTkUTAWNtgxcgLQQDHXqq667AHzMvvsnpsCcXtju` |
+| PLTR | `52c7c6b70032b7151c8d0febf684f14318e1e13315976e171267639955400bb9` | `8STTMeEVT2LrWFwbrGuxgYsSYrZvEPiDrYJ3FVJVR1Xj` |
+| COIN | `49387483ff50427bf0ff5928082b0cf16331421067c59f4c582a07aa117db1ac` | `4RK9ma1VdZUn2UeYVTfYGXBPTzdZ3UdaQSudrSX7cDx9` |
+| HOOD | `4a4f96283d157d08b7b8aa596363f7978587d4fa59a77dcb90f84af7d870a630` | `Ei8W2FRPJbexWLsiRnvi6VF2Ne3YWVt66ucDqZyC8HV8` |
 
 ## Gate before any of this reaches the referee table
 
@@ -63,8 +72,14 @@ A feed id is not enough. For each candidate, on mainnet:
    equity feed id, reprint the golden vectors, record the hashes).
 
 Check 1 is one RPC call per account: `getAccountInfo(<push account>)` and
-compare `owner`. It needs an RPC the cloud bridge does not have; run it from the
-machine that has one.
+compare `owner`. It needs an RPC the cloud bridge does not have, so it ships as a
+script for the machine that does:
+
+    node scripts/check-equity-feeds.mjs [your-rpc-url]     # or double-click CHECK_EQUITY_FEEDS.cmd
+
+It checks all five, verifies the receiver owner, and prints price / confidence /
+freshness for each — writing `equity_gate_check.txt`. Only the ✓ rows
+(exists · receiver-owned · Full-verified · fresh) may enter the frozen table.
 
 ## Then, and only then
 
