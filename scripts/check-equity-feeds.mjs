@@ -20,6 +20,9 @@ const PUSH_ORACLE = new PublicKey('pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou')
 // The equity candidates: both variants per ticker. Index = 24/7 synthetic,
 // US = exchange hours. The gate decides which (if either) is sponsored.
 const FEEDS = [
+  // CONTROL: SOL/USD is sponsored on shard 0 (7AviUf9n…) and settles the live game.
+  // If this row is not ✓, the scanner or the RPC is broken and nothing below counts.
+  ['SOL',  'CTRL',  'ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d'],
   ['TSLA', 'Index', 'e6da44bff5b8b06897a3739dd331b440d6662595bb862e37046892c568ae3fc0'],
   ['TSLA', 'US',    '16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1'],
   ['NVDA', 'Index', 'a470c4ac46f44b547b2cba52338f311fb642b79375ce5f0cfd5cb5b99227b852'],
@@ -91,6 +94,8 @@ for (const [sym, kind, feedId] of FEEDS) {
     console.log(`${mark} ${sym} ${kind.padEnd(5)} shard ${String(h.sh).padStart(3)}  ${h.key.toBase58()}  ${detail}`);
   }
 }
+const ctrl = (found.get('SOL/CTRL') || []).some(h => h.sh === 0 && h.info.owner.toBase58() === RECEIVER);
+console.log(ctrl ? '\nCONTROL OK: SOL/USD found on shard 0 — the scanner and the RPC are sound; the equity results above are real.' : '\nCONTROL FAILED: SOL/USD not found on shard 0 — the RPC lied or the scan broke. IGNORE the results above and re-run with another RPC.');
 console.log(`\n✓ = shard 0 + receiver-owned: readable by the core program as built (${shard0ok} usable now).`);
 console.log('~ = pushed on another shard: readable only if the core switches or adds that shard (a program change, before freeze).');
 console.log('✗ = not pushed anywhere: pull-only feed; the program cannot use it.');
