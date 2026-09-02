@@ -400,10 +400,8 @@ assert.equal(new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1])).size,
 
 // Public command helpers never copy bearer material, even from a rich server record.
 const publicCommand = ui.bankrCommand('play', sampleSession(), 'a'.repeat(32));
-assert.match(publicCommand, /ONE 100-play-credit forecast/);
-assert.match(publicCommand, /trusted signed-in Bankr user/);
-assert.match(publicCommand, /Command ID: a{32}/);
-assert.doesNotMatch(publicCommand, /hidden-token|hidden-credential|rxp1\./);
+assert.equal(publicCommand, '@bankrbot ratchetx SOL up 5 min 100 credits', 'skill 1.5.0: words only, the post ID is the command ID');
+assert.doesNotMatch(publicCommand, /Command ID|Expected owner|Session:|hidden-token|hidden-credential|rxp1\./, 'no wallet, session or command id in a public post');
 assert.throws(() => ui.bankrCommand('play', sampleSession(), 'invalid'), /INVALID_REQUEST_ID/);
 assert.throws(() => ui.bankrCommand('play', {...sampleSession(), wallet: 'bad'}, 'a'.repeat(32)), /INVALID_SESSION_ID/);
 const commands = fixture({initialSession: sampleSession()});
@@ -411,12 +409,11 @@ assert.equal(commands.nodes.bankrCommands.hidden, true);
 await commands.dispatch('connectWallet'); await commands.dispatch('findSession');
 const commandReads = commands.requests.length, commandSigns = commands.signed.length;
 await commands.dispatch('copyBankrStats');
-assert.match(commands.clipboard.at(-1), /--status/);
-assert.match(commands.clipboard.at(-1), /No new forecast/);
+assert.equal(commands.clipboard.at(-1), '@bankrbot ratchetx stats');
 await commands.dispatch('copyBankrPlay');
 const firstCommand = commands.clipboard.at(-1);
 await commands.dispatch('copyBankrPlay');
-assert.notEqual(commands.clipboard.at(-1), firstCommand, 'a new explicit copy produces a new public command nonce');
+assert.equal(commands.clipboard.at(-1), firstCommand, 'the public play words carry no nonce: Bankr uses the post ID as the command ID');
 assert.equal(commands.requests.length, commandReads, 'copying makes no API call');
 assert.equal(commands.signed.length, commandSigns, 'copying never signs');
 assert.doesNotMatch(commands.clipboard.join('\n'), /hidden-credential|rxp1\./);
@@ -436,7 +433,7 @@ assert.deepEqual(['maxAttempts','maxStakeCredits','maxGrossCredits','durationMin
 assert.equal(commands.nodes.consent.checked, false);
 assert.match(html, /Allowance is not your balance/);
 assert.match(html, /cooldown, not an automatic schedule/);
-assert.match(html, /--stake 10000000/);
+assert.match(html, /ratchetx SOL up 5 min 10000000 credits/, "the large preset is played in words, not flags");
 assert.equal(commands.requests.length, commandReads, 'presets never grant or play');
 await commands.dispatch('disconnectWallet');
 assert.equal(commands.nodes.bankrCommands.hidden, true);
