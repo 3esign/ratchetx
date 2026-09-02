@@ -185,3 +185,25 @@ If equities are ever to be permissionless, the route is a self-hosted Hermes
 extrnode and Liquify. Both are real infrastructure a stranger must run or buy,
 which is a different and much weaker claim than "read an account with any RPC".
 That is a decision for a later program, not for the one being frozen.
+
+
+---
+
+# Second correction, same day: look under Crypto, not Equity
+
+Everything above is about `Equity.*` feed ids, and everything above is right
+about them. It is also the wrong place to have looked.
+
+Pyth files the **tokenized** stock — the xStock trading as an SPL token on
+Solana — as `Crypto.TSLAX/USD`, asset_type **Crypto**. Crypto is the class Pyth
+sponsors with permanent push accounts. Measured on mainnet the same day, nine of
+them exist, are owned by the receiver this program requires, are fully verified,
+and read exactly like SOL: **no Hermes, no key, no posting, no program change.**
+
+That makes the pull design in `EQUITY_PULL_CANDIDATE.md` obsolete — it was built
+to work around an absence that was in the wrong asset class — and it makes the
+"equities cannot be permissionless" conclusion above wrong.
+
+The new constraint is freshness, not access. See
+[`STOCKS_ONCHAIN_TOKENIZED.md`](STOCKS_ONCHAIN_TOKENIZED.md) for the accounts,
+the prices, the evidence and what it forbids.
