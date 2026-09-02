@@ -83,9 +83,53 @@ website, not Bankr, not Supabase.
 3. ~~JS golden vectors~~ done: `vectors/core-rules-v1.json` printed by the
    program, checked by `test/test_core_vectors.mjs`; the server now computes XP
    and payout through `lib/core_rules.js`, the same integers (h108).
-4. Static client + open runner (checkpoint/settle/forfeit/void/close cranks).
+4. ~~Static client + open runner~~ done offline: `client/core.mjs` (every
+   instruction, PDA, parser and the commit, byte-checked against the program's
+   vectors by `test/test_core_client.mjs`) and `client/crank.mjs` (the open
+   runner). First run against a real cluster still open (devnet, then mainnet).
 5. Legacy snapshot → Merkle root compiled in → migration build → capped pilot.
 6. 72 h drill with everything of ours off, then `--final`.
+
+## Client and open runner
+
+`client/core.mjs` needs only `@solana/web3.js`: instruction builders in the
+program's account order, PDAs, the sponsored push account per feed, the ATA,
+the v3 commit, parsers for every account and for `PriceUpdateV2`, the crossing
+rule, and `planActions` — the pure decision of what a runner may do now.
+`client/crank.mjs` executes that plan in a loop:
+
+```sh
+node onchain/ratchet-core/client/crank.mjs --rpc <url> --keypair <fee payer> [--once] [--interval 5] [--close] [--dry]
+```
+
+A runner keeps each open feed's clock warm (one checkpoint when the clock is
+older than five minutes, so the first post-expiry capture forms a crossing),
+captures the first fully verified update at/after expiry and settles in the
+same transaction, voids after the 15-minute window, forfeits unrevealed shots
+after an hour, and with `--close` returns shot rent to players. It never
+reveals — only the salt holder can — and never needs a player key. Several
+runners in parallel are harmless: a second checkpoint of the same update is a
+no-op, a second settle fails on state.
+
+## Open decision before freeze: the settlement window is a free option
+
+`settle` takes the earliest checkpointed observation at/after expiry (G1's
+"checkpoint race"). In the PvP design the winner had a reason to checkpoint
+at once; in Core v1 the counterparty is the credit pool, so nobody but the
+player and public runners has one. If no runner is live, a player may wait
+inside `[expiry, expiry+900)` and checkpoint only when the price has moved
+their way — a 15-minute option on every shot, worth far more than the 59%
+break-even. Runners close the option while they run; "nothing depends on us"
+means the rule must hold with none running.
+
+Recommendation: `SETTLE_DEADLINE_SECS` 900 → 120. A shot with no capture
+within two minutes voids and refunds — nobody gains, and two minutes is
+longer than any sponsored feed's cadence (the seal rule already assumes ≤ 60 s
+of staleness), so a single live runner still settles every shot. The residual
+two-minute option is bounded and public. This changes a published number in
+`docs/G1_DECISION_MEMO.md` and the LiteSVM battery's deadline cases, so it is
+the founder's call, not a silent edit; the program in the build record still
+carries 900.
 
 ## Tests, and how to run them
 
@@ -99,8 +143,11 @@ website, not Bankr, not Supabase.
   every forgery the program must reject (wrong owner, wrong PDA, partial
   verification, stale, wide confidence, wrong feed) is tried.
 - Golden vectors: `cargo test print_golden_vectors -- --ignored --nocapture`
-  prints `vectors/core-rules-v1.json` (between the BEGIN/END markers); then
-  `node --test test/test_core_vectors.mjs` from the repo checks the server
+  prints `vectors/core-rules-v1.json` (between the BEGIN/END markers): rule
+  constants and XP/payout/rank grids, the feed table with push accounts,
+  instruction encodings, account discriminators, sizes, serialized samples,
+  PDAs and the commit. `node --test test/test_core_vectors.mjs
+  test/test_core_client.mjs` from the repo checks the server and the JS client
   against it. Re-print whenever a rule constant changes; the JSON is the
   contract between the two.
 

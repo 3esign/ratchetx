@@ -1262,6 +1262,7 @@ pub enum CoreError {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anchor_lang::{Discriminator, InstructionData};
 
     #[test]
     fn xp_matches_the_server_formulas() {
@@ -1466,6 +1467,8 @@ mod tests {
                 first = false;
             }
         }
+        let wallet = Pubkey::new_from_array([7u8; 32]);
+        let salt = "0123456789abcdef0123456789abcdef";
         out.push_str("],\n\"hitPayoutVectors\":[");
         for (i, st) in stakes.iter().enumerate() {
             out.push_str(&format!("{}[{},{}]", if i > 0 { "," } else { "" }, st, hit_payout(*st)));
@@ -1475,12 +1478,72 @@ mod tests {
         for (i, xp) in xps.iter().enumerate() {
             out.push_str(&format!("{}[{},{},{}]", if i > 0 { "," } else { "" }, xp, rank_of(*xp), chambers_for(*xp)));
         }
-        let wallet = Pubkey::new_from_array([7u8; 32]);
-        let salt = "0123456789abcdef0123456789abcdef";
         let h = hashv(&[b"RATCHET|v3|", wallet.to_string().as_bytes(), b"|", b"42", b"|", b"YES", b"|", b"6500", b"|", salt.as_bytes()]);
         let hex: String = h.to_bytes().iter().map(|b| format!("{:02x}", b)).collect();
+        // Instruction data (Anchor discriminator + Borsh args) and account
+        // discriminators, so a client's encoder can be checked offline.
+        let hx = |b: &[u8]| -> String { b.iter().map(|x| format!("{:02x}", x)).collect() };
+        let ix: Vec<(&str, Vec<u8>)> = vec![
+            ("reload", instruction::Reload { amount: 1_500_000 }.data()),
+            ("seal", instruction::Seal { nonce: 42, commit: [7u8; 32], feed_index: 0, minutes: 5, stake: 500 }.data()),
+            ("seal_delegated", instruction::SealDelegated { nonce: 42, commit: [7u8; 32], feed_index: 6, minutes: 1440, stake: 1_000_000_000 }.data()),
+            ("checkpoint", instruction::Checkpoint { feed_index: 3 }.data()),
+            ("settle", instruction::Settle {}.data()),
+            ("reveal", instruction::Reveal { side: 1, p_bps: 6500, salt: salt.to_string() }.data()),
+            ("forfeit", instruction::Forfeit {}.data()),
+            ("void_shot", instruction::VoidShot {}.data()),
+            ("close_shot", instruction::CloseShot {}.data()),
+            ("grant_delegate", instruction::GrantDelegate { allowance: 10_000, max_stake: 500, expiry_ts: 1_800_000_000 }.data()),
+            ("revoke_delegate", instruction::RevokeDelegate {}.data()),
+            ("claim_legacy", instruction::ClaimLegacy { credits: 5_000, xp: 321, proof: vec![[1u8; 32], [2u8; 32]] }.data()),
+        ];
+        out.push_str("],\n\"ix\":{");
+        for (i, (name, data)) in ix.iter().enumerate() {
+            out.push_str(&format!("{}\"{}\":\"{}\"", if i > 0 { "," } else { "" }, name, hx(data)));
+        }
+        out.push_str("},\n\"accounts\":{");
+        let accs: Vec<(&str, [u8; 8], usize)> = vec![
+            ("Shot", Shot::DISCRIMINATOR.try_into().unwrap(), 8 + Shot::SIZE),
+            ("PlayerLedger", PlayerLedger::DISCRIMINATOR.try_into().unwrap(), 8 + PlayerLedger::SIZE),
+            ("Podium", Podium::DISCRIMINATOR.try_into().unwrap(), 8 + Podium::SIZE),
+            ("FeedClock", FeedClock::DISCRIMINATOR.try_into().unwrap(), 8 + FeedClock::SIZE),
+            ("DelegateGrant", DelegateGrant::DISCRIMINATOR.try_into().unwrap(), 8 + DelegateGrant::SIZE),
+            ("LegacyClaim", LegacyClaim::DISCRIMINATOR.try_into().unwrap(), 8 + LegacyClaim::SIZE),
+        ];
+        for (i, (name, disc, size)) in accs.iter().enumerate() {
+            out.push_str(&format!("{}\"{}\":{{\"discriminator\":\"{}\",\"size\":{}}}", if i > 0 { "," } else { "" }, name, hx(disc), size));
+        }
+        let (ledger_pda, _) = Pubkey::find_program_address(&[b"player", wallet.as_ref()], &crate::ID);
+        let (shot_pda, _) = Pubkey::find_program_address(&[b"shot", wallet.as_ref(), &42u64.to_le_bytes()], &crate::ID);
+        let (clock_pda, _) = Pubkey::find_program_address(&[b"clock".as_ref(), &[3u8]], &crate::ID);
+        let (podium_pda, _) = Pubkey::find_program_address(&[b"podium"], &crate::ID);
+        let (grant_pda, _) = Pubkey::find_program_address(&[b"grant", wallet.as_ref(), Pubkey::new_from_array([9u8; 32]).as_ref()], &crate::ID);
+        let (claim_pda, _) = Pubkey::find_program_address(&[b"claim", wallet.as_ref()], &crate::ID);
+        // Serialized account samples (discriminator + Borsh), for parsers.
+        let shot = Shot { player: wallet, delegate: Pubkey::new_from_array([9u8; 32]), nonce: 42, commit: [7u8; 32], feed_id: FEEDS[3], feed_index: 3, minutes: 30, stake: 2_500, xp_base: 70, xp_awarded: 81, sealed_ts: 1_800_000_000, expiry_ts: 1_800_001_800, settled_ts: 1_800_001_805, entry_e12: 123_456_789_012_345, exit_e12: 123_456_789_999_999, exit_publish_time: 1_800_001_803, p_bps: 6500, side: 1, hit: 1, state: 3, void_reason: 0 };
+        let ledger = PlayerLedger { player: wallet, credits: 9_350, xp: 24, streak: 0, best: 1, hits: 1, shots: 2, voids: 1, forfeits: 0, sealed: 3, open: 1, day: 20_833, daily_xp: 24, burned: 700_000, reloaded: 1_000_000, bump: 254 };
+        let podium = Podium { day: 20_833, seats: [Seat { player: wallet, daily_xp: 24 }, Seat { player: Pubkey::new_from_array([9u8; 32]), daily_xp: 7 }, Seat::default()] };
+        let clock = FeedClock { feed_id: FEEDS[3], latest_publish_time: 1_800_001_803, head: 2, bump: 253, observations: vec![
+            Observation { prev_publish_time: 1_800_001_700, publish_time: 1_800_001_700, price_e12: 123_456_789_012_345, posted_slot: 300_000_000 },
+            Observation { prev_publish_time: 1_800_001_700, publish_time: 1_800_001_803, price_e12: 123_456_789_999_999, posted_slot: 300_000_250 },
+        ] };
+        let grant = DelegateGrant { player: wallet, delegate: Pubkey::new_from_array([9u8; 32]), allowance: 10_000, max_stake: 500, used: 1_000, shots: 2, expiry_ts: 1_800_000_000, bump: 252 };
+        let mut samples: Vec<(&str, Vec<u8>)> = Vec::new();
+        let mut b = Vec::new(); shot.try_serialize(&mut b).unwrap(); samples.push(("Shot", b));
+        let mut b = Vec::new(); ledger.try_serialize(&mut b).unwrap(); samples.push(("PlayerLedger", b));
+        let mut b = Vec::new(); podium.try_serialize(&mut b).unwrap(); samples.push(("Podium", b));
+        let mut b = Vec::new(); clock.try_serialize(&mut b).unwrap(); samples.push(("FeedClock", b));
+        let mut b = Vec::new(); grant.try_serialize(&mut b).unwrap(); samples.push(("DelegateGrant", b));
+        out.push_str("},\n\"samples\":{");
+        for (i, (name, data)) in samples.iter().enumerate() {
+            out.push_str(&format!("{}\"{}\":\"{}\"", if i > 0 { "," } else { "" }, name, hx(data)));
+        }
         out.push_str(&format!(
-            "],\n\"commit\":{{\"wallet\":\"{}\",\"nonce\":42,\"side\":\"YES\",\"pBps\":6500,\"salt\":\"{}\",\"preimage\":\"RATCHET|v3|{}|42|YES|6500|{}\",\"sha256\":\"{}\"}}\n}}\n",
+            "}},\n\"pdas\":{{\"wallet\":\"{}\",\"delegate\":\"{}\",\"ledger\":\"{}\",\"shot42\":\"{}\",\"clock3\":\"{}\",\"podium\":\"{}\",\"grant\":\"{}\",\"claim\":\"{}\"",
+            wallet, Pubkey::new_from_array([9u8; 32]), ledger_pda, shot_pda, clock_pda, podium_pda, grant_pda, claim_pda
+        ));
+        out.push_str(&format!(
+            "}},\n\"commit\":{{\"wallet\":\"{}\",\"nonce\":42,\"side\":\"YES\",\"pBps\":6500,\"salt\":\"{}\",\"preimage\":\"RATCHET|v3|{}|42|YES|6500|{}\",\"sha256\":\"{}\"}}\n}}\n",
             wallet, salt, wallet, salt, hex
         ));
         print!("GOLDEN_VECTORS_BEGIN\n{}GOLDEN_VECTORS_END\n", out);
