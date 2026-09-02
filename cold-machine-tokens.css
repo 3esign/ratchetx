@@ -19,7 +19,7 @@
   --ink:var(--chrome);--ink2:var(--silver);--dim:#59626f;
   --gold:#f5b83d;--goldD:#8a6516;      /* $RCX · burn · reward only */
   --ice:var(--poison-ink);              /* sealed / on-chain / links */
-  --grn:var(--poison);--red:#ff5a5a;
+  --grn:var(--poison);--green:var(--poison);--red:#ff5a5a;
   --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --sans:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
 }

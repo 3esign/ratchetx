@@ -22,6 +22,18 @@
       <h1>Your wallet.<br><span>Your limits.</span></h1>
       <p class="lead">Manage your agent’s permission from <strong>any device with the same owner wallet</strong>, or approve a new bounded session using existing Ratchet play-credits. Your private credential stays in your own protected secret store.</p>
 
+      <section class="card" id="bankrSetup" aria-labelledby="bankrSetupTitle" style="border-color:rgba(163,221,92,.35);background:linear-gradient(115deg,rgba(163,221,92,.08),rgba(16,21,18,.9) 60%)">
+        <h2 id="bankrSetupTitle">BANKR ON X · THREE MOVES, IN THIS ORDER</h2>
+        <ol style="margin:0;padding-left:22px">
+          <li><strong>Install the skill in your Bankr account — once per X account.</strong> Reply to <strong>@bankrbot</strong> on X with:
+            <div class="row" style="margin-top:8px"><code id="installCmd" style="flex:1;min-width:0;display:block;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:#070908;font:600 12px/1.5 var(--mono);color:var(--ink);overflow-wrap:anywhere">Install the ratchetx skill from https://github.com/3esign/ratchetx/tree/main/skills/ratchetx</code><button type="button" onclick="navigator.clipboard.writeText(document.getElementById('installCmd').textContent).then(function(){this.textContent='COPIED'}.bind(this))">COPY</button></div>
+            <span class="note" style="display:block;margin-top:7px">Already installed once? Say <code>Update the ratchetx skill from …</code> instead. Until it is installed, Bankr answers “I don’t recognize the ratchetx command” — that is Bankr’s own router, not the game.</span></li>
+          <li><strong>Approve a bounded session here</strong> — steps 01 to 03 below. It ends with a private play credential shown once.</li>
+          <li><strong>Save that credential on bankr.bot</strong> → your agent → <strong>Settings → Env Vars</strong> → name it <code>RATCHET_PLAY_SESSION</code>, restricted to ratchetx.xyz. Paste it only there — never in a post or chat. Then on X: <code>@bankrbot ratchetx help</code>.</li>
+        </ol>
+        <p class="note" style="margin:14px 0 0">One session belongs to one wallet and one Bankr account. A second X account needs its own install, its own session and its own secret.</p>
+      </section>
+
       <section class="card" aria-labelledby="readyTitle">
         <div class="row between"><h2 id="readyTitle">01 · CHECK & CONNECT</h2><button id="checkApi" type="button">CHECK AVAILABILITY</button></div>
         <p>This check is public and unsigned. It also runs automatically after you connect a wallet. It does not create a session or play.</p>
