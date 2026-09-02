@@ -1,3 +1,28 @@
+> **RETIRED 2026-09-02. Do not apply this patch.** Kept because the engineering
+> is sound and the measurements are worth having, not because it is a candidate
+> any more.
+>
+> The pull path needs a signed `PriceUpdateV2` to post, and a signed update comes
+> from Hermes, and **Hermes has required an API key on every host since the
+> 2026-08-26 Pyth Core upgrade** — measured server-side on both hosts, for SOL
+> exactly as for TSLA (commit `04ae938`). The decision on 2026-09-02 is that
+> RatchetX buys no credentials: a key is exactly the dependency the frozen core
+> exists not to have. So the rail this patch rides is closed, and closed by a
+> rule rather than by an outage.
+>
+> The free alternative was measured the same day and does not clear the bar
+> either: tokenized xStocks are filed under `Crypto.*` at sponsored push accounts
+> the program can already read (commit `86da685`, `docs/STOCKS_ONCHAIN_TOKENIZED.md`),
+> but they publish on an **~870-second batch cadence** against a 60-second seal
+> bound — about **7%** of stock seals would land. A feature that refuses six
+> times out of seven is not a feature.
+>
+> **So stocks are held, not cancelled.** Both findings stay on record. If any
+> publisher speeds up, adopting them is one line in the feed table — not this
+> patch. Note also what this patch was really routing around: an absence we had
+> placed in the wrong asset class. It was built to get equities onto a rail that
+> turned out to be gated for *crypto* too.
+
 # Equity pull — a proven pre-freeze candidate (not built into the frozen core yet)
 
 Stocks on the same trustless rails as SOL, via the Pyth **pull** path from
