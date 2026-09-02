@@ -18,9 +18,14 @@
 
    THE SYSTEM
    ----------------------------------------------------------------------------
-   --head  Instrument Serif. Unchanged, deliberately: it is the mark. A logo
-           that changes face is a different logo, and the one thing that should
-           survive a typography pass is the thing people recognise.
+   --head  IBM Plex Serif, replacing Instrument Serif. Instrument Serif is a
+           display face: one weight, high contrast, narrow. At 18px in a dark
+           header, and at 13.5px on a card, it stopped being read and started
+           being looked at -- the hairlines disappear against #0e1116 and the
+           counters close up. Plex Serif is the same skeleton as the sans and
+           the mono already in use, so the mark still reads as this product,
+           it ships 400/500/600 so a heading can actually be a heading, and it
+           was drawn to be read at text sizes rather than at poster sizes.
 
    --sans  IBM Plex Sans, replacing Instrument Sans.
    --mono  IBM Plex Mono, replacing JetBrains Mono.
@@ -39,7 +44,7 @@
    layout under the reader's eye. That is worth the fractionally wider prose.
    ========================================================================== */
 :root{
-  --head:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --head:"IBM Plex Serif",Georgia,"Times New Roman",serif;
   --disp:"IBM Plex Sans","Segoe UI",ui-sans-serif,system-ui,sans-serif;
   --sans:"IBM Plex Sans","Segoe UI",ui-sans-serif,system-ui,-apple-system,sans-serif;
   --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
@@ -51,15 +56,14 @@ body{
   -webkit-font-smoothing:antialiased;
   -moz-osx-font-smoothing:grayscale;
 }
-/* Instrument Serif ships one weight. Asking for 700 gets a synthesised bold --
-   smeared, heavier than drawn, and visibly not the same face as the real thing
-   on the pages that were already correct. Pin it to what exists. */
-h1,.logo,[class*="logo"]{font-weight:400}
+/* Plex Serif ships real weights, so nothing here is synthesised. 500 is the
+   mark and the headings: present without shouting. */
+h1,.logo,[class*="logo"]{font-weight:500}
 
 /* The mark, identical on all six pages. It was six pages and two logos. */
 .logo{
   display:inline-flex;align-items:center;gap:9px;
-  font:400 18px/1 var(--head);letter-spacing:.02em;
+  font:500 19.5px/1 var(--head);letter-spacing:.005em;
   color:var(--chrome,#d3dcea);text-decoration:none;
 }
 .logo .cog{width:22px;height:22px;flex:none}

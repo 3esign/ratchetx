@@ -54,7 +54,13 @@ body::before{
 .hudbottom{border-top-color:var(--edge)}
 /* ---- type: serif headline, machined labels, mono numbers ---- */
 /* Instrument Serif ships regular + italic only: never let it synthesize bold */
-h1,.meinfo b,.wline .q,.tgt .tq,.bankr-entry strong{font-family:var(--head);font-weight:400}
+h1,.meinfo b,.wline .q,.bankr-entry strong{font-family:var(--head);font-weight:500}
+/* The question on a target card is the single line every player reads before
+   they stake, often on a phone, in a dark room, at speed. It was set in the
+   display serif at 13.5px, which is the one place elegance costs comprehension.
+   It goes back to the sans -- the same face as the rest of the card -- one step
+   larger and one step heavier, with room for two lines. */
+.tgt .tq{font:600 14.5px/1.4 var(--sans);letter-spacing:-.004em;min-height:41px}
 h1{letter-spacing:-.01em;font-size:clamp(30px,4.8vw,44px);line-height:1.05}
 .tgt .tq{font-size:16px;line-height:1.3}
 .wline .q{font-size:20px}

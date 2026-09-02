@@ -5,7 +5,7 @@
 <meta name="description" content="Oracle-settled micro prediction markets with no house: call market moves with public commit-reveal records settled on on-chain Pyth samples. No game treasury or custody: 70% of every settled stake feeds the machine and 30% funds player pots. $RCX reloads burn 70% and route 30% peer-to-peer. The legacy settlement program is disclosed on mainnet; live scoring remains server-side.">
 <meta name="keywords" content="Solana, pump.fun, PumpSwap, Pyth, prediction market, on-chain game, Token-2022, Anchor, RCX, commit-reveal, Solana gaming">
 <link rel="canonical" href="https://ratchetx.xyz">
-<meta name="theme-color" content="#06070a"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
+<meta name="theme-color" content="#06070a"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Serif:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600;700&display=swap">
 <link rel="manifest" href="/manifest.json">
 <link rel="icon" type="image/png" sizes="192x192" href="/icon-192.png">
 <link rel="apple-touch-icon" href="/icon-192.png">
@@ -252,6 +252,12 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .panel h3{font:700 9.5px/1 var(--mono);letter-spacing:.2em;color:var(--dim);margin-bottom:12px;display:flex;justify-content:space-between}
 .chambers{display:flex;flex-direction:column;gap:9px;max-height:min(40vh,420px);
   overflow-y:auto;overscroll-behavior:contain}
+/* A scrolling flex column still SHRINKS its children. Every chamber was being
+   squeezed under its own content height and then clipped by .cham{overflow:hidden}:
+   measured 30.2px given where 43px was needed, 36.7px where 58px was needed. The
+   rail already carried this guard (.railInner>.panel{flex:none}); the two lists
+   inside it did not. Rows size to their text, and the box scrolls instead. */
+.chambers>*,.kill>*{flex:0 0 auto}
 .chambers::-webkit-scrollbar,.kill::-webkit-scrollbar{width:6px}
 .chambers::-webkit-scrollbar-thumb{background:var(--line);border-radius:3px}
 .cham{border:1px solid rgba(125,211,252,.22);background:rgba(125,211,252,.04);border-radius:10px;padding:8px 11px;animation:in .35s ease}
