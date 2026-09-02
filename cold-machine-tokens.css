@@ -36,3 +36,8 @@ h1{font-family:var(--head);font-weight:400;letter-spacing:-.01em}   /* h2 on the
 a{color:var(--poison-ink)}
 :focus-visible{outline:2px solid var(--poison);outline-offset:3px}
 button,input,select,textarea{font-family:inherit}
+
+/* unified logo lockup — cog + serif wordmark, identical to index/observatory */
+.logo{display:inline-flex;align-items:center;gap:9px;font:400 18px/1 var(--head);letter-spacing:.02em;color:var(--chrome);text-decoration:none}
+.logo .cog{width:22px;height:22px;flex:none}
+.logo:hover{color:var(--poison-ink)}

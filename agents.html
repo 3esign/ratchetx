@@ -11,23 +11,23 @@
   <meta property="og:url" content="https://ratchetx.xyz/agents">
   <meta name="theme-color" content="#090b0a">
   <style>
-    :root{--bg:#090b0a;--card:#101512;--card2:#151c17;--line:#2b352e;--ink:#f0f4ed;--ink2:#bac5bb;--dim:#7f8e82;--gold:#bfa163;--ice:#8bd7ff;--green:#79f2a6;--red:#ff7272;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+    :root{--bg:#090b0a;--card:#101512;--card2:#151c17;--line:#2b352e;--ink:#f0f4ed;--ink2:#bac5bb;--dim:#7f8e82;--gold:#bfa163;--ice:#a9c7b1;--green:#5f8f72;--red:#c76a61;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
     *{box-sizing:border-box}
-    body{margin:0;background:radial-gradient(circle at 82% 0,rgba(121,242,166,.08),transparent 28%),radial-gradient(circle at 5% 30%,rgba(191,161,99,.07),transparent 24%),var(--bg);color:var(--ink);font-family:var(--sans)}
+    body{margin:0;background:radial-gradient(circle at 82% 0,rgba(95,143,114,.08),transparent 28%),radial-gradient(circle at 5% 30%,rgba(191,161,99,.07),transparent 24%),var(--bg);color:var(--ink);font-family:var(--sans)}
     a{color:inherit}
     .wrap{width:min(1080px,calc(100% - 32px));margin:auto}
     header{display:flex;align-items:center;justify-content:space-between;padding:24px 0;border-bottom:1px solid var(--line)}
     .brand{font:900 15px var(--mono);letter-spacing:.16em;text-decoration:none}.brand b{color:var(--gold)}
     .back{font:700 11px var(--mono);letter-spacing:.08em;color:var(--dim);text-decoration:none}
     main{padding:76px 0 64px}
-    .eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 11px;border:1px solid rgba(121,242,166,.35);border-radius:99px;color:var(--green);font:800 10px var(--mono);letter-spacing:.13em}
+    .eyebrow{display:inline-flex;gap:8px;align-items:center;padding:7px 11px;border:1px solid rgba(95,143,114,.35);border-radius:99px;color:var(--green);font:800 10px var(--mono);letter-spacing:.13em}
     .dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 16px var(--green)}
     h1{font-size:clamp(44px,8vw,88px);line-height:.94;letter-spacing:-.055em;margin:24px 0 22px;max-width:900px}
     .lead{max-width:760px;color:var(--ink2);font-size:clamp(17px,2vw,22px);line-height:1.55;margin:0 0 34px}
     .lead strong{color:var(--ink)}
-    .gauntlet{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 14px;padding:16px 19px;border:1px solid rgba(191,161,99,.42);border-radius:16px;background:linear-gradient(120deg,rgba(191,161,99,.1),rgba(121,242,166,.04));text-decoration:none}
+    .gauntlet{display:flex;align-items:center;justify-content:space-between;gap:18px;margin:0 0 14px;padding:16px 19px;border:1px solid rgba(191,161,99,.42);border-radius:16px;background:linear-gradient(120deg,rgba(191,161,99,.1),rgba(95,143,114,.04));text-decoration:none}
     .gauntlet span{font:900 10px var(--mono);letter-spacing:.12em;color:var(--gold)}.gauntlet strong{display:block;margin-top:5px;color:var(--ink);font:800 14px var(--sans);letter-spacing:0}.gauntlet b{font:900 11px var(--mono);color:var(--green);white-space:nowrap}
-    .endpoint{background:linear-gradient(135deg,rgba(139,215,255,.08),rgba(121,242,166,.04));border:1px solid rgba(139,215,255,.35);border-radius:18px;padding:20px;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
+    .endpoint{background:linear-gradient(135deg,rgba(169,199,177,.08),rgba(95,143,114,.04));border:1px solid rgba(169,199,177,.35);border-radius:18px;padding:20px;display:grid;grid-template-columns:1fr auto;gap:14px;align-items:center}
     .label{font:800 9px var(--mono);letter-spacing:.15em;color:var(--dim);margin-bottom:8px}
     code{font:700 clamp(13px,2vw,18px) var(--mono);color:var(--ice);word-break:break-all}
     .actions{display:flex;gap:9px;flex-wrap:wrap}
@@ -35,7 +35,7 @@
     button.primary{background:var(--green);border-color:var(--green);color:#07130b}
     button:hover,.button:hover{transform:translateY(-1px);border-color:var(--ice)}
     #testOut{display:none;margin:12px 0 0;border:1px solid var(--line);border-radius:12px;background:#070908;padding:15px;white-space:pre-wrap;overflow-wrap:anywhere;color:var(--ink2);font:600 11px/1.65 var(--mono)}
-    .profile{margin-top:28px;padding:24px;border:1px solid rgba(121,242,166,.32);border-radius:18px;background:linear-gradient(145deg,rgba(121,242,166,.055),rgba(139,215,255,.025))}
+    .profile{margin-top:28px;padding:24px;border:1px solid rgba(95,143,114,.32);border-radius:18px;background:linear-gradient(145deg,rgba(95,143,114,.055),rgba(169,199,177,.025))}
     .profileHead{display:flex;justify-content:space-between;gap:20px;align-items:flex-end}.profileHead h2{margin:0;color:var(--green);font:900 12px var(--mono);letter-spacing:.13em}.profileHead p{margin:7px 0 0;color:var(--ink2);font-size:14px;line-height:1.55}
     .profileForm{display:flex;gap:9px;margin-top:18px}.profileForm input{min-width:0;flex:1;border:1px solid var(--line);border-radius:10px;padding:12px 14px;background:#070908;color:var(--ink);font:700 12px var(--mono);outline:none}.profileForm input:focus{border-color:var(--ice)}
     .sample{margin-top:10px;color:var(--dim);font:700 10px var(--mono)}.sample button{padding:0;border:0;background:transparent;color:var(--ice);letter-spacing:0}
@@ -60,7 +60,7 @@
 <body>
   <div class="wrap">
     <header>
-      <a class="brand" href="/"><b>RATCHET</b>X</a>
+      <a class="logo" href="/"><svg class="cog" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12.5" stroke="#5f8f72" stroke-width="1.4"/><circle cx="16" cy="16" r="7.5" stroke="#5f8f72" stroke-opacity=".45"/><path d="M16 1.5v4M16 26.5v4M1.5 16h4M26.5 16h4M5.7 5.7l2.8 2.8M23.5 23.5l2.8 2.8M26.3 5.7l-2.8 2.8M8.5 23.5l-2.8 2.8" stroke="#5f8f72" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="16" r="2.2" fill="#5f8f72"/><path d="M18.2 10.3l3.7 2.2-3.7 2.2" stroke="#5f8f72" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>RatchetX</span></a>
       <a class="back" href="/">← BACK TO THE MACHINE</a>
     </header>
     <main>
@@ -221,7 +221,7 @@
         const forecast=(Number(bin.forecastRange[0])+Number(bin.forecastRange[1]))/2;
         const observed=Number(bin.observedRate);
         if(!Number.isFinite(forecast)||!Number.isFinite(observed))return;
-        const group=svgNode('g',{}),circle=svgNode('circle',{cx:left+forecast*width,cy:bottom-observed*height,r:Math.min(15,6+Math.sqrt(Number(bin.count)||1)*2),fill:'#79f2a6',stroke:'#07130b','stroke-width':3});
+        const group=svgNode('g',{}),circle=svgNode('circle',{cx:left+forecast*width,cy:bottom-observed*height,r:Math.min(15,6+Math.sqrt(Number(bin.count)||1)*2),fill:'#5f8f72',stroke:'#07130b','stroke-width':3});
         circle.append(svgNode('title',{},Math.round(forecast*100)+'% forecast · '+Math.round(observed*100)+'% observed · n='+bin.count));
         group.append(circle);svg.append(group);
       });
