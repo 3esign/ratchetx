@@ -12,16 +12,13 @@
   --chrome:#d3dcea;--silver:#98a3b4;--edge:rgba(210,220,236,.06);--bevel:rgba(0,0,0,.55);
   --poison:#5f8f72;--poison-ink:#a9c7b1;--poison-glow:rgba(95,143,114,.16);--poison-haze:rgba(95,143,114,.06);
   --ease:cubic-bezier(.4,0,.2,1);
-  --head:"Instrument Serif",Georgia,"Times New Roman",serif;
-  --disp:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;
+  /* type lives in type.css now — one file, loaded last, so it cannot drift */
   /* the page's own names, remapped */
   --bg:var(--void);--card:var(--graphite);--card2:var(--steel);--line:var(--edge);
   --ink:var(--chrome);--ink2:var(--silver);--dim:#59626f;
   --gold:#bfa163;--goldD:#6b5426;      /* $RCX · burn · reward only */
   --ice:var(--poison-ink);              /* sealed / on-chain / links */
   --grn:var(--poison);--green:var(--poison);--red:#c76a61;
-  --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 body{
   background:var(--void);color:var(--chrome);
@@ -38,6 +35,4 @@ a{color:var(--poison-ink)}
 button,input,select,textarea{font-family:inherit}
 
 /* unified logo lockup — cog + serif wordmark, identical to index/observatory */
-.logo{display:inline-flex;align-items:center;gap:9px;font:400 18px/1 var(--head);letter-spacing:.02em;color:var(--chrome);text-decoration:none}
-.logo .cog{width:22px;height:22px;flex:none}
 .logo:hover{color:var(--poison-ink)}

@@ -1,0 +1,68 @@
+/* ============================================================================
+   RATCHETX — TYPE. One source of truth, loaded LAST on every page.
+   ----------------------------------------------------------------------------
+   Why this file exists. index.html and observatory.html were downloading three
+   custom faces and then rendering in system fonts: their :root set
+   --sans/--mono to system stacks, and never defined --head or --disp at all, so
+   every `font-family:var(--disp)` in the skin resolved to nothing and was
+   dropped. The four other pages loaded cold-machine-tokens.css and got the real
+   faces. Same site, two typographies, and the home page had the wrong one --
+   right down to the logo, which was Instrument Serif everywhere except the page
+   most people land on, where it was bold tracked-out Georgia.
+
+   The cure is not another set of tokens. It is ONE set, defined in one file,
+   loaded after everything else so no page can quietly disagree. Any page that
+   wants different type now has to say so on purpose, in a rule that outranks
+   this one, which is exactly the kind of decision that should be hard to make
+   by accident.
+
+   THE SYSTEM
+   ----------------------------------------------------------------------------
+   --head  Instrument Serif. Unchanged, deliberately: it is the mark. A logo
+           that changes face is a different logo, and the one thing that should
+           survive a typography pass is the thing people recognise.
+
+   --sans  IBM Plex Sans, replacing Instrument Sans.
+   --mono  IBM Plex Mono, replacing JetBrains Mono.
+
+   Those two are one decision, not two. Plex Sans and Plex Mono are drawn on the
+   same skeleton, so the interface and the data finally agree with each other --
+   the previous pairing was two unrelated designers' idea of a grotesque sitting
+   next to each other in the same table. Plex was also drawn as the typeface of
+   an engineering company, which is the voice this product wants: instrument,
+   not fashion.
+
+   The functional argument is the stronger one. This page is mostly numbers --
+   prices that repaint every six seconds, XP, Brier scores, countdowns, basis
+   points. Plex has properly drawn tabular figures in both the sans and the
+   mono. Set them below and a price going 99.27 -> 99.31 stops shifting the
+   layout under the reader's eye. That is worth the fractionally wider prose.
+   ========================================================================== */
+:root{
+  --head:"Instrument Serif",Georgia,"Times New Roman",serif;
+  --disp:"IBM Plex Sans","Segoe UI",ui-sans-serif,system-ui,sans-serif;
+  --sans:"IBM Plex Sans","Segoe UI",ui-sans-serif,system-ui,-apple-system,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
+}
+body{
+  font-family:var(--sans);
+  /* Digits that do not jitter. The whole board is live numbers. */
+  font-variant-numeric:tabular-nums;
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+}
+/* Instrument Serif ships one weight. Asking for 700 gets a synthesised bold --
+   smeared, heavier than drawn, and visibly not the same face as the real thing
+   on the pages that were already correct. Pin it to what exists. */
+h1,.logo,[class*="logo"]{font-weight:400}
+
+/* The mark, identical on all six pages. It was six pages and two logos. */
+.logo{
+  display:inline-flex;align-items:center;gap:9px;
+  font:400 18px/1 var(--head);letter-spacing:.02em;
+  color:var(--chrome,#d3dcea);text-decoration:none;
+}
+.logo .cog{width:22px;height:22px;flex:none}
+
+/* Tables of figures line up in both faces, not only in the mono one. */
+table,td,th,input,select,textarea,button{font-variant-numeric:tabular-nums}
