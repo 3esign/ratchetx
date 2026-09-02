@@ -1,0 +1,306 @@
+--- a/onchain/ratchet-core/programs/ratchet-core/src/lib.rs	2026-09-02 04:17:59.875894580 +0000
++++ b/onchain/ratchet-core/programs/ratchet-core/src/lib.rs	2026-09-02 10:25:32.506402043 +0000
+@@ -80,16 +80,32 @@
+ ];
+ 
+ /// The referee table: Pyth feed ids, compiled in. Index = feed_index.
+-pub const FEEDS: [[u8; 32]; 7] = [
+-    hex32(b"ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"), // SOL
+-    hex32(b"e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43"), // BTC
+-    hex32(b"ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"), // ETH
+-    hex32(b"72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419"), // BONK
+-    hex32(b"4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc"), // WIF
+-    hex32(b"0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996"), // JUP
+-    hex32(b"7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9"), // PUMP
++/// Indices 0..PULL_FROM_INDEX are sponsored crypto PUSH feeds — the program
++/// reads their permanent shard-0 account directly. Indices >= PULL_FROM_INDEX
++/// are equity PULL feeds (Equity.Index.*): no sponsored push exists on Solana,
++/// so a crank posts a fully verified PriceUpdateV2 in the same transaction and
++/// the program reads that posted account. Everything downstream — the clock
++/// ring, the crossing rule, settle, reveal, XP, payout — is identical for both;
++/// only how the price enters differs. See docs/STOCKS_FEEDS.md.
++pub const FEEDS: [[u8; 32]; 12] = [
++    hex32(b"ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"), // 0 SOL
++    hex32(b"e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43"), // 1 BTC
++    hex32(b"ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"), // 2 ETH
++    hex32(b"72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419"), // 3 BONK
++    hex32(b"4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc"), // 4 WIF
++    hex32(b"0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996"), // 5 JUP
++    hex32(b"7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9"), // 6 PUMP
++    hex32(b"e6da44bff5b8b06897a3739dd331b440d6662595bb862e37046892c568ae3fc0"), // 7 TSLA (Equity.Index, pull)
++    hex32(b"a470c4ac46f44b547b2cba52338f311fb642b79375ce5f0cfd5cb5b99227b852"), // 8 NVDA (pull)
++    hex32(b"52c7c6b70032b7151c8d0febf684f14318e1e13315976e171267639955400bb9"), // 9 PLTR (pull)
++    hex32(b"49387483ff50427bf0ff5928082b0cf16331421067c59f4c582a07aa117db1ac"), // 10 COIN (pull)
++    hex32(b"4a4f96283d157d08b7b8aa596363f7978587d4fa59a77dcb90f84af7d870a630"), // 11 HOOD (pull)
+ ];
+ 
++/// Feeds at or after this index are PULL feeds (equities); before it, PUSH.
++pub const PULL_FROM_INDEX: usize = 7;
++pub fn feed_is_pull(index: u8) -> bool { (index as usize) >= PULL_FROM_INDEX }
++
+ const fn hex_nibble(c: u8) -> u8 {
+     match c {
+         b'0'..=b'9' => c - b'0',
+@@ -273,7 +289,7 @@
+     /// into the feed clock. Duplicate or older observations are no-ops.
+     pub fn checkpoint(ctx: Context<Checkpoint>, feed_index: u8) -> Result<()> {
+         let feed_id = feed_id_at(feed_index)?;
+-        let pu = load_push_price_update(&ctx.accounts.price_update, &feed_id)?;
++        let pu = load_price_update(&ctx.accounts.price_update, &feed_id, feed_is_pull(feed_index))?;
+         let msg = &pu.price_message;
+         require!(msg.feed_id == feed_id, CoreError::BadFeed);
+         require!(msg.prev_publish_time < msg.publish_time, CoreError::NotFirstUpdate);
+@@ -514,7 +530,7 @@
+     require!(ledger.credits >= stake, CoreError::InsufficientCredits);
+     require!(u32::from(ledger.open) < chambers_for(ledger.xp), CoreError::ChambersFull);
+ 
+-    let pu = load_push_price_update(price_update, &feed_id)?;
++    let pu = load_price_update(price_update, &feed_id, feed_is_pull(feed_index))?;
+     let price = pu
+         .get_price_no_older_than(&clock, max_seal_age(minutes), &feed_id)
+         .map_err(|_| error!(CoreError::InvalidSealPrice))?;
+@@ -699,16 +715,35 @@
+     Ok(())
+ }
+ 
+-/// Deserialize only the official upgraded shard-0 sponsored Pyth push feed.
+-fn load_push_price_update(ai: &AccountInfo, feed_id: &[u8; 32]) -> Result<PriceUpdateV2> {
++/// Deserialize a fully verified Pyth `PriceUpdateV2`.
++///
++/// PUSH feed (crypto): only the official upgraded shard-0 sponsored account —
++/// its address and write authority are the derived PDA. Checks run in the same
++/// order as before this function grew a pull path, so push behaviour is byte
++/// identical: owner, address == PDA, deserialize, write_authority == PDA, Full.
++///
++/// PULL feed (equity): the crank posts a `PriceUpdateV2` in this transaction.
++/// It is receiver-owned and fully verified but is NOT the sponsored PDA and its
++/// write authority is the poster, so the sponsored-PDA constraints do not apply.
++/// Trust rests on owner == receiver + Full verification + a matching feed id —
++/// exactly what the Pyth pull receiver guarantees for a posted update.
++fn load_price_update(ai: &AccountInfo, feed_id: &[u8; 32], pull: bool) -> Result<PriceUpdateV2> {
+     require!(*ai.owner == PYTH_RECEIVER_ID, CoreError::BadPriceAccount);
+-    let shard_id = 0u16.to_le_bytes();
+-    let (expected_feed, _) = Pubkey::find_program_address(&[shard_id.as_ref(), feed_id.as_ref()], &PYTH_PUSH_ORACLE_ID);
+-    require!(ai.key() == expected_feed, CoreError::BadPriceAccount);
++    let expected_feed = if pull {
++        None
++    } else {
++        let shard_id = 0u16.to_le_bytes();
++        let (e, _) = Pubkey::find_program_address(&[shard_id.as_ref(), feed_id.as_ref()], &PYTH_PUSH_ORACLE_ID);
++        require!(ai.key() == e, CoreError::BadPriceAccount);
++        Some(e)
++    };
+     let data = ai.try_borrow_data()?;
+     let mut slice: &[u8] = &data;
+     let update = PriceUpdateV2::try_deserialize(&mut slice).map_err(|_| error!(CoreError::BadPriceAccount))?;
+-    require!(update.write_authority == expected_feed, CoreError::BadPriceAccount);
++    match expected_feed {
++        Some(e) => require!(update.write_authority == e, CoreError::BadPriceAccount),
++        None => require!(update.price_message.feed_id == *feed_id, CoreError::BadFeed),
++    }
+     require!(update.verification_level.gte(VerificationLevel::Full), CoreError::PartialVerification);
+     Ok(update)
+ }
+@@ -1315,8 +1350,15 @@
+ 
+     #[test]
+     fn feed_table_is_the_live_referee_table() {
++        assert_eq!(FEEDS.len(), 12);
+         assert_eq!(FEEDS[0][0], 0xef);
+         assert_eq!(FEEDS[6][31], 0xb9);
++        // equities appended as pull feeds; the crypto push feeds keep their indices
++        assert_eq!(FEEDS[7][0], 0xe6);   // TSLA, first pull feed
++        assert_eq!(FEEDS[11][31], 0x30); // HOOD, last pull feed
++        assert!(!feed_is_pull(6));       // PUMP is the last push feed
++        assert!(feed_is_pull(7));        // TSLA is the first pull feed
++        assert!(feed_is_pull(11));
+         let shard_id = 0u16.to_le_bytes();
+         let (address, _) = Pubkey::find_program_address(&[shard_id.as_ref(), FEEDS[0].as_ref()], &PYTH_PUSH_ORACLE_ID);
+         assert_eq!(address, pubkey!("7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE"));
+@@ -1453,9 +1495,13 @@
+         }
+         out.push_str("],\n\"feeds\":[");
+         for (i, f) in FEEDS.iter().enumerate() {
+-            let (addr, _) = Pubkey::find_program_address(&[0u16.to_le_bytes().as_ref(), f.as_ref()], &PYTH_PUSH_ORACLE_ID);
+             let hex: String = f.iter().map(|b| format!("{:02x}", b)).collect();
+-            out.push_str(&format!("{}{{\"index\":{},\"feedId\":\"{}\",\"pushAccount\":\"{}\"}}", if i > 0 { "," } else { "" }, i, hex, addr));
++            if i >= PULL_FROM_INDEX {
++                out.push_str(&format!("{}{{\"index\":{},\"feedId\":\"{}\",\"pull\":true}}", if i > 0 { "," } else { "" }, i, hex));
++            } else {
++                let (addr, _) = Pubkey::find_program_address(&[0u16.to_le_bytes().as_ref(), f.as_ref()], &PYTH_PUSH_ORACLE_ID);
++                out.push_str(&format!("{}{{\"index\":{},\"feedId\":\"{}\",\"pushAccount\":\"{}\",\"pull\":false}}", if i > 0 { "," } else { "" }, i, hex, addr));
++            }
+         }
+         out.push_str("],\n\"sealXp\":[");
+         let mut first = true;
+--- a/onchain/ratchet-core/svm-tests/tests/core.rs	2026-09-02 02:00:15.321334582 +0000
++++ b/onchain/ratchet-core/svm-tests/tests/core.rs	2026-09-02 10:36:42.955698227 +0000
+@@ -44,16 +44,21 @@
+     out
+ }
+ fn feed(index: u8) -> [u8; 32] {
+-    const F: [&str; 7] = [
+-        "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+-        "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
+-        "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
+-        "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419",
+-        "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc",
+-        "0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996",
+-        "7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9",
++    const F: [&str; 12] = [
++        "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d", // 0 SOL
++        "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43", // 1 BTC
++        "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace", // 2 ETH
++        "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419", // 3 BONK
++        "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc", // 4 WIF
++        "0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996", // 5 JUP
++        "7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9", // 6 PUMP
++        "e6da44bff5b8b06897a3739dd331b440d6662595bb862e37046892c568ae3fc0", // 7 TSLA (pull)
++        "a470c4ac46f44b547b2cba52338f311fb642b79375ce5f0cfd5cb5b99227b852", // 8 NVDA (pull)
++        "52c7c6b70032b7151c8d0febf684f14318e1e13315976e171267639955400bb9", // 9 PLTR (pull)
++        "49387483ff50427bf0ff5928082b0cf16331421067c59f4c582a07aa117db1ac", // 10 COIN (pull)
++        "4a4f96283d157d08b7b8aa596363f7978587d4fa59a77dcb90f84af7d870a630", // 11 HOOD (pull)
+     ];
+-    hex32(F[(index as usize).min(6)]) // out-of-range indexes still need some account to pass; the program rejects them
++    hex32(F[(index as usize).min(11)]) // out-of-range indexes still need some account to pass; the program rejects them
+ }
+ fn disc(kind: &str, name: &str) -> [u8; 8] {
+     let h = Sha256::digest(format!("{kind}:{name}").as_bytes());
+@@ -152,6 +157,52 @@
+         data.extend_from_slice(&((publish_time as u64) * 2).to_le_bytes()); // posted_slot
+         self.svm.set_account(addr, Account { lamports: 10_000_000, data, owner: pyth_receiver(), executable: false, rent_epoch: 0 }).unwrap();
+     }
++    /// A PULL update the crank posts for an equity feed: receiver-owned and fully
++    /// verified with the correct feed id, but at an arbitrary address and with the
++    /// poster (not a PDA) as write authority — what `post_update` leaves behind.
++    fn pyth_pull(&mut self, feed_index: u8, price: i64, conf: u64, publish_time: i64, prev_publish_time: i64, addr: Pubkey, poster: Pubkey) {
++        let feed_id = feed(feed_index);
++        let mut data = Vec::new();
++        data.extend_from_slice(&disc("account", "PriceUpdateV2"));
++        data.extend_from_slice(poster.as_ref()); // write_authority = poster, not a PDA
++        data.push(1); // VerificationLevel::Full
++        data.extend_from_slice(&feed_id);
++        data.extend_from_slice(&price.to_le_bytes());
++        data.extend_from_slice(&conf.to_le_bytes());
++        data.extend_from_slice(&(-8i32).to_le_bytes());
++        data.extend_from_slice(&publish_time.to_le_bytes());
++        data.extend_from_slice(&prev_publish_time.to_le_bytes());
++        data.extend_from_slice(&price.to_le_bytes()); // ema
++        data.extend_from_slice(&conf.to_le_bytes());
++        data.extend_from_slice(&((publish_time as u64) * 2).to_le_bytes()); // posted_slot
++        self.svm.set_account(addr, Account { lamports: 10_000_000, data, owner: pyth_receiver(), executable: false, rent_epoch: 0 }).unwrap();
++    }
++    /// seal, reading a caller-supplied price account (a posted pull update).
++    fn seal_at(&mut self, player: &Keypair, nonce: u64, commit: [u8; 32], feed_index: u8, minutes: u16, stake: u64, price_acct: Pubkey) -> Result<(), String> {
++        let mut args = nonce.to_le_bytes().to_vec();
++        args.extend_from_slice(&commit);
++        args.push(feed_index);
++        args.extend_from_slice(&minutes.to_le_bytes());
++        args.extend_from_slice(&stake.to_le_bytes());
++        let ix = self.ix("seal", args, vec![
++            AccountMeta::new(shot_pda(&player.pubkey(), nonce), false),
++            AccountMeta::new(ledger_pda(&player.pubkey()), false),
++            AccountMeta::new(player.pubkey(), true),
++            AccountMeta::new_readonly(price_acct, false),
++            AccountMeta::new_readonly(system_program::id(), false),
++        ]);
++        self.send(ix, &[player])
++    }
++    /// checkpoint, reading a caller-supplied price account (a posted pull update).
++    fn checkpoint_at(&mut self, cranker: &Keypair, feed_index: u8, price_acct: Pubkey) -> Result<(), String> {
++        let ix = self.ix("checkpoint", vec![feed_index], vec![
++            AccountMeta::new(clock_pda(feed_index), false),
++            AccountMeta::new(cranker.pubkey(), true),
++            AccountMeta::new_readonly(price_acct, false),
++            AccountMeta::new_readonly(system_program::id(), false),
++        ]);
++        self.send(ix, &[cranker])
++    }
+     fn send(&mut self, ix: Instruction, signers: &[&Keypair]) -> Result<(), String> {
+         let payer = signers[0];
+         self.svm.expire_blockhash();
+@@ -393,7 +444,7 @@
+     // unsupported horizon, bad feed index, stake too small
+     w.pyth(0, 100_00000000, 1_000_000, w.now - 1, w.now - 2);
+     assert_err(w.seal(&p, 1, c, 0, 7, 500), "BadHorizon");
+-    assert_err(w.seal(&p, 1, c, 9, 5, 500), "BadFeed");
++    assert_err(w.seal(&p, 1, c, 12, 5, 500), "BadFeed");
+     assert_err(w.seal(&p, 1, c, 0, 5, 99), "InvalidStake");
+     assert_err(w.seal(&p, 1, c, 0, 5, 1001), "InsufficientCredits");
+     // good
+@@ -688,3 +739,75 @@
+     w.simple("void_shot", &cranker, &p.pubkey(), 1).unwrap();
+     assert_eq!(w.ledger(&p.pubkey()).credits, 1000);
+ }
++
++#[test]
++fn equity_pull_feed_seals_settles_and_hits() {
++    let mut w = World::new();
++    let p = w.player(1000);
++    w.reload(&p, 1000 * UNIT, &[]).unwrap();
++    let cranker = w.player(0);
++    let idx = 7u8; // TSLA, a pull feed
++    let poster = Pubkey::new_unique();
++    let t0 = w.now;
++    // entry: a fresh posted update the seal reads (not the sponsored PDA)
++    let seal_px = Pubkey::new_unique();
++    w.pyth_pull(idx, 412_00000000, 200_000, t0 - 1, t0 - 2, seal_px, poster);
++    let c = commit(&p.pubkey(), 1, "YES", 0, SALT);
++    w.seal_at(&p, 1, c, idx, 5, 500, seal_px).expect("seal on a pull feed");
++    assert_eq!(w.shot(&p.pubkey(), 1).unwrap().entry_e12, 412_000_000_000_000);
++    let expiry = t0 + 5 * 60;
++    // warm the clock with a posted print before expiry
++    let warm = Pubkey::new_unique();
++    w.pyth_pull(idx, 412_00000000, 200_000, t0 + 10, t0 + 8, warm, poster);
++    w.checkpoint_at(&cranker, idx, warm).expect("warm checkpoint");
++    // the first posted print at/after expiry, checkpointed = the crossing
++    w.advance(5 * 60 + 2);
++    let cross = Pubkey::new_unique();
++    w.pyth_pull(idx, 420_00000000, 200_000, expiry + 1, expiry - 1, cross, poster);
++    w.checkpoint_at(&cranker, idx, cross).expect("crossing checkpoint");
++    w.settle(&cranker, &p.pubkey(), 1, idx).expect("settle on a pull feed");
++    assert_eq!(w.shot(&p.pubkey(), 1).unwrap().exit_e12, 420_000_000_000_000);
++    w.reveal(&p, &p.pubkey(), 1, 1, 0, SALT).expect("reveal");
++    let l = w.ledger(&p.pubkey());
++    assert_eq!((l.credits, l.hits, l.open), (1350, 1, 0)); // 1000 - 500 stake + 850 payout
++    assert_eq!(w.shot(&p.pubkey(), 1).unwrap().hit, 1);
++}
++
++#[test]
++fn pull_guards_hold_and_push_stays_strict() {
++    let mut w = World::new();
++    let p = w.player(1000);
++    w.reload(&p, 1000 * UNIT, &[]).unwrap();
++    let cranker = w.player(0);
++    let poster = Pubkey::new_unique();
++    let c = commit(&p.pubkey(), 1, "YES", 0, SALT);
++    let idx = 7u8; // a pull feed (TSLA)
++
++    // 1. a pull update owned by a stranger program is refused
++    let a1 = Pubkey::new_unique();
++    w.pyth_pull(idx, 412_00000000, 200_000, w.now - 1, w.now - 2, a1, poster);
++    let mut acc = w.svm.get_account(&a1).unwrap();
++    acc.owner = spl_token::id();
++    w.svm.set_account(a1, acc).unwrap();
++    assert_err(w.seal_at(&p, 1, c, idx, 5, 500, a1), "BadPriceAccount");
++
++    // 2. a partially verified pull update is refused
++    let a2 = Pubkey::new_unique();
++    w.pyth_pull(idx, 412_00000000, 200_000, w.now - 1, w.now - 2, a2, poster);
++    let mut acc = w.svm.get_account(&a2).unwrap();
++    acc.data[40] = 0; // VerificationLevel::Partial
++    acc.data.insert(41, 1); // num_signatures
++    w.svm.set_account(a2, acc).unwrap();
++    assert_err(w.seal_at(&p, 1, c, idx, 5, 500, a2), "PartialVerification");
++
++    // 3. a pull update carrying NVDA's feed id is refused for a TSLA checkpoint
++    let a3 = Pubkey::new_unique();
++    w.pyth_pull(8, 100_00000000, 200_000, w.now - 1, w.now - 2, a3, poster); // NVDA data
++    assert_err(w.checkpoint_at(&cranker, idx, a3), "BadFeed");
++
++    // 4. a crypto PUSH feed still requires the sponsored PDA: an arbitrary
++    //    receiver-owned, fully verified account for SOL is refused
++    let a4 = Pubkey::new_unique();
++    w.pyth_pull(0, 100_00000000, 200_000, w.now - 1, w.now - 2, a4, poster);
++    assert_err(w.seal_at(&p, 1, c, 0, 5, 500, a4), "BadPriceAccount");
++}
