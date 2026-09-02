@@ -4,7 +4,7 @@
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>RatchetX Observatory — Solana price-feed behaviour, measured with money on the line</title>
 <meta name="description" content="A third-party, adversarial, continuous measurement of Pyth's sponsored push feeds on Solana — taken by a consumer that settles real bets on them. Every number carries its own limitation. Reproduce it from the raw samples.">
-<meta name="theme-color" content="#06070a"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Chakra+Petch:wght@500;600&family=Hanken+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<meta name="theme-color" content="#06070a"><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Instrument+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
 <meta name="robots" content="index,follow">
 <meta property="og:title" content="RatchetX Observatory — feed behaviour measured with money on the line">
 <meta property="og:description" content="Synthetic benchmarks use probe traffic a provider can recognise and route to better hardware. RatchetX measures Solana feeds with real bets that settle — measurement that cannot be gamed — and publishes it all, limits included.">
@@ -18,13 +18,13 @@
 :root{
   --bg:#07080a;--card:#0f1115;--card2:#161a21;--line:rgba(255,255,255,.07);
   --ink:#f3f5f8;--ink2:#8f98a5;--dim:#59616c;
-  --gold:#f5b83d;--goldD:#8a6516;--ice:#7dd3fc;--red:#ff5252;--grn:#3ddc84;--vio:#b48cff;
+  --gold:#bfa163;--goldD:#6b5426;--ice:#7dd3fc;--red:#ff5252;--grn:#3ddc84;--vio:#b48cff;
   --mono:ui-monospace,"SF Mono",Menlo,Consolas,monospace;
   --sans:system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 var(--sans);-webkit-font-smoothing:antialiased;overflow-x:hidden;
-  background-image:radial-gradient(1100px 560px at 50% -12%,rgba(245,184,61,.09),transparent 68%)}
+  background-image:radial-gradient(1100px 560px at 50% -12%,rgba(191,161,99,.09),transparent 68%)}
 a{color:var(--ice);text-decoration:none}a:hover{text-decoration:underline}
 .wrap{max-width:1100px;margin:0 auto;padding:0 20px}
 .hud{position:sticky;top:0;z-index:70;background:rgba(7,8,10,.92);backdrop-filter:blur(16px);border-bottom:1px solid var(--line)}
@@ -40,7 +40,7 @@ h1{font:800 clamp(28px,5vw,44px)/1.05 var(--sans);letter-spacing:-.02em;margin:1
 .lede{color:var(--ink2);font-size:clamp(15px,2.2vw,18px);max-width:64ch;margin:16px 0 0}
 .lede b{color:var(--ink)}
 .thesis{margin:22px 0 0;padding:16px 18px;border:1px solid var(--line);border-left:3px solid var(--gold);
-  border-radius:0 12px 12px 0;background:linear-gradient(100deg,rgba(245,184,61,.06),transparent 60%);color:var(--ink);max-width:70ch}
+  border-radius:0 12px 12px 0;background:linear-gradient(100deg,rgba(191,161,99,.06),transparent 60%);color:var(--ink);max-width:70ch}
 .thesis b{color:var(--gold)}
 .meta{display:flex;flex-wrap:wrap;gap:8px 18px;margin:22px 0 0;font:600 12px/1.4 var(--mono);color:var(--dim)}
 .meta b{color:var(--ink2);font-weight:700}
@@ -77,7 +77,7 @@ tbody tr:hover td{background:rgba(255,255,255,.02)}
 .na{color:var(--dim)}
 .pill{display:inline-block;font:700 10px/1 var(--mono);letter-spacing:.06em;padding:4px 8px;border-radius:20px;border:1px solid var(--line);color:var(--ink2)}
 .pill.good{color:var(--grn);border-color:rgba(61,220,132,.3)}
-.pill.warn{color:var(--gold);border-color:rgba(245,184,61,.3)}
+.pill.warn{color:var(--gold);border-color:rgba(191,161,99,.3)}
 .pill.bad{color:var(--red);border-color:rgba(255,82,82,.3)}
 .note{color:var(--dim);font-size:12px;margin-top:10px;line-height:1.5}
 .method{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:22px}

@@ -18,22 +18,22 @@
   --poison:#5f8f72;--poison-ink:#a9c7b1;--poison-deep:#2d4636;--poison-glow:rgba(95,143,114,.16);--poison-haze:rgba(95,143,114,.06);
   --ease:cubic-bezier(.4,0,.2,1);
   --head:"Instrument Serif",Georgia,"Times New Roman",serif;
-  --disp:"Chakra Petch",ui-sans-serif,system-ui,sans-serif;
+  --disp:"Instrument Sans",ui-sans-serif,system-ui,sans-serif;
   /* remap the site's own tokens onto the metal */
   --bg:var(--void);--card:var(--graphite);--card2:var(--steel);--line:var(--edge);
   --ink:var(--chrome);--ink2:var(--silver);--dim:#59626f;
-  --gold:#e6b24a;--goldD:#8a6516;            /* token moments only */
+  --gold:#bfa163;--goldD:#6b5426;            /* token moments only */
   --ice:var(--poison-ink);                    /* sealed / on-chain / links → the cold green */
-  --grn:var(--poison);--red:#df6a61;--vio:#948bbd;
+  --grn:var(--poison);--red:#c76a61;--vio:#948bbd;
   --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,Consolas,monospace;
-  --sans:"Hanken Grotesk",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --sans:"Instrument Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
 /* ---- ground: a dim lounge, not a black page ---- */
 body{
   background:var(--void);color:var(--chrome);
   background-image:
     radial-gradient(1200px 700px at 55% -10%,var(--poison-haze),transparent 62%),
-    radial-gradient(1000px 800px at 6% 100%,rgba(245,184,61,.04),transparent 60%),
+    radial-gradient(1000px 800px at 6% 100%,rgba(191,161,99,.022),transparent 60%),
     radial-gradient(900px 700px at 96% 10%,rgba(211,220,234,.035),transparent 60%),
     radial-gradient(140% 100% at 50% 50%,transparent 55%,rgba(0,0,0,.5) 100%);
   background-attachment:fixed;
@@ -125,7 +125,7 @@ nav button:hover{color:var(--chrome);background:var(--steel)}
 .cham .ch1{color:var(--poison-ink)}
 .cham.hit{border-color:rgba(95,143,114,.55);background:rgba(95,143,114,.09);box-shadow:0 0 0 1px var(--poison-haze),0 22px 50px -26px var(--poison-glow)}
 .cham.hit .ch1{color:var(--poison)}
-.cham.miss{border-color:rgba(223,106,97,.35);background:rgba(223,106,97,.05)}
+.cham.miss{border-color:rgba(199,106,97,.35);background:rgba(199,106,97,.05)}
 .cham.miss::before{background:linear-gradient(90deg,transparent,var(--red),transparent);opacity:.7}
 .cham.miss .ch1{color:var(--red)}
 .cham.void{border-color:var(--edge);background:var(--inset);opacity:.7}
@@ -136,7 +136,7 @@ nav button:hover{color:var(--chrome);background:var(--steel)}
   100%{box-shadow:0 0 0 0 rgba(95,143,114,0);transform:scale(1)}}
 .cham.justsettled{animation:settleflash 2.2s var(--ease)}
 .ud.up.on{border-color:var(--poison);color:var(--poison-ink);background:var(--poison-haze)}
-.ud.dn.on{border-color:var(--red);color:var(--red);background:rgba(223,106,97,.08)}
+.ud.dn.on{border-color:var(--red);color:var(--red);background:rgba(199,106,97,.08)}
 .chk .ic.g{background:var(--poison-haze);color:var(--poison)}
 .chk .st.g{color:var(--poison)}
 /* ---- warden stays violet but cooler ---- */
@@ -155,7 +155,7 @@ a{color:var(--poison-ink)}
 .obs .dot.live{background:var(--poison);box-shadow:0 0 10px var(--poison-glow)}
 .obs .stat,.obs .tablewrap,.obs .method{background:linear-gradient(158deg,rgba(211,220,234,.05),transparent 42%),linear-gradient(180deg,var(--steel),var(--graphite));border-color:var(--edge);box-shadow:0 1px 0 rgba(211,220,234,.06) inset,0 -1px 0 var(--bevel) inset}
 .obs thead th{background:transparent}
-.obs .err{border-color:rgba(223,106,97,.35)}
+.obs .err{border-color:rgba(199,106,97,.35)}
 /* ---- reduced motion: everything settles at once ---- */
 @media(prefers-reduced-motion:reduce){
   .bigcog svg,.bigcog .pulse,.cham.justsettled,.xpbar i{animation:none!important;transition:none!important}
