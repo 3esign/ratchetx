@@ -215,6 +215,17 @@ client carry 120.
   mainnet-beta via "Run workflow"). A build no longer needs any particular
   machine or session; artifacts are named `ratchet_core-v1-YYYY-MM-DD[-n].so`
   so the newest sorts last.
+- 2026-09-03 fourth build, source commit `848ab24`, same pinned CI recipe.
+  `artifacts/ratchet_core-v1-2026-09-03.so` - 414,344 bytes, sha256
+  `ca09f0a830d0b523d0f39a27bf66f47fdc18e9deb5816f4ddf99de77d4e1ef80`.
+  GitHub Actions run `33696960306` produced the bundle after host tests,
+  golden-vector comparison and SBF build passed; its expected first failure was
+  comparison with the older committed artifact. The downloaded CI lockfile and
+  vectors hash-match the repository, and the exact `.so` passes the nine-case
+  LiteSVM battery including signed-source gaps and real Token-2022 reload.
+  This repairs `checkpoint` to retain Pyth's signed `prev_publish_time`; it does
+  not remove the evicting ring or add confidence/ruleset evidence, is not
+  deployed, and is explicitly not a permanent or mainnet candidate.
 - devnet faucet flavour (separate crate `onchain/ratchet-core-devnet`, id
   `CnKAJQAQvJQ7Ht3rZRt4ZaFuZSFL4G6sDZShbmJUdTCx`, mint PDA
   `9Becn57cNDJmRMrEBwtGbgfzY8eUF7VNjsgrQbfLpBRm`): sha256
