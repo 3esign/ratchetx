@@ -145,3 +145,41 @@ this table. Two honest options, both leaving the frozen ids untouched:
 This is a runtime/UI decision for Semir. It does not block the freeze.
 
 **Gate status: feed table VERIFIED — safe to compile.**
+
+## Independently reproduced, and the binary is now in the repo (2026-09-02)
+
+The candidate above was built once and its `.so` was not kept, so the hash it
+claimed rested on a record of a build nobody could repeat. It has now been
+rebuilt from scratch — clean tree, patch applied, no cached target — and it
+lands on the same bytes:
+
+| | |
+| --- | --- |
+| toolchain | `solana-cargo-build-sbf 3.1.10`, platform-tools **v1.52**, rustc 1.89.0 |
+| output | `target/deploy/ratchet_core.so`, **415,112 bytes** |
+| sha256 | `15000b8cb85bcc8d0383839b85d9ab8b33ec76f5ca91ed2c52861edce74a909a` |
+| host unit tests | **8/8** (`feed_table_is_the_live_referee_table` sees `FEEDS.len()==12`) |
+| LiteSVM battery | **10/10**, including `equity_pull_feed_seals_settles_and_hits` and `pull_guards_hold_and_push_stays_strict` |
+| golden vectors | reprinted and **byte-identical** to `candidates/core-rules-equity.json` |
+
+The binary is kept at `artifacts/ratchet_core-equity-2026-09-02.so`, beside the
+crypto-only `ratchet_core-v1-2026-09-02.so`. A hash in a document proves nothing
+on its own; the artifact and the recipe that reproduces it are the claim.
+
+### What is deliberately NOT done yet
+
+`vectors/core-rules-v1.json` and every reader pinned to it — `lib/core_rules.js`,
+`client/core.mjs`, `drift-check.mjs`, `test_core_vectors.mjs` — still describe
+the **seven-feed program that is actually on chain**. That is the point of those
+files: they say what the deployed referee does, and `drift-check` is only
+meaningful while they do. Swapping them to twelve feeds before the twelve-feed
+program is deployed would make every one of those checks pass against a table no
+chain implements — a green light for something that does not exist.
+
+So the order on deploy day is: deploy this binary, confirm the on-chain hash,
+then swap the vectors and the four readers in one commit, then verify, and only
+then revoke. Not before.
+
+Stocks are already playable on the server path (`lib/prices.js`, board slots
+`H*S0..S2`, labelled `PYTH 24/7 INDEX`), which needs none of this. This section
+is about the on-chain referee catching up to it.
