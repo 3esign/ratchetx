@@ -2409,6 +2409,10 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         // board, offered as a target and then rendered with a blank level,
         // because the card reads its number from here.
         prices:{src:prices.src,degraded:prices.degraded||null,ages:prices.ages||null,
+          // Stocks come from a different road than crypto, so they get their own
+          // two words: which host answered, or why none did. A missing stock
+          // target must be readable as a fact, not inferred from a short menu.
+          equitySrc:prices.equitySrc||null, equityOff:prices.equityOff||null,
           ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x)))},
         // House Fleet stays in Arena/log. Actual registered agents and proven
         // demo attempts are visible, with separate demo retention and labels.
@@ -3014,6 +3018,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
       return res.json({ ok:true, v: VERSION, hour, generator:BOARD_MODEL,
         flipsAt: (hour + 1) * 3600e3,
         prices: { src: prices.src, ages: prices.ages || null,
+          equitySrc: prices.equitySrc || null, equityOff: prices.equityOff || null,
           ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x))) },
         stakeRule: { min: STAKE_MIN, max: STAKE_MAX, hitPayout: HIT_PAYOUT, xpMultCap: XP_MULT_CAP, xpCapAt: XP_CAP_AT, streakStep: STREAK_STEP, streakCap: STREAK_CAP, settleXp: SETTLE_XP },
         // Token facts as data, not prose: agents that refuse to repeat an
