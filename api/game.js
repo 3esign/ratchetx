@@ -251,6 +251,31 @@ const STAKES = { 500: 2.24, 2500: 5, 10000: 10, 50000: 20 };   // presets the UI
 // player can move.
 const BOARD_MODEL = 'v2-balanced-hourly';
 const ROTFEEDS = ['SOL', 'BTC', 'ETH', 'BONK', 'WIF', 'JUP', 'PUMP'];
+// Stocks are ADDITIVE, not a twelfth of one ladder. Folding them into ROTFEEDS
+// looked tidier and was wrong twice over: it broke the standing promise that
+// every crypto feed gets exactly one directional window an hour, and -- because
+// a target with no usable price is filtered out where the board is served -- a
+// quiet stock would have silently shrunk the whole board to four or five
+// targets instead of costing only its own slot. Their own slots keep the
+// crypto ladder untouched and make a stock outage cost exactly the stocks.
+const STOCKFEEDS = ['TSLA', 'NVDA', 'PLTR', 'COIN', 'HOOD'];
+// Directional only, deliberately. A threshold ("up 1.2% in 30 minutes") has to
+// be sized from a typical move, and an index feed moves hard while the US
+// market is open and barely at all overnight -- one constant cannot be honest
+// for both, and the wrong one turns every night into an unwinnable target.
+// "Higher in N minutes" needs no volatility estimate and reads the same at
+// 15:00 and 03:00, so that is the only shape a stock is offered in.
+const STOCK_WINDOWS = [
+  { mins:5,  tag:'FLASH', baseXp:10 },
+  { mins:30, tag:'',      baseXp:14 },
+  { mins:60, tag:'',      baseXp:16 },
+];
+// Typical hourly move, used only to size THE PUMP and THE DUMP thresholds.
+// The equity numbers are blended across the whole day on purpose: an index feed
+// moves hard while the US market is open and barely at all overnight, and a
+// single constant cannot be right for both. Blended means overnight thresholds
+// are a little wide, so more of those shots reach expiry without a crossing --
+// which voids and refunds. Wide and refunded beats tight and arbitrary.
 const TYPVOL = { SOL: 0.0075, BTC: 0.0045, ETH: 0.0065, BONK: 0.02, WIF: 0.018, JUP: 0.012, PUMP: 0.014 }; // typical hourly move
 const DIRECTION_WINDOWS = [
   { mins:5,    tag:'FLASH', baseXp:10 },
@@ -293,6 +318,21 @@ function targetBoard(hour) {
     if (b === a) b = ROTFEEDS[(ROTFEEDS.indexOf(a) + 1) % ROTFEEDS.length];
     const m = pick([30, 60]);
     board[`H${hour}R`] = { kind: 'race', feed: a, feed2: b, mins: m, baseXp: 20, label: `THE RACE: ${a} beats ${b} over ${winTxt(m)}` };
+  }
+  { // THE STOCKS: three of the five each hour, from the same seeded shuffle,
+    // so the board stays deterministic and a wallet that sealed an hour ago
+    // can still be settled against the spec it sealed under.
+    const st = [...STOCKFEEDS];
+    for (let i = st.length - 1; i > 0; i--) {
+      const j = Math.floor(rnd() * (i + 1));
+      [st[i], st[j]] = [st[j], st[i]];
+    }
+    for (let i = 0; i < STOCK_WINDOWS.length; i++) {
+      const f = st[i], q = STOCK_WINDOWS[i];
+      const prefix = q.tag ? q.tag + ': ' : '';
+      board[`H${hour}S${i}`] = { kind:'dir', feed:f, mins:q.mins, baseXp:q.baseXp,
+        label:`${prefix}${f} higher in ${winTxt(q.mins)}` };
+    }
   }
   { // THE BOX: does the hour end outside the band, or trapped inside?
     const f = pick(['SOL', 'BTC', 'ETH']); const mult = pick([1.0, 1.5]);
@@ -2333,7 +2373,12 @@ module.exports = async (req, res) => playerWrites.run(async () => {
           rule: SETTLE_RULE,
           onchainSeal: MIRROR_ENABLED ? 'optional-mainnet-beta' : 'disabled',
         },
-        prices:{src:prices.src,degraded:prices.degraded||null,ages:prices.ages||null,SOL:prices.SOL,BTC:prices.BTC,ETH:prices.ETH,BONK:prices.BONK,WIF:prices.WIF,JUP:prices.JUP,PUMP:prices.PUMP},
+        // Every finite price, not a hand-written list of seven. The list was
+        // silently authoritative: a feed missing from it was priced on the
+        // board, offered as a target and then rendered with a blank level,
+        // because the card reads its number from here.
+        prices:{src:prices.src,degraded:prices.degraded||null,ages:prices.ages||null,
+          ...Object.fromEntries(Object.entries(prices).filter(([, x]) => Number.isFinite(x)))},
         // House Fleet stays in Arena/log. Actual registered agents and proven
         // demo attempts are visible, with separate demo retention and labels.
         stats: st, feed: (feed || []).filter(x => !x.agent), ladder, ladderDay,
@@ -2968,7 +3013,17 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         // doors, the toll, its recipient and the credential are stated here.
         arena,
         gauntlet: await publicSpecAsync(),
-        targets: Object.entries(board).map(([id, t]) => ({
+        // Only targets this hour can actually price. `action=shot` rejects a
+        // seal with FEED_UNAVAILABLE when the feed has no finite price, and the
+        // state projection has always filtered on exactly this rule -- the
+        // board endpoint did not, so it could advertise a target that every
+        // attempt to seal would refuse. Harmless while all seven feeds were
+        // sponsored crypto accounts that are essentially never absent; a live
+        // defect the moment a feed can legitimately be quiet, which a stock is
+        // whenever its print goes stale. One rule, stated in all three places.
+        targets: Object.entries(board)
+          .filter(([, t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))
+          .map(([id, t]) => ({
           id, kind: t.kind || 'dir', feed: t.feed, feed2: t.feed2 || null,
           mins: t.mins, pct: t.pct || null, baseXp: t.baseXp,
           yesMult: t.yesMult != null ? t.yesMult : 1,

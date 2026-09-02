@@ -134,8 +134,14 @@ const html = fs.readFileSync('../index.html', 'utf8');
     'a hung state request times out and automatically retries without a page reload');
   ok(/push\('sampler'/.test(proof) && /samples\.length \/ 60/.test(proof),
     'the proof page reports settlement-sampler duty separately from a live oracle read');
-  ok(/filter\(s => s !== 'JUP'\)/.test(prices),
+  ok(/filter\(s => s !== 'JUP' && !EQUITY\.has\(s\)\)/.test(prices),
     'the ambiguous Coinbase JUP symbol cannot corrupt divergence or fallback display data');
+  // Same rule, stronger case. Coinbase quotes no TSLA-USD at all, and a symbol
+  // that did resolve would be a different instrument from Pyth's 24/7 index
+  // mark -- so the last-resort route must not offer a stock target rather than
+  // quote one from the wrong market.
+  ok(/const EQUITY = new Set\(\['TSLA', 'NVDA', 'PLTR', 'COIN', 'HOOD'\]\)/.test(prices),
+    'the stock feeds are one named list, not a condition repeated per call site');
   ok(/chainVerdict && !chainVerdict\.ok/.test(proof)
       && /must not be described as a complete restorable log/.test(proof),
     'a broken event chain makes the resurrection claim red and explicitly incomplete');

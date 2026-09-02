@@ -159,6 +159,7 @@ section{display:none;padding:28px 0 34px}section.on{display:block;animation:in .
 .tgt.onchain{border-color:rgba(125,211,252,.42);box-shadow:inset 0 0 0 1px rgba(125,211,252,.06)}
 .chainTag{margin-top:9px;font:800 9px/1 var(--mono);letter-spacing:.12em;color:var(--ice)}
 .crowdTag{margin-top:7px;font:800 9px/1 var(--mono);letter-spacing:.12em;color:var(--goldD)}
+.idxTag{margin-top:7px;font:800 9px/1 var(--mono);letter-spacing:.12em;color:var(--dim)}
 .confRow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-top:10px}
 .confRow .cf{flex:none;padding:8px 12px;font:700 11px var(--mono)}
 .conflab{font:700 9.5px var(--mono);letter-spacing:.1em;color:var(--dim)}
@@ -1114,6 +1115,12 @@ function paint(){
     return `<span>NOW <b>${d(p)}</b></span><span>STRIKE <b>AT SEAL</b></span>`;};
   // During the SOL-only seal beta, surface the eligible target first without
   // changing the deterministic board, its odds, windows or settlement terms.
+  // A stock here settles on Pyth's Equity.Index feed -- a continuous 24/7 mark
+  // that keeps publishing when the exchange is shut. That is what makes an
+  // overnight shot settleable at all, and it is also why the card must never
+  // imply an exchange print. Name the instrument, not a venue.
+  const EQUITY=new Set(["TSLA","NVDA","PLTR","COIN","HOOD"]);
+  const isEquity=t=>EQUITY.has(t.feed)||EQUITY.has(t.feed2);
   const mirrorFeeds=new Set(s.mirror&&s.mirror.enabled?(s.mirror.feeds||[]):[]);
   const mirrorable=t=>mirrorFeeds.has(t.feed)&&['dir','thr','thrDown'].includes(t.kind);
   const targetRows=Object.entries(s.targets).sort((a,b)=>Number(mirrorable(b[1]))-Number(mirrorable(a[1])));
@@ -1123,6 +1130,7 @@ function paint(){
       <div class="tmeta"><span>WINDOW <s>${t.mins>=60?(t.mins/60)+"H":t.mins+"M"}</s></span><span>BASE ${t.baseXp} XP</span></div>
       <div class="tmkt">${mkt(t)}</div>
       ${t.crowd?`<div class="crowdTag">CROWD ${t.crowd.pctYes}% YES · ${t.crowd.n} SHOTS · 10M LAG</div>`:''}
+      ${isEquity(t)?'<div class="idxTag">PYTH 24/7 INDEX · NOT AN EXCHANGE PRINT</div>':''}
       ${mirrorable(t)?'<div class="chainTag">⚓ ON-CHAIN SEAL BETA</div>':''}
       <div class="updown">
         <span class="ud up ${sel.t===k&&sel.side==='YES'?'on':''}" data-k="${k}" data-side="YES">YES</span>

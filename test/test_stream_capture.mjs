@@ -61,8 +61,13 @@ assert.equal(health.feeds.BTC.active, false);
 {
   // Give every feed a row, so the tiers are tested rather than the fixture's
   // gaps. A feed with no row at all is a real alarm and is asserted below.
-  for (const feed of px.FEEDS) {
-    await px.ingestUpdate(feed, { ...transition, price:41.5 + px.FEEDS.indexOf(feed),
+  // STREAM_FEEDS, not FEEDS: the price log records twelve feeds and the
+  // websocket can carry seven. Pyth publishes no sponsored account for an
+  // equity index feed, so a stock is absent from this capture path by
+  // construction rather than by fault, and holding the stream alarm to a
+  // total it can never reach is the always-on amber this file exists to stop.
+  for (const feed of px.STREAM_FEEDS) {
+    await px.ingestUpdate(feed, { ...transition, price:41.5 + px.STREAM_FEEDS.indexOf(feed),
       prevPublishTime:transition.publishTime - 1 });
   }
   const all = await px.streamHealth(transition.receivedAt + 1000);
@@ -76,7 +81,7 @@ assert.equal(health.feeds.BTC.active, false);
   assert.ok(late.lagging.includes('SOL'), 'a feed behind in the stream is named, not hidden');
   assert.ok(!late.beyond.includes('SOL'));
   assert.equal(late.ok, false, 'ok still means every feed is fresh');
-  assert.equal(late.usable, px.FEEDS.length, 'every feed is still usable at 200s');
+  assert.equal(late.usable, px.STREAM_FEEDS.length, 'every streamed feed is still usable at 200s');
   assert.equal(late.usableS, px.SETTLE_GRACE_MS / 1000,
     'usability is defined by the rule that voids a shot, not by a magic number');
   assert.equal(late.degraded, false,
