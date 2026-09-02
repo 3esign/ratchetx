@@ -16,7 +16,7 @@ if (!args.keypair) { console.error('need --keypair'); process.exit(2); }
 const minutes = Number(args.minutes) || 5;
 if (!C.HORIZONS.some(([m]) => m === minutes)) { console.error(`--minutes must be one of ${C.HORIZONS.map(h => h[0]).join(', ')}`); process.exit(2); }
 const w = Keypair.fromSecretKey(Uint8Array.from(JSON.parse(fs.readFileSync(args.keypair, 'utf8'))));
-const conn = new Connection(rpc, 'confirmed');
+const conn = new Connection(rpc, { commitment: 'confirmed', httpAgent: false });
 const log = (...a) => console.log(...a);
 const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 const nowS = () => Math.floor(Date.now() / 1000);
