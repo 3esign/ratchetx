@@ -3,7 +3,7 @@
 // The problem: the commit salt must survive from seal to reveal, and an
 // unrevealed settled shot FORFEITS. A random salt therefore turns a cleared
 // cache, a lost phone or a second device into a lost stake. Storing the salt
-// somewhere only moves that dependency (and a stored salt is exactly what an
+// somewhere only moves that dependency (and a salt at rest is exactly what an
 // XSS wants). Deriving it removes the dependency instead.
 //
 // Ed25519 signing is deterministic — RFC 8032 takes the nonce from the key and
@@ -19,12 +19,22 @@
 // recompute the commit and learn the side before reveal. Derive it, use it,
 // drop it — never log, cache or transmit it.
 //
-// Browser note: this uses node:crypto for sha256. In the browser the same
-// derivation is crypto.subtle.digest('SHA-256', sig) — one await, same bytes.
-import { createHash } from 'node:crypto';
-
+// Isomorphic on purpose: WebCrypto and TextEncoder only, no node: imports, so
+// this exact file runs unchanged in the browser and in the CLI. Verified to
+// produce byte-identical digests to node:crypto.
 export const SALT_RE = /^[0-9a-f]{32}$/;
 const DOMAIN = 'RATCHET|salt|v1';
+
+const toBytes = v => (v instanceof Uint8Array ? v : new Uint8Array(v));
+const hex = buf => [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
+/** length-safe, data-independent compare — no early exit on first difference */
+const sameBytes = (a, b) => {
+  const x = toBytes(a), y = toBytes(b);
+  if (x.length !== y.length) return false;
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+};
 
 /** The canonical message the wallet signs. Domain-separated, so a signature
  *  gathered for any other purpose can never double as a salt (or the reverse),
@@ -37,10 +47,10 @@ export function saltMessage({ programId, wallet, nonce }) {
 }
 
 /** 128 bits of the signature hash, in the exact shape the program demands. */
-export function saltFromSignature(signature) {
-  const bytes = Buffer.from(signature);
+export async function saltFromSignature(signature) {
+  const bytes = toBytes(signature);
   if (bytes.length < 32) throw new RangeError('signature too short to derive a salt from');
-  const salt = createHash('sha256').update(bytes).digest('hex').slice(0, 32);
+  const salt = hex(await crypto.subtle.digest('SHA-256', bytes)).slice(0, 32);
   if (!SALT_RE.test(salt)) throw new Error('derived salt failed its own format check');
   return salt;
 }
@@ -57,7 +67,7 @@ export async function deriveSalt({ signMessage, programId, wallet, nonce, verify
   const first = await signMessage(bytes);
   if (verifyDeterminism) {
     const second = await signMessage(bytes);
-    if (Buffer.compare(Buffer.from(first), Buffer.from(second)) !== 0) {
+    if (!sameBytes(first, second)) {
       throw new Error('wallet does not sign deterministically: a derived salt would not be recoverable — keep a stored random salt for this wallet');
     }
   }

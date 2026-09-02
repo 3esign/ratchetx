@@ -25,7 +25,7 @@ assert.notEqual(s1, bobSalt, 'a different wallet must get a different salt');
 console.log('unique per shot and wallet  : ok');
 
 const bare = nacl.sign.detached(new TextEncoder().encode(`${PROGRAM}|${A.address}|42`), alice.secretKey);
-assert.notEqual(saltFromSignature(bare), s1, 'domain separation must change the salt');
+assert.notEqual(await saltFromSignature(bare), s1, 'domain separation must change the salt');
 console.log('domain separated            : ok');
 
 let refused = false;
