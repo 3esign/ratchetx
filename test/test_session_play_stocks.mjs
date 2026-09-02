@@ -61,14 +61,25 @@ assert.throws(()=>resolveIntent('put 500 on wif higher',{...env,board:cryptoOnly
   /ASSET_NOT_ON_BOARD/,'the same rule protects tokens, which it always should have');
 
 // ---- and the refusal tells the player what WOULD have worked --------------
+// A stock and a token are refused for different reasons and must not be refused
+// in the same words. A token is off THIS board and will be back; a stock is held
+// (2026-09-02: no free feed publishes equities fast enough to settle honestly),
+// so telling a player to check the next board sends them back every hour to be
+// refused again. The invariant both share: name the asset, never substitute one.
 {
-  const reply=replyFor({ok:false,category:'REFUSED',code:'ASSET_NOT_ON_BOARD',
+  const stock=replyFor({ok:false,category:'REFUSED',code:'ASSET_NOT_ON_BOARD',
     requestedAsset:'TSLA',availableAssets:['SOL','BTC','ETH']});
-  checks++;assert.match(reply,/Nothing was sealed/,'the first thing a player needs to know');
-  checks++;assert.match(reply,/TSLA is not on the board this hour/);
-  checks++;assert.match(reply,/will not put your credits on a different asset than the one you named/);
-  checks++;assert.match(reply,/On the board now: SOL, BTC, ETH\./,'name what works, so the next message is right');
-  checks++;assert.doesNotMatch(reply,/sealed on-chain/,'nothing happened and the words must not suggest it did');
+  checks++;assert.match(stock,/Nothing was sealed/,'the first thing a player needs to know');
+  checks++;assert.match(stock,/TSLA is a stock/,'name the asset they actually asked for');
+  checks++;assert.doesNotMatch(stock,/this hour|next hour|board changes every hour/,
+    'a held asset must not promise a later board');
+  checks++;assert.match(stock,/On the board now: SOL, BTC, ETH\./,'name what works, so the next message is right');
+  checks++;assert.doesNotMatch(stock,/sealed on-chain/,'nothing happened and the words must not suggest it did');
+
+  const token=replyFor({ok:false,category:'REFUSED',code:'ASSET_NOT_ON_BOARD',
+    requestedAsset:'WIF',availableAssets:['SOL','BTC','ETH']});
+  checks++;assert.match(token,/WIF is not on the board this hour/,'a token IS coming back');
+  checks++;assert.match(token,/will not put your credits on a different asset than the one you named/);
 }
 
 // ---- the player is told how a stock settles BEFORE they play one ----------

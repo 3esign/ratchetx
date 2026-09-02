@@ -732,6 +732,12 @@ const REFUSALS={
     const want=r.requestedAsset?String(r.requestedAsset).toUpperCase():'That asset';
     const have=Array.isArray(r.availableAssets)&&r.availableAssets.length
       ? ' On the board now: '+r.availableAssets.join(', ')+'.' : '';
+    // A stock is not absent for an hour, it is absent for now: no free feed
+    // publishes equities fast enough to settle a sealed shot honestly, so
+    // stocks are held. Telling someone to wait for the next board would send
+    // them back every hour to be refused again in the same words.
+    if(STOCKS.has(want))
+      return 'Nothing was sealed. '+want+' is a stock, and RatchetX is not offering stocks at the moment - no free price feed publishes them fast enough to settle a sealed shot honestly, and the game will not settle on one it cannot stand behind.'+have;
     return 'Nothing was sealed. '+want+' is not on the board this hour, and RatchetX will not put your credits on a different asset than the one you named.'+have+' The board changes every hour - reply "ratchetx board" to see it.';
   },
   CAPABILITY_IDENTITY_MISMATCH:()=>'No RatchetX play session is configured for this account. '+NEW_SESSION,

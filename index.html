@@ -1035,7 +1035,12 @@ const who=()=>AUTH?AUTH.wallet:DEMO;
 // ---------- state ----------
 let refreshing=false;
 let refreshFailures=0, recoveryTimer=null;
-const STATE_TIMEOUT_MS=12000;
+// The server's own worst case is longer than this used to allow. A state read
+// can walk up to five RPC endpoints (5s each, 7s total walk budget) and then do
+// the settlement work on top, so 12s was cutting off requests that were still
+// coming. Twenty is past the server's ceiling: a request that misses this one
+// is genuinely lost, not merely slow.
+const STATE_TIMEOUT_MS=20000;
 function scheduleRecovery(){
   if(recoveryTimer||dead)return;
   const delay=Math.min(30000,1500*Math.pow(2,Math.min(refreshFailures-1,4)));
@@ -1058,9 +1063,16 @@ async function refresh(){
     paint();
   }catch(e){
     refreshFailures++;
-    $("mode").style.display="block";
-    const why=e&&e.name==="AbortError"?"request timed out":String(e&&e.message||e);
-    $("mode").textContent="Game service is temporarily unavailable. Your wallet and funds are safe — reconnecting automatically… ("+why+")";
+    // One missed poll is not an outage, and saying so in a banner taught players
+    // to distrust a game that was working. The poll runs every ten seconds and
+    // retries 1.5s after a miss, so a single slow read is repaired before anyone
+    // could act on the warning. Speak up on the SECOND consecutive failure --
+    // by then something is actually wrong, and the message has earned its place.
+    if(refreshFailures>=2){
+      const why=e&&e.name==="AbortError"?"request timed out":String(e&&e.message||e);
+      $("mode").style.display="block";
+      $("mode").textContent="Reconnecting to the game service — your wallet, credits and sealed shots are safe. ("+why+")";
+    }
     scheduleRecovery();
   }finally{clearTimeout(timeout);refreshing=false;}
 }
@@ -2376,7 +2388,12 @@ function watchExpired(exp){
   prev.tries++;
   prev.next=now+Math.min(15000,2000*Math.pow(1.45,prev.tries-1));
   settleWatches.set(exp,prev);
-  if(now>=settleRefreshDue){settleRefreshDue=now+1500;refresh();}
+  // Settlement is when the server does the most work per request -- it walks the
+  // sample buckets, resolves the crossing, writes the outcome -- so this watch
+  // asks the slowest endpoint its hardest question at the highest rate it is
+  // ever asked. Three seconds still reveals a settle within one tick of the
+  // countdown and roughly halves the load at the exact moment it matters.
+  if(now>=settleRefreshDue){settleRefreshDue=now+3000;refresh();}
 }
 // surgical 1s ticker: update countdown text, then wake settlement only at expiry
 setInterval(()=>{
