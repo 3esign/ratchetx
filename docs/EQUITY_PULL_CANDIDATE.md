@@ -205,6 +205,7 @@ So the order on deploy day is: deploy this binary, confirm the on-chain hash,
 then swap the vectors and the four readers in one commit, then verify, and only
 then revoke. Not before.
 
-Stocks are already playable on the server path (`lib/prices.js`, board slots
-`H*S0..S2`, labelled `PYTH 24/7 INDEX`), which needs none of this. This section
-is about the on-chain referee catching up to it.
+Historical note: an earlier server draft exposed `H*S0..S2` through an
+authenticated Hermes merge. h113 removed that path and the slots: a secret
+cannot enable an economic feature. Stocks stay held until a sponsored,
+API-keyless on-chain equity account satisfies the same rule as crypto.

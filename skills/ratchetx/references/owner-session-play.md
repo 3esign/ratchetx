@@ -1,4 +1,4 @@
-# Bankr play and stats (skill 1.5.0) — the binary contract
+# Bankr play and stats (skill 1.6.1) — the binary contract
 
 RatchetX play on X is one command and one reply. You never choose a target,
 side, probability or stake, never wait for settlement, never write your own
@@ -20,7 +20,7 @@ wallet balance, do not propose a trade instead, do not fund anything.
 `update`, `upgrade`, `install`, `refresh`, `latest version`, `github`, `skill`
 are commands to Bankr about this skill, not RatchetX play. Do not run the
 runner for them; perform the skill update from
-`https://github.com/3esign/ratchetx` (stage `scripts/session-play.mjs` AND
+`https://github.com/3esign/ratchetx/tree/main/skills/ratchetx` (stage `scripts/session-play.mjs` AND
 `scripts/session-smoke.mjs`) and confirm the version from `SKILL.md`. If the
 runner is invoked anyway it answers `NOT_A_GAME_COMMAND` and seals nothing.
 
@@ -99,7 +99,7 @@ redelivered post with the original proof, and never sends a second shot.
    credits are required.
 2. Owner stores the credential in their own Bankr **Agent tool environment**
    as exactly `RATCHET_PLAY_SESSION`. A new grant means a new value.
-3. Install/update `skills/ratchetx` from `https://github.com/3esign/ratchetx`.
+3. Install/update `skills/ratchetx` from `https://github.com/3esign/ratchetx/tree/main/skills/ratchetx`.
    Stage BOTH `scripts/session-play.mjs` and `scripts/session-smoke.mjs`; the
    play runner imports the smoke runner. `node scripts/session-play.mjs --help`
    makes no request.

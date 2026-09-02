@@ -5,8 +5,8 @@
   "productionUiRevision": "h108-core-rules-and-per-account-recipe",
   "versions": {
     "mcp": "1.2.0",
-    "agentSkill": "1.6.0",
-    "erc8004": "1.6.0",
+    "agentSkill": "1.6.1",
+    "erc8004": "1.6.1",
     "aiCatalog": "1.0"
   },
   "endpoints": {

@@ -375,7 +375,7 @@ try {
       {name:'stale',age:46,confidenceBps:1,state:'rejected',code:'ORACLE_STALE'},
       {name:'confidence',age:0,confidenceBps:201,state:'rejected',code:'ORACLE_CONFIDENCE_TOO_WIDE'},
       {name:'unknown-refusal',age:0,confidenceBps:1,state:'rejected',code:'SHOT_REFUSED',inject:true},
-      {name:'missing-provenance',age:0,confidenceBps:1,state:'reserved',provenance:false},
+      {name:'missing-provenance',age:0,confidenceBps:1,state:'rejected',code:'FEED_UNAVAILABLE',provenance:false},
     ]) {
       const f=owner({maxAttempts:1,maxStakeCredits:500,maxGrossCredits:500});
       const initialPlayer=await seedPlayer(f,{cr:1452042});
@@ -462,7 +462,7 @@ try {
     gameModule.exports=originalGameExport;
     pumpAge=0;pumpConfidenceBps=1;pumpProvenance=true;
   }
-  console.log('HTTP exact 100-credit PUMP pilot: oracle boundaries, stable refusal codes, safe fallback, unresolved 503, owner recovery and no-redispatch replay PASS');
+  console.log('HTTP exact 100-credit PUMP pilot: oracle boundaries, terminal provenance refusal, stable safe codes and no-redispatch replay PASS');
   assert.equal(networkAttempts,0,'fixture must not even attempt an external request');
 } finally {
   kv.backend=originalBackend;

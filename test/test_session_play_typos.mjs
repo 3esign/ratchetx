@@ -24,18 +24,21 @@ const env={board,context,limits:{maxStakeCredits:5000,maxGrossCredits:20000},
 const feedFor=t=>resolveIntent(t,env).resolution.feed;
 let checks=0;
 const is=(text,want,why)=>{checks++;assert.equal(feedFor(text),want,why||text);};
+const held=(text,want)=>{checks++;let error=null;try{resolveIntent(text,env);}catch(e){error=e;}
+  assert.equal(error?.code,'ASSET_NOT_ON_BOARD',text);
+  assert.equal(error?.detail?.requestedAsset,want,text+' must name the held stock exactly');};
 
 // ---- 1. spellings people actually type ------------------------------------
-is('put 500 on teslla higher','TSLA');
-is('telsa lower','TSLA');
-is('nivida higher','NVDA');
-is('nvidea higher','NVDA');
+held('put 500 on teslla higher','TSLA');
+held('telsa lower','TSLA');
+held('nivida higher','NVDA');
+held('nvidea higher','NVDA');
 is('solona higher','SOL');
 is('bitcion lower','BTC');
 is('etherium higher','ETH');
-is('coinbse higher','COIN');
-is('robinhod lower','HOOD');
-is('palentir higher','PLTR');
+held('coinbse higher','COIN');
+held('robinhod lower','HOOD');
+held('palentir higher','PLTR');
 is('jupitor higher','JUP');
 
 // ---- 2. near misses nobody wrote down -------------------------------------
@@ -44,7 +47,7 @@ is('jupitor higher','JUP');
 is('solanas price higher','SOL', "a possessive is just a two-edit near miss");
 is('bitcoinn higher','BTC');
 is('ethereumm lower','ETH');
-is('palantirr higher','PLTR');
+held('palantirr higher','PLTR');
 
 // ---- 3. THE LINE: command words are never "corrected" into assets ----------
 // Every one of these is within an edit or two of an asset name and every one
@@ -87,12 +90,12 @@ for (const t of ['sell 500 higher','play 500 higher','call it higher','either hi
   checks++;assert.doesNotMatch(reply,/sealed on-chain/);
 }
 
-// ---- 6. the player is told what was read, on the shot itself --------------
+// ---- 6. a corrected stock typo names the refused stock, never a crypto shot
 {
   checks++;
-  const r = resolveIntent('put 500 on teslla higher', env);
-  assert.match(r.resolution.notes.join(' '), /read "teslla" as TSLA/,
-    'a correction must be stated, not silent');
+  let error=null;try{resolveIntent('put 500 on teslla higher',env);}catch(e){error=e;}
+  assert.equal(error?.detail?.requestedAsset,'TSLA',
+    'teslla must become an exact TSLA refusal, not a default crypto target');
 }
 
 // ---- 7. three-letter names are never fuzzy targets ------------------------
@@ -103,5 +106,5 @@ for (const t of ['sob higher','bth lower','eta higher','sot higher']) {
   assert.equal(resolveIntent(t, env).resolution.asset, null, `"${t}" must not resolve`);
 }
 
-console.log(`Session play typos PASS - ${checks} checks: misspellings resolve when they can `
-  + `mean one thing, refuse when they could mean two, and never touch a command word`);
+console.log(`Session play typos PASS - ${checks} checks: crypto misspellings resolve, stock `
+  + `misspellings refuse exactly, ambiguous names stop, and command words stay untouched`);

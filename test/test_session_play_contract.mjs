@@ -18,6 +18,7 @@ const originalNow = Date.now, originalFetch = globalThis.fetch;
 const originalMemory = globalThis.__ratchet_mem, originalGate = globalThis.__ratchet_pxgate;
 const epoch = Date.UTC(2026, 7, 30, 12);
 let time = epoch, shotStart = time, currentPrice = 100, networkAttempts = 0;
+let runtimeSource = 'pyth-onchain', flipSourceAfterBoard = false;
 Date.now = () => time;
 globalThis.fetch = async () => {
   networkAttempts++;
@@ -34,7 +35,7 @@ const feeds = ['SOL', 'BTC', 'ETH', 'BONK', 'PUMP', 'JUP', 'WIF'];
 function prices() {
   const all = value => Object.fromEntries(feeds.map(feed => [feed, value]));
   const publish = Math.floor(time / 1000), slot = Math.floor((time - epoch) / 1000);
-  return {src: 'pyth-onchain', ...all(currentPrice), ages: all(0), confs: all(1),
+  return {src: runtimeSource, ...all(currentPrice), ages: all(0), confs: all(1),
     pubs: all(publish), prevPubs: all(publish), slots: all(123000 + slot),
     postedSlots: all(122000 + slot), emaPrices: all(100), emaConfs: all(1)};
 }
@@ -148,6 +149,10 @@ async function run(f, options) {
       const response = await invoke({method: options.method,
         query: Object.fromEntries(address.searchParams), body, headers});
       replies.push({event, ...structuredClone(response)});
+      if(!body&&url===URLS.board&&flipSourceAfterBoard){
+        flipSourceAfterBoard=false;
+        runtimeSource='coinbase';
+      }
       const wire = JSON.stringify(response.body);
       return {status: response.status, redirected: false, url,
         headers: {get: name => name.toLowerCase() === 'date' ? new Date(time).toUTCString()
@@ -236,6 +241,21 @@ try {
   console.log('Session-play canonical contract: alternate-journal duplicate and changed-intent conflict cannot debit again PASS');
 
   await advance(f, 6000);
+  const beforeHeldStock = await economicState(f), beforeHeldDispatch = dispatched.length;
+  const heldStock = await run(f, {mode: 'execute', commandId: '1000000000000000003',
+    say: 'put 100 on teslla higher'});
+  assert.equal(heldStock.result.code, 'ASSET_NOT_ON_BOARD', JSON.stringify(heldStock.result));
+  assert.equal(heldStock.result.requestedAsset, 'TSLA');
+  assert.equal(heldStock.result.journalRetained, false);
+  assert.equal(heldStock.journal.entries.length, 0);
+  assert.equal(heldStock.replies.some(r => r.event.op === 'shot'), false,
+    'an authenticated stock refusal must never reach op:shot');
+  assert.equal(dispatched.length, beforeHeldDispatch);
+  assert.deepEqual(await economicState(f), beforeHeldStock,
+    'stock refusal must consume no attempt, gross allowance or credits');
+  console.log('Session-play canonical contract: authenticated stock typo refuses before dispatch or debit PASS');
+
+  await advance(f, 6000);
   const beforeStats = await economicState(f);
   const stats = await run(f, {mode: 'status'});
   assert.equal(stats.result.category, 'STATUS', JSON.stringify(stats.result));
@@ -251,6 +271,28 @@ try {
     body: r.event.body})), [{method: 'POST', op: 'status', body: '{"op":"status"}'}]);
   assert.equal(dispatched.length, beforeDispatch, 'stats must not dispatch a forecast');
   assert.deepEqual(await economicState(f), beforeStats, 'settled stats cannot mutate economic state');
+
+  await advance(f, 6000);
+  const beforeRace = await economicState(f), beforeRaceDispatch = dispatched.length;
+  runtimeSource='pyth-onchain';
+  flipSourceAfterBoard=true;
+  const sourceRace = await run(f, {mode:'execute', commandId:'1000000000000000004',
+    say:'put 100 on sol higher'});
+  runtimeSource='pyth-onchain';
+  assert.equal(sourceRace.result.category,'REFUSED',JSON.stringify(sourceRace.result));
+  assert.equal(sourceRace.result.code,'FEED_UNAVAILABLE');
+  assert.notEqual(sourceRace.result.code,'ATTEMPT_UNRESOLVED');
+  assert.equal(dispatched.length-beforeRaceDispatch,1,
+    'the source changed only after the board read, so one inner dispatch was attempted');
+  const afterRace=await economicState(f);
+  assert.equal(afterRace.session.pending,null,'definite pre-debit refusal is terminal');
+  assert.equal(afterRace.session.attempts,beforeRace.session.attempts+1);
+  assert.equal(afterRace.session.grossCredits,beforeRace.session.grossCredits+100);
+  assert.equal(afterRace.player.cr,beforeRace.player.cr,'readiness race debits no credits');
+  assert.deepEqual(afterRace.player.open,beforeRace.player.open);
+  assert.deepEqual(afterRace.player.closed,beforeRace.player.closed);
+  console.log('Session-play canonical contract: board-to-seal source race terminalizes safely without debit PASS');
+
   assert.equal(networkAttempts, 0, 'entire fixture must attempt zero external connections');
   console.log('Session-play canonical contract: stats use protected status only, no journal or new forecast PASS');
 } finally {

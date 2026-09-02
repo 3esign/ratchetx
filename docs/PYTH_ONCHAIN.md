@@ -6,8 +6,8 @@
 
 Pyth Price Feeds expose multiple integration surfaces. Ratchet's canonical route uses
 Pyth sponsored push-feed accounts on Solana so the game, observatory and settlement
-program share the same PriceUpdateV2 identity. A configured authenticated Hermes route
-is labeled display-only failover; it never changes settlement authority.
+program share the same PriceUpdateV2 identity. The runtime deliberately has no
+authenticated Hermes route: a secret cannot add an economic feed or alter the board.
 
 ## What we did instead
 
@@ -26,12 +26,11 @@ age and confidence before a value can enter the game.
 | # | Source | Role | When |
 |---|--------|------|------|
 | 1 | **Pyth on-chain** — sponsored PriceUpdateV2 accounts on Solana | canonical game and evidence state | always the primary |
-| 2 | Pyth Hermes | optional labeled display failover | only when explicitly configured |
-| 3 | Coinbase spot | non-Pyth display-only last resort | never seals or settles |
+| 2 | Coinbase spot | non-Pyth display-only last resort | never seals or settles |
 
 If we ever fall past step 1, `prices.degraded` says so and the page prints it. The banner
-distinguishes *"still Pyth, different route"* from *"not Pyth at all"*, because those are
-very different promises to a player.
+states that the quote is display-only; new shots pause until the verifiable
+Pyth-on-Solana crossing data returns.
 
 ## The accounts
 
@@ -86,8 +85,6 @@ Rather than hide this, the page shows each price's publish age. A number that sa
 
 ```
 SOLANA_RPC=<your mainnet RPC>     # optional but recommended (SOLANA_RPC_URL also accepted)
-PYTH_API_KEY=<key>                # configured failover credential
-PYTH_HERMES_URL=https://pyth.dourolabs.app/hermes
 ```
 
 Unset, `SOLANA_RPC` rotates three public endpoints

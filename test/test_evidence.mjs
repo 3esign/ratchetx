@@ -129,9 +129,17 @@ const html = fs.readFileSync('../index.html', 'utf8');
   const prices = fs.readFileSync('../lib/prices.js', 'utf8');
   ok(/feed:\s*\(feed \|\| \[\]\)\.filter\(x => !x\.agent\)/.test(game),
     'agent actions stay out of the player killfeed');
-  ok(/STATE_TIMEOUT_MS=12000/.test(html) && /reconnecting automatically/.test(html)
-      && /scheduleRecovery\(\)/.test(html),
-    'a hung state request times out and automatically retries without a page reload');
+  ok(/STATE_TIMEOUT_MS=20000/.test(html) && /refreshFailures>=2/.test(html)
+      && /Reconnecting to the game service/.test(html)
+      && /scheduleRecovery\(e&&e\.name==="AbortError"\?5000:0\)/.test(html),
+    'state recovery uses a 20s browser budget, waits for two failures and retries');
+  ok(/r\.status===409&&body&&body\.code==="PLAYER_BUSY"/.test(html)
+      && /r\.status===429/.test(html) && /refreshNotBefore/.test(html)
+      && /Number\.isFinite\(seconds\)&&seconds>0/.test(html)
+      && /retryAfterSeconds = rateLimitRetrySeconds/.test(game),
+    'a late healthy request cannot turn its own PLAYER_BUSY or rate limit into a second outage');
+  ok(/settleRefreshDue=now\+3000/.test(html),
+    'expired-card settlement refresh pressure is capped at one request per three seconds');
   ok(/push\('sampler'/.test(proof) && /samples\.length \/ 60/.test(proof),
     'the proof page reports settlement-sampler duty separately from a live oracle read');
   ok(/filter\(s => s !== 'JUP' && !EQUITY\.has\(s\)\)/.test(prices),
@@ -142,6 +150,9 @@ const html = fs.readFileSync('../index.html', 'utf8');
   // quote one from the wrong market.
   ok(/const EQUITY = new Set\(\['TSLA', 'NVDA', 'PLTR', 'COIN', 'HOOD'\]\)/.test(prices),
     'the stock feeds are one named list, not a condition repeated per call site');
+  ok(!/PYTH_API_KEY|PYTH_HERMES_URL|\/v2\/updates\/price\/latest/.test(prices)
+      && /API-keyless Pyth-on-Solana/.test(prices),
+    'no secret or Hermes URL can enable an economic feed in the runtime price path');
   ok(/chainVerdict && !chainVerdict\.ok/.test(proof)
       && /must not be described as a complete restorable log/.test(proof),
     'a broken event chain makes the resurrection claim red and explicitly incomplete');

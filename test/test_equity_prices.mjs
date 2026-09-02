@@ -1,19 +1,13 @@
-// Stocks reach the board by a different road than crypto, and the road has a
-// gate. Pyth publishes no sponsored push account for an equity feed, so the
-// on-chain primary can never carry one; the five Equity.Index feeds are fetched
-// from Hermes and merged onto a healthy on-chain read. That merge is the whole
-// risk surface: it must never weaken crypto, and it must never let a stale or
-// loose print settle a shot. A price older than the window is not a price, it
-// is a memory -- and on a 24/7 index feed with no closing bell, staleness is
-// the only thing between "the clock decides" and "the clock decided on a ghost".
+// Economic capabilities must not appear when somebody adds a secret. Stocks
+// have no sponsored Pyth-on-Solana account in this runtime, so they stay held
+// with or without PYTH_API_KEY. Crypto remains keyless; Coinbase remains a
+// labeled display fallback and can never invent an equity target.
 import assert from 'node:assert';
 import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
-// Hermes has required a key on every host since 2026-08-26, so the merge is
-// skipped outright without one. Most cases below are about what happens once a
-// key IS held; the last case is about what happens when it is not.
+// Set the old secret deliberately. The runtime must ignore it.
 process.env.PYTH_API_KEY = 'test-key';
 
 const DISC = crypto.createHash('sha256').update('account:PriceUpdateV2').digest().subarray(0, 8);
@@ -92,20 +86,18 @@ const EQ = ['TSLA', 'NVDA', 'PLTR', 'COIN', 'HOOD'];
 let checks = 0;
 const ok = (c, m) => { checks++; assert.ok(c, m); };
 
-// ---- 1. a healthy primary carries crypto, and stocks ride along ------------
+// ---- 1. healthy on-chain crypto; stocks stay held even with a secret -------
 stub();
 let m = fresh();
 let r = await m.getPrices();
 ok(r.src === 'pyth-onchain', 'primary should still be the on-chain read, got ' + r.src);
 for (const [s, want] of Object.entries(CRYPTO_PX))
   ok(Math.abs(r[s] - want) < want * 1e-9, `${s} ${r[s]} != ${want}`);
-for (const s of EQ) ok(Math.abs(r[s] - EQ_PX[s]) < EQ_PX[s] * 1e-9, `${s} ${r[s]} != ${EQ_PX[s]}`);
-ok(r.equityOff === undefined, 'no equity failure expected');
-ok(hermesCalls === 1, 'exactly one equity fetch per price read, got ' + hermesCalls);
+for (const s of EQ) ok(r[s] === undefined, `${s} must not be enabled by an API key`);
+ok(/API-keyless Pyth-on-Solana/.test(r.equityOff), 'the hold must name the product invariant');
+ok(hermesCalls === 0, 'the runtime must not call Hermes, got ' + hermesCalls);
 
-// ---- 2. a stale stock is dropped, and crypto is untouched ------------------
-// 300s old against a 120s window. The target disappears from the menu; it does
-// not settle on a memory, and SOL is completely unaffected by its absence.
+// ---- 2. a Hermes-shaped response is irrelevant; crypto is untouched --------
 stub({ eq: 'stale' });
 m = fresh();
 r = await m.getPrices();
@@ -114,22 +106,20 @@ ok(Math.abs(r.SOL - CRYPTO_PX.SOL) < 1e-9, 'SOL must be untouched');
 for (const s of EQ) ok(r[s] === undefined, `${s} was stale and must be absent`);
 ok(typeof r.equityOff === 'string', 'a total equity drop must be stated, not silent');
 
-// ---- 3. a loose print is dropped for the same reason -----------------------
-// 500 bps of confidence against the 200 bps the settlement program accepts.
+// ---- 3. neither loose nor fresh HTTP equity data enters the runtime --------
 stub({ eq: 'wide' });
 m = fresh();
 r = await m.getPrices();
 for (const s of EQ) ok(r[s] === undefined, `${s} was 500bps wide and must be absent`);
 ok(Math.abs(r.BTC - CRYPTO_PX.BTC) < 1e-6, 'BTC must be untouched');
 
-// ---- 4. a future-dated print is dropped ------------------------------------
-// 600s ahead of us is a broken clock somewhere, not a fresh price.
+// ---- 4. future-dated HTTP data is equally irrelevant -----------------------
 stub({ eq: 'future' });
 m = fresh();
 r = await m.getPrices();
 for (const s of EQ) ok(r[s] === undefined, `${s} was future-dated and must be absent`);
 
-// ---- 5. Hermes failing cannot take crypto down with it ---------------------
+// ---- 5. Hermes state cannot take crypto down because it is never consulted --
 stub({ eq: 'down' });
 m = fresh();
 r = await m.getPrices();
@@ -148,10 +138,7 @@ ok(cb.src === 'coinbase', 'expected the coinbase route');
 for (const s of EQ) ok(cb[s] === undefined, `${s} must never come from coinbase`);
 ok(cb.SOL > 0 && cb.BTC > 0 && cb.ETH > 0, 'coinbase must still quote the core three');
 
-// ---- 7. no key, no stock board, and it says which ------------------------
-// The one that matters operationally: this is the state the site is in until a
-// Pyth key is configured, and an empty stock menu must be readable as a cause
-// rather than guessed at.
+// ---- 7. removing the old secret produces the exact same product ------------
 delete process.env.PYTH_API_KEY;
 stub();
 m = fresh();
@@ -159,10 +146,10 @@ r = await m.getPrices();
 ok(r.src === 'pyth-onchain', 'crypto is completely unaffected by having no Pyth key');
 for (const [s, want] of Object.entries(CRYPTO_PX))
   ok(Math.abs(r[s] - want) < want * 1e-9, `${s} must be priced with no key at all`);
-for (const s of EQ) ok(r[s] === undefined, `${s} needs Hermes, which needs a key`);
-ok(/PYTH_API_KEY/.test(String(r.equityOff)), 'the missing key must be named, not implied: ' + r.equityOff);
+for (const s of EQ) ok(r[s] === undefined, `${s} remains held without a secret`);
+ok(/API-keyless Pyth-on-Solana/.test(String(r.equityOff)), 'the invariant must be named: ' + r.equityOff);
 ok(hermesCalls === 0, 'and nothing should be asked of Hermes at all, got ' + hermesCalls);
-process.env.PYTH_API_KEY = 'test-key';
+delete process.env.PYTH_API_KEY;
 
-console.log(`EQUITY PRICES OK — ${checks} checks: stocks merge onto a healthy primary, `
-  + `and stale, loose, future-dated and unreachable prints all drop the target instead of settling it`);
+console.log(`EQUITY PRICES OK — ${checks} checks: API keys cannot enable stocks, `
+  + `HTTP equity data is never consulted, and keyless crypto remains intact`);

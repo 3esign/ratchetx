@@ -157,7 +157,7 @@ enough to hide a live defect (`SOLANA_WS`, see
 | `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY` | Supabase | production state has no store; the site cannot serve real shots |
 | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | Upstash | the documented rollback store is unavailable; Supabase remains primary |
 | `CAPTURE_SECRET` | our own capture endpoint | the account-transition stream does not run; minute polling carries settlement alone |
-| `PYTH_API_KEY` | optional Pyth Hermes display failover | the failover is skipped; sponsored on-chain accounts remain primary, and core settlement plus premium proofs are unchanged |
+| Pyth API key | not accepted by the runtime price path | no secret can add a feed or change the economic board; sponsored on-chain accounts remain canonical |
 | `CRANK_INTERVAL_MS` | `tools/crank.mjs` | the local cranker uses its built-in interval |
 
 Every one of these degrades to something stated rather than to silence, which is

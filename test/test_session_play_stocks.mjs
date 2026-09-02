@@ -1,14 +1,12 @@
-// Bankr holds a spend capability. Every mistake it can make costs somebody
-// credits, so the stock rules are pinned here rather than left to the general
-// asset resolver, which was written when every feed was a token.
+// Bankr holds a spend capability. Stocks are recognized for an exact refusal,
+// but are never playable until the canonical API-keyless oracle path has a
+// sponsored on-chain equity feed.
 //
 // Two failure modes matter, and both are new with stocks:
 //   1. COIN and HOOD are ordinary English words. "put it on the coin" must not
 //      buy Coinbase, and "back in the hood" must not buy Robinhood.
-//   2. Twelve feeds share ten slots, so a named asset is often not on THIS
-//      hour's board. The old resolver answered that by sealing a shot on
-//      whatever was shortest. Asking for Tesla and getting BONK is not a
-//      degraded answer, it is the wrong bet with real money.
+//   2. Even if an upstream board accidentally contains a stock, the runner
+//      filters it locally. Asking for Tesla must never become a SOL shot.
 import assert from 'node:assert/strict';
 import {resolveIntent,replyFor,boardReply,PITCH,HELP} from '../skills/ratchetx/scripts/session-play.mjs';
 
@@ -26,15 +24,11 @@ const env={board:mixed,context,limits:{maxStakeCredits:5000,maxGrossCredits:2000
 const feedFor=(text,extra={})=>resolveIntent(text,{...env,...extra}).resolution.feed;
 let checks=0;
 const is=(text,want,why,extra)=>{checks++;assert.equal(feedFor(text,extra),want,why||text);};
+const held=text=>{checks++;assert.throws(()=>resolveIntent(text,env),/ASSET_NOT_ON_BOARD/,text);};
 
-// ---- the tickers are understood, by name and by symbol --------------------
-is('put 500 on tesla higher','TSLA');
-is('nvidia lower','NVDA');
-is('palantir higher','PLTR',undefined,{board:{stakeRule:stake,targets:[{id:'P',kind:'dir',feed:'PLTR',mins:5}]}});
-is('$TSLA higher','TSLA');
-is('tsla higher','TSLA');
-is('coinbase higher','COIN');
-is('robinhood lower','HOOD');
+// ---- stock names and symbols are understood, then refused -----------------
+for(const text of ['put 500 on tesla higher','nvidia lower','palantir higher',
+  '$TSLA higher','tsla higher','coinbase higher','robinhood lower']) held(text);
 
 // ---- and the two that are also words are not guessed at -------------------
 // The shortest target is SOL at 5 min; that is what "no asset named" resolves
@@ -42,14 +36,12 @@ is('robinhood lower','HOOD');
 is('put 500 on the coin higher','SOL','a coin is a coin, not Coinbase');
 is('flip a coin, higher','SOL','still not Coinbase');
 is('back in the hood, sol higher','SOL','a hood is not Robinhood');
-// Written the way a ticker is written, it IS the ticker.
-is('put 500 on $coin higher','COIN','$coin names the stock');
-is('COIN higher','COIN','capitals name the stock');
-is('HOOD lower','HOOD','capitals name the stock');
+// Written like a ticker, it names the held stock and is refused.
+for(const text of ['put 500 on $coin higher','COIN higher','HOOD lower']) held(text);
 
 // ---- an asset we cannot play is refused, never swapped ---------------------
-// This is the whole point of the file. TSLA is real and playable in general,
-// just not on THIS board, which happens most hours.
+// This is the whole point of the file. A stock is held everywhere; a token can
+// still be absent only from this hour's board.
 checks++;
 assert.throws(()=>resolveIntent('put 5000 on tesla higher',{...env,board:cryptoOnly}),
   /ASSET_NOT_ON_BOARD/,'a stock off the board must refuse, not seal something else');
@@ -71,6 +63,8 @@ assert.throws(()=>resolveIntent('put 500 on wif higher',{...env,board:cryptoOnly
     requestedAsset:'TSLA',availableAssets:['SOL','BTC','ETH']});
   checks++;assert.match(stock,/Nothing was sealed/,'the first thing a player needs to know');
   checks++;assert.match(stock,/TSLA is a stock/,'name the asset they actually asked for');
+  checks++;assert.match(stock,/API-keyless oracle path has no sponsored on-chain equity feed/,
+    'name the exact permanent product constraint');
   checks++;assert.doesNotMatch(stock,/this hour|next hour|board changes every hour/,
     'a held asset must not promise a later board');
   checks++;assert.match(stock,/On the board now: SOL, BTC, ETH\./,'name what works, so the next message is right');
@@ -82,23 +76,20 @@ assert.throws(()=>resolveIntent('put 500 on wif higher',{...env,board:cryptoOnly
   checks++;assert.match(token,/will not put your credits on a different asset than the one you named/);
 }
 
-// ---- the player is told how a stock settles BEFORE they play one ----------
-// In the receipt would be too late, and the sealed reply deliberately reveals
-// nothing about the target anyway. The board is where the choice is made.
+// ---- a stale/misconfigured board cannot advertise a stock ------------------
 {
   const b=boardReply(mixed);
-  checks++;assert.match(b,/TSLA.*\(stock\)/,'a stock is marked as one on the board');
-  checks++;assert.match(b,/Pyth 24\/7 index mark, not an exchange print/);
-  checks++;assert.match(b,/around the clock/);
+  checks++;assert.doesNotMatch(b,/TSLA|NVDA|COIN|HOOD/,'stock targets are filtered locally');
+  checks++;assert.doesNotMatch(b,/stock|24\/7 index|exchange print/i);
   const c=boardReply(cryptoOnly);
   checks++;assert.doesNotMatch(c,/\(stock\)/,'no stock on the board, no stock line');
   checks++;assert.doesNotMatch(c,/24\/7 index/,'the note appears only when it applies');
 }
-checks++;assert.match(HELP,/tesla, nvidia, palantir, coinbase, robinhood/,'the menu names every stock');
-checks++;assert.match(HELP,/not an exchange print/,'and says what one settles on');
-checks++;assert.match(PITCH,/never an exchange print/,'so does the standing explanation');
+checks++;assert.doesNotMatch(HELP,/put 500 on tesla|stocks too/,'help must not offer a held target');
+checks++;assert.match(HELP,/API-keyless sponsored on-chain equity feed/);
+checks++;assert.doesNotMatch(PITCH,/Call crypto or US stocks|playable around the clock/);
+checks++;assert.match(PITCH,/Stocks stay held until an API-keyless sponsored on-chain equity feed/);
 checks++;assert.ok(PITCH.length<=700,'pitch stays short: '+PITCH.length);
 
-console.log(`Session play stocks PASS - ${checks} checks: tickers resolve by name and symbol, `
-  + `'coin' and 'hood' stay English words, an asset off the board refuses instead of `
-  + `swapping, and the board says what a stock settles on before anyone plays one`);
+console.log(`Session play stocks PASS - ${checks} checks: stock names refuse without dispatch, `
+  + `'coin' and 'hood' stay English words, and stale upstream stock targets stay hidden`);

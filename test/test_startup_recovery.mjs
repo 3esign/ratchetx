@@ -32,7 +32,10 @@ try {
   });
   const started = Date.now();
   await page.goto('http://127.0.0.1:' + port + '/', {waitUntil:'domcontentloaded'});
-  // The first request is deliberately hung for 13s. The claim under test is
+  // The first request is deliberately failed by the fixture after 13s. The
+  // browser's own patience budget is 20s; this case tests automatic recovery
+  // from a slow transport failure, not the exact timeout boundary.
+  // The claim under test is
   // that the page recovers BY ITSELF, without a reload — not that it manages it
   // within a particular number of seconds. The old 22s deadline left only ~9s
   // of margin for the abort to propagate, the retry to fire, the second request
@@ -54,11 +57,11 @@ try {
   }));
   const elapsed = Date.now() - started;
   assert.ok(stateCalls >= 2, `a second state request ran automatically (calls=${stateCalls})`);
-  assert.ok(elapsed >= 12000, `the first hung request reached its timeout (elapsed=${elapsed}ms)`);
+  assert.ok(elapsed >= 12000, `the first slow request reached its fixture failure (elapsed=${elapsed}ms)`);
   assert.ok(result.version, 'the retry recovered a valid game state');
   assert.equal(result.bannerDisplay, 'none',
     `the temporary error banner clears after recovery (banner="${result.banner}", elapsed=${elapsed}ms)`);
-  console.log('hung initial state request timed out and recovered automatically without page reload');
+  console.log('slow initial state request failed and recovered automatically without page reload');
 } finally {
   await browser.close();
   await new Promise(resolve => server.close(resolve));

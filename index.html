@@ -1034,20 +1034,23 @@ const who=()=>AUTH?AUTH.wallet:DEMO;
 
 // ---------- state ----------
 let refreshing=false;
-let refreshFailures=0, recoveryTimer=null;
-// The server's own worst case is longer than this used to allow. A state read
-// can walk up to five RPC endpoints (5s each, 7s total walk budget) and then do
-// the settlement work on top, so 12s was cutting off requests that were still
-// coming. Twenty is past the server's ceiling: a request that misses this one
-// is genuinely lost, not merely slow.
+let refreshFailures=0, refreshDeferrals=0, refreshNotBefore=0, recoveryTimer=null;
+// Twelve seconds cut off observed slow-but-healthy state reads. Twenty seconds
+// is a bounded browser patience budget, not a claim about a hard server ceiling:
+// a client abort does not prove the server invocation stopped or failed.
 const STATE_TIMEOUT_MS=20000;
-function scheduleRecovery(){
+function scheduleRecovery(minDelay=0){
   if(recoveryTimer||dead)return;
-  const delay=Math.min(30000,1500*Math.pow(2,Math.min(refreshFailures-1,4)));
+  const backoff=Math.min(30000,1500*Math.pow(2,Math.min(Math.max(0,refreshFailures-1),4)));
+  const delay=Math.max(minDelay,backoff);
   recoveryTimer=setTimeout(()=>{recoveryTimer=null;refresh();},delay);
 }
 async function refresh(){
   if(dead||refreshing)return;
+  if(Date.now()<refreshNotBefore){
+    scheduleRecovery(refreshNotBefore-Date.now());
+    return;
+  }
   refreshing=true;
   const ctrl=new AbortController();
   const timeout=setTimeout(()=>ctrl.abort(),STATE_TIMEOUT_MS);
@@ -1055,25 +1058,57 @@ async function refresh(){
     const w=who();
     const r=await fetch(API+"?action=state"+(w?("&wallet="+encodeURIComponent(w)):""),
       {signal:ctrl.signal,cache:"no-store"});
-    if(!r.ok)throw new Error("server "+r.status);
+    if(!r.ok){
+      let body=null;
+      try{body=await r.json();}catch{}
+      // A timed-out invocation may still hold the wallet lease. Its retry can
+      // receive PLAYER_BUSY even though the original healthy read is finishing.
+      // Rate limiting likewise proves the service answered; neither is a
+      // second connectivity failure and neither should manufacture an outage.
+      if(r.status===409&&body&&body.code==="PLAYER_BUSY"){
+        refreshFailures=0;
+        refreshDeferrals++;
+        refreshNotBefore=Date.now()+3000;
+        if(refreshDeferrals>=2&&(!STATE||STATE.durable!==false)){
+          $("mode").style.display="block";
+          $("mode").textContent="Finishing the previous game-state update — your wallet, credits and sealed shots are safe.";
+        }
+        scheduleRecovery(3000);
+        return;
+      }
+      if(r.status===429){
+        refreshFailures=0;
+        refreshDeferrals++;
+        const seconds=body&&body.retryAfterSeconds;
+        const waitMs=Number.isFinite(seconds)&&seconds>0
+          ?Math.max(1000,Math.min(60000,seconds*1000)):60000;
+        refreshNotBefore=Date.now()+waitMs;
+        if(!STATE||STATE.durable!==false){
+          $("mode").style.display="block";
+          $("mode").textContent="Refresh limit reached — retrying in "+Math.ceil(waitMs/1000)+" seconds. Your wallet, credits and sealed shots are safe.";
+        }
+        scheduleRecovery(waitMs);
+        return;
+      }
+      throw new Error("server "+r.status);
+    }
     STATE=await r.json();
     if(!STATE.ok)throw new Error(STATE.reason);
     refreshFailures=0;
+    refreshDeferrals=0;
+    refreshNotBefore=0;
     if(recoveryTimer){clearTimeout(recoveryTimer);recoveryTimer=null;}
     paint();
   }catch(e){
     refreshFailures++;
-    // One missed poll is not an outage, and saying so in a banner taught players
-    // to distrust a game that was working. The poll runs every ten seconds and
-    // retries 1.5s after a miss, so a single slow read is repaired before anyone
-    // could act on the warning. Speak up on the SECOND consecutive failure --
-    // by then something is actually wrong, and the message has earned its place.
+    // One missed poll is not an outage. Speak only after two consecutive
+    // transport/server failures; successful reads reset the count.
     if(refreshFailures>=2){
       const why=e&&e.name==="AbortError"?"request timed out":String(e&&e.message||e);
       $("mode").style.display="block";
       $("mode").textContent="Reconnecting to the game service — your wallet, credits and sealed shots are safe. ("+why+")";
     }
-    scheduleRecovery();
+    scheduleRecovery(e&&e.name==="AbortError"?5000:0);
   }finally{clearTimeout(timeout);refreshing=false;}
 }
 function paint(){
@@ -2388,11 +2423,9 @@ function watchExpired(exp){
   prev.tries++;
   prev.next=now+Math.min(15000,2000*Math.pow(1.45,prev.tries-1));
   settleWatches.set(exp,prev);
-  // Settlement is when the server does the most work per request -- it walks the
-  // sample buckets, resolves the crossing, writes the outcome -- so this watch
-  // asks the slowest endpoint its hardest question at the highest rate it is
-  // ever asked. Three seconds still reveals a settle within one tick of the
-  // countdown and roughly halves the load at the exact moment it matters.
+  // Settlement is when the server does the most work per request. Keep the
+  // per-shot exponential backoff, and cap aggregate refresh pressure at one
+  // request every three seconds while expired cards are watching.
   if(now>=settleRefreshDue){settleRefreshDue=now+3000;refresh();}
 }
 // surgical 1s ticker: update countdown text, then wake settlement only at expiry

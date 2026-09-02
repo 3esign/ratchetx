@@ -54,8 +54,10 @@ function call(method, { query = {}, body = null, ip = '1.2.3.4' } = {}) {
     const req = { method, query, body, headers: { 'x-forwarded-for': ip }, socket: {} };
     const res = {
       _status: 200,
+      _headers: {},
+      setHeader(name, value) { this._headers[String(name).toLowerCase()] = String(value); },
       status(c) { this._status = c; return this; },
-      json(o) { resolve({ status: this._status, body: o }); },
+      json(o) { resolve({ status: this._status, body: o, headers: this._headers }); },
     };
     game(req, res).catch(e => resolve({ status: 599, body: { ok: false, reason: String(e) } }));
   });
@@ -85,10 +87,11 @@ const TARGET60 = `H${BOARD_TEST_HOUR}Q4`;
 const TARGET1440 = `H${BOARD_TEST_HOUR}Q6`;
 // 1 ---- bare state
 let r = await call('GET', { query: { action: 'state' } });
+const initialState = r;
 const FLASH_FEED = r.body.targets[TARGET5].feed;
 ok(r.status === 200 && r.body.ok && r.body.v && r.body.durable === false, 'state answers, versioned, ephemeral');
 ok(Object.keys(r.body.targets).length === 11, 'eleven targets served (7 balanced directions + 4 market structures)');
-ok(r.body.boardModel === 'v2-balanced-hourly', 'board generator version is public');
+ok(r.body.boardModel === 'v3-keyless-hourly', 'board generator version is public');
 const directionals = Object.values(r.body.targets).filter(t => t.kind === 'dir');
 ok(directionals.length === 7 && new Set(directionals.map(t => t.feed)).size === 7,
    'every Pyth feed gets exactly one directional window per hour');
@@ -98,6 +101,28 @@ ok(r.body.targets[TARGET5] && r.body.targets[TARGET5].mins === 5
 ok(Object.values(r.body.targets).some(t => t.feed === 'PUMP'), 'the house token is on the board');
 ok(!('RCX15' in r.body.targets) && !('RCX_THR' in r.body.targets), 'no RCX-priced targets');
 ok(r.body.stats.potD === 0, 'daily pot initialised');
+
+// Display fallbacks remain visible prices, never playable questions.
+PX.src = 'coinbase';
+r = await call('GET', { query: { action: 'state' }, ip:'1.2.3.5' });
+ok(Object.keys(r.body.targets || {}).length === 0,
+  'state advertises zero playable targets on a display-only fallback');
+r = await call('GET', { query: { action: 'board' }, ip:'1.2.3.6' });
+ok((r.body.targets || []).length === 0,
+  'machine board advertises zero playable targets on a display-only fallback');
+PX.src = 'pyth-onchain';
+PX.ages = Object.fromEntries(TEST_FEEDS.map(f => [f, 1]));
+PX.ages[FLASH_FEED] = null;
+r = await call('GET', { query: { action: 'board' }, ip:'1.2.3.7' });
+ok(!(r.body.targets || []).some(t => t.feed === FLASH_FEED),
+  'a null publish age removes that feed from the machine board');
+delete PX.ages;
+PX.confs = Object.fromEntries(TEST_FEEDS.map(f => [f, 10]));
+PX.confs[FLASH_FEED] = '';
+r = await call('GET', { query: { action: 'board' }, ip:'1.2.3.8' });
+ok(!(r.body.targets || []).some(t => t.feed === FLASH_FEED),
+  'an empty confidence value removes that feed from the machine board');
+delete PX.confs;
 
 // Mirror receipts are only creditable when every sealed term matches. This
 // decoder is pure so the dangerous boundary stays testable with mirroring
@@ -131,7 +156,7 @@ ok(r.body.stats.potD === 0, 'daily pot initialised');
 // version this replaced always had a number, and its number meant nothing.
 ok(!(getMem('g:warden:open') || []).length,
    'no warden line before there is enough price history to price one');
-ok(r.body.warden && r.body.warden.p === null,
+ok(initialState.body.warden && initialState.body.warden.p === null,
    'and the line it serves says so, rather than quoting a made-up probability');
 {
   const before = { ...stats() };
@@ -967,7 +992,18 @@ const kvmod = require('../lib/kv.js');
   ok(!r.body.ok && /print is 55s old/.test(r.body.reason || ''), 'stale print refused on a 5-minute window');
   ok(!getMem('u:demo-fresh1') || getMem('u:demo-fresh1').cr === 5000, 'refusal costs the player nothing');
 
+  for (const [caseIndex, missingAge] of [null, ''].entries()) {
+    PX.ages = Object.fromEntries(TEST_FEEDS.map(f => [f, 3]));
+    PX.ages[FLASH_FEED] = missingAge;
+    r = await call('POST', { body: { action:'shot',
+      auth:{wallet:'demo-a90'+caseIndex},
+      target:TARGET5, side:'YES', stake:500 } });
+    ok(!r.body.ok && r.body.code === 'ORACLE_STALE',
+      'null/empty publish age is refused instead of coercing to zero: '+JSON.stringify(r.body));
+  }
+
   // The same staleness is meaningless over an hour, so it must still seal.
+  PX.ages = { SOL: 55, BTC: 55, ETH: 55, BONK: 55, WIF: 55, JUP: 55, PUMP: 55 };
   r = await call('POST', { body: { action: 'shot', auth: { wallet: 'demo-fresh2' }, target: TARGET60, side: 'YES', stake: 500 } });
   ok(r.body.ok, 'the same age still seals on a 1-hour window — the bound is proportionate');
   ok(r.body.shot.entryAge === 55, 'the entry price age is recorded on the shot');
@@ -990,6 +1026,15 @@ const kvmod = require('../lib/kv.js');
     'a confidence explosion is refused at the final economic boundary');
   ok(!getMem('u:demo-confwide1') || getMem('u:demo-confwide1').cr === 5000,
     'wide-confidence refusal debits no credits');
+  for (const [caseIndex, missingConf] of [null, ''].entries()) {
+    PX.confs = Object.fromEntries(TEST_FEEDS.map(f => [f, 10]));
+    PX.confs[FLASH_FEED] = missingConf;
+    r = await call('POST', { body: { action:'shot',
+      auth:{wallet:'demo-c90'+caseIndex},
+      target:TARGET5, side:'YES', stake:500 } });
+    ok(!r.body.ok && r.body.code === 'FEED_UNAVAILABLE',
+      'null/empty confidence is refused instead of coercing to zero: '+JSON.stringify(r.body));
+  }
   delete PX.confs;
   for (const k of Object.keys(PX)) delete PX[k];
   Object.assign(PX, saved);

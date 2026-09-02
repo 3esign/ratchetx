@@ -40,12 +40,12 @@ skills, x402 support and the reciprocal registry binding.
 
 ## Is this repo actually the running code?
 
-This source tree declares `h97-2026-08-30` through `lib/release.js`. A deployment is release-consistent only when
+This source tree declares `h113-2026-09-03` through `lib/release.js`. A deployment is release-consistent only when
 both production domains return the same version:
 
 ```
-https://ratchetx.xyz/api/game?action=state   ->  "v": "h97-2026-08-30"
-https://ratchetx.xyz/api/proof               ->  "v": "h97-2026-08-30"
+https://ratchetx.xyz/api/game?action=state   ->  "v": "h113-2026-09-03"
+https://ratchetx.xyz/api/proof               ->  "v": "h113-2026-09-03"
 ```
 
 Public APIs import that shared release marker so one endpoint cannot silently
@@ -204,8 +204,8 @@ and the page says so). Environment variables, all optional except the mint:
 `SOLANA_RPC_URL` or `SOLANA_RPC` (fast RPC lane; public RPCs are the
 fallback) · `SUPABASE_URL` + `SUPABASE_SERVICE_KEY` (preferred free durable state; server-only) · `KV_REST_API_URL` + `KV_REST_API_TOKEN` (rollback/fallback durable state) · `CREDIT_PER_TOKEN`
 (default 1) · `RATCHET_LP_BURN_TX` (optional override for the LP proof line) ·
-`PYTH_API_KEY` + `PYTH_HERMES_URL` (optional display-price failover only; core
-settlement and premium proof bundles never require either) ·
+Pyth prices use sponsored Solana accounts with no Pyth API key; Coinbase is a
+labeled display-only fallback and can never enable sealing ·
 `RATCHET_SEAL_PROGRAM_ID` + `RATCHET_SEAL_VERSION` +
 `RATCHET_SEAL_CLUSTER` (arms optional sealing; it reuses `SOLANA_RPC_URL` unless `RATCHET_SEAL_RPC_URL` is set) ·
 `RATCHET_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)

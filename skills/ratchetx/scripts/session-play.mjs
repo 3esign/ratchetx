@@ -266,43 +266,36 @@ function findHorizon(text){
 }
 /** One canonical explanation. Questions about RatchetX get this, not a shot. */
 export const PITCH=`RatchetX - sealed prediction arcade on Solana. $RCX launched on pump.fun, CA FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump.
-Call crypto or US stocks - SOL, BTC, ETH, TSLA, NVDA and more - higher or lower over minutes, sealed before the move, settled on a verified Pyth price. No vote, no discretion.
-Stocks settle on Pyth's 24/7 index, never an exchange print - playable around the clock.
+Call SOL, BTC, ETH and the crypto board higher or lower over minutes, sealed before the move, settled on verified Pyth-on-Solana data. No vote, no discretion.
+Stocks stay held until an API-keyless sponsored on-chain equity feed can meet the same settlement rule.
 Every call carries your probability; Brier scoring builds a public calibration record. Hits earn XP, rank and podium.
 Every $RCX reload burns 70%, pays 30% to the podium, 0% to the team.
 One flywheel: play -> XP -> podium -> $RCX -> reload -> burn + podium -> play. Humans and agents on one board. ratchetx.xyz`;
 const EXPLAIN_PATTERN=/\b(what|whats|what's|how does|how do|explain|tell me|describe|why|wtf|wat)\b.*\b(ratchet|ratchetx|rcx|this|it|game|arcade|arena|podium|flywheel|rewards?)\b|\b(ratchet|ratchetx|rcx)\b\s*\?|\b(explain|info|about|intro|pitch)\b/;
 export const HELP=`RatchetX commands (mention @bankrbot):
 - ratchetx put 500 on sol higher - sealed forecast: asset, higher/lower, credits, optional 70%
-- ratchetx put 500 on tesla lower - stocks too: tesla, nvidia, palantir, coinbase, robinhood
-  (stocks settle on the Pyth 24/7 index mark, not an exchange print)
 - ratchetx play - quickest board target, 100 credits
 - ratchetx board - what can be played right now
 - ratchetx stats - credits, XP, Brier, session
 - ratchetx leaderboard - who is winning right now
 - ratchetx result - your latest settled forecast
 - ratchetx what is this - how the flywheel works
+Stocks are held until an API-keyless sponsored on-chain equity feed can settle them.
 Setup: ratchetx.xyz/play-session.html`;
 const META_PATTERN=/\b(update|upgrade|install|reinstall|uninstall|refresh|sync|latest version|github|skill|skills|repo|repository)\b/;
-export const META_REPLY='That is a Bankr skill command, not a RatchetX play - nothing was sealed. Ask Bankr: "update the ratchetx skill from https://github.com/3esign/ratchetx".';
+export const META_REPLY='That is a Bankr skill command, not a RatchetX play - nothing was sealed. Ask Bankr: "update the ratchetx skill from https://github.com/3esign/ratchetx/tree/main/skills/ratchetx".';
 const HELP_PATTERN=/\b(help|menu|commands?|options|usage|how to play|how do i play|instructions)\b/;
 const BOARD_PATTERN=/\b(board|games?|targets?|markets?|what can i play|what'?s (?:on|open|live)|whats (?:on|open|live)|list|available|open now)\b/;
 const mins=m=>m%60===0?(m/60)+' h':m+' min';
 /** Public board -> the shortest playable targets, one line each. Reveals nothing. */
 export function boardReply(board,now=Date.now()){
-  const dirs=(board?.targets||[]).filter(t=>t&&t.kind==='dir'&&!t.feed2&&integer(t.mins)).sort((a,b)=>a.mins-b.mins).slice(0,5);
+  const dirs=(board?.targets||[]).filter(t=>t&&t.kind==='dir'&&!t.feed2&&integer(t.mins)&&!STOCKS.has(t.feed)).sort((a,b)=>a.mins-b.mins).slice(0,5);
   if(!dirs.length)return 'No playable target on the board right now. Try again in a minute.\n\n'+FOOTER;
   const left=finite(board.flipsAt)?Math.max(1,Math.round((board.flipsAt-now)/60000)):null;
   const head='On the board now'+(left?' (new board in '+mins(left)+')':'')+':';
-  const rows=dirs.map((t,i)=>'- '+t.feed+(i===0?' higher or lower':'')+' in '+mins(t.mins)+(STOCKS.has(t.feed)?' (stock)':''));
-  // Said here, before the bet, rather than in the receipt after it. A stock on
-  // this board settles on Pyth's 24/7 index mark, which keeps publishing when
-  // the exchange is shut -- that is what makes a 03:00 shot settleable, and it
-  // is also why it must never be read as a NASDAQ print.
-  const stockNote=dirs.some(t=>STOCKS.has(t.feed))
-    ? '\nStocks settle on the Pyth 24/7 index mark, not an exchange print - playable around the clock.' : '';
+  const rows=dirs.map((t,i)=>'- '+t.feed+(i===0?' higher or lower':'')+' in '+mins(t.mins));
   const ex=dirs[1]||dirs[0];
-  return head+'\n'+rows.join('\n')+stockNote+'\nPlay: "ratchetx put 500 on '+ex.feed.toLowerCase()+' lower"\n\n'+FOOTER;
+  return head+'\n'+rows.join('\n')+'\nPlay: "ratchetx put 500 on '+ex.feed.toLowerCase()+' lower"\n\n'+FOOTER;
 }
 /** Global standings from the public arena. Pure. */
 export function leaderboardReply(arena){
@@ -331,7 +324,10 @@ export function classifyCommand(text){
 /** Resolve words into one directional intent on the current board. Pure. */
 export function resolveIntent(text,{board,context,limits,session,player,overrides={}}){
   const raw=String(text??'').slice(0,SAY_MAX),words=tokens(raw),notes=[];
-  const dirs=(board?.targets||[]).filter(t=>t&&t.kind==='dir'&&!t.feed2&&typeof t.id==='string'&&integer(t.mins)&&t.mins>=1);
+  // Local policy firewall: a stale or misconfigured upstream board cannot
+  // make a stock playable. The parser still recognizes stock names so it can
+  // refuse exactly what the user asked for instead of substituting a token.
+  const dirs=(board?.targets||[]).filter(t=>t&&t.kind==='dir'&&!t.feed2&&typeof t.id==='string'&&integer(t.mins)&&t.mins>=1&&!STOCKS.has(t.feed));
   need(dirs.length>0,'TARGET_UNAVAILABLE');
   const feeds=[...new Set(dirs.map(t=>t.feed))];
   let asset=overrides.asset?String(overrides.asset).toUpperCase():findAsset(words,feeds,raw,notes);
@@ -341,13 +337,8 @@ export function resolveIntent(text,{board,context,limits,session,player,override
   if(asset&&asset.ambiguousBetween)
     stop('ASSET_AMBIGUOUS','REFUSED',{candidates:asset.ambiguousBetween});
   // A named asset that is not on this board is a REFUSAL, never a substitution.
-  // This used to fall back to the shortest available target: ask for TSLA when
-  // TSLA has no slot this hour and your credits went on BONK. That was survivable
-  // while seven feeds filled seven slots and "not on the board" almost never
-  // happened; with twelve feeds sharing ten slots it is routine, and spending
-  // someone's stake on an instrument they did not name is the one mistake an
-  // agent holding a spend capability must never make. Refuse, and say what IS
-  // playable so the next message can be right.
+  // This used to fall back to the shortest available target. Spending a stake
+  // on an instrument the player did not name is never a degraded answer.
   if(asset&&(typeof asset==='object'||!feeds.includes(asset)))
     stop('ASSET_NOT_ON_BOARD','REFUSED',
       {requestedAsset:typeof asset==='object'?asset.unavailable:asset,availableAssets:feeds});
@@ -732,12 +723,11 @@ const REFUSALS={
     const want=r.requestedAsset?String(r.requestedAsset).toUpperCase():'That asset';
     const have=Array.isArray(r.availableAssets)&&r.availableAssets.length
       ? ' On the board now: '+r.availableAssets.join(', ')+'.' : '';
-    // A stock is not absent for an hour, it is absent for now: no free feed
-    // publishes equities fast enough to settle a sealed shot honestly, so
-    // stocks are held. Telling someone to wait for the next board would send
-    // them back every hour to be refused again in the same words.
+    // A stock is not absent for an hour. It is held until the API-keyless
+    // oracle path has a sponsored on-chain equity account that can satisfy the
+    // same seal and settlement evidence rules as crypto.
     if(STOCKS.has(want))
-      return 'Nothing was sealed. '+want+' is a stock, and RatchetX is not offering stocks at the moment - no free price feed publishes them fast enough to settle a sealed shot honestly, and the game will not settle on one it cannot stand behind.'+have;
+      return 'Nothing was sealed. '+want+' is a stock. RatchetX\'s API-keyless oracle path has no sponsored on-chain equity feed, so stocks stay held and the game will not settle on a source it cannot verify by the same rule as crypto.'+have;
     return 'Nothing was sealed. '+want+' is not on the board this hour, and RatchetX will not put your credits on a different asset than the one you named.'+have+' The board changes every hour - reply "ratchetx board" to see it.';
   },
   CAPABILITY_IDENTITY_MISMATCH:()=>'No RatchetX play session is configured for this account. '+NEW_SESSION,

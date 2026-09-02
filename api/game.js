@@ -274,33 +274,9 @@ const STAKES = { 500: 2.24, 2500: 5, 10000: 10, 50000: 20 };   // presets the UI
 // A sealed shot carries its own settlement spec, so board rotation can
 // never touch an open bet. All feeds are external Pyth majors that no
 // player can move.
-const BOARD_MODEL = 'v2-balanced-hourly';
+const BOARD_MODEL = 'v3-keyless-hourly';
 const ROTFEEDS = ['SOL', 'BTC', 'ETH', 'BONK', 'WIF', 'JUP', 'PUMP'];
-// Stocks are ADDITIVE, not a twelfth of one ladder. Folding them into ROTFEEDS
-// looked tidier and was wrong twice over: it broke the standing promise that
-// every crypto feed gets exactly one directional window an hour, and -- because
-// a target with no usable price is filtered out where the board is served -- a
-// quiet stock would have silently shrunk the whole board to four or five
-// targets instead of costing only its own slot. Their own slots keep the
-// crypto ladder untouched and make a stock outage cost exactly the stocks.
-const STOCKFEEDS = ['TSLA', 'NVDA', 'PLTR', 'COIN', 'HOOD'];
-// Directional only, deliberately. A threshold ("up 1.2% in 30 minutes") has to
-// be sized from a typical move, and an index feed moves hard while the US
-// market is open and barely at all overnight -- one constant cannot be honest
-// for both, and the wrong one turns every night into an unwinnable target.
-// "Higher in N minutes" needs no volatility estimate and reads the same at
-// 15:00 and 03:00, so that is the only shape a stock is offered in.
-const STOCK_WINDOWS = [
-  { mins:5,  tag:'FLASH', baseXp:10 },
-  { mins:30, tag:'',      baseXp:14 },
-  { mins:60, tag:'',      baseXp:16 },
-];
 // Typical hourly move, used only to size THE PUMP and THE DUMP thresholds.
-// The equity numbers are blended across the whole day on purpose: an index feed
-// moves hard while the US market is open and barely at all overnight, and a
-// single constant cannot be right for both. Blended means overnight thresholds
-// are a little wide, so more of those shots reach expiry without a crossing --
-// which voids and refunds. Wide and refunded beats tight and arbitrary.
 const TYPVOL = { SOL: 0.0075, BTC: 0.0045, ETH: 0.0065, BONK: 0.02, WIF: 0.018, JUP: 0.012, PUMP: 0.014 }; // typical hourly move
 const DIRECTION_WINDOWS = [
   { mins:5,    tag:'FLASH', baseXp:10 },
@@ -344,21 +320,11 @@ function targetBoard(hour) {
     const m = pick([30, 60]);
     board[`H${hour}R`] = { kind: 'race', feed: a, feed2: b, mins: m, baseXp: 20, label: `THE RACE: ${a} beats ${b} over ${winTxt(m)}` };
   }
-  { // THE STOCKS: three of the five each hour, from the same seeded shuffle,
-    // so the board stays deterministic and a wallet that sealed an hour ago
-    // can still be settled against the spec it sealed under.
-    const st = [...STOCKFEEDS];
-    for (let i = st.length - 1; i > 0; i--) {
-      const j = Math.floor(rnd() * (i + 1));
-      [st[i], st[j]] = [st[j], st[i]];
-    }
-    for (let i = 0; i < STOCK_WINDOWS.length; i++) {
-      const f = st[i], q = STOCK_WINDOWS[i];
-      const prefix = q.tag ? q.tag + ': ' : '';
-      board[`H${hour}S${i}`] = { kind:'dir', feed:f, mins:q.mins, baseXp:q.baseXp,
-        label:`${prefix}${f} higher in ${winTxt(q.mins)}` };
-    }
-  }
+  // h112 used four RNG draws to shuffle dormant stock slots before building
+  // THE BOX. Consume those draws without publishing stocks so every existing
+  // H{hour}B id keeps exactly the same feed and threshold through deployment
+  // and the previous-board grace window.
+  for (let legacyStockDraw = 0; legacyStockDraw < 4; legacyStockDraw++) rnd();
   { // THE BOX: does the hour end outside the band, or trapped inside?
     const f = pick(['SOL', 'BTC', 'ETH']); const mult = pick([1.0, 1.5]);
     const pct = +(TYPVOL[f] * mult).toFixed(4);
@@ -439,13 +405,13 @@ const RL = globalThis.__ratchet_rl || (globalThis.__ratchet_rl = new Map());
 // Automatic Blink discovery is a convenience, not a reason to scan Solana on
 // every six-second UI poll. The explicit anchor endpoint remains immediate.
 const AUTO_ANCHOR_SCAN = globalThis.__ratchet_anchor_scan || (globalThis.__ratchet_anchor_scan = new Map());
-function rateLimited(ip, isPost) {
+function rateLimitRetrySeconds(ip, isPost) {
   const now = Date.now(), win = 60e3, cap = isPost ? 60 : 120;
   const e = RL.get(ip) || { t: now, n: 0 };
   if (now - e.t > win) { e.t = now; e.n = 0; }
   e.n++; RL.set(ip, e);
   if (RL.size > 5000) RL.clear();          // crude memory bound
-  return e.n > cap;
+  return e.n > cap ? Math.max(1, Math.ceil((e.t + win - now) / 1000)) : 0;
 }
 
 async function loadPlayer(w) {
@@ -1778,6 +1744,19 @@ async function settle(p, prices) {
 // price. Showing a slightly old number is honest (the age is printed next to
 // it). Letting someone open a position against it is not.
 const maxSealAge = mins => Math.min(60, Math.max(30, Math.round(0.15 * mins * 60)));
+function feedSealReady(prices, feed, mins) {
+  const age = (prices.ages || {})[feed];
+  const conf = (prices.confs || {})[feed];
+  return prices.src === 'pyth-onchain'
+    && Number.isFinite(prices[feed])
+    && Number.isFinite(age) && age >= 0 && age <= maxSealAge(mins)
+    && Number.isFinite(conf) && conf >= 0 && conf <= PX_MAX_CONF_BPS
+    && Number.isFinite((prices.pubs || {})[feed])
+    && Number.isFinite((prices.prevPubs || {})[feed]);
+}
+const targetSealReady = (prices, target) =>
+  !!target && [target.feed, target.feed2].filter(Boolean)
+    .every(feed => feedSealReady(prices, feed, target.mins));
 
 // Freeze the exact validated Pyth state that admitted an economic shot. The
 // fingerprint excludes request time and age (both move while the underlying
@@ -1997,7 +1976,12 @@ module.exports = async (req, res) => playerWrites.run(async () => {
 
     const ip = String(req.headers['x-forwarded-for'] || req.socket?.remoteAddress || 'unknown').split(',')[0].trim();
     const isPost = req.method !== 'GET';
-    if (rateLimited(ip, isPost)) return res.status(429).json({ ok:false, code:'RATE_LIMITED', reason:'slow down - too many requests from this address' });
+    const retryAfterSeconds = rateLimitRetrySeconds(ip, isPost);
+    if (retryAfterSeconds) {
+      res.setHeader('retry-after', String(retryAfterSeconds));
+      return res.status(429).json({ ok:false, code:'RATE_LIMITED', retryAfterSeconds,
+        reason:'slow down - too many requests from this address' });
+    }
     if(action==='play-session')return await sessionHttp.handle(req,res,{
       acquirePlayerLock,trackPlayer:playerWrites.track,game:module.exports,
       resolvePlayer:async w=>{
@@ -2423,7 +2407,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         wardenHist: wardenHist || [],
         boardModel: BOARD_MODEL,
         targets: Object.fromEntries(Object.entries(targetBoard(boardHour()))
-          .filter(([,t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))),
+          .filter(([,t]) => targetSealReady(prices, t))),
         boardFlip: (boardHour() + 1) * 3600e3,
         split: SPLIT, potSplit: { day: POT_DAY_SHARE, week: 1 - POT_DAY_SHARE },
         prizes: { day: PRIZE_D, week: PRIZE_W },
@@ -2487,9 +2471,12 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         const ages = prices.ages || {};
         const lim = maxSealAge(t.mins);
         const stale = [t.feed, t.feed2].filter(Boolean)
-          .map(f => ({ f, a: ages[f] })).filter(x => Number.isFinite(x.a) && x.a > lim);
-        if (stale.length) { await savePlayer(p); return res.status(409).json({ ok:false, code:'ORACLE_STALE',
-          reason: `the oracle's last ${stale[0].f} print is ${stale[0].a}s old and this window needs one under ${lim}s — the feed updates on a 60s heartbeat or a 0.5% move, so try again in a moment` }); }
+          .map(f => ({ f, a:ages[f] }))
+          .find(x => !Number.isFinite(x.a) || x.a < 0 || x.a > lim);
+        if (stale) { await savePlayer(p); return res.status(409).json({ ok:false, code:'ORACLE_STALE',
+          reason: Number.isFinite(stale.a)
+            ? `the oracle's last ${stale.f} print is ${stale.a}s old and this window needs one under ${lim}s — the feed updates on a 60s heartbeat or a 0.5% move, so try again in a moment`
+            : `the oracle did not expose a verified publish age for ${stale.f} — no credits were debited` }); }
         spec = t;
       } else {
         if (b.side!=='with' && b.side!=='against') { await savePlayer(p); return res.status(400).json({ ok:false, reason:'bad side' }); }
@@ -2522,7 +2509,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
       const requiredFeeds = action === 'shot'
         ? [spec.feed, spec.feed2].filter(Boolean) : [duelLine.feed];
       const uncertain = requiredFeeds.map(f => ({
-        feed:f, confidenceBps:Number((prices.confs || {})[f]),
+        feed:f, confidenceBps:(prices.confs || {})[f],
       })).find(row => Number.isFinite(row.confidenceBps)
         && row.confidenceBps > PX_MAX_CONF_BPS);
       if (uncertain) {
@@ -2530,13 +2517,14 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         return res.status(409).json({ ok:false, code:'ORACLE_CONFIDENCE_TOO_WIDE',
           reason:`the Pyth confidence interval for ${uncertain.feed} is ${uncertain.confidenceBps}bps; ranked sealing requires ${PX_MAX_CONF_BPS}bps or less — no credits were debited` });
       }
-      const crossingReady = prices.src === 'pyth-onchain' && requiredFeeds.every(f =>
-        Number.isFinite((prices.pubs || {})[f])
-        && Number.isFinite((prices.prevPubs || {})[f])
-        && Number.isFinite((prices.confs || {})[f]));
+      const readinessMins = action === 'shot' ? spec.mins : duelLine.mins;
+      const crossingReady = requiredFeeds.every(f => feedSealReady(prices, f, readinessMins));
       if (!crossingReady) {
         await savePlayer(p);
-        return res.status(503).json({ ok:false,
+        // Definite pre-debit refusal, not an uncertain server failure. The
+        // session wrapper terminalizes recognized 4xx codes; a 5xx here would
+        // strand a reserved attempt until owner-signed recovery.
+        return res.status(409).json({ ok:false, code:'FEED_UNAVAILABLE',
           reason:'new shots pause until the on-chain Pyth feed exposes a verifiable publish-time crossing — fallback quotes remain display-only' });
       }
 
@@ -2738,12 +2726,11 @@ module.exports = async (req, res) => playerWrites.run(async () => {
       if (!Number.isFinite(px)) return res.status(503).json({ ok:false, reason:`${c.feed} is not priced right now` });
       const age = (prices.ages || {})[c.feed];
       const lim = Math.min(60, Math.max(30, 0.15 * c.mins * 60));
-      if (Number.isFinite(age) && age > lim)
-        return res.status(503).json({ ok:false, reason:`${c.feed} last printed ${age}s ago — too stale to strike a level on` });
-      if (prices.src !== 'pyth-onchain'
-          || !Number.isFinite((prices.pubs || {})[c.feed])
-          || !Number.isFinite((prices.prevPubs || {})[c.feed])
-          || !Number.isFinite((prices.confs || {})[c.feed]))
+      if (!Number.isFinite(age) || age < 0 || age > lim)
+        return res.status(503).json({ ok:false, reason:Number.isFinite(age)
+          ? `${c.feed} last printed ${age}s ago — too stale to strike a level on`
+          : `${c.feed} has no verified publish age — no level was struck` });
+      if (!feedSealReady(prices, c.feed, c.mins))
         return res.status(503).json({ ok:false,
           reason:'new challenges pause until the on-chain Pyth feed exposes a verifiable publish-time crossing' });
 
@@ -3055,16 +3042,11 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         // doors, the toll, its recipient and the credential are stated here.
         arena,
         gauntlet: await publicSpecAsync(),
-        // Only targets this hour can actually price. `action=shot` rejects a
-        // seal with FEED_UNAVAILABLE when the feed has no finite price, and the
-        // state projection has always filtered on exactly this rule -- the
-        // board endpoint did not, so it could advertise a target that every
-        // attempt to seal would refuse. Harmless while all seven feeds were
-        // sponsored crypto accounts that are essentially never absent; a live
-        // defect the moment a feed can legitimately be quiet, which a stock is
-        // whenever its print goes stale. One rule, stated in all three places.
+        // Advertise only targets that pass the same source, age, confidence and
+        // crossing-metadata predicate the final economic boundary enforces.
+        // Coinbase may still keep the display alive; it can never look playable.
         targets: Object.entries(board)
-          .filter(([, t]) => Number.isFinite(prices[t.feed]) && (!t.feed2 || Number.isFinite(prices[t.feed2])))
+          .filter(([, t]) => targetSealReady(prices, t))
           .map(([id, t]) => ({
           id, kind: t.kind || 'dir', feed: t.feed, feed2: t.feed2 || null,
           mins: t.mins, pct: t.pct || null, baseXp: t.baseXp,

@@ -37,17 +37,16 @@ for (const file of files) {
 }
 if (!failed) ok(`${files.length} tracked files contain no blocked credential/artifact patterns`);
 
-// Ratchet's oracle architecture is intentionally keyless: settlement and the
-// paid proof bundle consume Pyth PriceUpdateV2 accounts already published on
-// Solana. A future refactor must not smuggle a metered Pyth HTTP dependency
-// back into either economic path. Hermes may remain an optional display-only
-// fallback in lib/prices.js, outside this protected set.
+// Ratchet's oracle architecture is intentionally keyless: runtime prices,
+// settlement and the paid proof bundle consume Pyth PriceUpdateV2 accounts
+// already published on Solana. A future refactor must not let a secret switch
+// add an economic feed or smuggle a metered Pyth HTTP dependency back in.
 const protectedOracleFiles = [
-  'api/game.js', 'lib/onchain_px.js', 'lib/pxlog.js', 'lib/pyth_context.js',
+  'api/game.js', 'lib/prices.js', 'lib/onchain_px.js', 'lib/pxlog.js', 'lib/pyth_context.js',
   'lib/feedhealth.js', 'lib/proof_bundle.js', 'lib/record.js', 'lib/verifier.js',
   'scripts/verifier.mjs',
 ];
-const alternateOracleDependency = /PYTH_API_KEY|PYTH_BENCHMARKS_URL|benchmarks\.pyth\.network|fetchBenchmarkUpdates/;
+const alternateOracleDependency = /PYTH_API_KEY|PYTH_HERMES_URL|PYTH_BENCHMARKS_URL|hermes\.pyth\.network|pyth\.dourolabs\.app|\/v2\/updates\/price\/latest|benchmarks\.pyth\.network|fetchBenchmarkUpdates/;
 for (const file of protectedOracleFiles) {
   const text = fs.readFileSync(file, 'utf8');
   if (alternateOracleDependency.test(text))

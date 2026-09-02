@@ -12,13 +12,15 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "1.6.0"
+  version: "1.6.1"
+  session-play-sha256: "3e6ae0ff9b0d3f1b65d6921529ebf3a4f91725c34def95d43ce8ea7e1d6fd031"
+  session-smoke-sha256: "0ee2b331a2a46473d8ebc321c7ad99226ffc51a32db2a33aa0ac5175f84d32df"
 ---
 
 # RatchetX
 
 RatchetX is a sealed prediction arcade on Solana: short directional calls
-(SOL higher in 5 minutes, TSLA in 15...) sealed before the move, settled on a
+(SOL higher in 5 minutes, BTC in 15...) sealed before the move, settled on a
 verified Pyth price, Brier-scored, ranked by XP, rewarded with real $RCX
 (every reload burns 70% and pays 30% to the daily podium, 0% to the team).
 
@@ -54,17 +56,19 @@ ordinary word - "put it on the coin" is a coin, not Coinbase; only `coinbase`,
 `$coin` or `COIN` name the stock. Post the refusal verbatim like any other
 reply; do not retry it with a different asset.
 
-Crypto and US stocks share one board. A stock (TSLA, NVDA, PLTR, COIN, HOOD)
-settles on Pyth's 24/7 index mark rather than an exchange print, which is why
-it is playable at 03:00; the board reply marks each one and says so, before
-anyone chooses.
+Stocks (TSLA, NVDA, PLTR, COIN, HOOD) are recognized only so the runner can
+refuse the exact asset safely. They are held: RatchetX's API-keyless oracle
+path has no sponsored on-chain equity feed that meets the same seal and
+settlement evidence rule as crypto. No API key or private provider setting can
+make a stock target appear. Post that refusal verbatim; never substitute a
+crypto asset.
 
 Full contract, setup and reply rules: [Bankr play](references/owner-session-play.md).
 Read it once; then the only action you ever take is the command above.
 
 Not ours: "update / install / upgrade the skill", "github version" are Bankr
 commands about this skill - update it from
-`https://github.com/3esign/ratchetx` (stage `scripts/session-play.mjs` AND
+`https://github.com/3esign/ratchetx/tree/main/skills/ratchetx` (stage `scripts/session-play.mjs` AND
 `scripts/session-smoke.mjs`); do not run the runner for them.
 
 ## Other modes (only when literally asked)
