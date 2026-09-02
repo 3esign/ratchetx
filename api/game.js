@@ -43,6 +43,9 @@
 const crypto = require('node:crypto');
 const playerWrites = require('../lib/player_writes.js');
 const { hashCommit } = require('../lib/commit.js');
+// The frozen Core v1 rules in integers (XP, payout): the float shortcuts below
+// stay only for display and for shot kinds the program does not score.
+const coreRules = require('../lib/core_rules.js');
 const { getJSON, getCached, getJSONStrict, getManyJSON, setJSON, setManyJSONAtomic, setnxJSON,
   acquireLease, releaseLease, delKey, scanKeys, durable, backend, zincr, zmax, ztop, incrFloat,
   takeNum, hincr, hincrMany, zincrManyOnce, applyOnce, hall, hseed, sweepExpired} = require('../lib/kv.js');
@@ -1619,13 +1622,13 @@ async function settle(p, prices) {
       const sm = streakMult(p.streak);
       s.xpBase = s.xp;
       s.streakMult = +sm.toFixed(2);
-      s.skillXp = Math.max(1, Math.round(s.xp * sm));
+      s.skillXp = coreRules.skillXp(s.xp, p.streak);
       s.settleXp = SETTLE_XP;
       s.xp = s.skillXp + s.settleXp;
       p.streak++; p.best = Math.max(p.best, p.streak);
       scoreStated(p, s, true);
       p.xp += s.xp;
-      s.back = Math.floor(s.stake * HIT_PAYOUT);
+      s.back = coreRules.hitPayout(s.stake);
       p.cr += s.back;
     } else {
       p.shots++; s.res = 'miss'; p.streak = 0;
@@ -2474,7 +2477,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
           outcomeRule:OUTCOME_RULE, allocationRule:'on-settle-v2', sealAccountingV:2,
           economyRule:'credits-at-valid-oracle-seal-v1',
           economyMode:isDemo(w) ? 'demo' : 'ranked', oracleSeal,
-          xp: Math.max(1, Math.round(t.baseXp * stakeMult(stake) * xpMult)), label: t.label };
+          xp: xpMult === 1 ? coreRules.sealXp(t.baseXp, stake) : Math.max(1, Math.round(t.baseXp * stakeMult(stake) * xpMult)), label: t.label };
         if (kind === 'thr') shot.thresh = prices[t.feed] * (1 + t.pct);
         if (kind === 'thrDown') shot.thresh = prices[t.feed] * (1 - t.pct);
         if (kind === 'range') shot.pct = t.pct;
@@ -2687,7 +2690,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
       const mk = (owner, side, srcTag) => {
         const sh = { id: newShotId(), kind: c.kind, feed: c.feed,
           side, entry: px, oracleSrc: prices.src, exp, stake: c.stake,
-          xp: Math.max(1, Math.round(xp * stakeMult(c.stake))), label: c.label,
+          xp: coreRules.sealXp(xp, c.stake), label: c.label,
           chal: c.id, src: srcTag, settleRule:SETTLE_RULE,
           outcomeRule:c.outcomeRule || 'dead-zone-4bp-v1',
           allocationRule:c.allocationRule || 'upfront-v1', sealAccountingV:2 };
