@@ -102,8 +102,20 @@ const DOCS = MD_DIRS.flatMap(d => {
 // this suite report RATCHET_DEMO_HANDLE as undocumented-by-code when mcp/ratchet-mcp.mjs
 // reads it on line 61. A checker with a narrower view than the thing it checks produces
 // confident false findings, which is worse than not checking.
-const code = ['api', 'lib', 'tools', 'mcp']
-  .flatMap(d => readdirSync(at(d)).filter(f => /\.(js|mjs)$/.test(f)).map(f => d + '/' + f))
+// The onchain runners belong here for the same reason mcp/ did, and it cost the
+// same way on 2026-09-02: docs/CORE_PERMISSIONLESS_VERIFIED.md tells a stranger the
+// crank needs exactly RATCHET_RPC and RATCHET_CRANK_KEYPAIR -- true, and read on
+// lines 26-27 of onchain/ratchet-core/client/crank.mjs -- but this scan stopped at
+// the four server directories and reported that true instruction as a lie. Fourth
+// time, same lesson: a scan shallower than the thing it scans reports confident
+// nonsense. The settlement path a stranger runs without us is code, so scan it.
+const CLIENT_DIRS = ['onchain/ratchet-core/client', 'onchain/ratchet-core-devnet'];
+const code = ['api', 'lib', 'tools', 'mcp', ...CLIENT_DIRS]
+  .flatMap(d => {
+    let names = [];
+    try { names = readdirSync(at(d)); } catch { return []; }
+    return names.filter(f => /\.(js|mjs)$/.test(f)).map(f => d + '/' + f);
+  })
   .map(read).join('\n');
 
 for (const d of DOCS) {
@@ -153,7 +165,7 @@ for (const name of [...named].sort()) {
 //
 // A configuration switch nobody wrote down is a switch nobody can check. So the
 // scan now runs both ways.
-const CODE_DIRS = ['api', 'lib', 'tools', 'mcp', 'agent', 'ops/heartbeat-worker'];
+const CODE_DIRS = ['api', 'lib', 'tools', 'mcp', 'agent', 'ops/heartbeat-worker', ...CLIENT_DIRS];
 // HOME is the operating system's, not ours: nothing to document and nothing to
 // set. It is the only exemption, and it is named rather than pattern-matched so
 // that adding a second one has to be a deliberate act.
