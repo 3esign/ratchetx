@@ -7,7 +7,9 @@
 //   node shooter.mjs --rpc <url> --keypair <devnet id.json> [--every 6] [--hours 24]
 import fs from 'node:fs';
 import { Connection, Keypair, Transaction, ComputeBudgetProgram } from '@solana/web3.js';
+import nacl from 'tweetnacl';
 import * as C from './core.mjs';
+import { deriveSalt } from './salt.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).map((a, i, all) => a.startsWith('--') ? [a.slice(2), all[i + 1] && !all[i + 1].startsWith('--') ? all[i + 1] : true] : []).filter(Boolean));
 const rpc = args.rpc || 'https://api.devnet.solana.com';
@@ -20,7 +22,7 @@ const log = (...a) => console.log(new Date().toISOString(), ...a);
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 const nowS = () => Math.floor(Date.now() / 1000);
 const err = e => { const m = String(e.message || e).match(/Error Code: (\w+)/); return m ? m[1] : String(e.message || e).split('\n')[0].slice(0, 140); };
-const SALTS = 'devnet_shooter_salts.json';   // nonce -> salt, so reveals survive a restart
+const SALTS = 'devnet_shooter_salts.json';   // LEGACY: salts sealed before derivation; read, never written
 const salts = fs.existsSync(SALTS) ? JSON.parse(fs.readFileSync(SALTS, 'utf8')) : {};
 const saveSalts = () => fs.writeFileSync(SALTS, JSON.stringify(salts));
 
@@ -33,12 +35,19 @@ async function send(ixs) {
   await conn.confirmTransaction({ signature: sig, blockhash, lastValidBlockHeight }, 'confirmed');
   return sig;
 }
+// The salt is derived from this wallet's own signature over a canonical,
+// domain-separated message, so it is reproducible on any machine from the
+// wallet alone. Nothing to store, nothing to lose: the nonce is public on
+// chain, so a reveal survives losing this box entirely.
+const signMessage = async bytes => nacl.sign.detached(bytes, w.secretKey);
+const saltFor = nonce => deriveSalt({ signMessage, programId: C.PROGRAM_ID.toBase58(), wallet: w.publicKey.toBase58(), nonce });
 const randSalt = () => [...crypto.getRandomValues(new Uint8Array(16))].map(b => b.toString(16).padStart(2, '0')).join('');
 
 async function revealSettled() {
   const shots = (await C.readShots(conn)).filter(s => s.player.equals(w.publicKey) && s.state === C.STATE.SETTLED);
   for (const s of shots) {
-    const salt = salts[String(s.nonce)]; if (!salt) { log('settled shot without a saved salt (older run) — the runner will forfeit it after an hour', s.pubkey.toBase58()); continue; }
+    // legacy file first (shots sealed before derivation), then derive
+    const salt = salts[String(s.nonce)] || await saltFor(s.nonce);
     try { await send([C.revealIx({ revealer: w.publicKey, shot: s.pubkey, player: w.publicKey, side: 'YES', pBps: 0, salt })]); const r = C.parseShot((await conn.getAccountInfo(s.pubkey)).data); log(`revealed ${s.pubkey.toBase58().slice(0, 8)}… ${r.hit ? 'HIT' : 'MISS'} · xp +${r.xpAwarded}`); delete salts[String(s.nonce)]; saveSalts(); }
     catch (e) { log('reveal failed', err(e)); }
   }
@@ -57,9 +66,8 @@ async function topUp() {
 async function sealOne() {
   // wait for a fresh print (the program refuses stale entries: InvalidSealPrice)
   for (let i = 0; i < 60; i++) { const p = C.parsePriceUpdate((await conn.getAccountInfo(C.pushAccount(0))).data); if (nowS() - Number(p.publishTime) <= 25) break; await sleep(2000); }
-  const nonce = Date.now() % 1e9, salt = randSalt();
+  const nonce = Date.now() % 1e9, salt = await saltFor(nonce);
   const commit = C.commitHash({ wallet: w.publicKey, nonce, side: 'YES', pBps: 0, salt });
-  salts[String(nonce)] = salt; saveSalts();
   await send([C.sealIx({ player: w.publicKey, nonce, commit, feedIndex: 0, minutes: 5, stake: 100 })]);
   const s = C.parseShot((await conn.getAccountInfo(C.shotPda(w.publicKey, nonce))).data);
   log(`sealed SOL up 5 min · entry ${(Number(s.entryE12) / 1e12).toFixed(2)} · expires ${new Date(Number(s.expiryTs) * 1000).toISOString().slice(11, 19)}Z · shot ${C.shotPda(w.publicKey, nonce).toBase58()}`);
