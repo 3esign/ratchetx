@@ -12,13 +12,13 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "1.5.0"
+  version: "1.6.0"
 ---
 
 # RatchetX
 
 RatchetX is a sealed prediction arcade on Solana: short directional calls
-(SOL higher in 5 minutes, BTC in 15...) sealed before the move, settled on a
+(SOL higher in 5 minutes, TSLA in 15...) sealed before the move, settled on a
 verified Pyth price, Brier-scored, ranked by XP, rewarded with real $RCX
 (every reload burns 70% and pays 30% to the daily podium, 0% to the team).
 
@@ -45,6 +45,19 @@ forecast, resolving asset, direction, horizon, stake and probability from
 the words against the live board and the signed grant. Words that name
 nothing play the shortest fresh target with 100 credits. A redelivered post
 (same `POST_ID`) returns the original proof; never invent an ID.
+
+Two things the runner will NOT do, so you never have to reason about them.
+It never seals a shot on an asset the user did not name: if they ask for an
+asset the board is not running this hour, it refuses, seals nothing, and the
+`reply` lists what IS on the board. And it never guesses a stock out of an
+ordinary word - "put it on the coin" is a coin, not Coinbase; only `coinbase`,
+`$coin` or `COIN` name the stock. Post the refusal verbatim like any other
+reply; do not retry it with a different asset.
+
+Crypto and US stocks share one board. A stock (TSLA, NVDA, PLTR, COIN, HOOD)
+settles on Pyth's 24/7 index mark rather than an exchange print, which is why
+it is playable at 03:00; the board reply marks each one and says so, before
+anyone chooses.
 
 Full contract, setup and reply rules: [Bankr play](references/owner-session-play.md).
 Read it once; then the only action you ever take is the command above.

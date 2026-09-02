@@ -18,12 +18,12 @@ const CODES=new Set(['SESSION_EXPIRED','SESSION_REVOKED','INVALID_CAPABILITY','S
   'ORACLE_CONFIDENCE_TOO_WIDE','FEED_UNAVAILABLE','TARGET_UNAVAILABLE','CHAMBERS_FULL',
   'INVALID_STAKE','INSUFFICIENT_CREDITS','SETTLEMENT_DELIVERY_PENDING','INVALID_PROBABILITY',
   'RATE_LIMITED','WRITE_CONFLICT','WRITE_LEASE_EXPIRED','CREDIT_QUEUE_CONFLICT','SHOT_REFUSED',
-  'RECOVERED_NO_DISPATCH','REQUEST_CONFLICT','PRIOR_ATTEMPT_UNRESOLVED']);
+  'RECOVERED_NO_DISPATCH','REQUEST_CONFLICT','PRIOR_ATTEMPT_UNRESOLVED','ASSET_NOT_ON_BOARD']);
 const finite=n=>typeof n==='number'&&Number.isFinite(n), integer=n=>Number.isSafeInteger(n)&&n>=0;
 const same=(a,b)=>canonical(a)===canonical(b);
 const digest=text=>createHash('sha256').update(text).digest('hex'), hash=value=>digest(canonical(value));
-class Stop extends Error {constructor(code,category='FAILED'){super(code);this.code=code;this.category=category;}}
-const stop=(code,category)=>{throw new Stop(code,category);};
+class Stop extends Error {constructor(code,category='FAILED',detail=null){super(code);this.code=code;this.category=category;this.detail=detail;}}
+const stop=(code,category,detail)=>{throw new Stop(code,category,detail);};
 const need=(condition,code)=>{if(!condition)stop(code);};
 const safeCode=code=>CODES.has(code)?code:'SHOT_REFUSED';
 function bounds(value){
@@ -69,7 +69,21 @@ function playerShape(p){
 // board/context and the signed grant. Explicit flags still override any field.
 const SAY_MAX=500;
 const ASSET_WORDS={SOL:['sol','solana'],BTC:['btc','bitcoin'],ETH:['eth','ethereum','ether'],BONK:['bonk'],
-  WIF:['wif','dogwifhat'],JUP:['jup','jupiter'],PUMP:['pumpfun','pump.fun','pumptoken','pumpcoin']};
+  WIF:['wif','dogwifhat'],JUP:['jup','jupiter'],PUMP:['pumpfun','pump.fun','pumptoken','pumpcoin'],
+  // Stocks. Note what is NOT here: bare 'coin' and bare 'hood'. Both are
+  // ordinary words in a sentence about this game -- "put it on the coin",
+  // "back in the hood" -- and the generic ticker fallback below would have
+  // read either as a Coinbase or Robinhood call and spent real credits on an
+  // instrument nobody named. The company names are unambiguous, so those are
+  // the aliases; the bare tickers are accepted only when they are written the
+  // way a ticker is written.
+  TSLA:['tsla','tesla'],NVDA:['nvda','nvidia'],PLTR:['pltr','palantir'],
+  COIN:['coinbase'],HOOD:['robinhood']};
+const STOCKS=new Set(['TSLA','NVDA','PLTR','COIN','HOOD']);
+const AMBIGUOUS_TICKERS=new Set(['COIN','HOOD']);
+// Written as a ticker: $coin in any case, or COIN in capitals. Lowercase
+// 'coin' inside a sentence is a word, and is left alone.
+const writtenAsTicker=(raw,up)=>new RegExp('\\$'+up+'\\b','i').test(String(raw))||new RegExp('\\b'+up+'\\b').test(String(raw));
 const UP_WORDS=['higher','up','upward','upside','moon','mooning','moons','long','rise','rises','rising','bull','bullish','green',
   'above','over','climb','climbs','rally','rallies','yes','breakout','gain','gains','increase','outperform','pumps','pumping'];
 const DOWN_WORDS=['lower','down','downward','downside','dump','dumps','dumping','short','drop','drops','dropping','fall','falls',
@@ -87,14 +101,19 @@ const PLAY_VERBS=['play','shoot','fire','bet','wager','spend','put','predict','g
 const PLAY_NOUNS=['shot','shots','forecast','prediction','call'];
 const norm=text=>String(text).toLowerCase().replace(/[‘’]/g,'\'').replace(/[^a-z0-9$%.'\s-]/g,' ').replace(/\s+/g,' ').trim();
 const tokens=text=>norm(text).split(' ').filter(Boolean).map(t=>t.replace(/^[.'-]+|[.'-]+$/g,''));
-function findAsset(words,feeds){
+function findAsset(words,feeds,raw=''){
   const joined=' '+words.join(' ')+' ';
   if(/\$pump\b|\bpump(?:\.fun|fun| token| coin)\b|\bon pump\b|\bpump (?:higher|lower|up|down|goes|will|to)\b/.test(joined)&&feeds.includes('PUMP'))return 'PUMP';
   for(const [feed,aliases] of Object.entries(ASSET_WORDS)){
     if(feed==='PUMP')continue;
     if(aliases.some(a=>words.includes(a)||words.includes('$'+a)))return feeds.includes(feed)?feed:{unavailable:feed.toUpperCase()};
   }
-  for(const w of words){const up=w.replace(/^\$/,'').toUpperCase();if(/^[A-Z]{2,6}$/.test(up)&&feeds.includes(up)&&up!=='PUMP'&&up!=='NO')return up;}
+  for(const w of words){
+    const up=w.replace(/^\$/,'').toUpperCase();
+    if(!/^[A-Z]{2,6}$/.test(up)||up==='PUMP'||up==='NO')continue;
+    if(AMBIGUOUS_TICKERS.has(up)&&!writtenAsTicker(raw,up))continue;
+    if(feeds.includes(up))return up;
+  }
   return null;
 }
 function findDirection(words,assetIsPump){
@@ -145,13 +164,16 @@ function findHorizon(text){
 }
 /** One canonical explanation. Questions about RatchetX get this, not a shot. */
 export const PITCH=`RatchetX - sealed prediction arcade on Solana. $RCX launched on pump.fun, CA FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump.
-Call SOL, BTC or ETH higher or lower over minutes, sealed before the move, settled on a verified Pyth price - no vote, no discretion.
-Every call carries your probability; Brier scoring builds a public calibration record. Hits earn XP, XP climbs rank and the daily podium.
-Every $RCX reload burns 70% and pays 30% straight to the podium, 0% to the team.
+Call crypto or US stocks - SOL, BTC, ETH, TSLA, NVDA and more - higher or lower over minutes, sealed before the move, settled on a verified Pyth price. No vote, no discretion.
+Stocks settle on Pyth's 24/7 index, never an exchange print - playable around the clock.
+Every call carries your probability; Brier scoring builds a public calibration record. Hits earn XP, rank and podium.
+Every $RCX reload burns 70%, pays 30% to the podium, 0% to the team.
 One flywheel: play -> XP -> podium -> $RCX -> reload -> burn + podium -> play. Humans and agents on one board. ratchetx.xyz`;
 const EXPLAIN_PATTERN=/\b(what|whats|what's|how does|how do|explain|tell me|describe|why|wtf|wat)\b.*\b(ratchet|ratchetx|rcx|this|it|game|arcade|arena|podium|flywheel|rewards?)\b|\b(ratchet|ratchetx|rcx)\b\s*\?|\b(explain|info|about|intro|pitch)\b/;
 export const HELP=`RatchetX commands (mention @bankrbot):
 - ratchetx put 500 on sol higher - sealed forecast: asset, higher/lower, credits, optional 70%
+- ratchetx put 500 on tesla lower - stocks too: tesla, nvidia, palantir, coinbase, robinhood
+  (stocks settle on the Pyth 24/7 index mark, not an exchange print)
 - ratchetx play - quickest board target, 100 credits
 - ratchetx board - what can be played right now
 - ratchetx stats - credits, XP, Brier, session
@@ -170,9 +192,15 @@ export function boardReply(board,now=Date.now()){
   if(!dirs.length)return 'No playable target on the board right now. Try again in a minute.\n\n'+FOOTER;
   const left=finite(board.flipsAt)?Math.max(1,Math.round((board.flipsAt-now)/60000)):null;
   const head='On the board now'+(left?' (new board in '+mins(left)+')':'')+':';
-  const rows=dirs.map((t,i)=>'- '+t.feed+(i===0?' higher or lower':'')+' in '+mins(t.mins));
+  const rows=dirs.map((t,i)=>'- '+t.feed+(i===0?' higher or lower':'')+' in '+mins(t.mins)+(STOCKS.has(t.feed)?' (stock)':''));
+  // Said here, before the bet, rather than in the receipt after it. A stock on
+  // this board settles on Pyth's 24/7 index mark, which keeps publishing when
+  // the exchange is shut -- that is what makes a 03:00 shot settleable, and it
+  // is also why it must never be read as a NASDAQ print.
+  const stockNote=dirs.some(t=>STOCKS.has(t.feed))
+    ? '\nStocks settle on the Pyth 24/7 index mark, not an exchange print - playable around the clock.' : '';
   const ex=dirs[1]||dirs[0];
-  return head+'\n'+rows.join('\n')+'\nPlay: "ratchetx put 500 on '+ex.feed.toLowerCase()+' lower"\n\n'+FOOTER;
+  return head+'\n'+rows.join('\n')+stockNote+'\nPlay: "ratchetx put 500 on '+ex.feed.toLowerCase()+' lower"\n\n'+FOOTER;
 }
 /** Global standings from the public arena. Pure. */
 export function leaderboardReply(arena){
@@ -204,8 +232,18 @@ export function resolveIntent(text,{board,context,limits,session,player,override
   const dirs=(board?.targets||[]).filter(t=>t&&t.kind==='dir'&&!t.feed2&&typeof t.id==='string'&&integer(t.mins)&&t.mins>=1);
   need(dirs.length>0,'TARGET_UNAVAILABLE');
   const feeds=[...new Set(dirs.map(t=>t.feed))];
-  let asset=overrides.asset?String(overrides.asset).toUpperCase():findAsset(words,feeds);
-  if(asset&&(typeof asset==='object'||!feeds.includes(asset))){notes.push('requested asset is not on this board; played the shortest board target');asset=null;}
+  let asset=overrides.asset?String(overrides.asset).toUpperCase():findAsset(words,feeds,raw);
+  // A named asset that is not on this board is a REFUSAL, never a substitution.
+  // This used to fall back to the shortest available target: ask for TSLA when
+  // TSLA has no slot this hour and your credits went on BONK. That was survivable
+  // while seven feeds filled seven slots and "not on the board" almost never
+  // happened; with twelve feeds sharing ten slots it is routine, and spending
+  // someone's stake on an instrument they did not name is the one mistake an
+  // agent holding a spend capability must never make. Refuse, and say what IS
+  // playable so the next message can be right.
+  if(asset&&(typeof asset==='object'||!feeds.includes(asset)))
+    stop('ASSET_NOT_ON_BOARD','REFUSED',
+      {requestedAsset:typeof asset==='object'?asset.unavailable:asset,availableAssets:feeds});
   let candidates=asset?dirs.filter(t=>t.feed===asset):dirs;
   const horizon=overrides.horizon??findHorizon(raw);
   let target;
@@ -226,9 +264,16 @@ export function resolveIntent(text,{board,context,limits,session,player,override
   if(asset&&!horizon&&target.mins>60)notes.push('that asset settles in '+target.mins+' min on this board');
   const feed=context?.feeds?.find(row=>row.feed===target.feed),ema=feed?.current?.priceVsEmaBps;
   if(!asset&&!overrides.asset){
-    const ticker=String(raw).match(/\$([A-Za-z]{2,6})\b|\b([A-Z]{3,6})\b/);
-    if(ticker&&!feeds.includes((ticker[1]||ticker[2]).toUpperCase())&&!['YES','NO','MAX','ALL'].includes((ticker[1]||ticker[2]).toUpperCase()))
-      notes.push('requested asset is not on this board; played the shortest board target');
+    // A $TICKER is an unmistakable naming of an asset, so an unknown one is
+    // refused on the same principle as above rather than quietly redirected.
+    const dollar=String(raw).match(/\$([A-Za-z]{2,6})\b/);
+    if(dollar&&!feeds.includes(dollar[1].toUpperCase())&&!['YES','NO','MAX','ALL'].includes(dollar[1].toUpperCase()))
+      stop('ASSET_NOT_ON_BOARD','REFUSED',{requestedAsset:dollar[1].toUpperCase(),availableAssets:feeds});
+    // A bare run of capitals is far weaker evidence -- "ratchetx PLAY 500" --
+    // so it stays a note on a shot that still happens, exactly as before.
+    const ticker=String(raw).match(/\b([A-Z]{3,6})\b/);
+    if(ticker&&!feeds.includes(ticker[1].toUpperCase())&&!['YES','NO','MAX','ALL'].includes(ticker[1].toUpperCase()))
+      notes.push('no asset on this board was named; played the shortest board target');
   }
   let side=overrides.direction?(/^(yes|up|higher|long)$/i.test(overrides.direction)?'YES':'NO'):findDirection(words,asset==='PUMP');
   let sideSource=side?'user':null;
@@ -549,7 +594,7 @@ export async function runPlay(options={},dependencies={}){
   }catch(error){
     const code=error instanceof Stop?error.code:'RUNNER_FAILED';let category=error instanceof Stop?error.category:'FAILED';
     if(['submit','replay'].includes(phase)&&category==='FAILED'&&code!=='JOURNAL_WRITE_FAILED')category='PENDING';
-    return result(category,code);
+    return result(category,code,error instanceof Stop&&error.detail?error.detail:{});
   }finally{try{await journal?.close?.();}catch{}}
 }
 
@@ -572,6 +617,12 @@ const REFUSALS={
   TARGET_UNAVAILABLE:()=>'No playable target on the board right now. Try again in a minute.',
   AGENT_ADMISSION_REQUIRED:()=>'This wallet is not admitted to ranked play yet. Register at ratchetx.xyz first.',
   MISSING_OR_INVALID_CAPABILITY:()=>'No RatchetX play session is configured for this account. '+NEW_SESSION,
+  ASSET_NOT_ON_BOARD:r=>{
+    const want=r.requestedAsset?String(r.requestedAsset).toUpperCase():'That asset';
+    const have=Array.isArray(r.availableAssets)&&r.availableAssets.length
+      ? ' On the board now: '+r.availableAssets.join(', ')+'.' : '';
+    return 'Nothing was sealed. '+want+' is not on the board this hour, and RatchetX will not put your credits on a different asset than the one you named.'+have+' The board changes every hour - reply "ratchetx board" to see it.';
+  },
   CAPABILITY_IDENTITY_MISMATCH:()=>'No RatchetX play session is configured for this account. '+NEW_SESSION,
   PRIOR_ATTEMPT_UNRESOLVED:()=>'A previous forecast is still being confirmed. Ask for status in a minute.',
   COMMAND_CONFLICT:()=>'That post was already used for a different forecast. Send a new post for a new forecast.',

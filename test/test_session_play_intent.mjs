@@ -97,9 +97,17 @@ assert.deepEqual(R('5 min btc 500'),['BTC',15,'NO',0.55,500]);
   assert.deepEqual(R('jup',{board:b2,context:c2}),['JUP',5,'YES',0.55,100],'a named asset is still honoured');
   const c3={feeds:[{feed:'JUP',current:{price:1,ageNowS:5}},{feed:'SOL',current:{price:1,ageNowS:1}}]};
   assert.deepEqual(R('play',{board:b2,context:c3}),['JUP',5,'YES',0.55,100]);}
-// Unknown assets fall back with a note that names no asset.
-{const r=resolveIntent('$PEPE moon',env);assert.deepEqual([r.resolution.feed,r.side],['SOL','YES']);
-  assert.match(r.resolution.notes.join(),/not on this board/);assert.doesNotMatch(r.resolution.notes.join(),/PEPE/);}
+// An asset we do not run is REFUSED, not redirected. This used to seal a shot
+// on SOL and add a note about it, which means a player who typed $PEPE had
+// credits placed on an asset they never named. A note is not consent.
+{assert.throws(()=>resolveIntent('$PEPE moon',env),/ASSET_NOT_ON_BOARD/);
+ // A bare run of capitals is much weaker evidence of naming an asset --
+ // "ratchetx PLAY 500" is not a request for a PLAY market -- so that stays a
+ // shot with a note, and the note still names no asset back at the player.
+ const r=resolveIntent('PLAY 500 moon',env);
+ assert.equal(r.resolution.feed,'SOL');
+ assert.match(r.resolution.notes.join(),/no asset on this board was named/);
+ assert.doesNotMatch(r.resolution.notes.join(),/PLAY/);}
 // Overrides beat words; explicit flags are exact.
 assert.deepEqual(R('sol up',{overrides:{direction:'down',stake:700,p:0.61}}),['SOL',5,'NO',0.61,700]);
 assert.deepEqual(R('',{overrides:{asset:'eth',horizon:30}}),['ETH',30,'YES',0.55,100]);
