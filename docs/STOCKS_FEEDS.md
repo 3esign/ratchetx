@@ -32,10 +32,10 @@ That does not kill stocks. It changes the mechanism from *push* to *pull*.
 
 ## Why the pull path is still free and still trustless
 
-- **Free data.** Pyth Hermes serves the signed `Equity.Index.*` updates with no
+- **Free data.** ~~Pyth Hermes serves the signed `Equity.Index.*` updates with no
   API key and no subscription at the keyless endpoint
-  `https://pyth.dourolabs.app/hermes`. (Avoid the legacy `hermes.pyth.network`
-  — it began requiring an API key on 2026-08-26. Use the keyless host.)
+  `https://pyth.dourolabs.app/hermes`.~~ **This is no longer true — see the
+  correction below, measured 2026-09-02.** Both hosts now answer `401`.
 - **Near-zero on-chain cost.** The crank posts the update (an ed25519
   verification + a receiver post instruction), the program reads it, and the tx
   closes the update account (`closeUpdateAccounts: true`) so the rent comes
@@ -119,3 +119,69 @@ is *whether to spend that engineering before freeze*:
 
 Because the table is frozen forever, this is the one stocks question that must be
 answered *before* the freeze, not after.
+
+
+---
+
+# Correction, 2026-09-02: there is no keyless Hermes any more
+
+The bullet above was right when it was written and is wrong now. Measured today
+against both hosts, server-side, no browser involved:
+
+| request | result |
+| --- | --- |
+| `hermes.pyth.network/v2/updates/price/latest?ids[]=<TSLA>` | **401** |
+| `pyth.dourolabs.app/hermes/v2/updates/price/latest?ids[]=<TSLA>` | **401** |
+| `hermes.pyth.network/v2/updates/price/latest?ids[]=<SOL>` | **401** |
+| `pyth.dourolabs.app/hermes/v2/price_feeds?asset_type=equity` | **200** |
+
+The metadata path is still open, which is why the feed-id verification earlier
+the same day succeeded and read as evidence that the host was keyless. It was
+evidence about a different endpoint. The one that carries prices is shut.
+
+Pyth's own upgrade page says it plainly: *"The one new requirement is
+authentication on Hermes: every Hermes user needs a Pyth API Key"*, and
+*"hermes.pyth.network now requires authentication, including for integrations
+that were upgraded automatically."* It is not equity-specific and not
+host-specific: SOL is refused by the same endpoint that refuses TSLA. The
+`dourolabs` mirror was never a keyless alternative; it is the upgraded host.
+
+## What this does to the argument on this page
+
+The pull path's claim was never "cheap". It was **"free, on-chain and
+trustless"**, and the free half rested entirely on a keyless Hermes. Read the
+consequences in order:
+
+1. **Crypto is untouched.** It never needed Hermes. The program reads sponsored
+   `PriceUpdateV2` accounts on Solana, and Pyth confirms on-chain push reads
+   need no key. A stranger with any RPC and a keypair can still crank every
+   crypto shot this game has, forever. That property is intact.
+2. **Equities cannot be settled without a credential.** No equity feed is
+   pushed on Solana — this repo's own gate proved 0/10 across all 256 shards —
+   so the only way to a signed equity price is Hermes, and Hermes needs a key.
+3. **So "the crank is permissionless — anyone can fetch from the public Hermes
+   and post" is false for equities.** A stranger cannot crank an equity shot
+   with an RPC and a keypair. They need a Pyth account. That is a gate, and the
+   whole point of this program is not having one.
+
+## What that settles, and what it does not
+
+**It settles the frozen core: crypto-only.** The feed table is compiled in
+permanently. Freezing equities into it would compile in a dependency on a
+credential nobody in the future is guaranteed to hold, in the one artifact whose
+entire purpose is to outlive us. An immutable program with five feeds that only
+a key-holder can settle is worse than an immutable program with seven that
+anyone can.
+
+**It does not settle the server game, and should not.** The site already states
+`canonicalSettlement: ratchet-server` and already holds credentials for its own
+database. A Pyth key there changes nothing about the trust model it publishes.
+Stocks can be playable on the site and through Bankr on a key, today, while the
+frozen program stays crypto-only — those are different artifacts with different
+promises, and only one of them claims to need nobody.
+
+If equities are ever to be permissionless, the route is a self-hosted Hermes
+(it is open source) or an independent node provider — Pyth lists Triton, P2P,
+extrnode and Liquify. Both are real infrastructure a stranger must run or buy,
+which is a different and much weaker claim than "read an account with any RPC".
+That is a decision for a later program, not for the one being frozen.

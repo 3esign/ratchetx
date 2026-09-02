@@ -11,6 +11,11 @@ import crypto from 'node:crypto';
 import { createRequire } from 'node:module';
 const require = createRequire(import.meta.url);
 
+// Hermes has required a key on every host since 2026-08-26, so the merge is
+// skipped outright without one. Most cases below are about what happens once a
+// key IS held; the last case is about what happens when it is not.
+process.env.PYTH_API_KEY = 'test-key';
+
 const DISC = crypto.createHash('sha256').update('account:PriceUpdateV2').digest().subarray(0, 8);
 const OWNER = 'pythWSnswVUd12oZpeFP8e9CVaEqJg25g1Vtc2biRsT';
 const { ACCOUNTS } = require('../lib/onchain_px.js');
@@ -142,6 +147,22 @@ const cb = await m.coinbase();
 ok(cb.src === 'coinbase', 'expected the coinbase route');
 for (const s of EQ) ok(cb[s] === undefined, `${s} must never come from coinbase`);
 ok(cb.SOL > 0 && cb.BTC > 0 && cb.ETH > 0, 'coinbase must still quote the core three');
+
+// ---- 7. no key, no stock board, and it says which ------------------------
+// The one that matters operationally: this is the state the site is in until a
+// Pyth key is configured, and an empty stock menu must be readable as a cause
+// rather than guessed at.
+delete process.env.PYTH_API_KEY;
+stub();
+m = fresh();
+r = await m.getPrices();
+ok(r.src === 'pyth-onchain', 'crypto is completely unaffected by having no Pyth key');
+for (const [s, want] of Object.entries(CRYPTO_PX))
+  ok(Math.abs(r[s] - want) < want * 1e-9, `${s} must be priced with no key at all`);
+for (const s of EQ) ok(r[s] === undefined, `${s} needs Hermes, which needs a key`);
+ok(/PYTH_API_KEY/.test(String(r.equityOff)), 'the missing key must be named, not implied: ' + r.equityOff);
+ok(hermesCalls === 0, 'and nothing should be asked of Hermes at all, got ' + hermesCalls);
+process.env.PYTH_API_KEY = 'test-key';
 
 console.log(`EQUITY PRICES OK — ${checks} checks: stocks merge onto a healthy primary, `
   + `and stale, loose, future-dated and unreachable prints all drop the target instead of settling it`);
