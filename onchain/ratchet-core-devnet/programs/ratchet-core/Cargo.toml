@@ -1,0 +1,25 @@
+[package]
+name = "ratchet-core"
+version = "1.0.0"
+description = "RatchetX Core v1 - the whole game as one frozen Solana program"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ratchet_core"
+
+[features]
+default = ["devnet"]
+# Devnet flavour: a faucet mint at a program PDA instead of the $RCX mint. Never for mainnet.
+devnet = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "=1.0.2", features = ["init-if-needed"] }
+anchor-spl = { version = "=1.0.2" }
+pyth-solana-receiver-sdk = { version = "=2.0.0", features = ["pro-compatible"] }
+solana-sha256-hasher = "=3.1.0"

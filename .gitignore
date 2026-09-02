@@ -25,3 +25,7 @@ test-pyth.mjs
 onchain/player-passport/program/*.bak
 onchain/player-passport/program/patch.py
 onchain/core-passport-benchmark/mpl-core/
+
+# devnet faucet program keypair (throwaway, devnet only) and build
+onchain/ratchet-core-devnet/devnet-program-keypair.json
+onchain/ratchet-core-devnet/target/
