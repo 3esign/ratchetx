@@ -1,8 +1,8 @@
 {
-  "productionRelease": "h106-2026-09-01",
-  "productionDeployment": "dpl_BtceLS33DLCehRwCucwD5PB5uaZg",
-  "productionCodeCommit": "e9ab25f",
-  "productionUiRevision": "h106-bankr-binary-contract",
+  "productionRelease": "h108-2026-09-02",
+  "productionDeployment": "dpl_6QoHQPgG2NDsVA89h6FNZGLUpCiA",
+  "productionCodeCommit": "7280510",
+  "productionUiRevision": "h108-core-rules-and-per-account-recipe",
   "versions": {
     "mcp": "1.2.0",
     "agentSkill": "1.5.0",
@@ -37,7 +37,7 @@
   },
   "lastVerifiedDeploy": "2026-08-30T19:53:15.234Z",
   "nextPlan": "docs/NEXT_BANKR_PLAN.md",
-  "bankrCommands": "h106 deployed 2026-09-01 (dpl_BtceLS33DLCehRwCucwD5PB5uaZg, main e9ab25f): play-session status carries xp and chambers; grant bounds 10M/100M/1s; skill 1.4.0 binary contract - `--auto --say` prints one line {ok,code,reply}, Bankr posts reply verbatim; runner resolves words (asset/direction/horizon/stake/p), EXPLAIN pitch names $RCX podium flywheel, redelivered post returns original proof. Bankr own router still reads bare \"put 500 on sol\" as a trade: users must say ratchetx. Live Bankr retest of 1.4.0 pending. Historical: h105 deployed: landing CTA, explicit presets, public copy commands and skill1.3.0 reusable session-play runner. 14 isolated gates and17 production readbacks pass. New Bankr/X pilot remains untested; manual private env handoff required, no cryptographic X binding or automatic pairing. Public IDs never authorize play. Prior pilot details below are historical.",
+  "bankrCommands": "h108 deployed 2026-09-02 03:55 (dpl_6QoHQPgG2NDsVA89h6FNZGLUpCiA, local 7280510; DEPLOY.cmd readback LIVE RELEASE MATCHES SOURCE): seal XP, skill XP and HIT payout via lib/core_rules.js (Core v1 integer rules; only exact .5 ties change); board token block (h107); play-session step 04 per-account recipe (install the skill in THAT Bankr account, then the session, then words starting with ratchetx) with 1.5.0 copy commands; a held player lock is retried before a reserved attempt is terminalized (public reply died on PLAYER_BUSY with the site tab open, 03:39). Skill 1.5.0 live on X for strangers (sonyx.eth sealed via \"ratchetx play quickest higher 1000\"). Historical: h106 deployed 2026-09-01 (dpl_BtceLS33DLCehRwCucwD5PB5uaZg, main e9ab25f): play-session status carries xp and chambers; grant bounds 10M/100M/1s; skill 1.4.0 binary contract - `--auto --say` prints one line {ok,code,reply}, Bankr posts reply verbatim; runner resolves words (asset/direction/horizon/stake/p), EXPLAIN pitch names $RCX podium flywheel, redelivered post returns original proof. Bankr own router still reads bare \"put 500 on sol\" as a trade: users must say ratchetx. Live Bankr retest of 1.4.0 pending. Historical: h105 deployed: landing CTA, explicit presets, public copy commands and skill1.3.0 reusable session-play runner. 14 isolated gates and17 production readbacks pass. New Bankr/X pilot remains untested; manual private env handoff required, no cryptographic X binding or automatic pairing. Public IDs never authorize play. Prior pilot details below are historical.",
   "localRecoveryDeployment": "deployed",
   "ownerPilotClosure": "Owner reports all grants revoked on 2026-08-30; no further authenticated verification or gameplay attempted.",
   "productionStatus": {
