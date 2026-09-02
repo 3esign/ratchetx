@@ -61,3 +61,48 @@ prove. Publish it verifiably, never as an assertion:
 - a stranger-runnable crank, so someone with no relationship to us settles a real
   shot with their own RPC and keypair; and
 - replayable settlement evidence in the Observatory.
+
+---
+
+## 6. Stranger-runnable in practice, not only in principle (verified 2026-09-02)
+
+Program-level permission (§2) is worth nothing if, in practice, only we can find
+the work. Verified in **both** runners — `onchain/ratchet-core/client/{crank,core}.mjs`
+(mainnet) and `onchain/ratchet-core-devnet/{crank,core}.mjs` (devnet):
+
+- **The only inputs are an RPC and a keypair.** Each runner reads exactly two
+  settings: `RATCHET_RPC` (any endpoint) and `RATCHET_CRANK_KEYPAIR` (the
+  cranker's own key). Grepping both pairs of files for `ratchetx.xyz`, `/api/`,
+  `API_KEY`, `SUPABASE` and `Bearer` returns nothing. There is no founder
+  endpoint, token or database anywhere in the settlement path.
+- **Work is discovered from the chain.** `readShots()` is
+  `getProgramAccounts(PROGRAM_ID, { filters: [dataSize, memcmp(discriminator)] })`.
+  Open shots are found by scanning the program's own accounts — no index, no
+  server, no list handed down by us.
+- **No IDL is required.** Account and instruction discriminators are derived
+  locally with sha256 from their names, exactly as Anchor derives them. A
+  stranger needs the program id and the open source; they need no file from us.
+- **Duplicate runners are safe.** Per the runner's own contract: a second
+  checkpoint of the same update is a no-op, and a second settle fails on state
+  for the cost of one fee. Any number of unrelated crankers may race with zero
+  coordination — which is what liveness without an operator actually requires.
+- **The runner cannot act as a player.** It never holds a player's key and
+  cannot reveal; only the salt holder can. A hostile cranker gains nothing.
+- **Cost of being a cranker:** transaction fees plus roughly 0.015 SOL once per
+  feed for clock rent.
+
+**Result: a stranger holding only the program id, any RPC and a funded keypair
+can discover, plan and execute every action the program permits — checkpoint,
+settle, void, forfeit, close. The program cannot distinguish them from us.**
+
+Gate status: **stranger-runnable settlement VERIFIED at the client level.**
+The remaining founder dependence is unchanged and singular: §5, the upgrade
+authority.
+
+## The demonstration this unlocks
+
+"Settle it yourself." Publish the program id and the runner, and invite any
+skeptic to settle a real shot with their own RPC and their own keypair, holding
+nothing of ours. It is checkable in minutes and almost nobody on Solana can
+offer it. That is the honest way to earn attention: not a claim about the token,
+a claim about the machine — one a stranger can falsify.
