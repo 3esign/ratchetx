@@ -14,6 +14,10 @@
       "destination": "/gauntlet.html"
     },
     {
+      "source": "/observatory",
+      "destination": "/observatory.html"
+    },
+    {
       "source": "/api/gauntlet",
       "destination": "/api/game?action=gauntlet"
     },
