@@ -306,6 +306,9 @@ export async function runPlay(options={},dependencies={}){
       return {http:response.status,body:value};
     }
     function status(r){
+      // The per-wallet status throttle (5 s) is a collision with another
+      // request for this wallet, not a play cooldown: carry its retry hint.
+      if(r.http===429&&r.body.code==='SESSION_RATE_LIMIT'){const e=new Stop('STATUS_THROTTLED','PENDING');e.retryAfterSeconds=finite(r.body.retryAfterSeconds)?r.body.retryAfterSeconds:5;throw e;}
       if(r.http!==200||r.body.ok!==true)stop(CODES.has(r.body.code)?r.body.code:'STATUS_UNAVAILABLE','PENDING');
       const {session:s,player:p}=r.body;
       need(s&&s.wallet===options.wallet&&s.id===options.sessionId&&p?.wallet===options.wallet,'STATUS_IDENTITY_MISMATCH');
@@ -542,7 +545,8 @@ export async function runPlay(options={},dependencies={}){
 const FOOTER='ratchetx.xyz - solana prediction arcade rewarding $RCX';
 const NEW_SESSION='Approve a new play session at ratchetx.xyz/play-session.html.';
 const REFUSALS={
-  SESSION_RATE_LIMIT:r=>'Cooldown active. Please retry in '+(r.retryAfterSeconds??'a few')+' s.',
+  SESSION_RATE_LIMIT:r=>'Cooldown active. Please retry in '+(r.retryAfterSeconds??'a few')+' s. Nothing was sealed.',
+  STATUS_THROTTLED:()=>'Another request for this wallet was running at the same time. Nothing was sealed - send the command again in a minute.',
   CHAMBERS_FULL:()=>'All your forecast chambers are active. Wait for one to settle.',
   SESSION_BUDGET_EXHAUSTED:()=>'This play session\'s allowance is used up. '+NEW_SESSION,
   INSUFFICIENT_CREDITS:()=>'Not enough play credits for that stake.',
