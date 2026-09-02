@@ -142,4 +142,50 @@ await Promise.all(Array.from({length: 12}, () => getPrices()));
 console.log('12 concurrent getPrices ->', rpcCalls - before, 'extra rpc calls');
 assert.equal(rpcCalls - before, 0, 'cache should have served all 12');
 
+// ---- 5. private key + public net: a lagging private cannot blank it ----
+// SOLANA_RPC points at a private endpoint that has fallen minutes behind. The
+// reader must keep the public nodes as a net and recover the fresh print.
+{
+  process.env.SOLANA_RPC = 'https://my-key.helius-rpc.example/rpc';
+  let hitPrivate = false, hitPublic = false;
+  globalThis.fetch = async (url, opts) => {
+    const priv = String(url).includes('helius-rpc.example');
+    if (priv) hitPrivate = true; else hitPublic = true;
+    const keys = JSON.parse(opts.body).params[0];
+    const value = keys.map(k => {
+      const sym = Object.keys(ACCOUNTS).find(s => ACCOUNTS[s][0] === k);
+      if (!sym) return null;
+      const pub = priv ? now - 400 : now - 4;   // private 400s behind; publics fresh
+      return { owner: OWNER, lamports: 1,
+        data: [mkAccount({ feedId: ACCOUNTS[sym][1], price: Math.round(TRUE_PX[sym]*1e8),
+          expo: -8, publishTime: pub, prevPublishTime: pub - 60, full: true }), 'base64'],
+        executable: false, rentEpoch: 0 };
+    });
+    return { ok: true, json: async () => ({ jsonrpc:'2.0', id:1, result:{ context:{slot:1}, value } }) };
+  };
+  m = fresh();
+  assert.ok(m.ENDPOINTS.length >= 4, 'private + 3 public nodes kept as the net');
+  assert.equal(m.ENDPOINTS[0], 'https://my-key.helius-rpc.example/rpc', 'private tried first');
+  r = await m.onchainPrices();
+  assert.equal(r.src, 'pyth-onchain', 'recovered on-chain, not degraded');
+  for (const c of ['SOL','BTC','ETH']) assert.ok(r[c] > 0, c + ' recovered via public net');
+  assert.ok(r.ages.SOL <= 6, 'kept the FRESH public print, not the 400s-stale private (age ' + r.ages.SOL + ')');
+  assert.ok(hitPrivate && hitPublic, 'walk tried the private first, then escalated to a public');
+  console.log('private lagging 400s -> recovered via public net · SOL age', r.ages.SOL + 's · endpoints', m.ENDPOINTS.length);
+  delete process.env.SOLANA_RPC;
+}
+
+// ---- 6. comma-listed keys + SOLANA_RPCS parse into ordered endpoints ----
+{
+  process.env.SOLANA_RPC = 'https://a.example/rpc, https://b.example/rpc';
+  process.env.SOLANA_RPCS = 'https://c.example/rpc';
+  m = fresh();
+  assert.deepEqual(m.ENDPOINTS.slice(0, 3),
+    ['https://a.example/rpc', 'https://b.example/rpc', 'https://c.example/rpc'],
+    'comma/space list + SOLANA_RPCS parse in order, ahead of publics');
+  assert.ok(m.ENDPOINTS.length >= 6, 'three private + three public');
+  console.log('multi-key parse ok ·', m.ENDPOINTS.slice(0, 3).join('  '));
+  delete process.env.SOLANA_RPC; delete process.env.SOLANA_RPCS;
+}
+
 console.log('\nALL PASS');
