@@ -43,7 +43,7 @@ production. Environment:
 | Variable | What it is |
 |---|---|
 | `SUPABASE_URL`, `SUPABASE_SERVICE_KEY` | your own Postgres/KV (schema in `supabase/*.sql`) |
-| `SOLANA_RPC_URL` | Solana RPC used to read and validate Pyth PriceUpdateV2 accounts |
+| `SOLANA_RPC_URL`, `SOLANA_RPC`, `SOLANA_RPCS` | Solana RPCs used to read and validate Pyth PriceUpdateV2 accounts. Any of the three may hold one endpoint or several separated by spaces or commas; all three are merged into one list, your own endpoints are tried first, and three public endpoints follow as fallback. Set none and only the public endpoints are used. Set one and the reader still falls back — a single private endpoint is not a single point of failure. |
 | `RATCHET_MINT` | the $RCX mint (or your own token for a fork) |
 | `RATCHET_SEAL_PROGRAM_ID`, `RATCHET_SEAL_VERSION`, `RATCHET_SEAL_RPC_URL`, `RATCHET_SEAL_CLUSTER`, `RATCHET_SEAL_FEEDS` | on-chain sealing config |
 | `PUBLIC_ORIGIN` | your deployment's public URL |
