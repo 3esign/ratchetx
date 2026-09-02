@@ -559,6 +559,7 @@ const REFUSALS={
   CAPABILITY_IDENTITY_MISMATCH:()=>'No RatchetX play session is configured for this account. '+NEW_SESSION,
   PRIOR_ATTEMPT_UNRESOLVED:()=>'A previous forecast is still being confirmed. Ask for status in a minute.',
   COMMAND_CONFLICT:()=>'That post was already used for a different forecast. Send a new post for a new forecast.',
+  PLAYER_BUSY:()=>'Your wallet was busy with another update (the site open in a browser, or a settlement in flight). Nothing was sealed - send a new post in a few seconds.',
 };
 const n=v=>v===null||v===undefined?'n/a':typeof v!=='number'?String(v):Number.isInteger(v)?v.toLocaleString('en-US'):String(+v.toFixed(4));
 const endsSoon=r=>finite(r.sessionEndsInMinutes)&&r.sessionEndsInMinutes<=30?'\nSession ends in '+mins(Math.max(1,r.sessionEndsInMinutes))+' - approve a new one at ratchetx.xyz/play-session.html.':'';

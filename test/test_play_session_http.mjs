@@ -259,6 +259,40 @@ try {
   assert.equal(crossingCalls,1);
   console.log('HTTP status: canonical deterministic settlement, drained outbox, one credit/Brier/history result and throttle PASS');
 
+  // A player lock held by another update (the site tab settling the same
+  // wallet) is a moment, not a verdict: the shot must wait it out and seal,
+  // not burn the post with a rejected PLAYER_BUSY receipt (X, 2026-09-02).
+  {
+    const busy = owner();
+    await seedPlayer(busy);
+    await grant(busy);
+    const lease = await kv.acquireLease('lock:u:'+busy.wallet,30);
+    assert.ok(lease,'test holds the player lock');
+    const realNow = originalNow;
+    const releaseAt = realNow()+4000;
+    const releaser = setTimeout(()=>kv.releaseLease('lock:u:'+busy.wallet,lease),4000);
+    const busyIntent = {...intent,requestId:id(102)};
+    result = await invoke({body:{op:'shot',intent:busyIntent},headers:bearer(busy)});
+    clearTimeout(releaser);
+    assert.equal(result.status,200,result.body?.code);
+    assert.equal(result.body.request.state,'accepted','a four-second lock is waited out, not terminalized');
+    assert.ok(realNow()>=releaseAt-50,'the retry actually waited for the lock');
+    assert.equal((await player(busy)).open.length,1);
+    // Held for good: the attempt is still refused cleanly, and only after the retries.
+    const stuck = owner();
+    await seedPlayer(stuck);
+    await grant(stuck);
+    const held = await kv.acquireLease('lock:u:'+stuck.wallet,60);
+    const startedAt = realNow();
+    result = await invoke({body:{op:'shot',intent:{...intent,requestId:id(103)}},headers:bearer(stuck)});
+    assert.equal(result.status,409);
+    assert.equal(result.body.code,'SHOT_REFUSED');
+    assert.equal(result.body.request.result.code,'PLAYER_BUSY');
+    assert.ok(realNow()-startedAt>=7000,'three tries of 2.4 s plus gaps before giving up');
+    assert.equal((await player(stuck)).open.length,0);
+    await kv.releaseLease('lock:u:'+stuck.wallet,held);
+    console.log('HTTP shot: a held player lock is retried before a reserved attempt is terminalized PASS');
+  }
   const uncertain = owner();
   const beforeUncertain = await seedPlayer(uncertain);
   await grant(uncertain);

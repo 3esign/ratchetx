@@ -28,6 +28,18 @@ command" and offers trades), save the session there, then words starting with
 id in a public post any more (the post ID is the command ID). Measured
 2026-09-02 on a second X account.
 
+Server fix (measured on X 2026-09-02 03:39, under a MoonPay thread): a
+public reply died with `PLAYER_BUSY` and the post was burned. Cause: the
+play-session shot route calls the canonical game, which waits only 2.4 s for
+the per-wallet lock; the site open in a browser tab polls `state` for the same
+wallet and settles under that lock for longer than that, so the inner 409
+became a terminal rejected receipt. `lib/play_session_http.js` now retries a
+busy lock (three tries, 0.8 s gaps, ~9 s worst case, inside the runner's 15 s
+budget) before a reserved attempt is terminalized — a refused lock wrote
+nothing, so the retry cannot double-play. Regression in
+`test/test_play_session_http.mjs`. The runner also gained a plain
+`PLAYER_BUSY` sentence (skill text only, no version bump).
+
 Verify after deploy: `board.v == h108-2026-09-02`, `board.token.mint ==
 FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump` (the h107 block, if h107 was
 skipped); then update `docs/AGENT_STATE.json` productionRelease /
