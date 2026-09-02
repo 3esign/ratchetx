@@ -83,3 +83,14 @@ website, not Bankr, not Supabase.
 4. Static client + open runner (checkpoint/settle/forfeit/void/close cranks).
 5. Legacy snapshot → Merkle root compiled in → migration build → capped pilot.
 6. 72 h drill with everything of ours off, then `--final`.
+
+## Build record
+
+- 2026-09-02 first SBF build (cloud, recipe of Seal v2): platform-tools v1.52,
+  cargo-build-sbf 3.1.10, anchor-lang 1.0.2, anchor-spl 1.0.2,
+  pyth-solana-receiver-sdk 2.0.0, `Cargo.lock` committed.
+  `artifacts/ratchet_core-v1-2026-09-02.so` — 413,288 bytes,
+  sha256 `4dfa81f028d3b1d7ee6c3bca9f66bb885fd2269addb0b24310a4cd6d13224432`,
+  executable hash (trailing zeros stripped)
+  `b42b969379f1813a1d69539ff5e6461bfb191fad21b439f2442297a669c528d0`.
+  Not deployed anywhere yet. Host unit tests: 8/8.
