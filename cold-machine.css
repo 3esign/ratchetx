@@ -177,3 +177,19 @@ a{color:var(--poison-ink)}
 }
 
 .cog circle[fill]{fill:var(--poison)}   /* logo dot joins the green, no stray gold top-left */
+
+/* ---- gold gleam: a slow sheen across the token/value figures ONLY — $RCX, the
+       pot, and podium winnings. Gold already means value on this machine; this is
+       that value quietly catching light. Highlight is barely lighter than the
+       antique gold, ~9s and mostly at rest. Stops for reduced-motion. Labels and
+       plain data never gleam. ---- */
+#hRcxWrap b,#potN,#potDN,.pods .pp,.pods.mine .pw,.pchip b{
+  background:linear-gradient(100deg,var(--gold) 0%,var(--gold) 40%,#e7d6a6 50%,var(--gold) 60%,var(--gold) 100%);
+  background-size:230% 100%;-webkit-background-clip:text;background-clip:text;
+  -webkit-text-fill-color:transparent;color:var(--gold);
+  animation:goldgleam 9s var(--ease) infinite;
+}
+@keyframes goldgleam{0%,100%{background-position:120% 0}50%{background-position:-20% 0}}
+@media(prefers-reduced-motion:reduce){
+  #hRcxWrap b,#potN,#potDN,.pods .pp,.pods.mine .pw,.pchip b{animation:none;-webkit-text-fill-color:var(--gold)}
+}
