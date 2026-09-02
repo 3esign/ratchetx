@@ -18,7 +18,7 @@ const CODES=new Set(['SESSION_EXPIRED','SESSION_REVOKED','INVALID_CAPABILITY','S
   'ORACLE_CONFIDENCE_TOO_WIDE','FEED_UNAVAILABLE','TARGET_UNAVAILABLE','CHAMBERS_FULL',
   'INVALID_STAKE','INSUFFICIENT_CREDITS','SETTLEMENT_DELIVERY_PENDING','INVALID_PROBABILITY',
   'RATE_LIMITED','WRITE_CONFLICT','WRITE_LEASE_EXPIRED','CREDIT_QUEUE_CONFLICT','SHOT_REFUSED',
-  'RECOVERED_NO_DISPATCH','REQUEST_CONFLICT','PRIOR_ATTEMPT_UNRESOLVED','ASSET_NOT_ON_BOARD']);
+  'RECOVERED_NO_DISPATCH','REQUEST_CONFLICT','PRIOR_ATTEMPT_UNRESOLVED','ASSET_NOT_ON_BOARD','ASSET_AMBIGUOUS']);
 const finite=n=>typeof n==='number'&&Number.isFinite(n), integer=n=>Number.isSafeInteger(n)&&n>=0;
 const same=(a,b)=>canonical(a)===canonical(b);
 const digest=text=>createHash('sha256').update(text).digest('hex'), hash=value=>digest(canonical(value));
@@ -79,6 +79,23 @@ const ASSET_WORDS={SOL:['sol','solana'],BTC:['btc','bitcoin'],ETH:['eth','ethere
   // way a ticker is written.
   TSLA:['tsla','tesla'],NVDA:['nvda','nvidia'],PLTR:['pltr','palantir'],
   COIN:['coinbase'],HOOD:['robinhood']};
+// Spellings people actually type. These are not guesses at what someone might
+// have meant -- they are exact strings, matched exactly, so they can only ever
+// resolve to the one asset they are listed under. The fuzzy pass below handles
+// everything else, under much stricter rules.
+const ASSET_TYPOS={
+  SOL:['solona','solanna','soalna','slana','solan'],
+  BTC:['bitcion','bitcon','bicoin','bitocin','btcc','bitconi'],
+  ETH:['etherium','ethereium','ethreum','etherum','eth\u00e9reum'],
+  BONK:['bonkk','boink'],
+  WIF:['dogwif','dogwifhat','wifhat'],
+  JUP:['jupitor','jupyter','jupier'],
+  TSLA:['teslla','telsa','tesle','tesla\u0131','tsl'],
+  NVDA:['nivida','nvidea','nvdia','invidia','nvidiaa'],
+  PLTR:['palantier','palentir','palanteer'],
+  COIN:['coinbse','coinbasse','coibase'],
+  HOOD:['robinghood','robinhod','robbinhood','robin hood'],
+};
 const STOCKS=new Set(['TSLA','NVDA','PLTR','COIN','HOOD']);
 const AMBIGUOUS_TICKERS=new Set(['COIN','HOOD']);
 // Written as a ticker: $coin in any case, or COIN in capitals. Lowercase
@@ -101,19 +118,104 @@ const PLAY_VERBS=['play','shoot','fire','bet','wager','spend','put','predict','g
 const PLAY_NOUNS=['shot','shots','forecast','prediction','call'];
 const norm=text=>String(text).toLowerCase().replace(/[‘’]/g,'\'').replace(/[^a-z0-9$%.'\s-]/g,' ').replace(/\s+/g,' ').trim();
 const tokens=text=>norm(text).split(' ').filter(Boolean).map(t=>t.replace(/^[.'-]+|[.'-]+$/g,''));
-function findAsset(words,feeds,raw=''){
+// Every spelling we accept, flattened once: alias -> feed. Built from the two
+// tables above so there is exactly one place to add a name.
+const ALIAS_TO_FEED=(()=>{
+  const m=new Map();
+  for(const [feed,list] of Object.entries(ASSET_WORDS)) for(const a of list) m.set(a,feed);
+  for(const [feed,list] of Object.entries(ASSET_TYPOS)) for(const a of list) m.set(a,feed);
+  return m;
+})();
+// Words that mean something else in this grammar. A misspelling must never be
+// "corrected" into an asset when the player was speaking the command language:
+// 'sell' is one edit from 'sol', and reading it as Solana would be a bet nobody
+// placed. Anything in here is off limits to the fuzzy pass, full stop.
+const RESERVED=new Set([...UP_WORDS,...DOWN_WORDS,...NEGATIONS,...STATUS_WORDS,...PLAY_VERBS,...PLAY_NOUNS,
+  'ratchet','ratchetx','rcx','credits','credit','max','all','half','min','mins','minute','minutes',
+  'hour','hours','day','daily','on','the','a','an','my','me','i','is','it','to','at','in','of','and','or','for','with','next',
+  // Ordinary words that sit within one edit of an asset name. 'either' is one
+  // deletion from 'ether', so "either higher or lower" would otherwise have
+  // read as an Ethereum call. Each of these is here because it collides, not
+  // because it is common.
+  'either','neither','whether','other','others','value','level','close','closes','price','prices','total','still','while','their','there']);
+/** Damerau-Levenshtein, capped: it stops as soon as the distance exceeds `max`,
+ *  so a long word never costs a full matrix. Transposition counts as one edit
+ *  because 'telsa' is the single commonest way to misspell 'tesla'. */
+function editDistance(a,b,max){
+  if(Math.abs(a.length-b.length)>max)return max+1;
+  const prev2=[],prev=[],cur=[];
+  for(let j=0;j<=b.length;j++)prev[j]=j;
+  for(let i=1;i<=a.length;i++){
+    cur[0]=i; let best=i;
+    for(let j=1;j<=b.length;j++){
+      const cost=a[i-1]===b[j-1]?0:1;
+      let v=Math.min(cur[j-1]+1,prev[j]+1,prev[j-1]+cost);
+      if(i>1&&j>1&&a[i-1]===b[j-2]&&a[i-2]===b[j-1])v=Math.min(v,prev2[j-2]+1);
+      cur[j]=v; if(v<best)best=v;
+    }
+    if(best>max)return max+1;
+    for(let j=0;j<=b.length;j++){prev2[j]=prev[j];prev[j]=cur[j];}
+  }
+  return prev[b.length];
+}
+/** One near-miss word -> one feed, or a refusal. Never a guess between two.
+ *
+ *  The budget is deliberately mean: one edit for a short word, two only from
+ *  seven characters up, where two edits is still a small fraction of the word.
+ *  A word that lands within budget of TWO different assets is not a typo we can
+ *  read, it is a coin flip, and this returns {ambiguous} so the caller refuses
+ *  rather than picking. That is the whole point: the parser should be unable to
+ *  place a bet the player did not make, not merely unlikely to. */
+function fuzzyAsset(words){
+  const hits=new Map();   // feed -> {word, alias, dist}
+  for(const w of words){
+    if(w.length<4||RESERVED.has(w)||ALIAS_TO_FEED.has(w))continue;
+    if(/^\d+$/.test(w))continue;
+    const budget=w.length>=7?2:1;
+    for(const [alias,feed] of ALIAS_TO_FEED){
+      if(alias.length<4)continue;                        // 'sol','btc','eth' are too short to risk
+      const d=editDistance(w,alias,budget);
+      if(d>budget)continue;
+      const cur=hits.get(feed);
+      if(!cur||d<cur.dist)hits.set(feed,{word:w,alias,dist:d});
+    }
+  }
+  if(hits.size===0)return null;
+  if(hits.size>1)return {ambiguous:[...hits.keys()].sort()};
+  const [feed,info]=[...hits][0];
+  return {feed,...info};
+}
+function findAsset(words,feeds,raw='',notes=null){
   const joined=' '+words.join(' ')+' ';
   if(/\$pump\b|\bpump(?:\.fun|fun| token| coin)\b|\bon pump\b|\bpump (?:higher|lower|up|down|goes|will|to)\b/.test(joined)&&feeds.includes('PUMP'))return 'PUMP';
-  for(const [feed,aliases] of Object.entries(ASSET_WORDS)){
-    if(feed==='PUMP')continue;
-    if(aliases.some(a=>words.includes(a)||words.includes('$'+a)))return feeds.includes(feed)?feed:{unavailable:feed.toUpperCase()};
-  }
+  // Collect EVERY asset the words name, then decide -- rather than returning
+  // the first one found. First-match-wins looked harmless while a message named
+  // at most one asset, but it resolved "bitcoin or ethereum" to whichever the
+  // table happened to list first, which is not the player's order and not their
+  // choice. Two assets named is two assets named, however they were spelled.
+  const named=new Map();                       // feed -> the word that named it
+  const see=(feed,word)=>{ if(!named.has(feed))named.set(feed,word); };
   for(const w of words){
-    const up=w.replace(/^\$/,'').toUpperCase();
-    if(!/^[A-Z]{2,6}$/.test(up)||up==='PUMP'||up==='NO')continue;
-    if(AMBIGUOUS_TICKERS.has(up)&&!writtenAsTicker(raw,up))continue;
-    if(feeds.includes(up))return up;
+    const bare=w.replace(/^\$/,'');
+    const exact=ALIAS_TO_FEED.get(bare);
+    if(exact){ see(exact,bare); continue; }
+    const up=bare.toUpperCase();
+    if(/^[A-Z]{2,6}$/.test(up)&&up!=='PUMP'&&up!=='NO'&&ASSET_WORDS[up]){
+      if(AMBIGUOUS_TICKERS.has(up)&&!writtenAsTicker(raw,up))continue;
+      see(up,bare);
+    }
   }
+  if(named.size>1)return {ambiguousBetween:[...named.keys()].sort()};
+  if(named.size===1){
+    const [feed,word]=[...named][0];
+    if(notes&&!ASSET_WORDS[feed].includes(word))notes.push('read "'+word+'" as '+feed);
+    return feeds.includes(feed)?feed:{unavailable:feed};
+  }
+  // Nothing named outright. Only now is a near miss worth reading, and only
+  // when it can mean exactly one thing.
+  const fz=fuzzyAsset(words);
+  if(fz&&fz.ambiguous)return {ambiguousBetween:fz.ambiguous};
+  if(fz){ if(notes)notes.push('read "'+fz.word+'" as '+fz.feed); return feeds.includes(fz.feed)?fz.feed:{unavailable:fz.feed}; }
   return null;
 }
 function findDirection(words,assetIsPump){
@@ -232,7 +334,12 @@ export function resolveIntent(text,{board,context,limits,session,player,override
   const dirs=(board?.targets||[]).filter(t=>t&&t.kind==='dir'&&!t.feed2&&typeof t.id==='string'&&integer(t.mins)&&t.mins>=1);
   need(dirs.length>0,'TARGET_UNAVAILABLE');
   const feeds=[...new Set(dirs.map(t=>t.feed))];
-  let asset=overrides.asset?String(overrides.asset).toUpperCase():findAsset(words,feeds,raw);
+  let asset=overrides.asset?String(overrides.asset).toUpperCase():findAsset(words,feeds,raw,notes);
+  // A near-miss word that is within reach of two different assets is a coin
+  // flip, not a typo. Refuse and let the player spell it, rather than pick one
+  // and be right half the time with their credits.
+  if(asset&&asset.ambiguousBetween)
+    stop('ASSET_AMBIGUOUS','REFUSED',{candidates:asset.ambiguousBetween});
   // A named asset that is not on this board is a REFUSAL, never a substitution.
   // This used to fall back to the shortest available target: ask for TSLA when
   // TSLA has no slot this hour and your credits went on BONK. That was survivable
@@ -617,6 +724,10 @@ const REFUSALS={
   TARGET_UNAVAILABLE:()=>'No playable target on the board right now. Try again in a minute.',
   AGENT_ADMISSION_REQUIRED:()=>'This wallet is not admitted to ranked play yet. Register at ratchetx.xyz first.',
   MISSING_OR_INVALID_CAPABILITY:()=>'No RatchetX play session is configured for this account. '+NEW_SESSION,
+  ASSET_AMBIGUOUS:r=>{
+    const c=Array.isArray(r.candidates)?r.candidates.join(' or '):'more than one asset';
+    return 'Nothing was sealed. That could have meant '+c+', and RatchetX will not guess between two assets with your credits. Spell the one you want and send it again.';
+  },
   ASSET_NOT_ON_BOARD:r=>{
     const want=r.requestedAsset?String(r.requestedAsset).toUpperCase():'That asset';
     const have=Array.isArray(r.availableAssets)&&r.availableAssets.length

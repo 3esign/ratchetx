@@ -92,14 +92,61 @@ from Solana** — and no stock on a flash window until a publisher proves a
 faster cadence. That is a smaller feature than "TSLA higher in 5 minutes", and
 it is one nobody needs our permission or our API key to settle.
 
-## Open before this can ship
+## The cadence, measured (2026-09-02, 13.4 minutes, 18 polls, 0 errors)
 
-1. **Measure the cadence properly.** Two reads 17 s apart is not a cadence. Sample
-   these accounts over an hour, in and out of US market hours, and find the real
-   distribution of gaps. `pxlog` already does exactly this job for the crypto
-   seven; point it at these and read the answer off the observatory.
-2. **Decide the horizon floor** from that measurement, not from a guess.
-3. **Check the price is the instrument we name.** `Crypto.TSLAX/USD` is the
+Polled all nine accounts every 20 s and recorded every distinct `publish_time`.
+
+| feed | writes | gap between writes | stale at end |
+| --- | --- | --- | --- |
+| SOL *(control)* | 18 | 20–61 s, **median 60 s** | 70 s |
+| TSLAX, NVDAX, SPYX, AAPLX, MSTRX, CRCLX | 2 each | **exactly 870 s, all six identical** | 712 s |
+| COINX | 1 | never wrote | 11.1 hours |
+| HOODX | 1 | never wrote | 6.8 days |
+
+SOL's 60 s median is the documented sponsored heartbeat, so the measurement is
+calibrated. The six live xStocks share one publisher writing them together on a
+**14.5-minute** schedule — the gap is not approximately equal across the six, it
+is the same integer.
+
+## What that does to the seal rule, arithmetically
+
+A seal needs an entry price fresher than
+`min(60, max(30, 0.15 × windowSeconds))`. That expression is **capped at 60
+seconds for every horizon** — a 24-hour target gets the same 60-second bound as
+a 5-minute one, because the `min(60, …)` clamps it.
+
+Against an 870-second cadence, a stock price is younger than 60 seconds for
+**60/870 ≈ 6.9%** of the time. So roughly **93 out of 100 stock seals would be
+refused**, at any horizon, and the 7 that succeed would be whoever happened to
+send a message in the minute after a publish.
+
+That is not a feature with a rough edge. It is a feature that does not work, and
+the freshness guard is right to refuse it.
+
+## So the decision is a settlement-rule question, and it is the founder's
+
+The mechanism is free, keyless and permissionless — everything that was wanted.
+The only thing standing between it and a shippable product is a bound written
+for feeds that tick every second. Three honest options:
+
+1. **Leave the rule alone and drop tokenized stocks.** Nothing breaks, the
+   finding stays on record, and if a publisher ever speeds up it is a one-line
+   feed-table change.
+2. **Scale the seal bound to the horizon for slow feeds** — allow an entry price
+   up to, say, 2% of the window old, so a 24-hour shot may seal on a 15-minute
+   price while a 5-minute shot still demands 60 seconds. This is defensible: on
+   a day-long call a 15-minute-old entry is a rounding error. It is also a
+   change to the promise the site publishes about seal freshness, and it must be
+   published as such, not slipped in.
+3. **Wait.** The feeds are new; a publisher may tighten. Costs nothing.
+
+What this is NOT is a case for relaxing the bound globally. The 60-second rule
+is what stops a crypto shot sealing on a stale tick, and it should not be
+loosened for the seven feeds that meet it easily.
+
+## Also open
+
+1. **Check the price is the instrument we name.** `Crypto.TSLAX/USD` is the
    price of the *tokenized share*, not of TSLA on NASDAQ. It tracks the share
    via the redemption rate (`Crypto.TSLAX/TSLA.RR` exists as its own feed), and
    it can trade at a premium or discount. The card must say TSLAX, not TSLA —
