@@ -1,0 +1,18 @@
+[package]
+name = "core-svm-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "LiteSVM adversarial battery for RatchetX Core v1 (no network, no keys)"
+
+# Its own root: the program workspace above must stay exactly the frozen build recipe.
+[workspace]
+
+[dependencies]
+litesvm = "0.16"
+solana-sdk = "4"
+solana-program = "4"
+spl-token = { version = "9", features = ["no-entrypoint"] }
+spl-associated-token-account = { version = "8", features = ["no-entrypoint"] }
+borsh = "1"
+sha2 = "0.10"

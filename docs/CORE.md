@@ -19,7 +19,7 @@ keeps that code path unchanged and adds everything the server used to decide.
 | play credits (non-redeemable) | `PlayerLedger.credits` |
 | stake 100..1e9, debited at seal, 1.7x back on HIT, refunded on VOID | `seal`, `reveal`, `settle`/`void_shot` |
 | RCX reload: burn 70%, pay 30% to the live daily podium 50/30/20, credits 1:1 per whole token | `reload` — in the player's own transaction; the program never holds a token |
-| XP: `max(1, round(base_xp(minutes) * min(20, sqrt(stake/100))))` at seal; on HIT `max(1, round(xp * min(2, 1 + 0.15*streak))) + 1`; on MISS `+1` | `seal_xp`, `skill_xp` (unit-tested against the server numbers) |
+| XP: `max(1, round(base_xp(minutes) * min(20, sqrt(stake/100))))` at seal; on HIT `max(1, round(xp * min(2, 1 + 0.15*streak))) + 1`; on MISS `+1` — rounded exactly in integers, half up | `seal_xp`, `skill_xp` (golden vectors shared with the server) |
 | rank thresholds 0/300/900/2200/5000, chambers `min(4, rank+1)+1` | `rank_of`, `chambers_for` |
 | seal freshness `min(60, max(30, 0.15 * window))` s, confidence ≤ 200 bps | `max_seal_age`, `check_confidence` |
 | settle window `[expiry, expiry+900)`, void after | `settle`, `void_shot` |
@@ -74,23 +74,53 @@ website, not Bankr, not Supabase.
 
 ## What still has to happen (G-plan)
 
-1. SBF build with the v1.52 recipe; record the executable hash.
-2. Localnet/devnet exercise of every instruction, including the adversarial
-   set from `OPERATOR_INDEPENDENCE_PLAN.md` (replay, wrong delegate, expired
-   grant, cap races, ring wrap, forfeit, equality, deadline void).
-3. JS golden vectors: the server's XP/streak/payout against `seal_xp`,
-   `skill_xp`, `hit_payout` for the same inputs.
+1. ~~SBF build with the v1.52 recipe; record the executable hash.~~ done, see the
+   build record.
+2. ~~Localnet exercise of every instruction, including the adversarial set~~
+   done on LiteSVM (`svm-tests/`, 8 batteries: replay, wrong delegate, expired
+   grant, cap races, ring wrap, forfeit, equality, deadline void, oracle
+   forgeries, reload split). Devnet run of the same client path still open.
+3. ~~JS golden vectors~~ done: `vectors/core-rules-v1.json` printed by the
+   program, checked by `test/test_core_vectors.mjs`; the server now computes XP
+   and payout through `lib/core_rules.js`, the same integers (h108).
 4. Static client + open runner (checkpoint/settle/forfeit/void/close cranks).
 5. Legacy snapshot → Merkle root compiled in → migration build → capped pilot.
 6. 72 h drill with everything of ours off, then `--final`.
+
+## Tests, and how to run them
+
+- Host unit tests (rules, podium, ledger): `cargo test` in `onchain/ratchet-core`.
+- LiteSVM battery (the program bytes under a hostile client, no network, no
+  keys, no validator): `cargo test` in `onchain/ratchet-core/svm-tests`. It
+  loads `../target/deploy/ratchet_core.so` when a build exists, otherwise the
+  newest file in `../artifacts/` — so it also runs against the committed bytes;
+  `RATCHET_CORE_SO=<path>` overrides. Pyth accounts are hand-built
+  `PriceUpdateV2` records under the real receiver id and push-oracle PDA, so
+  every forgery the program must reject (wrong owner, wrong PDA, partial
+  verification, stale, wide confidence, wrong feed) is tried.
+- Golden vectors: `cargo test print_golden_vectors -- --ignored --nocapture`
+  prints `vectors/core-rules-v1.json` (between the BEGIN/END markers); then
+  `node --test test/test_core_vectors.mjs` from the repo checks the server
+  against it. Re-print whenever a rule constant changes; the JSON is the
+  contract between the two.
 
 ## Build record
 
 - 2026-09-02 first SBF build (cloud, recipe of Seal v2): platform-tools v1.52,
   cargo-build-sbf 3.1.10, anchor-lang 1.0.2, anchor-spl 1.0.2,
   pyth-solana-receiver-sdk 2.0.0, `Cargo.lock` committed.
-  `artifacts/ratchet_core-v1-2026-09-02.so` — 413,288 bytes,
-  sha256 `4dfa81f028d3b1d7ee6c3bca9f66bb885fd2269addb0b24310a4cd6d13224432`,
+  413,288 bytes, sha256 `4dfa81f028d3b1d7ee6c3bca9f66bb885fd2269addb0b24310a4cd6d13224432`
+  (stripped `b42b969379f1813a1d69539ff5e6461bfb191fad21b439f2442297a669c528d0`).
+  Superseded the same day — never deployed. Two findings from the LiteSVM
+  battery against it: (a) `reload` failed with PrivilegeEscalation because the
+  `mint` account was not declared `mut` — the burn CPI writes the supply; (b)
+  `seal_xp` truncated sqrt to hundredths, off by one XP against the live server
+  in ~0.14% of (base, stake) pairs (e.g. base 24, stake 105: 24.59 → 24 instead
+  of 25). Both fixed in source.
+- 2026-09-02 second build, same recipe, `Cargo.lock` unchanged.
+  `artifacts/ratchet_core-v1-2026-09-02.so` — 414,360 bytes,
+  sha256 `4edf23dbfe1542dc90564c9badecc8a216d6cb13f2ce0a588421396be145c328`,
   executable hash (trailing zeros stripped)
-  `b42b969379f1813a1d69539ff5e6461bfb191fad21b439f2442297a669c528d0`.
-  Not deployed anywhere yet. Host unit tests: 8/8.
+  `fddebb11e990f3a6a748b0f2222468986f527120b787ddc4080c540daa7d50f9`.
+  Not deployed anywhere yet. Host unit tests 8/8, LiteSVM battery 8/8, golden
+  vectors 8/8 against the server's `lib/core_rules.js`.

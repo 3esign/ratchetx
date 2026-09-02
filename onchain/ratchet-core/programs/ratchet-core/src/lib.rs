@@ -44,6 +44,8 @@ pub const HIT_PAYOUT_NUM: u64 = 17;
 pub const HIT_PAYOUT_DEN: u64 = 10;
 pub const SETTLE_XP: u64 = 1;
 pub const XP_MULT_CAP: u64 = 20;
+/// The stake at which the XP multiplier reaches its cap: STAKE_MIN · 20².
+pub const XP_CAP_STAKE: u64 = STAKE_MIN * XP_MULT_CAP * XP_MULT_CAP;
 /// streak multiplier = min(2.00, 1 + 0.15 * streak), in hundredths.
 pub const STREAK_STEP_C: u64 = 15;
 pub const STREAK_CAP_C: u64 = 200;
@@ -597,12 +599,17 @@ pub fn hit_payout(stake: u64) -> u64 {
     stake.saturating_mul(HIT_PAYOUT_NUM) / HIT_PAYOUT_DEN
 }
 
-/// max(1, round(base_xp * min(20, sqrt(stake / 100)))), exactly the server.
+/// max(1, round(base_xp * min(20, sqrt(stake / 100)))) — the live rule, with
+/// the rounding done exactly in integers (half rounds up), not in floats.
+/// The multiplier caps at 20 from `XP_CAP_STAKE` on. Below it, with
+/// S = base_xp² · stake, `round(sqrt(S) / 10)` is the largest n with
+/// (n − ½)² ≤ S / 100, i.e. 5(2n − 1) ≤ isqrt(S).
 pub fn seal_xp(base_xp: u64, stake: u64) -> u64 {
-    // sqrt(stake/100) in hundredths: isqrt(stake * 100) since stake/100*10000 = stake*100.
-    let mult_c = isqrt(stake.saturating_mul(100)).min(XP_MULT_CAP * 100);
-    let xp = (base_xp.saturating_mul(mult_c) + 50) / 100;
-    xp.max(1)
+    if stake >= XP_CAP_STAKE {
+        return base_xp.saturating_mul(XP_MULT_CAP).max(1);
+    }
+    let s = isqrt(base_xp.saturating_mul(base_xp).saturating_mul(stake));
+    ((s / 5 + 1) / 2).max(1)
 }
 
 /// max(1, round(xp_base * min(2, 1 + 0.15 * streak))).
@@ -736,7 +743,7 @@ pub struct Reload<'info> {
         bump
     )]
     pub podium: Account<'info, Podium>,
-    #[account(address = RCX_MINT @ CoreError::WrongMint)]
+    #[account(mut, address = RCX_MINT @ CoreError::WrongMint)]
     pub mint: InterfaceAccount<'info, Mint>,
     #[account(
         mut,
@@ -1266,8 +1273,17 @@ mod tests {
         assert_eq!(seal_xp(10, 10_000), 100);
         // stake 1e9 -> capped at 20x
         assert_eq!(seal_xp(24, 1_000_000_000), 480);
+        // rounding is exact: 24*sqrt(1.05)=24.59 -> 25 (a hundredths sqrt gave 24)
+        assert_eq!(seal_xp(24, 105), 25);
+        assert_eq!(seal_xp(16, 107), 17);
+        assert_eq!(seal_xp(10, 39_999), 200);
+        assert_eq!(seal_xp(10, 40_000), 200);
+        assert_eq!(seal_xp(10, 40_001), 200);
+        assert_eq!(seal_xp(1, 100), 1);
         assert_eq!(skill_xp(22, 0), 22);
         assert_eq!(skill_xp(22, 1), 25); // 22*1.15=25.3
+        assert_eq!(skill_xp(50, 1), 58); // exact tie 57.5 rounds up (floats gave 57)
+        assert_eq!(skill_xp(1, 0), 1);
         assert_eq!(skill_xp(22, 10), 44); // capped 2.0
         assert_eq!(hit_payout(500), 850);
         assert_eq!(hit_payout(101), 171);
@@ -1407,5 +1423,66 @@ mod tests {
         assert_eq!(PlayerLedger::SIZE, 131);
         assert_eq!(Podium::SIZE, 128);
         assert_eq!(DelegateGrant::SIZE, 105);
+    }
+
+    /// Prints the golden vectors consumed by `test/test_core_vectors.mjs`.
+    /// `cargo test print_golden_vectors -- --ignored --nocapture`
+    #[test]
+    #[ignore]
+    fn print_golden_vectors() {
+        let stakes: [u64; 22] = [
+            100, 101, 105, 107, 149, 150, 225, 499, 500, 999, 1000, 2499, 2500, 9999, 10_000, 39_999,
+            40_000, 40_001, 100_000, 1_000_000, 999_999_999, 1_000_000_000,
+        ];
+        let mut out = String::from("{\n");
+        out.push_str(&format!(
+            "\"program\":\"{}\",\"stake\":{{\"min\":{},\"max\":{},\"xpCapStake\":{}}},\"hitPayout\":[{},{}],\"settleXp\":{},\"rankXp\":{:?},\"maxConfBps\":{},\"settleDeadlineSecs\":{},\"revealDeadlineSecs\":{},\"burnPerMille\":{},\"podiumPerMille\":{:?},\n",
+            crate::ID, STAKE_MIN, STAKE_MAX, XP_CAP_STAKE, HIT_PAYOUT_NUM, HIT_PAYOUT_DEN, SETTLE_XP, RANK_XP, MAX_CONF_BPS,
+            SETTLE_DEADLINE_SECS, REVEAL_DEADLINE_SECS, BURN_PER_MILLE, PODIUM_CURVE_PER_MILLE
+        ));
+        out.push_str("\"horizons\":[");
+        for (i, (m, b)) in HORIZONS.iter().enumerate() {
+            out.push_str(&format!("{}{{\"minutes\":{},\"baseXp\":{},\"maxSealAge\":{}}}", if i > 0 { "," } else { "" }, m, b, max_seal_age(*m)));
+        }
+        out.push_str("],\n\"feeds\":[");
+        for (i, f) in FEEDS.iter().enumerate() {
+            let (addr, _) = Pubkey::find_program_address(&[0u16.to_le_bytes().as_ref(), f.as_ref()], &PYTH_PUSH_ORACLE_ID);
+            let hex: String = f.iter().map(|b| format!("{:02x}", b)).collect();
+            out.push_str(&format!("{}{{\"index\":{},\"feedId\":\"{}\",\"pushAccount\":\"{}\"}}", if i > 0 { "," } else { "" }, i, hex, addr));
+        }
+        out.push_str("],\n\"sealXp\":[");
+        let mut first = true;
+        for (_, b) in HORIZONS.iter() {
+            for st in stakes.iter() {
+                out.push_str(&format!("{}[{},{},{}]", if first { "" } else { "," }, b, st, seal_xp(*b, *st)));
+                first = false;
+            }
+        }
+        out.push_str("],\n\"skillXp\":[");
+        first = true;
+        for x in [1u64, 10, 22, 50, 57, 90, 100, 110, 480].iter() {
+            for k in 0u32..=12 {
+                out.push_str(&format!("{}[{},{},{}]", if first { "" } else { "," }, x, k, skill_xp(*x, k)));
+                first = false;
+            }
+        }
+        out.push_str("],\n\"hitPayoutVectors\":[");
+        for (i, st) in stakes.iter().enumerate() {
+            out.push_str(&format!("{}[{},{}]", if i > 0 { "," } else { "" }, st, hit_payout(*st)));
+        }
+        out.push_str("],\n\"rank\":[");
+        let xps = [0u64, 1, 299, 300, 301, 899, 900, 2199, 2200, 4999, 5000, 5001, 999_999];
+        for (i, xp) in xps.iter().enumerate() {
+            out.push_str(&format!("{}[{},{},{}]", if i > 0 { "," } else { "" }, xp, rank_of(*xp), chambers_for(*xp)));
+        }
+        let wallet = Pubkey::new_from_array([7u8; 32]);
+        let salt = "0123456789abcdef0123456789abcdef";
+        let h = hashv(&[b"RATCHET|v3|", wallet.to_string().as_bytes(), b"|", b"42", b"|", b"YES", b"|", b"6500", b"|", salt.as_bytes()]);
+        let hex: String = h.to_bytes().iter().map(|b| format!("{:02x}", b)).collect();
+        out.push_str(&format!(
+            "],\n\"commit\":{{\"wallet\":\"{}\",\"nonce\":42,\"side\":\"YES\",\"pBps\":6500,\"salt\":\"{}\",\"preimage\":\"RATCHET|v3|{}|42|YES|6500|{}\",\"sha256\":\"{}\"}}\n}}\n",
+            wallet, salt, wallet, salt, hex
+        ));
+        print!("GOLDEN_VECTORS_BEGIN\n{}GOLDEN_VECTORS_END\n", out);
     }
 }
