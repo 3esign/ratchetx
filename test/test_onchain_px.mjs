@@ -188,4 +188,15 @@ assert.equal(rpcCalls - before, 0, 'cache should have served all 12');
   delete process.env.SOLANA_RPC; delete process.env.SOLANA_RPCS;
 }
 
+// ---- 7. a run-together paste (no delimiter) still splits into keys ----
+{
+  process.env.SOLANA_RPC = 'https://mainnet.helius-rpc.com/?api-key=KEY1https://b.example/?api-key=KEY2';
+  m = fresh();
+  assert.deepEqual(m.ENDPOINTS.slice(0, 2),
+    ['https://mainnet.helius-rpc.com/?api-key=KEY1', 'https://b.example/?api-key=KEY2'],
+    'two URLs pasted with no separator still split on the embedded scheme');
+  console.log('run-together paste split ok ·', m.ENDPOINTS.slice(0, 2).join('  '));
+  delete process.env.SOLANA_RPC;
+}
+
 console.log('\nALL PASS');
