@@ -106,3 +106,61 @@ skeptic to settle a real shot with their own RPC and their own keypair, holding
 nothing of ours. It is checkable in minutes and almost nobody on Solana can
 offer it. That is the honest way to earn attention: not a claim about the token,
 a claim about the machine — one a stranger can falsify.
+
+---
+
+## 7. Token layer: already finished (verified 2026-09-02)
+
+Read back from our own chain-reading supply endpoint, which sources the mint
+account, the incinerator account and signatures:
+
+- **Mint authority: revoked.** Nobody, us included, can ever mint another RCX.
+  Supply is fixed at launch and can only fall.
+- **Freeze authority: revoked.** Nobody can freeze or seize a holder's tokens.
+  There is no blacklist and no seizure path.
+- Supply 936,699,884 of 1,000,000,000; 63,300,116 destroyed (6.33%), of which
+  3,716,964 are player burns and the rest launchpad-side.
+
+The token half of "forever independent" is therefore **complete**. What remains
+is entirely on the program half.
+
+## 8. The ceremony order — verification MUST precede revocation
+
+A Solana **verified build** is the artifact that lets a stranger confirm the
+deployed bytes are the open source at a named commit. It is recorded in a PDA
+owned by the OtterSec verify program, and — this is the trap — **only the
+program's upgrade authority may create or update that PDA.**
+
+If the upgrade authority is revoked first, self-service verification becomes
+impossible; the only remaining route is asking OtterSec to whitelist the program
+by hand. That would add a third-party dependency at precisely the moment we are
+removing every dependency. The order is therefore not a preference:
+
+1. **Build deterministically** — `solana-verify build` (Docker), reproducing the
+   frozen hash for the candidate being shipped.
+2. **Deploy** the program.
+3. **Verify and register** — `solana-verify verify-from-repo` against the public
+   repo and commit, signed by the still-live upgrade authority. This writes the
+   PDA binding program address ↔ git url ↔ commit hash.
+4. **Only then revoke the upgrade authority**, making the program immutable in
+   fact.
+
+(Confirm exact CLI invocations against the tool's own docs at execution time;
+the ordering constraint above is the part that cannot be undone.)
+
+### What the finished position looks like
+
+| layer | property | state |
+| --- | --- | --- |
+| token | mint authority revoked | done |
+| token | freeze authority revoked | done |
+| program | no admin / config / pause / governance | done |
+| program | anyone may crank | done |
+| program | cranker cannot choose the outcome | done |
+| program | stake cannot be trapped | done |
+| client | stranger-runnable with only RPC + keypair | done |
+| program | deployed and verified build registered | pending deploy |
+| program | upgrade authority revoked | pending deploy |
+
+Two boxes left, both in one ceremony, both Semir's alone — and they must happen
+in that order.
