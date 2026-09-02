@@ -73,3 +73,67 @@ export async function deriveSalt({ signMessage, programId, wallet, nonce, verify
   }
   return saltFromSignature(first);
 }
+
+// ---------------------------------------------------------------------------
+// SEED MODE — the same property, one wallet prompt instead of one per shot.
+//
+// deriveSalt() above signs a message that names the shot, so it needs a
+// signature per shot. On the CLI that is free. In a browser it is a wallet
+// popup every single time somebody fires, which is a worse product than the
+// problem it solves, and a player who dismisses the popup out of habit is back
+// to a salt nobody can rebuild.
+//
+// So: sign ONCE per wallet for a seed, then derive every shot's salt from that
+// seed and a public per-shot nonce. Recovery is unchanged — sign the same
+// message again on any device, read the nonce off the public shot record,
+// recompute. Nothing is stored anywhere, and the server never holds the only
+// copy of anything.
+//
+// SECURITY: the seed is exactly as sensitive as the signature it came from —
+// anyone holding it can open every commit that wallet has ever made. Keep it in
+// memory for as long as the tab lives and no longer. Never localStorage, never
+// a cookie, never a log line, never over the wire.
+
+/** The message signed once per wallet. Separated from saltMessage() by the
+ *  literal `seed`, so a per-shot signature can never be replayed as a seed. */
+export function seedMessage({ scope, wallet }) {
+  if (scope == null || wallet == null) throw new RangeError('seedMessage needs scope and wallet');
+  return `${DOMAIN}|seed|${String(scope)}|${String(wallet)}`;
+}
+
+/** 32 bytes of the signature hash. Bytes, not hex: this is key material. */
+export async function seedFromSignature(signature) {
+  const bytes = toBytes(signature);
+  if (bytes.length < 32) throw new RangeError('signature too short to derive a seed from');
+  return new Uint8Array(await crypto.subtle.digest('SHA-256', bytes));
+}
+
+/** One shot's salt, from the seed and that shot's public nonce. The nonce is
+ *  published on the shot precisely so this is reproducible by the player and
+ *  by nobody else — knowing the nonce without the seed buys you nothing. */
+export async function saltFromSeed(seed, nonce) {
+  const s = toBytes(seed);
+  if (s.length < 32) throw new RangeError('seed too short');
+  if (nonce == null || String(nonce) === '') throw new RangeError('saltFromSeed needs a nonce');
+  const tail = new TextEncoder().encode(`|shot|${String(nonce)}`);
+  const msg = new Uint8Array(s.length + tail.length);
+  msg.set(s, 0); msg.set(tail, s.length);
+  const salt = hex(await crypto.subtle.digest('SHA-256', msg)).slice(0, 32);
+  if (!SALT_RE.test(salt)) throw new Error('derived salt failed its own format check');
+  return salt;
+}
+
+/** Establish the seed. Same determinism check as deriveSalt, and for the same
+ *  reason: a wallet that signs non-deterministically produces a seed that can
+ *  never be rebuilt, and the only moment that is cheap to discover is now. */
+export async function deriveSeed({ signMessage, scope, wallet, verifyDeterminism = true }) {
+  const bytes = new TextEncoder().encode(seedMessage({ scope, wallet }));
+  const first = await signMessage(bytes);
+  if (verifyDeterminism) {
+    const second = await signMessage(bytes);
+    if (!sameBytes(first, second)) {
+      throw new Error('wallet does not sign deterministically: a derived salt would not be recoverable — keep a stored random salt for this wallet');
+    }
+  }
+  return seedFromSignature(first);
+}

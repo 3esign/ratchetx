@@ -180,6 +180,31 @@ const newShotId = () => crypto.randomBytes(6).toString('hex');
 // Legacy v1 (`side|salt`) remains verifiable in the public record, but a v1
 // commitment can be copied between shots without the hash itself proving
 // which identity and round it belonged to.
+// A salt the player can rebuild, instead of one only we hold.
+//
+// The server invented the salt and kept it until settlement, which made this
+// process the ONLY place it existed. An unrevealed settled shot forfeits, so
+// losing our copy did not just lose a record -- it lost the player's stake, and
+// nothing they could do would recover it, because there was nothing to recover
+// from. That is a founder dependence sitting in the middle of the one promise
+// the product makes.
+//
+// A wallet can do better. Ed25519 signing is deterministic by spec, so a wallet
+// signing one fixed sentence reproduces the same bytes forever, on any device.
+// The client hashes that into a seed, derives this shot's salt from the seed
+// and a per-shot nonce, and sends us the salt plus the nonce. We publish the
+// nonce on the shot. From then on the player can rebuild the salt from their
+// wallet and a public field, on a machine they have not bought yet.
+//
+// We still hold the salt so settlement stays automatic and nothing about the
+// game changes. We simply stop being the only copy. We cannot derive it
+// ourselves -- deriving needs the private key -- which is exactly the point.
+//
+// A weak salt only exposes the sender's own side, so the format bound is all
+// the validation this needs; and a client that sends nothing still gets the old
+// random salt, which is what every agent, Bankr and MCP seal does.
+const SALT_RE = /^[0-9a-f]{32}$/;
+const SALT_NONCE_RE = /^[0-9a-f]{8,64}$/;
 const shotCommit = (w, id, side, salt) => hashCommit({
   version: 2, wallet: w, shotId: id, side, salt,
 });
@@ -1711,6 +1736,12 @@ async function settle(p, prices) {
       exitPostedSlot2:s.exitPostedSlot2 == null ? null : s.exitPostedSlot2,
       exitSource:s.exitSource || null, exitSource2:s.exitSource2 || null,
       side:s.side, salt:s.salt, sp:s.sp ?? null, commit:s.commit,
+      // How the salt was made, and the public half of the recipe. A reader who
+      // wants to check the commit needs only side and salt, exactly as before.
+      // These two are for the PLAYER: with them, the wallet that sealed the
+      // shot can rebuild the salt years later on a machine it has never used,
+      // which is the whole reason the salt stopped being ours alone.
+      saltV:s.saltV || null, saltNonce:s.saltNonce || null,
       commitV:s.commitV || 1, settleRule:s.settleRule || 'observed-sample-v1',
       settleRuleApplied:s.settleRuleApplied,
       outcomeRule:s.outcomeRule || 'dead-zone-4bp-v1',
@@ -2539,7 +2570,13 @@ module.exports = async (req, res) => playerWrites.run(async () => {
           economyMode:isDemo(w) ? 'demo' : 'ranked', oracleSeal,
           xp: Math.max(1, Math.round(14 * stakeMult(stake) * (withW ? 0.8 : 3.4))), label: 'DUEL vs the Warden: '+wl.q, duel:true };
       }
-      shot.salt = crypto.randomBytes(16).toString('hex');
+      if (SALT_RE.test(String(b.salt || '')) && SALT_NONCE_RE.test(String(b.saltNonce || ''))) {
+        shot.salt = String(b.salt);
+        shot.saltNonce = String(b.saltNonce);   // public: it is half of the recipe, useless without the wallet
+        shot.saltV = 'wallet-seed-v1';
+      } else {
+        shot.salt = crypto.randomBytes(16).toString('hex');
+      }
       shot.commitV = 2;
       shot.commit = shotCommit(w, shot.id, shot.side, shot.salt);
       if (requestId) shot.requestId = requestId;

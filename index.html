@@ -1836,8 +1836,57 @@ async function post(body){
   }
   return j;
 }
+// ---------- the salt you can rebuild ----------
+// The server used to invent your commit salt and be the only place it existed.
+// An unrevealed settled shot forfeits, so its copy WAS your stake. Now your
+// wallet makes it: sign one fixed sentence (Ed25519 is deterministic by spec,
+// so the same wallet signing the same sentence gives the same bytes forever),
+// hash that into a seed, and derive each shot's salt from the seed and a
+// per-shot nonce the server publishes on the shot. Cleared cache, new phone,
+// next year: sign the sentence again, read the nonce off your own settled
+// shot, rebuild the salt. Nothing is stored anywhere.
+//
+// The seed is as sensitive as the signature it came from -- it opens every
+// commit this wallet has ever made -- so it lives in this variable for as long
+// as the tab is open and goes nowhere else. Never localStorage, never the wire.
+//
+// Reference implementation and its proofs: onchain/ratchet-core/client/salt.mjs
+// (seedMessage / seedFromSignature / saltFromSeed). test_salt_parity.mjs pins
+// this copy to that one so the two can never drift apart.
+const SALT_SCOPE="ratchetx.xyz";
+let SALT_SEED=null,SALT_SEED_FOR=null;
+const seedSentence=w=>`RATCHET|salt|v1|seed|${SALT_SCOPE}|${w}`;
+const hexOf=b=>[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("");
+async function saltSeed(wallet){
+  if(SALT_SEED&&SALT_SEED_FOR===wallet)return SALT_SEED;
+  const prov=window.phantom&&window.phantom.solana?window.phantom.solana:window.solana;
+  if(!prov||!prov.signMessage)return null;
+  const msg=new TextEncoder().encode(seedSentence(wallet));
+  const a=await prov.signMessage(msg,"utf8");
+  const b=await prov.signMessage(msg,"utf8");
+  const sa=new Uint8Array(a.signature||a),sb=new Uint8Array(b.signature||b);
+  // A wallet that signs non-deterministically would hand back a salt that can
+  // never be recovered, and you would find out at reveal, when it is too late.
+  if(sa.length!==sb.length||sa.some((x,i)=>x!==sb[i]))return null;
+  SALT_SEED=new Uint8Array(await crypto.subtle.digest("SHA-256",sa));
+  SALT_SEED_FOR=wallet;
+  return SALT_SEED;
+}
+async function saltFor(wallet){
+  try{
+    const seed=await saltSeed(wallet);
+    if(!seed)return null;
+    const nonce=hexOf(crypto.getRandomValues(new Uint8Array(8)));
+    const tail=new TextEncoder().encode(`|shot|${nonce}`);
+    const msg=new Uint8Array(seed.length+tail.length);
+    msg.set(seed,0);msg.set(tail,seed.length);
+    const salt=hexOf(await crypto.subtle.digest("SHA-256",msg)).slice(0,32);
+    return {salt,saltNonce:nonce};
+  }catch(e){return null}   // any failure falls back to the server's random salt
+}
 $("fire").onclick=async()=>{
-  const j=await post({action:"shot",auth:AUTH||{wallet:DEMO},target:sel.t,side:sel.side,stake:sel.stake,...(sel.p?{p:sel.p}:{})});
+  const mine=AUTH&&AUTH.wallet?await saltFor(AUTH.wallet):null;
+  const j=await post({action:"shot",auth:AUTH||{wallet:DEMO},target:sel.t,side:sel.side,stake:sel.stake,...(sel.p?{p:sel.p}:{}),...(mine||{})});
   if(!j.ok){toast("⚠ "+j.reason);return}
   rememberSide(j.shot);
   toast(`SHOT SEALED 🔒 — ${sel.stake.toLocaleString()} burned${sel.p?` · stated ${Math.round(sel.p*100)}%`:""} · the Machine got fed`);
