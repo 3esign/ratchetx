@@ -64,7 +64,7 @@ h1{letter-spacing:-.01em;font-size:clamp(30px,4.8vw,44px);line-height:1.05}
 .bankr-entry strong{font-size:19px}
 .meinfo b{font-size:20px}
 .lede{font-size:15px}
-.logo{font-family:var(--head);font-weight:400;letter-spacing:.22em;font-size:16px}
+.logo{font-family:var(--head);font-weight:400;letter-spacing:.02em;font-size:18px}
 .eyebrow,.panel h3,.tcap,.mcap,.hh,.mcell u,.stk small,.conflab,.confnote,.stakeCustom .scl,.wname,.chk .st,.rname,.pcap,.podstrip .pcap,.mest i,.rkc b,.dep .nm em,.dep .bd u,.kl .t{
   font-family:var(--disp);font-weight:600}
 .eyebrow,.panel h3,.tcap,.mcap{letter-spacing:.3em;color:var(--silver)}
@@ -82,7 +82,7 @@ h1{letter-spacing:-.01em;font-size:clamp(30px,4.8vw,44px);line-height:1.05}
   box-shadow:0 1px 0 rgba(255,255,255,.3) inset,0 8px 24px -12px var(--poison-glow);
 }
 .connect:hover,.fire:hover:not(:disabled),.takeb:hover:not(:disabled),.bankr-play:hover{filter:brightness(1.06);box-shadow:0 1px 0 rgba(255,255,255,.3) inset,0 10px 30px -12px var(--poison-glow)}
-.bankr-play{border:1px solid rgba(95,143,114,.55);font-family:var(--disp);letter-spacing:.14em}
+.bankr-play{border:1px solid rgba(95,143,114,.55);font-family:var(--disp);letter-spacing:.06em}
 .bankr-play:focus-visible,.connect:focus-visible,.fire:focus-visible{outline:2px solid var(--poison);outline-offset:3px}
 .bankr-entry{border-color:rgba(95,143,114,.28);background:linear-gradient(115deg,var(--poison-haze),var(--graphite) 70%)}
 .connect.done{background:var(--graphite);color:var(--poison);border:1px solid rgba(95,143,114,.35)}
@@ -175,3 +175,5 @@ a{color:var(--poison-ink)}
   0%,100%{text-shadow:0 0 50px var(--poison-glow),0 0 90px var(--poison-haze)}
   50%{text-shadow:0 0 66px var(--poison-glow),0 0 116px var(--poison-haze)}
 }
+
+.cog circle[fill]{fill:var(--poison)}   /* logo dot joins the green, no stray gold top-left */
