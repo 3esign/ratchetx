@@ -289,9 +289,12 @@ pub mod ratchet_core {
         if msg.publish_time <= feed_clock.latest_publish_time {
             return Ok(());
         }
-        let previous = feed_clock.latest_publish_time;
+        // Preserve the predecessor signed into the Pyth message.  The
+        // protocol clock may have missed one or more source updates; using
+        // its own last checkpoint here would fabricate coverage across that
+        // gap and let a late cranker choose a favourable later price.
         let observation = Observation {
-            prev_publish_time: if previous == 0 { msg.publish_time } else { previous },
+            prev_publish_time: msg.prev_publish_time,
             publish_time: msg.publish_time,
             price_e12,
             posted_slot: pu.posted_slot,
@@ -1422,6 +1425,22 @@ mod tests {
         assert_eq!(feed_clock.crossing(110).unwrap().publish_time, 110);
         assert!(feed_clock.crossing(90).is_none());
         assert!(feed_clock.crossing(121).is_none());
+    }
+
+    #[test]
+    fn clock_never_fabricates_coverage_across_a_source_gap() {
+        let feed_clock = FeedClock {
+            feed_id: [7; 32],
+            latest_publish_time: 140,
+            head: 2,
+            bump: 255,
+            observations: vec![
+                Observation { prev_publish_time: 90, publish_time: 100, price_e12: 1, posted_slot: 1 },
+                Observation { prev_publish_time: 120, publish_time: 140, price_e12: 2, posted_slot: 2 },
+            ],
+        };
+        assert!(feed_clock.crossing(110).is_none(), "the missing 100..=120 source interval must void");
+        assert_eq!(feed_clock.crossing(130).unwrap().publish_time, 140);
     }
 
     #[test]

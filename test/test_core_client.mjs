@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import { test } from 'node:test';
 import { PublicKey } from '@solana/web3.js';
 import * as C from '../onchain/ratchet-core/client/core.mjs';
+import { DEVNET_NOTICE, inspectionJson } from '../onchain/ratchet-core/client/inspect.mjs';
 
 const V = JSON.parse(fs.readFileSync(new URL('../onchain/ratchet-core/vectors/core-rules-v1.json', import.meta.url), 'utf8'));
 const W = new PublicKey(V.pdas.wallet), D = new PublicKey(V.pdas.delegate);
@@ -19,6 +20,13 @@ test('feed table and push accounts are the program\'s', () => {
     assert.equal(C.pushAccount(f.index).toBase58(), f.pushAccount, `push ${f.index}`);
   }
   assert.equal(C.PROGRAM_ID.toBase58(), V.program);
+});
+
+test('RCX paths are explicitly Token-2022, never classic SPL Token', () => {
+  assert.equal(C.TOKEN_PROGRAM.toBase58(), 'TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
+  assert.notEqual(C.TOKEN_PROGRAM.toBase58(), 'TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+  const reload = C.reloadIx({ player: W, amount: 1_000_000 });
+  assert.equal(reload.keys[5].pubkey.toBase58(), C.TOKEN_PROGRAM.toBase58());
 });
 
 test('PDAs match the program', () => {
@@ -142,4 +150,90 @@ test('the crank plans exactly the program\'s permissionless moves', () => {
     assert.equal(ixs.length, 2);
     assert.ok(ixs.every(i => i.keys.filter(k => k.isSigner).every(k => k.pubkey.equals(D))));
   }
+});
+
+test('chain-only reads reject spoofed Core accounts and return context slots', async () => {
+  const shotData = Buffer.from(V.samples.Shot, 'hex');
+  const shotAddress = C.shotPda(W, 42);
+  const account = (data, overrides = {}) => ({
+    data, owner: C.PROGRAM_ID, executable: false, lamports: 1, rentEpoch: 0, ...overrides,
+  });
+  let filters;
+  const connection = {
+    async getProgramAccounts(program, config) {
+      assert.ok(program.equals(C.PROGRAM_ID));
+      filters = config.filters;
+      assert.equal(config.commitment, 'finalized');
+      assert.equal(config.withContext, true);
+      return { context: { slot: 800 }, value: [{ pubkey: shotAddress, account: account(shotData) }] };
+    },
+  };
+  const read = await C.readPlayerShots(connection, W);
+  assert.equal(read.contextSlot, 800);
+  assert.equal(read.shots.length, 1);
+  assert.equal(read.shots[0].nonce, 42n);
+  assert.deepEqual(filters, [
+    { dataSize: C.ACCOUNT_SIZE.Shot },
+    { memcmp: { offset: 0, bytes: filters[1].memcmp.bytes } },
+    { memcmp: { offset: 8, bytes: W.toBase58() } },
+  ]);
+
+  assert.throws(() => C.assertCoreAccount(shotAddress, account(shotData, { owner: D }), 'Shot'), /wrong owner/);
+  assert.throws(() => C.assertCoreAccount(shotAddress, account(shotData.subarray(0, -1)), 'Shot'), /expected 225/);
+  const wrongPdaConnection = {
+    async getProgramAccounts() {
+      return { context: { slot: 801 }, value: [{ pubkey: C.shotPda(W, 43), account: account(shotData) }] };
+    },
+  };
+  await assert.rejects(() => C.readPlayerShots(wrongPdaConnection, W), /not its canonical PDA/);
+});
+
+test('deployment inspection validates the loader graph and serializes BigInts as decimal strings', async () => {
+  const [programDataAddress] = PublicKey.findProgramAddressSync([C.PROGRAM_ID.toBuffer()], C.UPGRADEABLE_LOADER);
+  const programData = Buffer.alloc(36);
+  programData.writeUInt32LE(2, 0);
+  programDataAddress.toBuffer().copy(programData, 4);
+  const deployed = Buffer.alloc(64);
+  deployed.writeUInt32LE(3, 0);
+  deployed.writeBigUInt64LE(491787400n, 4);
+  deployed.writeUInt8(1, 12);
+  D.toBuffer().copy(deployed, 13);
+  const connection = {
+    async getMultipleAccountsInfoAndContext(addresses, commitment) {
+      assert.equal(commitment, 'finalized');
+      assert.ok(addresses[0].equals(C.PROGRAM_ID));
+      assert.ok(addresses[1].equals(programDataAddress));
+      return {
+        context: { slot: 900 },
+        value: [
+          { data: programData, owner: C.UPGRADEABLE_LOADER, executable: true },
+          { data: deployed, owner: C.UPGRADEABLE_LOADER, executable: false },
+        ],
+      };
+    },
+  };
+  const result = await C.readProgramDeployment(connection);
+  assert.equal(result.contextSlot, 900);
+  assert.equal(result.executable, true);
+  assert.equal(result.programData.toBase58(), programDataAddress.toBase58());
+  assert.equal(result.deployedSlot, 491787400n);
+  assert.equal(result.upgradeAuthority.toBase58(), D.toBase58());
+  assert.equal(result.immutable, false);
+
+  deployed.writeUInt8(0, 12);
+  assert.equal(C.parseUpgradeableProgramData(deployed).upgradeAuthority, null);
+  const wrongLoader = {
+    async getMultipleAccountsInfoAndContext() {
+      return {
+        context: { slot: 901 },
+        value: [
+          { data: programData, owner: D, executable: true },
+          { data: deployed, owner: C.UPGRADEABLE_LOADER, executable: false },
+        ],
+      };
+    },
+  };
+  await assert.rejects(() => C.readProgramDeployment(wrongLoader), /wrong loader owner/);
+  assert.match(inspectionJson({ notice: DEVNET_NOTICE, slot: 491787400n }), /"slot": "491787400"/);
+  assert.match(inspectionJson({ notice: DEVNET_NOTICE }), /DEVNET/);
 });

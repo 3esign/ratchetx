@@ -1,5 +1,12 @@
 # Road to zero authority — the permissionless ceremony plan (2026-09-02)
 
+> **Historical plan; its completion table is not current evidence.** The
+> 2026-09-03 audit found that Core v1 substituted the previous protocol
+> checkpoint for Pyth's signed predecessor, its bounded ring can evict the true
+> crossing, confidence/ruleset data are incomplete, and the client used classic
+> SPL Token although RCX is Token-2022. Freeze is deferred by owner direction.
+> Use `PERMANENCE_EXECUTION_PLAN.md` as the active plan.
+
 Everything between here and a machine that runs without us. The token half is
 already finished. The program half is **two actions in one ceremony**, and they
 must happen in the right order because one of them cannot be undone.

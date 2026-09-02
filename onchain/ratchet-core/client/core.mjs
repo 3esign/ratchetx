@@ -11,10 +11,14 @@ import { PublicKey, TransactionInstruction, SystemProgram } from '@solana/web3.j
 
 export const PROGRAM_ID = new PublicKey('6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv');
 export const RCX_MINT = new PublicKey('FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump');
-export const TOKEN_PROGRAM = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
+// RCX is a Token-2022 mint on mainnet. Deriving an ATA or building reload with
+// the classic Token Program produces a different account and can never spend
+// the real token, even though the on-chain program accepts TokenInterface.
+export const TOKEN_PROGRAM = new PublicKey('TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb');
 export const ATA_PROGRAM = new PublicKey('ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL');
 export const PYTH_RECEIVER = new PublicKey('rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp');
 export const PYTH_PUSH_ORACLE = new PublicKey('pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou');
+export const UPGRADEABLE_LOADER = new PublicKey('BPFLoaderUpgradeab1e11111111111111111111111');
 
 // The referee table, compiled into the program. Index = feed_index.
 export const FEEDS = [
@@ -239,16 +243,87 @@ export function instructionsFor(action, cranker) {
 }
 
 // ---- Reads over an RPC connection -----------------------------------------
+const ownerEquals = (account, owner) => account?.owner && pk(account.owner).equals(pk(owner));
+
+/** Validate a Core-owned account before parsing it. This deliberately checks
+ * more than the discriminator: a hostile RPC response must also have the
+ * expected owner, exact allocation, non-executable flag and PDA. */
+export function assertCoreAccount(pubkey, account, name, expectedPda = pubkey) {
+  const address = pk(pubkey);
+  if (!account) throw new TypeError(`${name} account ${address.toBase58()} is missing`);
+  if (!ownerEquals(account, PROGRAM_ID)) throw new TypeError(`${name} account ${address.toBase58()} has wrong owner`);
+  if (account.executable) throw new TypeError(`${name} account ${address.toBase58()} must not be executable`);
+  if (!address.equals(pk(expectedPda))) throw new TypeError(`${name} account ${address.toBase58()} is not the expected PDA`);
+  const data = Buffer.from(account.data);
+  if (data.length !== ACCOUNT_SIZE[name]) throw new TypeError(`${name} account has ${data.length} bytes, expected ${ACCOUNT_SIZE[name]}`);
+  if (!data.subarray(0, 8).equals(accountDiscriminator(name))) throw new TypeError(`not a ${name} account`);
+  return data;
+}
+
+function checkedShot(pubkey, account, expectedPlayer = null) {
+  const address = pk(pubkey);
+  const data = assertCoreAccount(address, account, 'Shot');
+  const shot = parseShot(data);
+  if (!address.equals(shotPda(shot.player, shot.nonce))) throw new TypeError(`Shot account ${address.toBase58()} is not its canonical PDA`);
+  if (expectedPlayer && !shot.player.equals(pk(expectedPlayer))) throw new TypeError(`Shot account ${address.toBase58()} belongs to another player`);
+  return { pubkey: address, ...shot };
+}
+
 export async function readShots(connection) {
   const filters = [{ dataSize: ACCOUNT_SIZE.Shot }, { memcmp: { offset: 0, bytes: toBase58(accountDiscriminator('Shot')) } }];
   const list = await connection.getProgramAccounts(PROGRAM_ID, { filters });
-  return list.map(({ pubkey, account }) => ({ pubkey, ...parseShot(account.data) }));
+  return list.map(({ pubkey, account }) => checkedShot(pubkey, account));
 }
-export async function readLedger(connection, player) { const a = await connection.getAccountInfo(ledgerPda(player)); return a ? parseLedger(a.data) : null; }
-export async function readPodium(connection) { const a = await connection.getAccountInfo(podiumPda()); return a ? parsePodium(a.data) : null; }
+
+/** Read one wallet's shots with the exact server-side memcmp and an RPC
+ * context slot. No indexer or application database participates. */
+export async function readPlayerShots(connection, player, commitment = 'finalized') {
+  const playerKey = pk(player);
+  const filters = [
+    { dataSize: ACCOUNT_SIZE.Shot },
+    { memcmp: { offset: 0, bytes: toBase58(accountDiscriminator('Shot')) } },
+    { memcmp: { offset: 8, bytes: playerKey.toBase58() } },
+  ];
+  const response = await connection.getProgramAccounts(PROGRAM_ID, { commitment, filters, withContext: true });
+  if (!response || Array.isArray(response) || !response.context || !Array.isArray(response.value)) throw new TypeError('RPC did not return program accounts with context');
+  return { contextSlot: response.context.slot, shots: response.value.map(({ pubkey, account }) => checkedShot(pubkey, account, playerKey)) };
+}
+
+export async function readLedger(connection, player) {
+  const playerKey = pk(player); const address = ledgerPda(playerKey);
+  const a = await connection.getAccountInfo(address);
+  if (!a) return null;
+  const ledger = parseLedger(assertCoreAccount(address, a, 'PlayerLedger', address));
+  if (!ledger.player.equals(playerKey)) throw new TypeError('PlayerLedger stores the wrong player');
+  return ledger;
+}
+export async function readLedgerWithContext(connection, player, commitment = 'finalized') {
+  const playerKey = pk(player); const address = ledgerPda(playerKey);
+  const response = await connection.getAccountInfoAndContext(address, commitment);
+  if (!response?.context) throw new TypeError('RPC did not return ledger context');
+  if (!response.value) return { contextSlot: response.context.slot, ledger: null };
+  const ledger = parseLedger(assertCoreAccount(address, response.value, 'PlayerLedger', address));
+  if (!ledger.player.equals(playerKey)) throw new TypeError('PlayerLedger stores the wrong player');
+  return { contextSlot: response.context.slot, ledger };
+}
+export async function readPodium(connection) {
+  const address = podiumPda(); const a = await connection.getAccountInfo(address);
+  return a ? parsePodium(assertCoreAccount(address, a, 'Podium', address)) : null;
+}
+export async function readPodiumWithContext(connection, commitment = 'finalized') {
+  const address = podiumPda(); const response = await connection.getAccountInfoAndContext(address, commitment);
+  if (!response?.context) throw new TypeError('RPC did not return podium context');
+  return { contextSlot: response.context.slot, podium: response.value ? parsePodium(assertCoreAccount(address, response.value, 'Podium', address)) : null };
+}
 export async function readClocks(connection, indices = FEEDS.map(f => f.index)) {
-  const infos = await connection.getMultipleAccountsInfo(indices.map(clockPda));
-  return new Map(indices.map((i, k) => [i, infos[k] ? parseClock(infos[k].data) : null]));
+  const addresses = indices.map(clockPda);
+  const infos = await connection.getMultipleAccountsInfo(addresses);
+  return new Map(indices.map((i, k) => {
+    if (!infos[k]) return [i, null];
+    const clock = parseClock(assertCoreAccount(addresses[k], infos[k], 'FeedClock', addresses[k]));
+    if (clock.feedId !== FEEDS[i]?.feedId) throw new TypeError(`FeedClock ${i} stores the wrong feed id`);
+    return [i, clock];
+  }));
 }
 export async function readPushes(connection, indices = FEEDS.map(f => f.index)) {
   const infos = await connection.getMultipleAccountsInfo(indices.map(pushAccount));
@@ -260,6 +335,49 @@ export async function payableSeats(connection) {
   if (!podium || !podium.seats.length) return [];
   const infos = await connection.getMultipleAccountsInfo(podium.seats.map(s => ata(s.player)));
   return podium.seats.filter((s, i) => infos[i] && infos[i].owner.equals(TOKEN_PROGRAM)).map(s => s.player);
+}
+
+export function parseUpgradeableProgram(data, expectedProgramData = null) {
+  const b = Buffer.from(data);
+  if (b.length !== 36) throw new TypeError(`upgradeable Program account has ${b.length} bytes, expected 36`);
+  if (b.readUInt32LE(0) !== 2) throw new TypeError('upgradeable loader account is not a Program');
+  const programData = new PublicKey(b.subarray(4, 36));
+  if (expectedProgramData && !programData.equals(pk(expectedProgramData))) throw new TypeError('Program points at a non-canonical ProgramData account');
+  return { programData };
+}
+
+export function parseUpgradeableProgramData(data) {
+  const b = Buffer.from(data);
+  if (b.length < 45) throw new TypeError('ProgramData account is shorter than its 45-byte metadata header');
+  if (b.readUInt32LE(0) !== 3) throw new TypeError('upgradeable loader account is not ProgramData');
+  const option = b.readUInt8(12);
+  if (option !== 0 && option !== 1) throw new TypeError('ProgramData has an invalid authority option');
+  return {
+    deployedSlot: b.readBigUInt64LE(4),
+    upgradeAuthority: option === 1 ? new PublicKey(b.subarray(13, 45)) : null,
+  };
+}
+
+/** Inspect the deployed program and its authority from one finalized RPC
+ * snapshot. Reads only; never creates a signer or transaction. */
+export async function readProgramDeployment(connection, commitment = 'finalized') {
+  const [programDataPda] = PublicKey.findProgramAddressSync([PROGRAM_ID.toBuffer()], UPGRADEABLE_LOADER);
+  const response = await connection.getMultipleAccountsInfoAndContext([PROGRAM_ID, programDataPda], commitment);
+  if (!response?.context || !Array.isArray(response.value)) throw new TypeError('RPC did not return deployment accounts with context');
+  const [program, programDataAccount] = response.value;
+  if (!program) throw new TypeError(`program ${PROGRAM_ID.toBase58()} is missing`);
+  const loader = pk(program.owner);
+  if (!program.executable) throw new TypeError(`program ${PROGRAM_ID.toBase58()} is not executable`);
+  if (!loader.equals(UPGRADEABLE_LOADER)) throw new TypeError(`program ${PROGRAM_ID.toBase58()} has the wrong loader owner`);
+  const { programData } = parseUpgradeableProgram(program.data, programDataPda);
+  if (!programDataAccount) throw new TypeError(`ProgramData ${programData.toBase58()} is missing`);
+  if (!ownerEquals(programDataAccount, UPGRADEABLE_LOADER)) throw new TypeError('ProgramData has the wrong owner');
+  if (programDataAccount.executable) throw new TypeError('ProgramData must not be executable');
+  const decoded = parseUpgradeableProgramData(programDataAccount.data);
+  return {
+    contextSlot: response.context.slot, programId: PROGRAM_ID, loader, executable: true, programData,
+    deployedSlot: decoded.deployedSlot, upgradeAuthority: decoded.upgradeAuthority, immutable: decoded.upgradeAuthority === null,
+  };
 }
 
 function toBase58(buf) {

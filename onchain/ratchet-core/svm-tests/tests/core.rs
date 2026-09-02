@@ -72,7 +72,7 @@ fn price_account(feed_id: &[u8; 32]) -> Pubkey {
     Pubkey::find_program_address(&[&0u16.to_le_bytes(), feed_id], &pyth_push_oracle()).0
 }
 fn ata(owner: &Pubkey) -> Pubkey {
-    spl_associated_token_account::get_associated_token_address_with_program_id(owner, &rcx_mint(), &spl_token::id())
+    spl_associated_token_account::get_associated_token_address_with_program_id(owner, &rcx_mint(), &spl_token_2022_interface::id())
 }
 
 struct World {
@@ -84,9 +84,10 @@ impl World {
     fn new() -> Self {
         let mut svm = LiteSVM::new();
         svm.add_program_from_file(program_id(), so_path()).expect("load .so");
-        // RCX mint: classic SPL token, 6 decimals, mint authority none.
-        let mut data = vec![0u8; spl_token::state::Mint::LEN];
-        spl_token::state::Mint {
+        // Positive control for the real RCX token family: Token-2022, six
+        // decimals, fixed supply and no mint/freeze authority.
+        let mut data = vec![0u8; spl_token_2022_interface::state::Mint::LEN];
+        spl_token_2022_interface::state::Mint {
             mint_authority: None.into(),
             supply: 1_000_000_000 * UNIT,
             decimals: DECIMALS,
@@ -94,7 +95,7 @@ impl World {
             freeze_authority: None.into(),
         }
         .pack_into_slice(&mut data);
-        svm.set_account(rcx_mint(), Account { lamports: 10_000_000, data, owner: spl_token::id(), executable: false, rent_epoch: 0 }).unwrap();
+        svm.set_account(rcx_mint(), Account { lamports: 10_000_000, data, owner: spl_token_2022_interface::id(), executable: false, rent_epoch: 0 }).unwrap();
         let mut w = World { svm, now: 1_800_000_000 };
         w.set_clock(w.now);
         w
@@ -112,26 +113,26 @@ impl World {
         kp
     }
     fn token_account(&mut self, owner: &Pubkey, amount: u64) {
-        let mut data = vec![0u8; spl_token::state::Account::LEN];
-        spl_token::state::Account {
+        let mut data = vec![0u8; spl_token_2022_interface::state::Account::LEN];
+        spl_token_2022_interface::state::Account {
             mint: rcx_mint(),
             owner: *owner,
             amount,
             delegate: None.into(),
-            state: spl_token::state::AccountState::Initialized,
+            state: spl_token_2022_interface::state::AccountState::Initialized,
             is_native: None.into(),
             delegated_amount: 0,
             close_authority: None.into(),
         }
         .pack_into_slice(&mut data);
-        self.svm.set_account(ata(owner), Account { lamports: 10_000_000, data, owner: spl_token::id(), executable: false, rent_epoch: 0 }).unwrap();
+        self.svm.set_account(ata(owner), Account { lamports: 10_000_000, data, owner: spl_token_2022_interface::id(), executable: false, rent_epoch: 0 }).unwrap();
     }
     fn balance(&self, owner: &Pubkey) -> u64 {
         let acc = self.svm.get_account(&ata(owner)).unwrap();
-        spl_token::state::Account::unpack(&acc.data).unwrap().amount
+        spl_token_2022_interface::state::Account::unpack(&acc.data).unwrap().amount
     }
     fn supply(&self) -> u64 {
-        spl_token::state::Mint::unpack(&self.svm.get_account(&rcx_mint()).unwrap().data).unwrap().supply
+        spl_token_2022_interface::state::Mint::unpack(&self.svm.get_account(&rcx_mint()).unwrap().data).unwrap().supply
     }
     /// A fully verified sponsored push update as the receiver would leave it.
     fn pyth(&mut self, feed_index: u8, price: i64, conf: u64, publish_time: i64, prev_publish_time: i64) {
@@ -182,7 +183,7 @@ impl World {
             AccountMeta::new(podium_pda(), false),
             AccountMeta::new(rcx_mint(), false),
             AccountMeta::new(ata(&player.pubkey()), false),
-            AccountMeta::new_readonly(spl_token::id(), false),
+            AccountMeta::new_readonly(spl_token_2022_interface::id(), false),
             AccountMeta::new_readonly(system_program::id(), false),
         ];
         for s in seats { metas.push(AccountMeta::new(ata(s), false)); }
@@ -363,6 +364,27 @@ fn reload_burns_everything_when_no_podium_and_credits_one_per_token() {
     let l = w.ledger(&p.pubkey());
     assert_eq!(l.credits, 250, "1 credit per whole token, dust burns");
     assert_eq!(l.burned, 250 * UNIT + 123);
+
+    // Classic SPL Token is a deliberate negative control. Both the mint and
+    // player account belong to Token-2022, so swapping only the CPI program
+    // must fail atomically and preserve every unit and credit.
+    let balance_before = w.balance(&p.pubkey());
+    let supply_before = w.supply();
+    let credits_before = w.ledger(&p.pubkey()).credits;
+    let classic_ix = w.ix("reload", (5 * UNIT).to_le_bytes().to_vec(), vec![
+        AccountMeta::new(p.pubkey(), true),
+        AccountMeta::new(ledger_pda(&p.pubkey()), false),
+        AccountMeta::new(podium_pda(), false),
+        AccountMeta::new(rcx_mint(), false),
+        AccountMeta::new(ata(&p.pubkey()), false),
+        AccountMeta::new_readonly(spl_token::id(), false),
+        AccountMeta::new_readonly(system_program::id(), false),
+    ]);
+    assert!(w.send(classic_ix, &[&p]).is_err(), "classic SPL Token must not stand in for RCX Token-2022");
+    assert_eq!(w.balance(&p.pubkey()), balance_before);
+    assert_eq!(w.supply(), supply_before);
+    assert_eq!(w.ledger(&p.pubkey()).credits, credits_before);
+
     assert_err(w.reload(&p, UNIT - 1, &[]), "InvalidAmount");
     // a stranger's token account cannot be used
     let stranger = w.player(10);
@@ -372,7 +394,7 @@ fn reload_burns_everything_when_no_podium_and_credits_one_per_token() {
         AccountMeta::new(podium_pda(), false),
         AccountMeta::new(rcx_mint(), false),
         AccountMeta::new(ata(&stranger.pubkey()), false),
-        AccountMeta::new_readonly(spl_token::id(), false),
+        AccountMeta::new_readonly(spl_token_2022_interface::id(), false),
         AccountMeta::new_readonly(system_program::id(), false),
     ]);
     assert!(w.send(ix, &[&p]).is_err(), "token account must belong to the signer");
@@ -522,6 +544,52 @@ fn full_life_hit_miss_equality_deadline_and_forfeit() {
     let l = w.ledger(&p.pubkey());
     assert_eq!((l.credits, l.forfeits, l.shots, l.open), (9_050, 1, 3, 0));
     assert_err(w.reveal(&p, &p.pubkey(), 5, 0, 0, SALT), "WrongState");
+}
+
+#[test]
+fn source_bracket_blocks_late_selection_and_allows_exact_crossing() {
+    let mut w = World::new();
+    let p = w.player(2_000);
+    let cranker = w.player(1);
+    w.reload(&p, 2_000 * UNIT, &[]).unwrap();
+
+    // Seal while the source account is fresh, then record one honest
+    // pre-expiry checkpoint.
+    w.pyth(0, 100_00000000, 1_000_000, w.now - 1, w.now - 2);
+    w.seal(&p, 41, commit(&p.pubkey(), 41, "YES", 0, SALT), 0, 5, 500).unwrap();
+    let expiry = w.now + 300;
+    w.set_clock(expiry - 100);
+    w.pyth(0, 99_00000000, 1_000_000, expiry - 100, expiry - 101);
+    w.checkpoint(&cranker, 0).unwrap();
+
+    // The source's actual expiry-crossing update was missed. This later
+    // update says its own predecessor was also after expiry. The protocol
+    // must not replace that signed predecessor with its last local
+    // checkpoint and thereby manufacture an expiry bracket.
+    w.set_clock(expiry + 30);
+    w.pyth(0, 150_00000000, 1_000_000, expiry + 30, expiry + 20);
+    w.checkpoint(&cranker, 0).unwrap();
+    assert_err(w.settle(&cranker, &p.pubkey(), 41, 0), "CrossingNotCheckpointed");
+
+    // A reordered older account image is a no-op and cannot backfill history
+    // after a newer source update has already been accepted.
+    w.pyth(0, 101_00000000, 1_000_000, expiry + 1, expiry - 1);
+    w.checkpoint(&cranker, 0).unwrap();
+    assert_err(w.settle(&cranker, &p.pubkey(), 41, 0), "CrossingNotCheckpointed");
+    w.set_clock(expiry + 120);
+    w.simple("void_shot", &cranker, &p.pubkey(), 41).unwrap();
+    assert_eq!(w.ledger(&p.pubkey()).credits, 2_000, "missing source coverage refunds exactly");
+
+    // A fresh shot with an update whose Pyth-signed predecessor really
+    // brackets expiry still settles normally.
+    w.pyth(1, 200_00000000, 1_000_000, w.now - 1, w.now - 2);
+    w.seal(&p, 42, commit(&p.pubkey(), 42, "YES", 0, SALT), 1, 5, 500).unwrap();
+    let expiry2 = w.now + 300;
+    w.set_clock(expiry2 + 1);
+    w.pyth(1, 201_00000000, 1_000_000, expiry2, expiry2 - 10);
+    w.checkpoint(&cranker, 1).unwrap();
+    w.settle(&cranker, &p.pubkey(), 42, 1).unwrap();
+    assert_eq!(w.shot(&p.pubkey(), 42).unwrap().exit_e12, 201_000_000_000_000);
 }
 
 #[test]

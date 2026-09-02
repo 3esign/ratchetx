@@ -1,5 +1,11 @@
 # The freeze — Ratchet Seal v2 becomes immutable on 2026-09-08
 
+> **Superseded on 2026-09-03 by owner direction.** There is no scheduled
+> freeze and this page is retained only as the historical precommitment. Do not
+> execute its authority-revocation command on 2026-09-08. Any future ceremony
+> requires fresh, explicit authorization after the relevant generation passes
+> the gates in `PERMANENCE_EXECUTION_PLAN.md`.
+
 Registered 2026-08-25, before the fact, in the same spirit as everything else in this
 repository: say it first, in writing, then be checkable.
 

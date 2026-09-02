@@ -1,5 +1,12 @@
 # Core v1: permissionless settlement, verified at the source (2026-09-02)
 
+> **Superseded finding (2026-09-03):** open instruction access is real, but the
+> conclusion that a cranker cannot delay-select or force a VOID is not. The
+> source-predecessor bug and evicting 64-entry ring invalidate that claim, and
+> RCX's real Token-2022 path was not the positive control in the old LiteSVM
+> run. See `PERMANENCE_EXECUTION_PLAN.md`; do not use this page as freeze or
+> deployment evidence.
+
 Source read of `onchain/ratchet-core/programs/ratchet-core/src/lib.rs` (the
 crypto-only candidate on `main`). This is an audit of *who may act*. It is not a
 fresh mainnet audit.

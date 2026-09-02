@@ -1,5 +1,14 @@
 # RatchetX Core v1 — the whole game as one frozen program
 
+> **Status correction, 2026-09-03.** Core v1 is a devnet prototype, absent
+> from mainnet and not a freeze candidate. The 2026-09-02 artifact/deployment
+> used the previous protocol checkpoint instead of Pyth's signed predecessor;
+> its 64-slot ring can also evict a valid crossing. The source-predecessor and
+> Token-2022 client/test repairs described below are newer than that deployment,
+> and the ring/confidence/ruleset design requires successor Core G2 plus Timepin.
+> Do not interpret older "frozen", "done" or "cannot choose" language on this
+> page as current evidence. `PERMANENCE_EXECUTION_PLAN.md` is authoritative.
+
 Program id: `6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv` (keypair generated
 2026-09-02 on the founder's machine, outside every repository).
 Source: `onchain/ratchet-core/programs/ratchet-core/src/lib.rs`.
@@ -29,10 +38,10 @@ keeps that code path unchanged and adds everything the server used to decide.
 | legacy balance claim (Merkle, once per wallet) | `claim_legacy` against a compiled root |
 | agent delegation: allowance, per-shot cap, expiry; seal only | `DelegateGrant`, `seal_delegated` |
 
-There is no admin key, no config account, no pause, no upgrade hook. Every
-number above is a constant in the bytes. The upgrade authority is burned after
-the G6 drill; from then on the only way to change a rule is a successor program
-under a new id that reads these accounts.
+There is no game-admin key, config account or pause instruction inside the
+program. The devnet loader upgrade authority is still retained, and owner
+direction on 2026-09-03 explicitly deferred every freeze. Core G2 will use a new
+program id after the evidence architecture and migration gates are satisfied.
 
 ## Instructions
 
@@ -45,7 +54,7 @@ under a new id that reads these accounts.
 | `settle()` | anyone | first crossing in the strict window → `Settled` (or `Voided` on equality, refund) |
 | `reveal(side, p_bps, salt)` | anyone with the salt | verifies `RATCHET\|v3\|<wallet>\|<nonce>\|<YES/NO>\|<p_bps>\|<salt>`, scores HIT/MISS, pays credits, updates streak/XP/daily XP/podium |
 | `forfeit()` | anyone | a `Settled` shot not revealed within 3600 s of expiry becomes a MISS with no XP |
-| `void_shot()` | anyone | `Sealed` shot past `expiry+900` → refund |
+| `void_shot()` | anyone | `Sealed` shot at/past `expiry+120` → refund |
 | `close_shot()` | anyone | rent back to the player once the shot is Revealed/Voided/Forfeited |
 | `grant_delegate(allowance, max_stake, expiry)` / `revoke_delegate()` | player | bounded delegation, ≤ 30 days |
 | `claim_legacy(credits, xp, proof)` | player | one-time Merkle claim; leaf = sha256(wallet ‖ credits_le ‖ xp_le) |
@@ -92,6 +101,22 @@ website, not Bankr, not Supabase.
 
 ## Client and open runner
 
+`client/inspect.mjs` is the signerless truth view. It defaults to the public
+Solana devnet RPC at `finalized` commitment and prints
+`DEVNET - NOT LIVE CREDITS` before reporting the executable program, loader,
+ProgramData/upgrade authority, RPC context slots, Podium and (when supplied)
+one player's ledger and canonical shot PDAs:
+
+```sh
+node onchain/ratchet-core/client/inspect.mjs
+node onchain/ratchet-core/client/inspect.mjs --player <wallet>
+node onchain/ratchet-core/client/inspect.mjs --rpc <standard-solana-rpc> --player <wallet>
+```
+
+It accepts no signer or keypair, sends no transaction, and has no application
+API, API-key or Supabase dependency. Core account reads fail closed unless the
+owner, exact allocation, discriminator and derived PDA all match.
+
 `client/core.mjs` needs only `@solana/web3.js`: instruction builders in the
 program's account order, PDAs, the sponsored push account per feed, the ATA,
 the v3 commit, parsers for every account and for `PriceUpdateV2`, the crossing
@@ -105,7 +130,7 @@ node onchain/ratchet-core/client/crank.mjs --rpc <url> --keypair <fee payer> [--
 A runner keeps each open feed's clock warm (one checkpoint when the clock is
 older than five minutes, so the first post-expiry capture forms a crossing),
 captures the first fully verified update at/after expiry and settles in the
-same transaction, voids after the 15-minute window, forfeits unrevealed shots
+same transaction, voids after the 120-second window, forfeits unrevealed shots
 after an hour, and with `--close` returns shot rent to players. It never
 reveals — only the salt holder can — and never needs a player key. Several
 runners in parallel are harmless: a second checkpoint of the same update is a
