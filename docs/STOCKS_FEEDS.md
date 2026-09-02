@@ -1,92 +1,121 @@
-# Equities on RatchetX — the feed work, before the core is frozen
+# Equities on RatchetX — free, on-chain, trustless (the pull path), before freeze
 
-The referee table (`FEEDS` in `onchain/ratchet-core`) is a compiled-in constant.
-Anything not in it when the core is frozen can never be called. So the equity
-feed ids have to be settled now, and settled correctly.
+The referee table (`FEEDS` in `onchain/ratchet-core`) is compiled in. Anything
+not in it when the core is frozen can never be called. So equities have to be
+settled before freeze — and settled correctly. This doc records the real finding
+and the one path that is free, on-chain and trustless.
 
-## The finding that changes the design
+## The finding (corrects the earlier version of this file)
 
-Pyth publishes **two** feeds per US ticker:
+An earlier draft of this doc claimed the `Equity.Index.*` feeds are **sponsored
+push feeds on Solana**. That was **wrong**. The gate proves it:
+`scripts/check-equity-feeds.mjs` scanned every candidate on all 256 shards and
+found **0/10** — no equity feed is pushed on Solana, on any shard, by anyone
+(the SOL control row is ✓, so the scan is sound). Pyth, Chainlink, Switchboard
+and RedStone **all** gate equities behind a **pull** model, not a free push
+account. There is no free sponsored equity push to read the way SOL is read.
 
-| kind | symbol | when it prices |
-|---|---|---|
-| market hours | `Equity.US.<T>/USD` | only while the exchange is open |
-| **24/7 index** | `Equity.Index.<T>/USD` | **continuously, "PYTH PRICE IN USD FOR &lt;T&gt; 24/7"** |
+That does not kill stocks. It changes the mechanism from *push* to *pull*.
 
-The **sponsored push feeds on Solana mainnet are the `Equity.Index.*` ones** —
-the Pyth changelog lists `Equity.Index.META/ORCL/PLTR/AMZN/COIN` going live, on
-the same default 1-minute heartbeat / 0.5% deviation as the crypto feeds.
+## Push vs pull, in our terms
 
-That removes the whole market-hours problem. A 24/7 index feed never closes, so
-a stock target behaves exactly like SOL: seal any time, settle on the first
-print past expiry. **No "market closed" state, no hours table, no new rule.**
-The earlier plan's open/closed UI is not needed — drop it.
+- **Push (what SOL/crypto uses):** Pyth keeps a `PriceUpdateV2` account updated
+  at a sponsored PDA `[u16le(0), feed_id]`. Our `checkpoint` just **reads** it —
+  the whole cost is one account read; the crank pays nothing to keep it fresh.
+  No equity feed is sponsored this way.
+- **Pull (what equities need):** nobody keeps an equity account on-chain for
+  free. Instead the crank **fetches** a Pyth-signed price from Hermes and
+  **posts** it as a temporary `PriceUpdateV2` via the Pyth receiver, in the same
+  transaction that reads it, then closes that account to reclaim its rent. The
+  posted account is the *same struct* our program already parses — only its
+  provenance differs (posted per-update vs. sponsored-permanent).
 
-What it does mean, and must be said plainly on the target: an `Equity.Index`
-price is *Pyth's* continuous price for the name, not the exchange's last trade.
-Overnight it is a synthetic mark. That belongs in the target label, not buried.
+## Why the pull path is still free and still trustless
 
-## Verified feed ids and their shard-0 push accounts
+- **Free data.** Pyth Hermes serves the signed `Equity.Index.*` updates with no
+  API key and no subscription at the keyless endpoint
+  `https://pyth.dourolabs.app/hermes`. (Avoid the legacy `hermes.pyth.network`
+  — it began requiring an API key on 2026-08-26. Use the keyless host.)
+- **Near-zero on-chain cost.** The crank posts the update (an ed25519
+  verification + a receiver post instruction), the program reads it, and the tx
+  closes the update account (`closeUpdateAccounts: true`) so the rent comes
+  back. Net cost ≈ the ordinary Solana transaction fee — a fraction of a cent —
+  plus a little compute. No standing rent, no subscription, no licence.
+- **Still trustless.** The price is **Pyth-signed** and **receiver-verified
+  on-chain**; our program keeps every check it does today (owner = the Pyth
+  receiver, Full verification, `feed_id` match, freshness, confidence ≤ 200 bp).
+  The crank is **permissionless** — anyone can fetch from the public Hermes and
+  post — so there is no founder in the loop. The settle rule (first observation
+  with `prev_publish < expiry ≤ publish`, equality voids) is **unchanged**.
+- **Same safety valve.** An equity shot settles only if some crank posts a
+  crossing update within the 120 s window; if none does, it **voids and
+  refunds**, exactly like a quiet feed today. Nobody can be cheated by absence.
 
-Push account = `findProgramAddress([u16le(0), feed_id], pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou)`
-— the same derivation the program already enforces in `load_push_price_update`.
+The honest difference from crypto: SOL is *free to read*, equities are *cheap to
+post*. The crank does a little more work (fetch + post) per equity update
+instead of a bare read. That is the whole tradeoff — a few extra lamports and
+some compute on the crank, no money to any provider.
 
-| ticker | kind | feed id | shard-0 push account |
+## The program change (pre-freeze, small, self-contained)
+
+Today `load_push_price_update` enforces the sponsored shard-0 PDA
+`[u16le(0), feed_id]`. For equity feed indices, add a checkpoint variant that
+accepts a **posted** receiver-owned `PriceUpdateV2` (the account the crank just
+created) instead of the PDA account — keeping **every other check** (owner =
+`rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp`, Full, `feed_id` match, freshness,
+confidence). Everything downstream — the clock ring, `crossing`, `settle`,
+`reveal`, XP, payout — is untouched, because it all operates on the recorded
+observation, not on how the price got on-chain. So this is one localized change
+to how a price enters, tested with the LiteSVM battery using an equity feed id,
+reprinted into the golden vectors, hashed into `docs/CORE.md` as the 4th (or
+combined-with-legacy) build.
+
+The crank side (`client/crank.mjs`) gains an equity branch: for an open equity
+shot near expiry, fetch the `Equity.Index` update from Hermes, post it via
+`@pythnetwork/pyth-solana-receiver`, then checkpoint/settle against it in the
+same tx. The mainnet client already imports the receiver SDK pattern; the runner
+stays a single stranger-runnable process.
+
+## The alternatives, and why pull-from-Pyth wins
+
+| path | free? | trustless? | notes |
 |---|---|---|---|
-| TSLA | **Index 24/7** | `e6da44bff5b8b06897a3739dd331b440d6662595bb862e37046892c568ae3fc0` | `4js3tyQv7Ljb9kiWkB3zBaoUq689HF9qL6JTfamcbtig` |
-| TSLA | US hours | `16dad506d7db8da01c87581c87ca897a012a153557d4d578c3b9c9e1bc0632f1` | `Ayoy1gwnhWiycXt31Jj14MDPwnmcERXEg6zTybju8kYo` |
-| NVDA | **Index 24/7** | `a470c4ac46f44b547b2cba52338f311fb642b79375ce5f0cfd5cb5b99227b852` | `DrMQPTkUTAWNtgxcgLQQDHXqq667AHzMvvsnpsCcXtju` |
-| NVDA | US hours | `b1073854ed24cbc755dc527418f52b7d271f6cc967bbf8d8129112b18860a593` | `BpsV4NCkHxC3FzykhvwMqo3Xkntm2EyPWdC92fVum1Xh` |
-| PLTR | US hours | `11a70634863ddffb71f2b11f2cff29f73f3db8f6d0b78c49f2b5f4ad36e885f0` | `J8a2hEH8gFwe1PhHrQkz19Y2qXv3XYtN5TRp24KCixKr` |
-| COIN | US hours | `fee33f2a978bf32dd6b662b65ba8083c6773b494f8401194ec1870c640860245` | `2ctzeAF3nZRfvzCsrC4D4mHEgMpRqT2YM7qwRJ5vHHta` |
-| HOOD | US hours | `306736a4035846ba15a3496eed57225b64cc19230a50d14f3ed20fd7219b7849` | `5tQB19sUG39h8UipEy6zaHJqxVy7ixMnaT9UTN3vPgMd` |
+| **Pyth pull (Equity.Index)** | **yes** (Hermes keyless; rent reclaimed) | **yes** (Pyth-signed, permissionless crank) | **recommended** — same oracle we already use, one small program change |
+| Chainlink Data Streams (US equities/ETFs) | no | pull/verified | launched Jan 2026, but Solana equity access is Data Streams (pull) and likely needs credentials/licensing — a new dependency |
+| Switchboard On-Demand | ~ (pull, custom feed) | yes | Solana-native pull; equities need a custom feed wired to a data provider (Polygon/Twelve Data), which may carry licensing |
+| RedStone (Wormhole Queries) | ~ | yes | RWA/tokenized focus; pull via Wormhole Queries, more moving parts |
+| self-sponsor a Pyth push feed | no (we pay to crank a standing account) | **no** — it then depends on us | rejected: reintroduces a founder dependency |
 
-Source: Pyth Hermes `GET /v2/price_feeds?query=<T>&asset_type=equity`.
-PDAs derived locally with `@solana/web3.js` — no network, reproducible.
+## Verified `Equity.Index` feed ids (now the pull feed ids)
 
-### The complete 24/7 Index set (what actually goes in the table)
+Same ids, still valid — they are what the crank passes to Hermes and what the
+program matches on. Their shard-0 push accounts do **not** exist (that is the
+0/10 finding); these are pull feeds.
 
-These are the sponsored `Equity.Index.*` feeds and their shard-0 push accounts —
-the ones a stock target would use, no market hours:
+| ticker | feed id (Equity.Index, 24/7) |
+|---|---|
+| TSLA | `e6da44bff5b8b06897a3739dd331b440d6662595bb862e37046892c568ae3fc0` |
+| NVDA | `a470c4ac46f44b547b2cba52338f311fb642b79375ce5f0cfd5cb5b99227b852` |
+| PLTR | `52c7c6b70032b7151c8d0febf684f14318e1e13315976e171267639955400bb9` |
+| COIN | `49387483ff50427bf0ff5928082b0cf16331421067c59f4c582a07aa117db1ac` |
+| HOOD | `4a4f96283d157d08b7b8aa596363f7978587d4fa59a77dcb90f84af7d870a630` |
 
-| ticker | feed id (Index 24/7) | shard-0 push account |
-|---|---|---|
-| TSLA | `e6da44bff5b8b06897a3739dd331b440d6662595bb862e37046892c568ae3fc0` | `4js3tyQv7Ljb9kiWkB3zBaoUq689HF9qL6JTfamcbtig` |
-| NVDA | `a470c4ac46f44b547b2cba52338f311fb642b79375ce5f0cfd5cb5b99227b852` | `DrMQPTkUTAWNtgxcgLQQDHXqq667AHzMvvsnpsCcXtju` |
-| PLTR | `52c7c6b70032b7151c8d0febf684f14318e1e13315976e171267639955400bb9` | `8STTMeEVT2LrWFwbrGuxgYsSYrZvEPiDrYJ3FVJVR1Xj` |
-| COIN | `49387483ff50427bf0ff5928082b0cf16331421067c59f4c582a07aa117db1ac` | `4RK9ma1VdZUn2UeYVTfYGXBPTzdZ3UdaQSudrSX7cDx9` |
-| HOOD | `4a4f96283d157d08b7b8aa596363f7978587d4fa59a77dcb90f84af7d870a630` | `Ei8W2FRPJbexWLsiRnvi6VF2Ne3YWVt66ucDqZyC8HV8` |
+Source: Pyth Hermes `GET /v2/price_feeds?query=<T>&asset_type=equity`. An
+`Equity.Index` price is Pyth's continuous 24/7 price for the name, a synthetic
+mark overnight — so the target must label it `Pyth 24/7 index`, not "NASDAQ".
 
-## Gate before any of this reaches the referee table
+## Founder decision
 
-A feed id is not enough. For each candidate, on mainnet:
+Stocks are possible, free, on-chain and trustless via the Pyth pull path, at the
+cost of one pre-freeze program change and a slightly busier crank. The decision
+is *whether to spend that engineering before freeze*:
 
-1. **The push account must exist** and be owned by the receiver
-   `rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp`. If it does not exist, the feed
-   is published by Pyth but **not sponsored on Solana**, and the program could
-   never read it. This is the single check that decides inclusion.
-2. **Watch it for a day in the observatory** — cadence, stale tail, confidence.
-   An equity index feed that goes quiet at 3am is a void machine, and we would
-   rather learn that from our own instrument than from a refunded player.
-3. Only then: core 4th build (extend `FEEDS`, rerun the LiteSVM battery with an
-   equity feed id, reprint the golden vectors, record the hashes).
+- **Do it:** add the equity pull-checkpoint variant + crank branch, gate one
+  equity feed through the LiteSVM battery, fold it into the pre-freeze build.
+  Stocks ship on the same trustless rails as SOL.
+- **Defer:** freeze crypto-only now; equities can never be added after freeze
+  (the table is compiled in), so deferring means a *separate* stock program
+  later, or waiting for Pyth to sponsor equity push (may never happen).
 
-Check 1 is one RPC call per account: `getAccountInfo(<push account>)` and
-compare `owner`. It needs an RPC the cloud bridge does not have, so it ships as a
-script for the machine that does:
-
-    node scripts/check-equity-feeds.mjs [your-rpc-url]     # or double-click CHECK_EQUITY_FEEDS.cmd
-
-It checks all five, verifies the receiver owner, and prints price / confidence /
-freshness for each — writing `equity_gate_check.txt`. Only the ✓ rows
-(exists · receiver-owned · Full-verified · fresh) may enter the frozen table.
-
-## Then, and only then
-
-- Server: add the tickers to the board generator with an equity-appropriate
-  volatility, and to the Bankr runner's asset aliases (`tesla`, `nvidia`,
-  `palantir`, `coinbase`, `robinhood`) so "ratchetx tesla up 5 min 500" resolves.
-- UI: a target label that names the feed honestly — `Pyth 24/7 index`, not
-  "NASDAQ". No open/closed chrome needed.
-- Observatory: equities become rows in the same table; nobody else publishes how
-  sponsored equity feeds behave, and we would be measuring with money on it.
+Because the table is frozen forever, this is the one stocks question that must be
+answered *before* the freeze, not after.
