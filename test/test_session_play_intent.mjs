@@ -170,6 +170,12 @@ const base={mode:'execute',wallet,sessionId,commandId};
   const settled=await f.run({mode:'resume',wallet,sessionId,maxWaitMs:20000},{journal:f.journals[0]});
   assert.equal(settled.code,'PASS_HIT',JSON.stringify(settled));assert.equal(f.shotCalls(),2);
 }
+{ // Owner wallet and session come from the token; explicit values must match it.
+  const f=fixture(),r=await f.run({mode:'execute',commandId,say:'play'});assert.equal(r.code,'SEALED');
+  const s2=await fixture().run({mode:'status'},{journal:undefined});assert.equal(s2.code,'STATUS');
+  const bad=await fixture().run({mode:'execute',commandId,say:'play',wallet:'2'.repeat(32)});assert.equal(bad.code,'CAPABILITY_IDENTITY_MISMATCH');
+  const none=await fixture().run({mode:'execute',commandId,say:'play'},{env:{}});assert.equal(none.code,'MISSING_OR_INVALID_CAPABILITY');
+}
 { // Chambers: h105 status carries no `chambers`; the runner allows two open, refuses the third locally.
   assert.equal((await fixture({existingOpen:1}).run({...base,say:'play'})).code,'SEALED');
   const full=await fixture({existingOpen:2}).run({...base,say:'play'});assert.equal(full.code,'CHAMBERS_FULL');assert.equal(full.openShots,2);

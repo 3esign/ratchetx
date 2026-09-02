@@ -27,12 +27,13 @@ runner is invoked anyway it answers `NOT_A_GAME_COMMAND` and seals nothing.
 ## The command
 
 ```sh
-node scripts/session-play.mjs --auto --say "USER WORDS VERBATIM" --wallet OWNER --session-id SESSION_ID --command-id POST_ID --journal PRIVATE_NEW_FILE
+node scripts/session-play.mjs --auto --say "USER WORDS VERBATIM" --command-id POST_ID --journal PRIVATE_NEW_FILE
 ```
 
 - `USER WORDS VERBATIM`: the post text, unedited (max 500 chars). No
   paraphrase, no added words, no translation.
-- `OWNER` / `SESSION_ID`: the public values from the owner's setup.
+- No wallet or session ID: the runner reads both from `RATCHET_PLAY_SESSION`.
+  Never pass, look up, remember or print them.
 - `POST_ID`: the ID of the post you are executing (not its parent or a quote).
   A retry keeps the same ID. Never invent one.
 - `PRIVATE_NEW_FILE`: a fresh private journal path per command.

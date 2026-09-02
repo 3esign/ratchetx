@@ -30,10 +30,11 @@ never ask the user a question back, never wait for settlement, never write
 your own summary. The runner decides everything from the user's words.
 
 ```sh
-node scripts/session-play.mjs --auto --say "USER WORDS VERBATIM" --wallet OWNER --session-id SESSION_ID --command-id POST_ID --journal PRIVATE_NEW_FILE
+node scripts/session-play.mjs --auto --say "USER WORDS VERBATIM" --command-id POST_ID --journal PRIVATE_NEW_FILE
 ```
 
-It prints exactly one JSON line `{"ok":…,"code":…,"reply":"…"}`. **Post
+The owner's wallet and session come from the protected `RATCHET_PLAY_SESSION`
+variable; you never pass, look up or remember them. It prints exactly one JSON line `{"ok":…,"code":…,"reply":"…"}`. **Post
 `reply` verbatim and nothing else**, whether `ok` is true or false. The
 runner routes by itself: `help`/`menu` -> command list; `board`/`games` ->
 open targets; `stats`/`result`/`did i win` -> status with the last outcome;

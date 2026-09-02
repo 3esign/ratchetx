@@ -249,6 +249,13 @@ export function resolveIntent(text,{board,context,limits,session,player,override
  * Distinct commands still require explicit requester approval in the caller.
  */
 export async function runPlay(options={},dependencies={}){
+  // The protected token already names the owner wallet and session
+  // (rxp1.<wallet>.<session>.<secret>). Callers may omit both; explicit values
+  // must still match the token (a replaced grant is never silently accepted
+  // under an old expectation).
+  {const t=(dependencies.env??process.env)?.RATCHET_PLAY_SESSION,m=typeof t==='string'&&TOKEN.exec(t);
+    options={...options};
+    if(m){if(options.wallet===undefined)options.wallet=m[1];if(options.sessionId===undefined)options.sessionId=m[2];}}
   const {fetch:fetcher=globalThis.fetch,now=()=>performance.now(),sleep=ms=>new Promise(r=>setTimeout(r,ms)),
     journal,env=process.env,onEvent=()=>{}}=dependencies;
   let phase=options.mode==='status'?'status':'preflight',clock=null,start=null,wire=null,wirePersisted=false;
@@ -267,6 +274,7 @@ export async function runPlay(options={},dependencies={}){
     need(['status','execute','resume'].includes(options.mode),'EXPLICIT_MODE_REQUIRED');
     need(Object.keys(options).every(key=>['mode','wallet','sessionId','commandId','target','side','p','stake','say','asset','direction','horizon','maxWaitMs','pollMs','waitSettle'].includes(key)),'INVALID_OPTIONS');
     if(options.mode!=='execute')need(!['commandId','target','side','p','stake','say','asset','direction','horizon'].some(key=>key in options),'STATUS_ONLY_MODE');
+    if(options.wallet===undefined||options.sessionId===undefined)stop('MISSING_OR_INVALID_CAPABILITY');
     need(typeof options.wallet==='string'&&WALLET.test(options.wallet)
       &&typeof options.sessionId==='string'&&HEX32.test(options.sessionId),'EXPECTED_IDENTITY_REQUIRED');
     need(integer(maxWait)&&maxWait>=5000&&maxWait<=25*60000&&integer(pollMs)&&pollMs>=5000&&pollMs<=30000,'INVALID_WAIT');
@@ -610,7 +618,7 @@ export function parseArgs(args){
 async function main(){
   if(process.argv.length===3&&process.argv[2]==='--help'){
     console.log('Status: node session-play.mjs --status --wallet OWNER --session-id SESSION_ID');
-    console.log('Play from words: node session-play.mjs --auto --say "USER TEXT" --wallet OWNER --session-id SESSION_ID --command-id X_POST_ID_OR_32HEX_NONCE --journal NEW_PRIVATE_FILE');
+    console.log('Play from words: node session-play.mjs --auto --say "USER TEXT" --command-id X_POST_ID_OR_32HEX_NONCE --journal NEW_PRIVATE_FILE   (owner wallet and session come from RATCHET_PLAY_SESSION; --wallet/--session-id are optional and must match)');
     console.log('  --auto optionally waits for the outcome (--max-wait-seconds N, or words like "wait"/"tell me the result") and then replies once with seal + result.');
     console.log('  --auto answers "what is ratchetx" questions with the canonical pitch (no request), reads status when the words only ask about stats; otherwise it resolves asset/direction/horizon/stake/probability from the words against the live board and plays ONCE. Optional overrides: --asset SOL --direction up|down --horizon 5 --stake 500 --p 0.6');
     console.log('Play exact: node session-play.mjs --execute --wallet OWNER --session-id SESSION_ID --command-id X_POST_ID_OR_32HEX_NONCE --target BOARD_TARGET_ID --side YES|NO --p 0.55 --journal NEW_PRIVATE_FILE [--stake 100] [--max-wait-seconds 1260]');
