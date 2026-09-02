@@ -193,3 +193,11 @@ a{color:var(--poison-ink)}
 @media(prefers-reduced-motion:reduce){
   #hRcxWrap b,#potN,#potDN,.pods .pp,.pods.mine .pw,.pchip b{animation:none;-webkit-text-fill-color:var(--gold)}
 }
+
+/* ---- options & config panels: caption labels take the sans voice — nicer and
+       more compact than mono, so more fits in the panel — while the figures keep
+       the mono. Mono is for numbers, not captions. ---- */
+.conflab,.confnote,.stk small,.stakeCustom .scl,.mcell u,.cham .ch1,.rkc span,
+.dep .nm em,.dep .bd u,.kl .actor-tag{
+  font-family:var(--disp)!important;letter-spacing:.04em;
+}
