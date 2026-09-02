@@ -158,5 +158,20 @@ a{color:var(--poison-ink)}
 .obs .err{border-color:rgba(199,106,97,.35)}
 /* ---- reduced motion: everything settles at once ---- */
 @media(prefers-reduced-motion:reduce){
-  .bigcog svg,.bigcog .pulse,.cham.justsettled,.xpbar i{animation:none!important;transition:none!important}
+  .bigcog svg,.bigcog .pulse,.cham.justsettled,.xpbar i,.machine::before,.floornum{animation:none!important;transition:none!important}
+}
+
+/* ---- shine: a slow, quiet gleam of light across the metal, and a soft
+       breathing of the floor number. Subtle by design; motion reports life,
+       it does not perform. Everything below stops for reduced-motion. ---- */
+.machine::before{
+  content:"";position:absolute;inset:0;pointer-events:none;z-index:4;mix-blend-mode:screen;
+  background:linear-gradient(116deg,transparent 42%,rgba(211,220,234,.045) 49%,rgba(211,220,234,.06) 50%,rgba(211,220,234,.045) 51%,transparent 58%);
+  transform:translateX(-130%);animation:sheen 16s var(--ease) infinite;
+}
+@keyframes sheen{0%,70%{transform:translateX(-130%)}88%,100%{transform:translateX(130%)}}
+.floornum{animation:floorbreath 7.5s var(--ease) infinite}
+@keyframes floorbreath{
+  0%,100%{text-shadow:0 0 50px var(--poison-glow),0 0 90px var(--poison-haze)}
+  50%{text-shadow:0 0 66px var(--poison-glow),0 0 116px var(--poison-haze)}
 }
