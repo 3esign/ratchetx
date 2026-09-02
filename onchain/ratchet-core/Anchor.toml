@@ -1,0 +1,20 @@
+[toolchain]
+anchor_version = "1.0.2"
+solana_version = "3.1.10"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+ratchet_core = "6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv"
+
+[programs.devnet]
+ratchet_core = "6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv"
+
+[programs.mainnet]
+ratchet_core = "6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv"
+
+[provider]
+cluster = "devnet"
+wallet = "~/.config/solana/id.json"
