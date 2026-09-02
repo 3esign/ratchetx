@@ -1,0 +1,134 @@
+# RatchetX Core v1 — the reproducible build. Anyone can run this (fork + push,
+# or "Run workflow") and get the same bytes the founder deployed, without the
+# founder's machine or anyone's cloud session being involved:
+#
+#   1. host unit tests, and the golden vectors reprinted and diffed against the
+#      committed vectors/core-rules-v1.json (server + JS client are pinned to it)
+#   2. cargo build-sbf with the frozen recipe (agave 3.1.10 → platform-tools v1.52)
+#   3. sha256 of the fresh .so compared with the newest committed artifacts/*.so —
+#      a mismatch fails the job: "the artifact does not come from this source"
+#   4. the LiteSVM adversarial battery against the fresh bytes
+#   5. informational: the program deployed on <cluster> dumped and compared —
+#      green means what is on chain is what is in git, byte for byte
+name: core-build
+on:
+  push:
+    paths:
+      - onchain/ratchet-core/**
+      - .github/workflows/core-build.yml
+  pull_request:
+    paths:
+      - onchain/ratchet-core/**
+  workflow_dispatch:
+    inputs:
+      cluster:
+        description: cluster whose deployed program to compare (devnet | mainnet-beta)
+        default: devnet
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      AGAVE_VERSION: v3.1.10
+      PROGRAM_ID: 6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv
+    defaults:
+      run:
+        working-directory: onchain/ratchet-core
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Rust (host tests) and the frozen Solana toolchain
+        shell: bash
+        run: |
+          rustup toolchain install stable --profile minimal
+          sh -c "$(curl -sSfL https://release.anza.xyz/$AGAVE_VERSION/install)"
+          echo "$HOME/.local/share/solana/install/active_release/bin" >> "$GITHUB_PATH"
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: |
+            onchain/ratchet-core
+            onchain/ratchet-core/svm-tests
+
+      - name: Toolchain record
+        shell: bash
+        run: |
+          solana --version
+          cargo-build-sbf --version
+          rustc --version
+
+      - name: Host unit tests
+        run: cargo test --locked
+
+      - name: Golden vectors must match the committed file
+        shell: bash
+        run: |
+          cargo test --locked print_golden_vectors -- --ignored --nocapture 2>/dev/null \
+            | sed -n '/^GOLDEN_VECTORS_BEGIN$/,/^GOLDEN_VECTORS_END$/p' | sed '1d;$d' > /tmp/vectors.json
+          test -s /tmp/vectors.json || { echo "::error::no vectors printed"; exit 1; }
+          if ! diff -q vectors/core-rules-v1.json /tmp/vectors.json; then
+            echo "::error::the program's rules differ from vectors/core-rules-v1.json — the server (lib/core_rules.js) and client are pinned to that file; reprint and re-test before anything ships"
+            diff vectors/core-rules-v1.json /tmp/vectors.json | head -40
+            exit 1
+          fi
+          echo "golden vectors: identical"
+
+      - name: Build the program with the frozen recipe
+        run: cargo build-sbf -- --locked
+
+      - name: The fresh bytes must equal the newest committed artifact
+        shell: bash
+        run: |
+          so=target/deploy/ratchet_core.so
+          fresh=$(sha256sum "$so" | cut -d' ' -f1)
+          newest=$(ls -1 artifacts/*.so | sort | tail -1)
+          committed=$(sha256sum "$newest" | cut -d' ' -f1)
+          echo "fresh     $fresh  ($(stat -c%s "$so") bytes)"
+          echo "committed $committed  ($newest)"
+          echo "::notice title=ratchet_core.so::$(stat -c%s "$so") bytes · sha256 $fresh"
+          if [ "$fresh" != "$committed" ]; then
+            echo "::error::a clean build of the committed source does not reproduce $newest — either the source moved after the artifact was built, or the toolchain drifted. Nothing built here is trustworthy until this is green."
+            exit 1
+          fi
+          echo "reproducible: the committed artifact is this source"
+
+      - name: LiteSVM adversarial battery against the fresh bytes
+        working-directory: onchain/ratchet-core/svm-tests
+        env:
+          RATCHET_CORE_SO: ${{ github.workspace }}/onchain/ratchet-core/target/deploy/ratchet_core.so
+        run: cargo test --locked -- --nocapture
+
+      - name: What is on chain vs what is in git (informational)
+        if: always()
+        continue-on-error: true
+        shell: bash
+        run: |
+          cluster="${{ github.event.inputs.cluster || 'devnet' }}"
+          so=target/deploy/ratchet_core.so
+          if solana program dump -u "$cluster" "$PROGRAM_ID" /tmp/onchain.so 2>/tmp/dump.err; then
+            n=$(stat -c%s "$so")
+            onchain=$(head -c "$n" /tmp/onchain.so | sha256sum | cut -d' ' -f1)
+            fresh=$(sha256sum "$so" | cut -d' ' -f1)
+            if [ "$onchain" = "$fresh" ]; then
+              echo "::notice title=on-chain ($cluster)::the deployed program IS this build ($fresh)"
+            else
+              echo "::warning title=on-chain ($cluster)::deployed bytes differ from this build — an older/newer build is live there (deployed $onchain, built $fresh)"
+            fi
+          else
+            echo "::warning::could not dump $PROGRAM_ID from $cluster: $(head -c 300 /tmp/dump.err)"
+          fi
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ratchet-core-build-${{ github.sha }}
+          path: |
+            onchain/ratchet-core/target/deploy/ratchet_core.so
+            onchain/ratchet-core/vectors/core-rules-v1.json
+            onchain/ratchet-core/Cargo.lock
+          if-no-files-found: error

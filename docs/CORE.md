@@ -174,5 +174,25 @@ client carry 120.
   sha256 `1ba4371752cf1e5de39b87ea40f4be190166032dd319cc877eaa9ccf0ded61f6`,
   executable hash (trailing zeros stripped)
   `d73331461e50bf77f847ee9e3b9a6d467ffb6d1626ccbd8cee74f6e96f2bb0f3`.
-  Not deployed anywhere yet. Host 8/8, LiteSVM 8/8 (deadline cases at 119/120 s),
-  vectors 8/8, JS client 9/9. This is the candidate for the devnet deploy.
+  Host 8/8, LiteSVM 8/8 (deadline cases at 119/120 s), vectors 8/8, JS client
+  9/9. **Deployed on devnet** 2026-09-02 at slot 491787400 under
+  `6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv`; `DEVNET_EXERCISE.cmd` 6/6
+  (live, sponsored SOL referee receiver-owned, real `checkpoint`, grant/revoke,
+  zero-credit seal refused `InsufficientCredits`). Not on mainnet.
+- 2026-09-02 reproducibility: a clean rebuild of the committed source (lib.rs
+  blob `185cb53f`, `Cargo.lock` `9d10758f`) in an empty target directory with
+  the same recipe produced `1ba43717…` again, byte for byte.
+  `.github/workflows/core-build.yml` now does this on every push that touches
+  `onchain/ratchet-core/`: host tests, golden vectors diffed against
+  `vectors/core-rules-v1.json`, `cargo build-sbf`, sha256 must equal the newest
+  `artifacts/*.so` (else red), LiteSVM battery on the fresh bytes, and an
+  informational dump-and-compare of the program deployed on devnet (or
+  mainnet-beta via "Run workflow"). A build no longer needs any particular
+  machine or session; artifacts are named `ratchet_core-v1-YYYY-MM-DD[-n].so`
+  so the newest sorts last.
+- devnet faucet flavour (separate crate `onchain/ratchet-core-devnet`, id
+  `CnKAJQAQvJQ7Ht3rZRt4ZaFuZSFL4G6sDZShbmJUdTCx`, mint PDA
+  `9Becn57cNDJmRMrEBwtGbgfzY8eUF7VNjsgrQbfLpBRm`): sha256
+  `0558b594c66e5112ecbb3d029d21212bd81c0f7644256ef35fff92446cdb2aa0`. Devnet
+  only, never the mainnet id; exists because adding the faucet under a cargo
+  feature to the mainnet crate changed the mainnet bytes (measured).

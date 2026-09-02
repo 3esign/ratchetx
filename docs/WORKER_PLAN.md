@@ -6,10 +6,17 @@ never bend: never commit a keypair; never `git add .` / `commit -a` (others'
 untracked files live in the tree); never change a game number or copy while
 doing skin work; every core build gets its sha256 recorded in `docs/CORE.md`.
 
-## State on 2026-09-02 06:00
+## State on 2026-09-02 (see docs/HANDOFF.md for the click-per-step map)
 - Site h111 ready (push + `DEPLOY.cmd`), Bankr skill 1.5.0 live.
 - Core v1 3rd build (`1ba43717…`, 120 s settle window) **deployed on devnet**
   at `6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv` (slot 491787400).
+  Step 1 done: `DEVNET_EXERCISE.cmd` 6/6.
+- Step 2 ready: devnet faucet flavour built (`CnKAJ…`, sha `0558b594…`),
+  `DEVNET_FAUCET_FULLLIFE.cmd` is self-healing (recovers buffer SOL, tops up,
+  deploys only if missing) and proves settle, late-settle refusal, void, close.
+- Step 3 ready: `DEVNET_SHOOTER.cmd` (ours) + `DEVNET_RUNNER.cmd` (any box).
+- Step 4 ready: `LEGACY_ROOT.cmd` + `.github/workflows/core-build.yml`
+  (reproducible build, verified: clean rebuild == `1ba43717…`).
 - Equity feeds: **none are pushed on Solana** (gate 0/10, all 256 shards).
   Stocks cannot enter the core as sponsored push feeds. Parked — see step 6.
 

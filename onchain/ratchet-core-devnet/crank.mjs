@@ -1,5 +1,7 @@
 #!/usr/bin/env node
-// RatchetX Core v1 — the open runner. Anyone with an RPC and a funded keypair
+// RatchetX Core v1 — the open runner, DEVNET FAUCET FLAVOUR (program CnKAJ…, same rules).
+// Identical to onchain/ratchet-core/client/crank.mjs except that it imports the devnet
+// core.mjs beside it and defaults to the devnet RPC. The mainnet runner is the original. Anyone with an RPC and a funded keypair
 // can run it; the program needs no particular runner, only that someone runs
 // one. It never holds a player's key, never reveals (only the salt holder can),
 // and every action it takes is one the program lets a stranger take:
@@ -12,7 +14,7 @@
 //   close       (with --close) return shot rent to the player once it is final
 //
 // Usage:
-//   node crank.mjs --rpc https://api.mainnet-beta.solana.com --keypair ~/.config/solana/id.json [--once] [--interval 5] [--close] [--dry]
+//   node crank.mjs --rpc https://api.devnet.solana.com --keypair <devnet id.json> [--once] [--interval 5] [--close] [--dry]
 //
 // The keypair only pays fees and rent for clocks (about 0.015 SOL once per
 // feed). Run several from different machines: duplicates are harmless — a
@@ -23,7 +25,7 @@ import { Connection, Keypair, Transaction } from '@solana/web3.js';
 import { planActions, instructionsFor, readShots, readClocks, readPushes, FEEDS, STATE_NAME } from './core.mjs';
 
 const args = Object.fromEntries(process.argv.slice(2).map((a, i, all) => a.startsWith('--') ? [a.slice(2), all[i + 1] && !all[i + 1].startsWith('--') ? all[i + 1] : true] : []).filter(Boolean));
-const rpc = args.rpc || process.env.RATCHET_RPC || 'https://api.mainnet-beta.solana.com';
+const rpc = args.rpc || process.env.RATCHET_RPC || 'https://api.devnet.solana.com';
 const keypairPath = args.keypair || process.env.RATCHET_CRANK_KEYPAIR;
 const once = args.once === true;
 const dry = args.dry === true;
