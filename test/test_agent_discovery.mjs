@@ -60,7 +60,20 @@ const frontmatter = skill.match(/^---\r?\n([\s\S]*?)\r?\n---/);
 assert.ok(frontmatter, 'the Agent Skill needs YAML frontmatter');
 assert.match(frontmatter[1], /^description:\s*[>|]/m,
   'description must use a YAML block scalar so colon-space cannot break installation');
-assert.match(frontmatter[1], /^\s+version:\s+"1\.5\.0"$/m);
+// Pinned to the catalogue that advertises this same file, not to a literal.
+// A hardcoded "1.5.0" here says nothing a stranger cares about and breaks on
+// every bump -- it broke on 1.6.0 and would have failed the release gate for
+// no defect. What a stranger fetching these documents actually needs is that
+// they agree with each other: the version in the Skill they download is the
+// version the catalogue told them to expect.
+{
+  const declared = frontmatter[1].match(/^\s+version:\s+"([^"]+)"$/m);
+  assert.ok(declared, 'the Agent Skill must declare a quoted version');
+  const advertised = catalog.entries.find(e => e.url && e.url.includes('SKILL.md'));
+  assert.ok(advertised, 'the catalogue must advertise the Skill');
+  assert.equal(declared[1], advertised.version,
+    'the Skill version a stranger downloads must be the one the catalogue promised');
+}
 
 assert.deepEqual(domainRegistration, registration,
   'the well-known domain proof must mirror the primary ERC-8004 registration file');
