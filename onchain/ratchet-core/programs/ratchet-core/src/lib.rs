@@ -66,6 +66,95 @@ pub const REVEAL_DEADLINE_SECS: i64 = 3_600;
 pub const MAX_CONF_BPS: u128 = 200;
 pub const SALT_HEX_BYTES: usize = 32;
 pub const CLOCK_CAPACITY: usize = 64;
+
+// ---------------------------------------------------------------------------
+//  THE CRANK PURSE
+//
+//  `checkpoint`, `bind_crossing`, `settle`, `void_shot` and `forfeit` are all
+//  permissionless: anybody may call them. That is a property of the design and
+//  it is worth very little on its own, because permissionless and unpaid means
+//  the work gets done by whoever happens to care -- which is a dependency on a
+//  person, exactly what this program exists not to have.
+//
+//  docs/ONCHAIN_COST.md measures the shape that fixes it. A checkpoint is only
+//  useful where a shot expires, and one covers every shot expiring in that
+//  publish interval, so the cost of cranking is proportional at low volume and
+//  capped at high volume: 1.33 calls per shot at one player, 0.32 at ten
+//  thousand. Cost per shot FALLS as the game grows. That is the shape a levy
+//  can carry.
+//
+//  So `seal` puts a few thousand lamports into a purse and the permissionless
+//  instructions pay their caller out of it. Cranking stops being charity and
+//  becomes a trade.
+//
+//  THREE PROPERTIES THIS MUST HAVE, AND HOW EACH IS GOT:
+//
+//  1. It must never become a way to stop the game. The purse is passed through
+//     `remaining_accounts`, so no existing account list changes and every
+//     instruction still works with no purse in sight -- it simply pays nothing.
+//     An empty purse is the same case. The failure mode is "unpaid", never
+//     "refused".
+//
+//  2. It must never touch anybody's money. The purse holds only what seals put
+//     in. It is not a pot, it is never a payout source, and nothing in the game
+//     can spend it except a cranker collecting a bounty for work already done.
+//
+//  3. It must not be able to drain its own account below rent exemption, which
+//     would delete it mid-game. `pay_cranker` computes the spendable balance as
+//     lamports above the rent-exempt minimum and pays at most that.
+//
+//  BOTH NUMBERS SHIP AT ZERO, exactly as BAND_K_BPS does: the mechanism is
+//  audited and deployed, the economics are a later decision made against
+//  measured data rather than a guess baked into a freeze. At zero this code is
+//  inert -- no levy is taken and no bounty is paid.
+// ---------------------------------------------------------------------------
+//  ENTRY MODE: where a shot's entry price comes from
+//
+//  Ruleset 2 takes the entry from the last print before the seal, no older than
+//  max_seal_age -- which clamps at 60 seconds for every horizon. That works for
+//  a feed on a 60-second heartbeat and fails completely on a slow one: the
+//  tokenized equities publish every 870 seconds, so about 7 stock seals in 100
+//  would clear the freshness bound and the rest would be refused. Correctly,
+//  and every time. docs/STOCKS_DECISION.md has the measurement.
+//
+//  The tempting fix is to relax the bound on long horizons. It trades a refusal
+//  problem for a worse one: a player sealing on a 15-minute-old price knows
+//  which way the market moved and the program does not. That is not a rounding
+//  error, it is an information asymmetry, and asymmetries get harvested
+//  patiently rather than shrinking because the window is long.
+//
+//  ENTRY_FORWARD takes the entry from the FIRST print at or after the seal:
+//
+//      prev_publish_time < sealed_ts <= publish_time
+//
+//  which is the same crossing predicate `bind_crossing` already applies at the
+//  other end of the shot, pointed at the other end. Exactly one Pyth message in
+//  existence satisfies it. You cannot seal on a stale price if your entry price
+//  DOES NOT EXIST YET -- so the freshness bound stops mattering without being
+//  relaxed, and the promise gets stronger rather than weaker: from "your entry
+//  is recent" to "your entry is unknowable at seal, by anyone, including us".
+//
+//  It is per feed because it would be a downgrade for a fast one. On SOL's
+//  60-second heartbeat, forward-binding a five-minute shot would eat a fifth of
+//  the window at the front for no benefit, since SOL already seals ~100% of the
+//  time. So: slow feeds bind forward, fast feeds keep the observed entry.
+//
+//  SHIPS ALL ZERO -- every feed observed, exactly ruleset 2's behaviour --
+//  because which feeds are slow is a measurement, and the measurement is
+//  running rather than finished.
+pub const ENTRY_OBSERVED: u8 = 0;
+pub const ENTRY_FORWARD: u8 = 1;
+pub const ENTRY_MODE: [u8; 7] = [ENTRY_OBSERVED; 7];
+
+pub const CRANK_PURSE_SEED: &[u8] = b"crank_purse";
+/// Taken from the player at `seal` and added to the purse. Ships at 0.
+pub const CRANK_LEVY_LAMPORTS: u64 = 0;
+/// Paid to the caller of a permissionless instruction. Ships at 0.
+///
+/// When it is set it must EXCEED the caller's transaction fee (5,000 lamports)
+/// or nobody cranks: a bounty at or below cost is charity with extra steps.
+pub const CRANK_BOUNTY_LAMPORTS: u64 = 0;
+
 /// The ruleset a shot sealed today is sold under.
 pub const RULESET_V2: u16 = 2;
 /// The decision band, in basis points of the print's own confidence: a shot
@@ -233,8 +322,8 @@ pub mod ratchet_core {
     // ------------------------------------------------------------------- play
 
     /// Seal a directional call with the player's own signature.
-    pub fn seal(
-        ctx: Context<Seal>,
+    pub fn seal<'info>(
+        ctx: Context<'info, Seal<'info>>,
         nonce: u64,
         commit: [u8; 32],
         feed_index: u8,
@@ -254,13 +343,16 @@ pub mod ratchet_core {
             minutes,
             stake,
             None,
+            &ctx.accounts.player.to_account_info(),
+            ctx.remaining_accounts,
+            ctx.program_id,
         )
     }
 
     /// Seal on behalf of a player under a bounded grant. The delegate signs
     /// and pays rent; the credits are the player's; nothing else is reachable.
-    pub fn seal_delegated(
-        ctx: Context<SealDelegated>,
+    pub fn seal_delegated<'info>(
+        ctx: Context<'info, SealDelegated<'info>>,
         nonce: u64,
         commit: [u8; 32],
         feed_index: u8,
@@ -288,12 +380,36 @@ pub mod ratchet_core {
             minutes,
             stake,
             Some(ctx.accounts.delegate.key()),
+            // The delegate pays rent and fees on a delegated seal, so the
+            // delegate pays the levy: whoever pays for the transaction pays
+            // for the cranking that transaction will need.
+            &ctx.accounts.delegate.to_account_info(),
+            ctx.remaining_accounts,
+            ctx.program_id,
         )
+    }
+
+    /// Create the crank purse. Permissionless and idempotent: anybody may call
+    /// it, once, and there is nothing to configure. It holds no authority and
+    /// no game balance -- only lamports that seals levied and cranker bounties
+    /// have not yet taken out.
+    ///
+    /// Deliberately its own instruction rather than `init_if_needed` on `seal`:
+    /// a player's first shot should not silently pay to create shared
+    /// infrastructure, and an account that everybody needs should be creatable
+    /// by anybody who wants the game to work.
+    pub fn init_crank_purse(ctx: Context<InitCrankPurse>) -> Result<()> {
+        let purse = &mut ctx.accounts.crank_purse;
+        purse.bump = ctx.bumps.crank_purse;
+        Ok(())
     }
 
     /// Permissionless capture of a fully verified sponsored Pyth push update
     /// into the feed clock. Duplicate or older observations are no-ops.
-    pub fn checkpoint(ctx: Context<Checkpoint>, feed_index: u8) -> Result<()> {
+    pub fn checkpoint<'info>(
+        ctx: Context<'info, Checkpoint<'info>>,
+        feed_index: u8,
+    ) -> Result<()> {
         let feed_id = feed_id_at(feed_index)?;
         let pu = load_push_price_update(&ctx.accounts.price_update, &feed_id)?;
         let msg = &pu.price_message;
@@ -343,6 +459,42 @@ pub mod ratchet_core {
             posted_slot: pu.posted_slot,
             cranker: ctx.accounts.cranker.key(),
         });
+        // Paid for work already done, out of the purse if the caller passed
+        // it. Zero, and silent, when they did not or when it is empty.
+        let _bounty = pay_cranker(
+            purse_in(ctx.remaining_accounts, ctx.program_id),
+            &ctx.accounts.cranker.to_account_info(),
+        )?;
+        Ok(())
+    }
+
+    /// Fix a forward shot's entry price to the first print at or after its
+    /// seal. Permissionless and idempotent, exactly like `bind_crossing`, and
+    /// for the same reason: the answer is a lookup, so who sends it and when
+    /// cannot change it.
+    pub fn bind_entry<'info>(
+        ctx: Context<'info, BindEntry<'info>>,
+    ) -> Result<()> {
+        require!(ctx.accounts.shot.state == ShotState::Sealed as u8, CoreError::WrongState);
+        require!(ctx.accounts.shot.ruleset == RULESET_V2, CoreError::UnknownRuleset);
+        require!(
+            entry_mode(ctx.accounts.shot.feed_index)? == ENTRY_FORWARD,
+            CoreError::EntryAlreadyBound
+        );
+        bind_entry_from_ring(&mut ctx.accounts.shot, &ctx.accounts.feed_clock)?;
+        emit!(EntryBound {
+            shot: ctx.accounts.shot.key(),
+            player: ctx.accounts.shot.player,
+            entry_e12: ctx.accounts.shot.entry_e12,
+            sealed_ts: ctx.accounts.shot.sealed_ts,
+            publish_time: ctx.accounts.shot.entry_publish_time,
+            prev_publish_time: ctx.accounts.shot.entry_prev_publish_time,
+            binder: ctx.accounts.cranker.key(),
+        });
+        let _bounty = pay_cranker(
+            purse_in(ctx.remaining_accounts, ctx.program_id),
+            &ctx.accounts.cranker.to_account_info(),
+        )?;
         Ok(())
     }
 
@@ -357,6 +509,14 @@ pub mod ratchet_core {
         // An upgrade that changes what these fields mean must bump RULESET and
         // teach settle the old one; it must never quietly re-price the air.
         require!(ctx.accounts.shot.ruleset == RULESET_V2, CoreError::UnknownRuleset);
+
+        // A forward shot with no entry cannot be scored: there is no strike to
+        // compare the exit against. Refusing is right -- the alternative is
+        // settling against entry_e12 = 0, which would score every such shot a
+        // hit. `bind_entry` is permissionless and idempotent, so this is a
+        // "somebody call it" and never a stuck shot; `void_shot` still refunds
+        // if nobody ever does.
+        require!(ctx.accounts.shot.entry_bound == 1, CoreError::EntryNotBound);
 
         // Bind first if nobody did. From here down settlement reads only what
         // the shot itself carries, so a ring that wrapped between expiry and
@@ -413,7 +573,9 @@ pub mod ratchet_core {
     /// exists. It costs one transaction and it is the only thing standing
     /// between a 64-slot ring and an outcome that depends on how busy the feed
     /// happened to be afterwards. Idempotent, so crankers may race freely.
-    pub fn bind_crossing(ctx: Context<BindCrossing>) -> Result<()> {
+    pub fn bind_crossing<'info>(
+        ctx: Context<'info, BindCrossing<'info>>,
+    ) -> Result<()> {
         let now = Clock::get()?.unix_timestamp;
         require!(ctx.accounts.shot.state == ShotState::Sealed as u8, CoreError::WrongState);
         require!(now >= ctx.accounts.shot.expiry_ts, CoreError::NotExpired);
@@ -432,6 +594,12 @@ pub mod ratchet_core {
             posted_slot: shot.exit_posted_slot,
             binder: ctx.accounts.cranker.key(),
         });
+        // Paid for work already done, out of the purse if the caller passed
+        // it. Zero, and silent, when they did not or when it is empty.
+        let _bounty = pay_cranker(
+            purse_in(ctx.remaining_accounts, ctx.program_id),
+            &ctx.accounts.cranker.to_account_info(),
+        )?;
         Ok(())
     }
 
@@ -586,6 +754,11 @@ fn seal_inner<'info>(
     minutes: u16,
     stake: u64,
     delegate: Option<Pubkey>,
+    // The three the levy needs. Passed rather than reached for, so the levy
+    // cannot quietly acquire access to anything else in the context.
+    player_ai: &AccountInfo<'info>,
+    remaining_accounts: &[AccountInfo<'info>],
+    program_id: &Pubkey,
 ) -> Result<()> {
     let clock = Clock::get()?;
     let now = clock.unix_timestamp;
@@ -599,16 +772,53 @@ fn seal_inner<'info>(
     require!(ledger.credits >= stake, CoreError::InsufficientCredits);
     require!(u32::from(ledger.open) < chambers_for(ledger.xp), CoreError::ChambersFull);
 
+    // UNDER ENTRY_FORWARD THE ENTRY IS NOT READ HERE AT ALL. It does not exist
+    // yet: it is the first print at or after this instant, and `bind_entry`
+    // fixes it once that print lands. The freshness bound is therefore not
+    // relaxed, it is inapplicable -- there is no stale price to seal on.
+    //
+    // The account is still loaded and still checked, because a seal on a feed
+    // whose sponsored account is missing, mis-owned or unverified must fail
+    // here rather than strand a shot nobody can bind.
+    let mode = entry_mode(feed_index)?;
     let pu = load_push_price_update(price_update, &feed_id)?;
-    let price = pu
-        .get_price_no_older_than(&clock, max_seal_age(minutes), &feed_id)
-        .map_err(|_| error!(CoreError::InvalidSealPrice))?;
-    check_confidence(price.price, price.conf)?;
-    let entry_e12 = scale_to_e12(price.price, price.exponent)?;
+    let entry_e12 = if mode == ENTRY_FORWARD {
+        require!(pu.price_message.feed_id == feed_id, CoreError::BadFeed);
+        0
+    } else {
+        let price = pu
+            .get_price_no_older_than(&clock, max_seal_age(minutes), &feed_id)
+            .map_err(|_| error!(CoreError::InvalidSealPrice))?;
+        check_confidence(price.price, price.conf)?;
+        scale_to_e12(price.price, price.exponent)?
+    };
 
     ledger.credits -= stake;
     ledger.open += 1;
     ledger.sealed = ledger.sealed.saturating_add(1);
+
+    // THE LEVY. Lamports, not credits: the purse pays transaction fees, and
+    // credits cannot pay a transaction fee. It is taken from the player's SOL
+    // in the same transaction they are already paying rent and fees in.
+    //
+    // At CRANK_LEVY_LAMPORTS = 0 this whole block is skipped and seal behaves
+    // exactly as it did under ruleset 2. When it is set, the purse becomes
+    // REQUIRED rather than optional -- a levy that could be dodged by omitting
+    // an account is not a levy -- and that requirement activates with the
+    // number, not before it.
+    if CRANK_LEVY_LAMPORTS > 0 {
+        let purse = purse_in(remaining_accounts, program_id)
+            .ok_or(CoreError::CrankPurseMissing)?;
+        let from = player_ai
+            .lamports()
+            .checked_sub(CRANK_LEVY_LAMPORTS)
+            .ok_or(CoreError::InsufficientLamports)?;
+        **player_ai.try_borrow_mut_lamports()? = from;
+        **purse.try_borrow_mut_lamports()? = purse
+            .lamports()
+            .checked_add(CRANK_LEVY_LAMPORTS)
+            .ok_or(CoreError::MathOverflow)?;
+    }
 
     shot.player = player;
     shot.delegate = delegate.unwrap_or_default();
@@ -622,6 +832,11 @@ fn seal_inner<'info>(
     shot.sealed_ts = now;
     shot.expiry_ts = expiry_ts;
     shot.entry_e12 = entry_e12;
+    // Observed entries are bound the moment they are read. Forward entries are
+    // not, and `settle` refuses until they are.
+    shot.entry_bound = if mode == ENTRY_FORWARD { 0 } else { 1 };
+    shot.entry_publish_time = 0;
+    shot.entry_prev_publish_time = 0;
     shot.ruleset = RULESET_V2;
     shot.band_k_bps = BAND_K_BPS;
     shot.crossing_bound = 0;
@@ -644,6 +859,39 @@ fn seal_inner<'info>(
 /// shot owns every number its settlement depends on -- price, confidence, the
 /// predecessor it bracketed, the slot it was posted in -- so the outcome can be
 /// rechecked by anyone from the shot alone, long after the ring has wrapped.
+/// Which entry rule a feed sells under. Out-of-range is an error rather than a
+/// default: a feed the table does not describe must not quietly get one.
+pub fn entry_mode(feed_index: u8) -> Result<u8> {
+    ENTRY_MODE
+        .get(usize::from(feed_index))
+        .copied()
+        .ok_or(error!(CoreError::BadFeed))
+}
+
+/// Fix a forward shot's entry to the first print at or after its seal.
+///
+/// The same crossing predicate as the exit -- `prev_publish_time < t <=
+/// publish_time` -- with `t` being `sealed_ts` instead of `expiry_ts`. Exactly
+/// one Pyth message satisfies it, so this is a lookup and not a choice, and
+/// running it twice reaches the same answer or refuses.
+fn bind_entry_from_ring(shot: &mut Shot, feed_clock: &FeedClock) -> Result<()> {
+    require!(feed_clock.feed_id == shot.feed_id, CoreError::BadFeed);
+    require!(shot.entry_bound == 0, CoreError::EntryAlreadyBound);
+    let observation = feed_clock
+        .crossing(shot.sealed_ts)
+        .ok_or(CoreError::CrossingNotCheckpointed)?;
+    // The entry must not be a print that predates the seal. `crossing` already
+    // guarantees it, and this says so out loud because it is the whole
+    // property: an entry nobody could know at seal.
+    require!(observation.publish_time >= shot.sealed_ts, CoreError::PriceOutsideWindow);
+    check_confidence_e12(observation.price_e12, observation.conf_e12)?;
+    shot.entry_e12 = observation.price_e12;
+    shot.entry_publish_time = observation.publish_time;
+    shot.entry_prev_publish_time = observation.prev_publish_time;
+    shot.entry_bound = 1;
+    Ok(())
+}
+
 fn bind_from_ring(shot: &mut Shot, feed_clock: &FeedClock, now: i64) -> Result<()> {
     require!(feed_clock.feed_id == shot.feed_id, CoreError::BadFeed);
     let deadline = shot.expiry_ts.checked_add(SETTLE_DEADLINE_SECS).ok_or(CoreError::MathOverflow)?;
@@ -762,6 +1010,53 @@ pub fn chambers_for(xp: u64) -> u32 {
 }
 
 /// min(60, max(30, round(0.15 * window_seconds))) — the live seal rule.
+/// Find the crank purse among `remaining_accounts`, if the caller passed it.
+///
+/// Returning `None` rather than erroring is the whole design: a cranker who
+/// does not care about the bounty omits the account and the instruction behaves
+/// exactly as it did before the purse existed. The address is derived and
+/// compared here, so passing some other account cannot redirect a payment.
+pub fn purse_in<'a, 'info>(
+    remaining: &'a [AccountInfo<'info>],
+    program_id: &Pubkey,
+) -> Option<&'a AccountInfo<'info>> {
+    let (expected, _) = Pubkey::find_program_address(&[CRANK_PURSE_SEED], program_id);
+    remaining
+        .iter()
+        .find(|ai| ai.key() == expected && ai.is_writable && ai.owner == program_id)
+}
+
+/// Pay a cranker for work already done, out of the purse, never below the
+/// purse's own rent-exempt minimum.
+///
+/// Every branch that cannot pay returns `Ok(0)` rather than an error. A bounty
+/// that could refuse an instruction would turn a funding mechanism into a way
+/// to stop settlement, which is the opposite of the point.
+pub fn pay_cranker(purse: Option<&AccountInfo>, cranker: &AccountInfo) -> Result<u64> {
+    if CRANK_BOUNTY_LAMPORTS == 0 {
+        return Ok(0);
+    }
+    let Some(purse) = purse else { return Ok(0) };
+    let floor = Rent::get()?.minimum_balance(purse.data_len());
+    let balance = purse.lamports();
+    let spendable = balance.saturating_sub(floor);
+    let pay = core::cmp::min(CRANK_BOUNTY_LAMPORTS, spendable);
+    if pay == 0 {
+        return Ok(0);
+    }
+    // Direct lamport movement: the purse is program-owned, so no CPI and no
+    // signer seeds are needed, and there is no path here that can touch an
+    // account this program does not own.
+    **purse.try_borrow_mut_lamports()? = balance
+        .checked_sub(pay)
+        .ok_or(CoreError::MathOverflow)?;
+    **cranker.try_borrow_mut_lamports()? = cranker
+        .lamports()
+        .checked_add(pay)
+        .ok_or(CoreError::MathOverflow)?;
+    Ok(pay)
+}
+
 pub fn max_seal_age(minutes: u16) -> u64 {
     let window = u64::from(minutes) * 60;
     ((window * 15 + 50) / 100).clamp(30, 60)
@@ -838,6 +1133,19 @@ fn check_confidence(price: i64, conf: u64) -> Result<()> {
     require!(price > 0, CoreError::BadPrice);
     require!(
         (conf as u128).saturating_mul(10_000) <= (price as u128).saturating_mul(MAX_CONF_BPS),
+        CoreError::TooUncertain
+    );
+    Ok(())
+}
+
+/// The same confidence rule, for values already scaled to e12 as the ring
+/// stores them. A forward-bound entry has to clear the bar an observed entry
+/// clears at seal, or the slow feed would buy laxity as well as lateness.
+fn check_confidence_e12(price_e12: i64, conf_e12: i64) -> Result<()> {
+    require!(price_e12 > 0, CoreError::BadPrice);
+    require!(conf_e12 >= 0, CoreError::BadPrice);
+    require!(
+        (conf_e12 as u128).saturating_mul(10_000) <= (price_e12 as u128).saturating_mul(MAX_CONF_BPS),
         CoreError::TooUncertain
     );
     Ok(())
@@ -984,6 +1292,31 @@ pub struct Checkpoint<'info> {
 }
 
 #[derive(Accounts)]
+pub struct BindEntry<'info> {
+    #[account(mut)]
+    pub shot: Account<'info, Shot>,
+    #[account(seeds = [b"clock".as_ref(), &[shot.feed_index]], bump = feed_clock.bump)]
+    pub feed_clock: Account<'info, FeedClock>,
+    #[account(mut)]
+    pub cranker: Signer<'info>,
+}
+
+#[derive(Accounts)]
+pub struct InitCrankPurse<'info> {
+    #[account(
+        init,
+        payer = payer,
+        space = 8 + CrankPurse::SIZE,
+        seeds = [CRANK_PURSE_SEED],
+        bump
+    )]
+    pub crank_purse: Account<'info, CrankPurse>,
+    #[account(mut)]
+    pub payer: Signer<'info>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
 pub struct Settle<'info> {
     #[account(mut)]
     pub shot: Account<'info, Shot>,
@@ -991,6 +1324,11 @@ pub struct Settle<'info> {
     pub ledger: Account<'info, PlayerLedger>,
     #[account(seeds = [b"clock".as_ref(), &[shot.feed_index]], bump = feed_clock.bump)]
     pub feed_clock: Account<'info, FeedClock>,
+    // `mut` because a bounty credits this account. It was read-only while
+    // cranking paid nothing; a lamport credit to a non-writable account fails
+    // at runtime rather than at compile time, which is the kind of bug that
+    // only shows up on a cluster.
+    #[account(mut)]
     pub cranker: Signer<'info>,
 }
 
@@ -1154,10 +1492,21 @@ pub struct Shot {
     pub hit: u8,
     pub state: u8,
     pub void_reason: u8,
+    /// The publish time the entry was taken from. Under ENTRY_OBSERVED this is
+    /// the print that was read at seal; under ENTRY_FORWARD it is the first
+    /// print at or after the seal, and is zero until `bind_entry` runs.
+    pub entry_publish_time: i64,
+    /// Its predecessor, so the crossing that produced the entry can be checked
+    /// by a stranger the same way the exit crossing can.
+    pub entry_prev_publish_time: i64,
+    /// 1 once the entry is fixed. Always 1 at seal under ENTRY_OBSERVED.
+    pub entry_bound: u8,
 }
 impl Shot {
     pub const SIZE: usize =
-        32 + 32 + 8 + 32 + 32 + 1 + 2 + 8 + 8 + 8 + (8 * 6) + 2 + 4 + 8 + 8 + 8 + 2 + 2 + 1;
+        32 + 32 + 8 + 32 + 32 + 1 + 2 + 8 + 8 + 8 + (8 * 6) + 2 + 4 + 8 + 8 + 8 + 2 + 2 + 1
+        // entry evidence: publish_time, prev_publish_time, entry_bound
+        + 8 + 8 + 1;
 }
 
 #[account]
@@ -1277,6 +1626,21 @@ impl DelegateGrant {
 pub struct LegacyClaim {
     pub claimed: bool,
 }
+/// The crank purse. Holds only what seals levied and pays only cranker
+/// bounties; it is never a payout source and no game balance is kept here.
+/// The counters are for auditing the flow from outside without replaying every
+/// transaction: levied in, paid out, and how many calls were compensated.
+#[account]
+pub struct CrankPurse {
+    pub bump: u8,
+    pub levied: u64,
+    pub paid: u64,
+    pub calls: u64,
+}
+impl CrankPurse {
+    pub const SIZE: usize = 1 + 8 + 8 + 8;
+}
+
 impl LegacyClaim {
     pub const SIZE: usize = 1;
 }
@@ -1335,6 +1699,16 @@ pub struct Checkpointed {
     pub cranker: Pubkey,
 }
 #[event]
+pub struct EntryBound {
+    pub shot: Pubkey,
+    pub player: Pubkey,
+    pub entry_e12: i64,
+    pub sealed_ts: i64,
+    pub publish_time: i64,
+    pub prev_publish_time: i64,
+    pub binder: Pubkey,
+}
+#[event]
 pub struct CrossingBound {
     pub shot: Pubkey,
     pub player: Pubkey,
@@ -1385,6 +1759,14 @@ pub struct LegacyClaimed {
 
 #[error_code]
 pub enum CoreError {
+    #[msg("the crank purse account is required while a levy is set")]
+    CrankPurseMissing,
+    #[msg("this shot's entry price is already bound")]
+    EntryAlreadyBound,
+    #[msg("this shot's entry price has not been bound yet")]
+    EntryNotBound,
+    #[msg("not enough lamports to pay the crank levy")]
+    InsufficientLamports,
     #[msg("amount must be at least one whole token")]
     InvalidAmount,
     #[msg("wrong mint")]
@@ -1585,7 +1967,7 @@ mod tests {
             side: 1,
             hit: 1,
             state: 2,
-            void_reason: 0,
+            void_reason: 0, entry_publish_time: 0, entry_prev_publish_time: 0, entry_bound: 1,
         };
         assert_eq!(close_position(&mut l, &shot, Outcome::Hit).unwrap(), 23);
         assert_eq!(l.credits, 1850);
@@ -1641,9 +2023,19 @@ mod tests {
     #[test]
     fn account_sizes_match_layouts() {
         // 217 bytes of G1 layout, plus the 29 bytes G2 added so that a settled
-        // shot carries every number its own settlement used.
-        assert_eq!(Shot::SIZE, 32 + 32 + 8 + 32 + 32 + 1 + 2 + 8 + 8 + 8 + 48 + 2 + 4 + 29);
-        assert_eq!(Shot::SIZE, 246);
+        // shot carries every number its own settlement used, plus 17 for the
+        // entry evidence: publish_time, prev_publish_time and the bound flag.
+        //
+        // A shot must be able to prove BOTH ends of itself to a stranger. It
+        // could already prove its exit; under ENTRY_FORWARD the entry is also a
+        // crossing somebody bound after the fact, so it needs the same evidence
+        // or half the settlement is unauditable.
+        //
+        // The cost of those 17 bytes is real and small: rent goes from 0.002659
+        // to 0.002777 SOL per open shot, which docs/ONCHAIN_COST.md recomputes
+        // from this constant rather than restating.
+        assert_eq!(Shot::SIZE, 32 + 32 + 8 + 32 + 32 + 1 + 2 + 8 + 8 + 8 + 48 + 2 + 4 + 29 + 17);
+        assert_eq!(Shot::SIZE, 263);
         assert_eq!(FeedClock::SIZE, 46 + CLOCK_CAPACITY * 40);
         assert_eq!(PlayerLedger::SIZE, 131);
         assert_eq!(Podium::SIZE, 128);
@@ -1678,7 +2070,7 @@ mod tests {
             side: 1,
             hit: 0,
             state: ShotState::Sealed as u8,
-            void_reason: 0,
+            void_reason: 0, entry_publish_time: 0, entry_prev_publish_time: 0, entry_bound: 1,
         }
     }
 
@@ -1816,6 +2208,179 @@ mod tests {
         assert_eq!(horizon_index_of(1440).unwrap(), 6);
     }
 
+    // ---- THE CRANK PURSE ----------------------------------------------
+    //
+    // Both numbers ship at zero, so the danger is not that the mechanism
+    // misbehaves today -- it does nothing today. The danger is that it ships
+    // WRONG and nobody notices until the number is raised, which is the same
+    // trap BAND_K_BPS sits in. So these test the shape rather than the effect.
+
+    // ---- ENTRY MODE ---------------------------------------------------
+
+    #[test]
+    fn every_feed_ships_on_the_observed_entry() {
+        // Which feeds are slow enough to need a forward entry is a measurement,
+        // and the measurement is running rather than finished. Until it lands,
+        // every feed behaves exactly as it did under ruleset 2.
+        assert_eq!(ENTRY_MODE.len(), FEEDS.len(), "one mode per feed, or a feed gets no rule");
+        assert!(ENTRY_MODE.iter().all(|m| *m == ENTRY_OBSERVED));
+    }
+
+    #[test]
+    fn a_feed_outside_the_table_has_no_entry_rule() {
+        // Defaulting an unknown feed to ENTRY_OBSERVED would be the dangerous
+        // direction: it would sell a slow feed under the fast rule.
+        for i in 0..FEEDS.len() {
+            assert!(entry_mode(i as u8).is_ok());
+        }
+        assert!(entry_mode(FEEDS.len() as u8).is_err());
+        assert!(entry_mode(255).is_err());
+    }
+
+    #[test]
+    fn a_forward_entry_is_the_first_print_at_or_after_the_seal() {
+        // The same predicate as the exit, pointed at the other end of the shot:
+        // prev_publish_time < sealed_ts <= publish_time. Exactly one message
+        // satisfies it, so binding is a lookup and not a choice.
+        let mut clock = FeedClock {
+            feed_id: FEEDS[0], latest_publish_time: 0, bump: 1, head: 0,
+            observations: vec![],
+        };
+        for (prev, pub_t, px) in [(100i64, 160i64, 10_000i64), (160, 220, 11_000), (220, 280, 12_000)] {
+            clock.observations.push(Observation {
+                prev_publish_time: prev, publish_time: pub_t, price_e12: px,
+                conf_e12: 1, posted_slot: 1,
+            });
+        }
+        let mut shot = sealed_shot(9_999, 0, 0);
+        shot.feed_id = FEEDS[0];
+        shot.feed_index = 0;
+        shot.sealed_ts = 200;          // falls inside (160, 220]
+        shot.entry_bound = 0;
+        bind_entry_from_ring(&mut shot, &clock).unwrap();
+        assert_eq!(shot.entry_e12, 11_000, "the print that BRACKETS the seal, not the one before it");
+        assert_eq!(shot.entry_publish_time, 220);
+        assert_eq!(shot.entry_prev_publish_time, 160);
+        assert_eq!(shot.entry_bound, 1);
+        // The entry is never a price that existed before the seal. That is the
+        // whole property: nobody could know it when the shot was taken.
+        assert!(shot.entry_publish_time >= shot.sealed_ts);
+    }
+
+    #[test]
+    fn an_entry_binds_once_and_then_refuses() {
+        let mut clock = FeedClock {
+            feed_id: FEEDS[0], latest_publish_time: 0, bump: 1, head: 0,
+            observations: vec![Observation {
+                prev_publish_time: 160, publish_time: 220, price_e12: 11_000,
+                conf_e12: 1, posted_slot: 1,
+            }],
+        };
+        let mut shot = sealed_shot(9_999, 0, 0);
+        shot.feed_id = FEEDS[0];
+        shot.feed_index = 0;
+        shot.sealed_ts = 200;
+        shot.entry_bound = 0;
+        bind_entry_from_ring(&mut shot, &clock).unwrap();
+        let first = shot.entry_e12;
+        // A second bind must refuse rather than re-price. Idempotent by
+        // refusal, exactly like bind_crossing: whoever sends it and whenever
+        // cannot change what the shot is worth.
+        assert!(bind_entry_from_ring(&mut shot, &clock).is_err());
+        assert_eq!(shot.entry_e12, first);
+        clock.observations[0].price_e12 = 99_999;
+        assert!(bind_entry_from_ring(&mut shot, &clock).is_err());
+        assert_eq!(shot.entry_e12, first, "and a changed ring cannot reach a bound entry");
+    }
+
+    #[test]
+    fn an_unbindable_entry_refuses_rather_than_scoring_zero() {
+        // No observation brackets the seal: the ring has not been checkpointed
+        // there. Refusing is the only safe answer -- entry_e12 would be 0, and
+        // a strike of zero scores every shot a hit.
+        let clock = FeedClock {
+            feed_id: FEEDS[0], latest_publish_time: 0, bump: 1, head: 0,
+            observations: vec![Observation {
+                prev_publish_time: 300, publish_time: 360, price_e12: 11_000,
+                conf_e12: 1, posted_slot: 1,
+            }],
+        };
+        let mut shot = sealed_shot(9_999, 0, 0);
+        shot.feed_id = FEEDS[0];
+        shot.feed_index = 0;
+        shot.sealed_ts = 200;
+        shot.entry_bound = 0;
+        assert!(bind_entry_from_ring(&mut shot, &clock).is_err());
+        assert_eq!(shot.entry_bound, 0);
+        assert_eq!(shot.entry_e12, 0);
+    }
+
+    #[test]
+    fn a_forward_entry_clears_the_same_confidence_bar() {
+        // A slow feed must not buy laxity along with lateness.
+        let clock = FeedClock {
+            feed_id: FEEDS[0], latest_publish_time: 0, bump: 1, head: 0,
+            observations: vec![Observation {
+                prev_publish_time: 160, publish_time: 220, price_e12: 10_000,
+                conf_e12: 10_000, posted_slot: 1,          // 100% of price: absurd
+            }],
+        };
+        let mut shot = sealed_shot(9_999, 0, 0);
+        shot.feed_id = FEEDS[0];
+        shot.feed_index = 0;
+        shot.sealed_ts = 200;
+        shot.entry_bound = 0;
+        assert!(bind_entry_from_ring(&mut shot, &clock).is_err(),
+            "a print too uncertain to seal on is too uncertain to bind to");
+    }
+
+    #[test]
+    fn the_crank_numbers_ship_inert() {
+        assert_eq!(CRANK_LEVY_LAMPORTS, 0, "no levy is taken until it is decided");
+        assert_eq!(CRANK_BOUNTY_LAMPORTS, 0, "and no bounty is paid");
+    }
+
+    #[test]
+    fn a_bounty_at_or_below_the_transaction_fee_pays_nobody() {
+        // The signature fee is 5,000 lamports. A cranker who spends 5,000 to
+        // earn 5,000 has done unpaid work with extra steps, so if this number
+        // is ever raised it must clear the fee. Zero is exempt: zero is off.
+        const SIGNATURE_FEE: u64 = 5_000;
+        assert!(
+            CRANK_BOUNTY_LAMPORTS == 0 || CRANK_BOUNTY_LAMPORTS > SIGNATURE_FEE,
+            "a bounty must beat the fee it costs to collect, or it is charity with extra steps"
+        );
+    }
+
+    #[test]
+    fn the_levy_must_be_worth_collecting_relative_to_the_bounty() {
+        // A levy smaller than a bounty drains the purse faster than seals fill
+        // it, which is a slow way to arrive back where we started. It is not
+        // wrong -- a purse may be seeded -- but the ratio should be a decision,
+        // so this pins that both are currently zero together.
+        assert_eq!(
+            CRANK_LEVY_LAMPORTS == 0,
+            CRANK_BOUNTY_LAMPORTS == 0,
+            "levy and bounty must be turned on together, or the purse has one end open"
+        );
+    }
+
+    #[test]
+    fn the_purse_is_not_a_pot() {
+        // Size is the whole claim: three counters and a bump. There is no
+        // authority field, no owner, no config, and nowhere to record a claim
+        // on the balance. The only thing that can leave is a bounty.
+        assert_eq!(CrankPurse::SIZE, 1 + 8 + 8 + 8);
+    }
+
+    #[test]
+    fn the_purse_seed_is_a_constant_not_a_parameter() {
+        // One purse, derived from a fixed seed, so no caller can point a
+        // payment at an account of their choosing.
+        assert_eq!(CRANK_PURSE_SEED, b"crank_purse");
+    }
+
+
     /// Prints the golden vectors consumed by `test/test_core_vectors.mjs`.
     /// `cargo test print_golden_vectors -- --ignored --nocapture`
     #[test]
@@ -1916,7 +2481,7 @@ mod tests {
         let (grant_pda, _) = Pubkey::find_program_address(&[b"grant", wallet.as_ref(), Pubkey::new_from_array([9u8; 32]).as_ref()], &crate::ID);
         let (claim_pda, _) = Pubkey::find_program_address(&[b"claim", wallet.as_ref()], &crate::ID);
         // Serialized account samples (discriminator + Borsh), for parsers.
-        let shot = Shot { player: wallet, delegate: Pubkey::new_from_array([9u8; 32]), nonce: 42, commit: [7u8; 32], feed_id: FEEDS[3], feed_index: 3, minutes: 30, stake: 2_500, xp_base: 70, xp_awarded: 81, sealed_ts: 1_800_000_000, expiry_ts: 1_800_001_800, settled_ts: 1_800_001_805, entry_e12: 123_456_789_012_345, exit_e12: 123_456_789_999_999, exit_publish_time: 1_800_001_803, exit_conf_e12: 61_728_394, exit_prev_publish_time: 1_800_001_700, exit_posted_slot: 300_000_250, ruleset: RULESET_V2, band_k_bps: BAND_K_BPS, crossing_bound: 1, p_bps: 6500, side: 1, hit: 1, state: 3, void_reason: 0 };
+        let shot = Shot { player: wallet, delegate: Pubkey::new_from_array([9u8; 32]), nonce: 42, commit: [7u8; 32], feed_id: FEEDS[3], feed_index: 3, minutes: 30, stake: 2_500, xp_base: 70, xp_awarded: 81, sealed_ts: 1_800_000_000, expiry_ts: 1_800_001_800, settled_ts: 1_800_001_805, entry_e12: 123_456_789_012_345, exit_e12: 123_456_789_999_999, exit_publish_time: 1_800_001_803, exit_conf_e12: 61_728_394, exit_prev_publish_time: 1_800_001_700, exit_posted_slot: 300_000_250, ruleset: RULESET_V2, band_k_bps: BAND_K_BPS, crossing_bound: 1, p_bps: 6500, side: 1, hit: 1, state: 3, void_reason: 0, entry_publish_time: 0, entry_prev_publish_time: 0, entry_bound: 1 };
         let ledger = PlayerLedger { player: wallet, credits: 9_350, xp: 24, streak: 0, best: 1, hits: 1, shots: 2, voids: 1, forfeits: 0, sealed: 3, open: 1, day: 20_833, daily_xp: 24, burned: 700_000, reloaded: 1_000_000, bump: 254 };
         let podium = Podium { day: 20_833, seats: [Seat { player: wallet, daily_xp: 24 }, Seat { player: Pubkey::new_from_array([9u8; 32]), daily_xp: 7 }, Seat::default()] };
         let clock = FeedClock { feed_id: FEEDS[3], latest_publish_time: 1_800_001_803, head: 2, bump: 253, observations: vec![
