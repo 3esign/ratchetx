@@ -151,6 +151,81 @@ It is also a product whose card can state its own limits precisely — TSLAX not
 TSLA, 6h and 24h only, entry binds forward — and be *more* trustworthy for
 saying so. That is the whole thesis of this machine applied to a new asset.
 
+## The slowness cuts both ways, and the second cut is in our favour
+
+Added 2026-09-03, from `docs/ONCHAIN_COST.md`. An 870-second cadence is a
+problem at the seal and an *advantage* everywhere else, because every other cost
+in this machine is paid per publish interval rather than per shot.
+
+| | SOL (60s) | xStock (870s) |
+| --- | --- | --- |
+| checkpoint ceiling | 1,440 tx/day | **99 tx/day** |
+| ring coverage (64 observations) | 64 min | **928 min** |
+| checkpoints per shot at 3,000 shots/day | 0.420 | **0.033** |
+
+Two things fall out of that, and neither was obvious.
+
+**The ring stops being a problem.** 64 observations at 870 seconds is 15.5 hours
+of coverage. The 6-hour horizon fits inside it with room to spare, so a 6-hour
+stock shot settles straight from the ring with **no `bind_crossing` call at
+all** — where a 60-minute SOL shot is already close to the 64-minute edge.
+Blocker 2, the one that needed a whole new instruction to solve for crypto,
+barely applies to stocks. Only the 24-hour horizon needs a bind, and it needs
+exactly one.
+
+**Cranking a stock feed is nearly free.** 13× fewer checkpoints per shot than
+SOL, because one checkpoint serves every shot expiring in its 870-second window
+and that window is 14.5× wider. On the levy in `ONCHAIN_COST.md`, stocks are the
+cheapest thing on the board to keep settling.
+
+So the honest summary of the cadence is: it forbids short windows and it makes
+long ones cheaper and more robust than crypto's. That is a coherent product —
+long-horizon stock markets, 24/7, settling more reliably than the flash markets
+beside them — rather than a compromise.
+
+## Forward-binding needs the bounty, and that is not a coincidence
+
+Binding the entry forward adds a step somebody must take: the entry price is not
+known at seal, so an instruction has to bind it once the next print lands. That
+is a new liveness dependency, and on its own it would make the proposal *worse*
+than the rule it replaces — an unbound entry is a shot that cannot settle, and
+nobody is paid to bind it.
+
+The crank bounty in `ONCHAIN_COST.md` is exactly what removes that objection.
+`bind_entry` joins `checkpoint`, `bind_crossing`, `settle`, `void_shot` and
+`forfeit` as a permissionless action that pays its caller, so it gets done
+because doing it is profitable rather than because somebody is watching.
+
+**So the two proposals are one proposal.** Forward-binding is safe to ship only
+if the bounty ships with it, and the bounty is what turns every "somebody must
+call this" in the program from a hope into a market. Neither should be built
+alone.
+
+And the amortisation applies here too: one `bind_entry` call serves every shot
+sealed in the same 870-second window, so the slow feed makes entry-binding
+cheap for the same reason it makes checkpointing cheap.
+
+## What the cadence measurement can and cannot change
+
+The measurement running tonight settles one thing: whether 870 seconds is
+stable. It is worth having, and it is not worth waiting on before building,
+because of what the possible outcomes do to the decision.
+
+| if the measurement shows | the mechanism | the mask |
+| --- | --- | --- |
+| ≤ 120s (very unlikely — 870 was measured) | unchanged, stocks work today | fully open |
+| ~870s and stable | forward-bind the entry | 360 + 1440 |
+| slower, or erratic | forward-bind the entry | 1440 only, or none |
+
+**In every outcome but the first, the answer is the same mechanism.** The
+measurement tunes *which horizons open*, which is one constant in
+`HORIZON_MASK` — not *whether the design is right*. So the ruleset-3 work
+(`entry_publish_time`, `bind_entry`, the per-feed `ENTRY_MODE`, and the crank
+bounty it depends on) can start now, and the mask value is filled in when the
+report lands.
+
+That is the answer to "do we have to wait": no, not to build. Only to publish.
+
 ## What must be measured before any of it ships
 
 1. **Is 870s the real cadence, or was it a quiet afternoon?** 13.4 minutes and
