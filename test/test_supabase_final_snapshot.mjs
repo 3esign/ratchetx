@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import os from 'node:os';
+import path from 'node:path';
 import { createRequire } from 'node:module';
 import test from 'node:test';
 import {
@@ -23,20 +25,33 @@ const rows = [
   { key:'guarded:receipt:secret-receipt', canonical:'["guarded:receipt:secret-receipt",{"digest":"abc"},null,"2026-09-03T00:00:00.000000Z"]' },
 ];
 
+// Every bucket the tool conserves, written out rather than derived from it: a test
+// that imported the list could not notice the list changing. When the tool adds a
+// bucket this fixture fails, and that failure is the decision point -- a new
+// conserved quantity is a change to what the snapshot promises.
 const cleanConservation = Object.fromEntries([
-  'player_count','player_credits','legacy_player_balance','player_xp','player_attributed_rcx_burned',
-  'open_shot_count','open_shot_stake','settlement_outbox_count','retained_closed_shot_count','open_challenge_count',
-  'open_challenge_stake','pending_play_credits','pending_champion_received_rcx',
-  'pending_champion_self_routed_rcx','play_session_count','play_session_pending_count',
-  'history_wallet_count','history_entry_count','champion_history_wallet_count',
-  'champion_history_entry_count','signature_gate_count','reload_signature_gate_count',
-  'seal_event_gate_count','settlement_event_gate_count','guarded_receipt_count',
-  'live_lease_count','expired_row_count','stats_allocated_burned_credits',
-  'weekly_pot_credits','daily_pot_credits','verified_rcx_burned','verified_rcx_champion_paid',
-  'verified_rcx_champion_retained','hit_payout_credits','player_shape_violations',
-  'player_container_shape_violations','negative_player_values','open_shot_shape_violations',
-  'challenge_shape_violations','challenge_container_shape_violations','queue_shape_violations',
-  'play_session_shape_violations','history_shape_violations','champion_history_shape_violations',
+  'player_count','player_credits','legacy_player_balance','player_xp',
+  'player_attributed_rcx_burned','open_shot_count','open_shot_stake','settlement_outbox_count',
+  'settlement_outbox_stake','retained_closed_shot_count','retained_closed_shot_stake',
+  'open_challenge_count','open_challenge_stake','stats_missing_expected_fields',
+  'pending_play_credits','pending_champion_received_rcx','pending_champion_self_routed_rcx',
+  'play_session_count','play_session_pending_count','history_wallet_count',
+  'history_entry_count','champion_history_wallet_count','champion_history_entry_count',
+  'signature_gate_count','reload_signature_gate_count','seal_event_gate_count',
+  'settlement_event_gate_count','guarded_receipt_count','stake_fund_gate_count',
+  'stake_reverse_gate_count','hit_payout_gate_count','ladder_gate_count','ledger_gate_count',
+  'rollover_plan_count','rollover_payment_gate_count','rollover_debit_gate_count',
+  'live_lease_count','expired_row_count','stats_allocated_burned_credits','weekly_pot_credits',
+  'daily_pot_credits','stats_source_row_count','stats_shot_count','verified_rcx_burned',
+  'verified_rcx_champion_paid','verified_rcx_champion_retained','hit_payout_credits',
+  'staking_paid_credits','staker_count','player_shape_violations',
+  'player_container_shape_violations','player_numeric_shape_violations',
+  'negative_player_values','open_shot_shape_violations','duplicate_open_shot_ids',
+  'settlement_outbox_shape_violations','duplicate_settlement_outbox_ids',
+  'closed_shot_shape_violations','duplicate_closed_shot_ids','challenge_shape_violations',
+  'duplicate_challenge_ids','challenge_container_shape_violations','queue_shape_violations',
+  'stats_shape_violations','play_session_shape_violations','history_shape_violations',
+  'champion_history_shape_violations',
 ].map(name => [name, name === 'player_count' ? '1' : '0']));
 
 test('row digest and Merkle root are order-independent but mutation-sensitive', () => {
@@ -64,20 +79,26 @@ test('keyspace inventory publishes families, never private suffixes', () => {
   assert.doesNotMatch(text, /wallet-secret|secret-receipt/);
 });
 
-test('ceremony arguments require a writer barrier and evidence hash', () => {
-  const parsed = parseArgs([
-    '--cutover-id','2026-09-03-final',
+test('ceremony arguments require a writer barrier and evidence on disk', () => {
+  // The barrier evidence is an absolute path to a redacted attestation, not a bare
+  // digest passed on a command line. A hash on its own proves that somebody typed
+  // sixty-four characters; a file can be read, checked for secrets and hashed by the
+  // tool itself, which is what the manifest actually needs to stand behind.
+  const evidence = path.resolve(path.join(os.tmpdir(), 'ratchet-barrier-evidence.json'));
+  const base = ['--cutover-id','2026-09-03-final',
     '--writer-barrier','legacy-runtime-credential-revoked',
-    '--barrier-evidence-sha256','a'.repeat(64),
-    '--quiet-seconds','15',
-  ]);
+    '--barrier-evidence-file',evidence];
+  const parsed = parseArgs([...base, '--quiet-seconds','15']);
   assert.equal(parsed.quietSeconds, 15);
+  assert.equal(parsed.barrierEvidenceFile, evidence);
   assert.match(parsed.publicManifest, /legacy-snapshot-manifest-2026-09-03-final\.json$/);
   assert.throws(() => parseArgs(['--cutover-id','2026-09-03-final']), /WRITER_BARRIER_REQUIRED/);
-  assert.throws(() => parseArgs([
-    '--cutover-id','2026-09-03-final','--writer-barrier','legacy-runtime-credential-revoked',
-    '--barrier-evidence-sha256','a'.repeat(64),'--apply','yes',
-  ]), /UNKNOWN_ARGUMENT/);
+  assert.throws(() => parseArgs(['--cutover-id','2026-09-03-final',
+    '--writer-barrier','legacy-runtime-credential-revoked']), /BARRIER_EVIDENCE_FILE_REQUIRED/);
+  assert.throws(() => parseArgs(['--cutover-id','2026-09-03-final',
+    '--writer-barrier','legacy-runtime-credential-revoked',
+    '--barrier-evidence-file','relative/path.json']), /BARRIER_EVIDENCE_FILE_REQUIRED/);
+  assert.throws(() => parseArgs([...base, '--apply','yes']), /UNKNOWN_ARGUMENT/);
 });
 
 test('conservation validation rejects malformed or negative buckets', () => {
@@ -107,9 +128,20 @@ test('log reconstruction bounds indices and rejects representation conflicts', (
 });
 
 test('public manifest gate rejects values and credentials', () => {
+  // The procedure proof covers every file the ceremony depends on, not just two of
+  // them: the tool, the runbook, and the libraries whose behaviour the manifest
+  // claims. Each entry carries its own size and digest so a reader can rebuild the
+  // claim from the repository rather than trust the manifest's summary of itself.
   const procedure = procedureProof();
-  assert.match(procedure.tool.sha256, /^[0-9a-f]{64}$/);
-  assert.match(procedure.runbook.sha256, /^[0-9a-f]{64}$/);
+  assert.ok(Array.isArray(procedure.files) && procedure.files.length >= 4);
+  for (const entry of procedure.files) {
+    assert.match(entry.sha256, /^[0-9a-f]{64}$/);
+    assert.match(entry.bytes, /^[0-9]+$/);
+    assert.doesNotMatch(entry.path, /^[A-Za-z]:|^\//, 'paths stay repository-relative');
+  }
+  const covered = procedure.files.map(entry => entry.path);
+  assert.ok(covered.includes('tools/supabase_final_snapshot.mjs'), 'the tool hashes itself');
+  assert.ok(covered.includes('docs/SUPABASE_FINAL_SNAPSHOT.md'), 'and the runbook it follows');
   assert.equal(assertPublicManifestSafe({ schema:'x', procedure, completeness:{ rowCount:'3' } }), true);
   assert.throws(() => assertPublicManifestSafe({ password:'secret' }), /PUBLIC_MANIFEST_SECRET_RISK/);
   assert.throws(() => assertPublicManifestSafe({ rows:[{ value:{ cr:5000 } }] }), /PUBLIC_MANIFEST_SECRET_RISK/);
