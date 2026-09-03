@@ -1,0 +1,62 @@
+CENSUS  (families only, never individual keys)
+  pxu:*                                98     15.88 MB
+  px:*       (price buckets)           98      5.60 MB
+  guarded:*  (receipts)             21475      3.77 MB
+  g:log:e:*  (log entries)           3554      1.56 MB
+  g:log:c:*  (log chunks)               9      1.55 MB
+  g:log:*    (log metadata)          7389      1.14 MB
+  aseal:*                            1252      0.43 MB
+  g:*                                 316      0.15 MB
+  u:*        (players)                 64      0.14 MB
+  fhsettle:*                          520      0.11 MB
+  wseal:*                             336      0.09 MB
+  hist:*                               25      0.07 MB
+  ladder:*                            263      0.06 MB
+  shotseal:*                          295      0.05 MB
+  stakefund:*                         265      0.03 MB
+  ledger:*                            177      0.03 MB
+  fh:*                                 13      0.03 MB
+  pend:*                              458      0.02 MB
+  c7:*                                456      0.02 MB
+  ldg:*                                 6      0.02 MB
+  hitpay:*                            110      0.02 MB
+  x402:*                                8      0.02 MB
+  cs7:*                               345      0.02 MB
+  sig:*      (signature gates)         51      0.02 MB
+  chist:*                               4      0.01 MB
+  play-session:*                        2      0.01 MB
+  funnel:*                             27      0.01 MB
+  inv:*                                27      0.01 MB
+  agentrun:*                            2      0.01 MB
+  rollplan:*                           12      0.01 MB
+  ldg3:*                                3      0.00 MB
+  z:*                                  18      0.00 MB
+  sup:*                                14      0.00 MB
+  ldg2:*                                4      0.00 MB
+  rollpay:*                            21      0.00 MB
+  champbal:*                           14      0.00 MB
+  mirshot:*                             7      0.00 MB
+  mig:*                                18      0.00 MB
+  pxstream:*                            7      0.00 MB
+  odds:*                               10      0.00 MB
+  rolldebit:*                          12      0.00 MB
+  ldg4:*                                1      0.00 MB
+  lb:*                                  1      0.00 MB
+  funnel_daily:*                        4      0.00 MB
+  lbd:*                                 2      0.00 MB
+  agentname:*                           2      0.00 MB
+  h:*                                   1      0.00 MB
+  day:*                                 3      0.00 MB
+  fhlock:*                              2      0.00 MB
+  stakereverse:*                        1      0.00 MB
+  lock:*     (leases, expire on their own)      1      0.00 MB
+  season:*                              1      0.00 MB
+  evidence:*                            1      0.00 MB
+
+  rows parsed        37805
+  unparseable lines  0
+  already expired    25   (leases and caches; they do not need to move)
+  file size          30.94 MB
+  sha256             81928ee2d3646ef04f74c2b82164110539432f5f55f2ae12b508e7f8629d7597
+
+Every line parsed. This file is a complete, readable copy of the legacy store.
