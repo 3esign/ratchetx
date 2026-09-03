@@ -2396,7 +2396,17 @@ let lastVisibleRefresh=Date.now();
 async function pollState(){
   const liveShot=!!(STATE&&STATE.player&&(STATE.player.open||[]).length);
   const engaged=!!AUTH||liveShot;
-  const delay=engaged?10000:60000;
+  // Poll as often as there is something to see, and no more. A player with a
+  // shot in the air is waiting for a number and gets the ten-second watch; a
+  // connected player with nothing open is watching a board that changes on the
+  // hour, and asking every ten seconds cost six times what it was worth. The
+  // countdown is drawn client-side and expiry has its own watch, so this
+  // interval only decides how quickly the BOARD catches up.
+  //
+  // The arithmetic that made this matter: one poll is ten store touches, so a
+  // single connected tab at ten seconds is about 86,000 a day -- roughly six
+  // days of a 500k monthly allowance, for a page nobody was looking at.
+  const delay=liveShot?10000:(AUTH?30000:60000);
   setTimeout(async()=>{
     // Connected players and expiring shots keep a ten-second settlement watch,
     // including in a hidden tab. Idle guests poll once a minute, foreground only.
