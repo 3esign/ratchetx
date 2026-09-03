@@ -36,6 +36,11 @@ const SERVER_FOR = new Map([
   ['test_funnel.mjs',LAYOUT_SERVER], ['test_notify.mjs',LAYOUT_SERVER],
   ['test_chal_ui.mjs',LAYOUT_SERVER],
 ]);
+// Suites that drive a browser but serve their own page, so they need no fixture
+// server and are not in the map above. They still need a BROWSER, and leaving
+// them out of that check is how one of them stayed red on a machine with no
+// browser installed while the other five skipped politely.
+const NEEDS_BROWSER = new Set([...SERVER_FOR.keys(), 'test_startup_recovery.mjs']);
 const reachable = url => fetch(url, { signal: AbortSignal.timeout(1500) })
   .then(r => r.ok).catch(() => false);
 
@@ -82,10 +87,27 @@ for (const url of new Set(SERVER_FOR.values())) {
   up.set(url, ok);
 }
 
-// The one honest reason left to skip a browser suite.
-let havePlaywright = true;
-try { await import('playwright'); }
-catch { havePlaywright = false; }
+// The one honest reason left to skip a browser suite: no browser.
+//
+// "Playwright is installed" is NOT that test, and using it as one was a real
+// trap. A node_modules synced from another machine imports fine and has no
+// browser for THIS platform, so five suites went from skipping to failing --
+// and DEPLOY.cmd runs `npm test` as its release gate, which means a missing
+// browser binary would have refused to ship a fix. Ask the question that
+// matters by launching one.
+let browserReason = null;
+try {
+  const { chromium } = await import('playwright');
+  // The suites themselves use the installed Chrome on Windows and the bundled
+  // chromium elsewhere; probe the same way so the answer matches what they do.
+  const probe = await chromium.launch(process.platform === 'win32' ? { channel: 'chrome' } : {});
+  await probe.close();
+} catch (e) {
+  const text = String((e && e.message) || e).split('\n')[0];
+  browserReason = /Cannot find package|Cannot find module/.test(text)
+    ? 'playwright is not installed — run npm install to include the browser suites'
+    : `no browser to drive (${text.slice(0, 80)}) — run: npx playwright install chromium`;
+}
 
 const files = readdirSync(dir).filter(f => /^test_.*\.mjs$/.test(f)).sort();
 const run = f => new Promise(res => {
@@ -99,8 +121,8 @@ const run = f => new Promise(res => {
 let failed = 0, skipped = 0;
 for (const f of files) {
   const server = SERVER_FOR.get(f);
-  if (server && !havePlaywright) {
-    console.log(`SKIP  ${f.padEnd(28)} (playwright is not installed — run npm install to include the browser suites)`);
+  if (NEEDS_BROWSER.has(f) && browserReason) {
+    console.log(`SKIP  ${f.padEnd(28)} (${browserReason})`);
     skipped++;
     continue;
   }

@@ -47,3 +47,20 @@ assert.match(kv, /daily request limit/i,
   'storage quota failures must be identified instead of hidden as kv 400');
 
 console.log('mobile wallet handoff, refresh guard, adaptive polling, and KV diagnostics are wired');
+
+// The release gate must skip a browser suite when there is no BROWSER, not when
+// there is no playwright package. DEPLOY.cmd runs `npm test` before it ships, so
+// getting that wrong means a machine with an unusable browser binary refuses to
+// deploy a fix -- which is exactly what a node_modules synced from another
+// platform produces: imports fine, launches nothing.
+{
+  const runner = readFileSync(new URL('../scripts/run-tests.mjs', import.meta.url), 'utf8');
+  assert.match(runner, /chromium\.launch\(/,
+    'the runner must find out whether a browser actually launches');
+  assert.match(runner, /npx playwright install chromium/,
+    'and say how to fix it when one does not');
+  assert.match(runner, /NEEDS_BROWSER/,
+    'every suite that drives a browser must be gated, including the ones that serve their own page');
+  assert.ok(/NEEDS_BROWSER\.has\(f\) && browserReason/.test(runner),
+    'the skip must be decided by the browser probe, not by the package import');
+}
