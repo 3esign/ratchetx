@@ -1,0 +1,36 @@
+{
+  "_comment": [
+    "The tokenized-equity feed ids, pinned so the cadence measurement in",
+    "docs/STOCKS_ONCHAIN_TOKENIZED.md can be reproduced from this repository",
+    "alone. That measurement was taken on 2026-09-02 with ids fetched ad hoc",
+    "and never committed: the single number the whole stocks decision rests on",
+    "(an 870-second batch cadence) could not be re-derived from anything here.",
+    "",
+    "Source: https://pyth.dourolabs.app/v1/symbols?query=<TICKER> — Pyth's",
+    "symbology API, keyless, read-only. Verified on chain by deriving",
+    "[u16le(0), feed_id] under the push oracle and requiring the derived",
+    "account to be receiver-owned and to carry back the same feed id.",
+    "",
+    "The .RR rows are the redemption-rate feeds: the tokenized share against",
+    "the real one. They are what a premium/discount claim has to be measured",
+    "with, and they are NOT tradeable targets."
+  ],
+  "pushOracle": "pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou",
+  "receiver": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+  "shard": 0,
+  "control": {
+    "symbol": "Crypto.SOL/USD",
+    "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+    "note": "derives to 7AviUf9n... — the account the live program already settles on. If this row does not tick, the RPC or the derivation is broken and every other row is meaningless."
+  },
+  "feeds": [
+    { "ticker": "TSLAX", "symbol": "Crypto.TSLAX/USD", "feedId": "47a156470288850a440df3a6ce85a55917b813a19bb5b31128a33a986566a362", "rrSymbol": "Crypto.TSLAX/TSLA.RR", "rrFeedId": "997362625415627e9e3177f6c0d32f200d4a221ccadb3dddab80d6079d03ea24" },
+    { "ticker": "NVDAX", "symbol": "Crypto.NVDAX/USD", "feedId": "4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", "rrSymbol": "Crypto.NVDAX/NVDA.RR", "rrFeedId": "b675c4e9f46d94afa9174a7df09966b77a2950970bb50a77ec8ad4fcfd8266f4" },
+    { "ticker": "SPYX",  "symbol": "Crypto.SPYX/USD",  "feedId": "2817b78438c769357182c04346fddaad1178c82f4048828fe0997c3c64624e14", "rrSymbol": "Crypto.SPYX/SPY.RR",   "rrFeedId": "9e916cc00d292da2367646ffd6537d6b8d0c3f15e2d5891ac44aed31291811a9" },
+    { "ticker": "AAPLX", "symbol": "Crypto.AAPLX/USD", "feedId": "978e6cc68a119ce066aa830017318563a9ed04ec3a0a6439010fc11296a58675", "rrSymbol": "Crypto.AAPLX/AAPL.RR", "rrFeedId": "25babb83691a056fd65f879bfd7197eabd840aae741f69c87ccb31e204a979b2" },
+    { "ticker": "MSTRX", "symbol": "Crypto.MSTRX/USD", "feedId": "53f95ba4e23ed15ea56083e2ee9a5eec48055d6f59033d4bb95f1ca2a2349c28", "rrSymbol": "Crypto.MSTRX/MSTR.RR", "rrFeedId": "342df7ea9b8db28630933d55d0c9c1119525eb5be58d499ecc4e88faf061083a" },
+    { "ticker": "CRCLX", "symbol": "Crypto.CRCLX/USD", "feedId": "c13184461c0c80d98ffcd89be627c2220b94a96c7c67f0c4b16bc12fd3b17758", "rrSymbol": "Crypto.CRCLX/CRCL.RR", "rrFeedId": "381f301f3aabddfa8605be298e704bf7c40738a5f7aeb07dd0b023f993ce7638" },
+    { "ticker": "COINX", "symbol": "Crypto.COINX/USD", "feedId": "641435d5dffb5311140b480517c79986d8488d5cf08a11eec53b83ad02cab33f", "rrSymbol": "Crypto.COINX/COIN.RR", "rrFeedId": "b663e208031820ed2ea373346501ceb897f230623439482f0e2a13150af08549", "status": "abandoned 2026-09-02: 10.7 hours stale at measurement" },
+    { "ticker": "HOODX", "symbol": "Crypto.HOODX/USD", "feedId": "dd49a9ac6df5cbfa9d8fc6371f7ae927a74d5c6763c1c01b4220d70314c647f9", "rrSymbol": "Crypto.HOODX/HOOD.RR", "rrFeedId": "d88c382daa11f3a377796bc3f9318e7fbffd69c5bbceb5e58548670a7ad23e7f", "status": "abandoned 2026-09-02: 6.8 days stale at measurement" }
+  ]
+}

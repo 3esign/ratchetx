@@ -173,4 +173,57 @@ for (const size of [1, 2, 3, 5, 8, 17, 64, 1000]) {
     'a second copy of a rule is how the Supabase import got five key families wrong');
 }
 
+// ---- 9. the SECOND guard on the money path is live, not decorative --------
+//
+// scripts/set-legacy-root.mjs refuses to patch LEGACY_ROOT into lib.rs when any
+// row in merkle_balances.json carries `staked > 0`. It is deliberately a second,
+// independent check: it fires even when this tool was run with
+// --allow-open-stake, which is the exact case it exists for.
+//
+// It was DEAD. merkle_balances.json was written with a hardcoded `staked: 0` for
+// every player, so the guard read a constant and passed. A check that cannot
+// fail is worse than no check, because the money path looks doubly protected.
+{
+  const out = reconcile([
+    ['u:' + wallets[0], { cr: 10, xp: 2 }, null, null],
+    ['u:' + wallets[1], { cr: 5, xp: 1, open: [{ stake: 250 }, { stake: 40 }] }, null, null],
+  ]);
+  const byWallet = Object.fromEntries(out.players.map(p => [p.wallet, p]));
+  checks++; assert.equal(byWallet[wallets[0]].staked, 0, 'a player with no open shot carries no stake');
+  checks++; assert.equal(byWallet[wallets[1]].staked, 290,
+    'per-wallet stake, not just the total — the downstream guard reads it row by row');
+  checks++; assert.equal(out.players.reduce((s, p) => s + p.staked, 0), out.openStake,
+    'the rows must add up to the total this tool refuses on, or the two checks disagree');
+
+  const src = readFileSync(new URL('../tools/legacy_root.mjs', import.meta.url), 'utf8');
+  checks++; assert.match(src, /staked:\s*p\.staked\b/,
+    'merkle_balances.json must carry the real stake, never a constant the guard reads as safe');
+  const guard = readFileSync(new URL('../scripts/set-legacy-root.mjs', import.meta.url), 'utf8');
+  checks++; assert.match(guard, /Number\(b\.staked\)\s*>\s*0/,
+    'the downstream guard still reads the field this tool now fills');
+}
+
+// ---- 10. the freeze stops selling and nothing else ------------------------
+//
+// A root cannot be built while stake is in flight, and at any real player count
+// a naturally quiet moment may never arrive. The answer is not to void live
+// shots at the cutover — that confiscates an earned outcome from whoever held a
+// chamber at that second, and a half-applied void pays somebody twice. The
+// answer is to stop SELLING and let every open shot run to its own expiry.
+{
+  const src = readFileSync(new URL('../api/game.js', import.meta.url), 'utf8');
+  checks++; assert.match(src, /const MIGRATION_FREEZE = process\.env\.RX_MIGRATION_FREEZE === '1';/,
+    'the freeze is off unless it is explicitly turned on');
+  const take = src.slice(src.indexOf('async function takeStake('));
+  checks++; assert.ok(take.indexOf("MIGRATION_FREEZE") < take.indexOf('SETTLEMENT_DELIVERY_PENDING'),
+    'the freeze refuses before any other stake rule, so no path reaches the credit deduction');
+  const after = take.slice(take.indexOf('\n}\n'));
+  checks++; assert.ok(!/MIGRATION_FREEZE/.test(after),
+    'the freeze lives only in takeStake — settlement, claims and payouts must keep running');
+
+  const codes = readFileSync(new URL('../lib/play_session_http.js', import.meta.url), 'utf8');
+  checks++; assert.match(codes, /MIGRATION_FREEZE:/,
+    'an unregistered code degrades to SHOT_REFUSED — an opaque error where a specific one exists');
+}
+
 console.log(`PASS  legacy root: ${checks} checks — leaf matches the program, every proof folds, promotion not duplication`);

@@ -159,15 +159,22 @@ export function reconcile(rows, { now = Date.now() } = {}) {
     // Open stake is credits already committed to a shot that has not settled. It
     // is NOT in `cr`, so a root built while shots are open under-counts somebody.
     const open = Array.isArray(value.open) ? value.open : [];
+    let staked = 0;
     for (const shot of open) {
       const stake = Number(shot && shot.stake);
-      if (Number.isFinite(stake) && stake > 0) { openStake += stake; openShots++; }
+      if (Number.isFinite(stake) && stake > 0) { openStake += stake; openShots++; staked += stake; }
       // Refusing without saying WHEN the refusal lifts leaves somebody guessing
       // at a wait. The last expiry is the answer and the rows already carry it.
       const exp = Number(shot && shot.exp);
       if (Number.isFinite(exp) && exp > latestExpiry) latestExpiry = exp;
     }
-    players.push({ wallet, credits, xp, key32 });
+    // Per-wallet, not just the total. scripts/set-legacy-root.mjs refuses to
+    // patch the constant when any row in merkle_balances.json carries
+    // `staked > 0` -- an independent second check, on the money path, that
+    // fires even if this tool was run with --allow-open-stake. That check was
+    // DEAD: merkle_balances.json wrote a hardcoded `staked: 0` for everybody,
+    // so the guard could never see a thing. It sees now.
+    players.push({ wallet, credits, xp, key32, staked });
   }
 
   players.sort((a, b) => Buffer.compare(a.key32, b.key32));
@@ -281,7 +288,7 @@ if (invoked) {
   }, null, 1) + '\n');
   fs.writeFileSync('merkle_excluded.json', JSON.stringify(excluded, null, 1) + '\n');
   fs.writeFileSync('merkle_balances.json', JSON.stringify(
-    players.map(p => ({ wallet: p.wallet, cr: p.credits, xp: p.xp, staked: 0 })), null, 1) + '\n');
+    players.map(p => ({ wallet: p.wallet, cr: p.credits, xp: p.xp, staked: p.staked })), null, 1) + '\n');
   console.log('  wrote merkle_tree.json, merkle_balances.json and merkle_excluded.json');
   console.log('');
   console.log('  next: node scripts/set-legacy-root.mjs merkle_tree.json');

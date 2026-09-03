@@ -273,6 +273,65 @@ and omitted-claim tests, rollback rehearsal before activation, no shared mutable
 balance after activation. Once chain becomes authoritative, rollback means fixing
 or switching a compatible client, never restoring a stale database over chain.
 
+#### The cutover switch, and why the root does not void anything
+
+`RX_MIGRATION_FREEZE=1` is the environment variable that performs "stop new
+legacy economic actions" above. It is read once in `api/game.js` and checked in
+`takeStake`, which is the only place in the machine where credits are ever
+COMMITTED — every shot, every challenge and every take passes through it.
+Settlement, reveals, claims, payouts and the crank are untouched: the freeze
+stops *selling*, never *settling*. With the variable unset, which is every
+deployment today, the check is a comparison against `undefined` and the game
+behaves exactly as before. Refusals carry the code `MIGRATION_FREEZE` (registered
+in `lib/play_session_http.js` and in the skill's runner), because an agent that
+gets a generic `SHOT_REFUSED` for a day has no way to tell a freeze from a fault
+— that was the whole shape of the Bankr `RELEASE_MISMATCH` failure.
+
+It is an environment variable rather than a store key deliberately. The cutover
+is one announced act, not something that must flip in five seconds, and a switch
+that ships in the source is one anybody can verify against the running release.
+A flag hiding in the store is invisible to exactly the people this is meant to
+be honest with.
+
+**The rule the root follows: stop selling, then drain. Never void.**
+
+A stake in flight is credits that are in nobody's `cr`. `tools/legacy_root.mjs`
+therefore refuses to build a root while any shot is open, and says when the last
+one expires. The tempting shortcut is to credit that stake back as `cr` and void
+the shot, and it is the wrong answer for two independent reasons:
+
+1. **It confiscates an earned outcome.** A player who sealed a correct
+   prediction gets the stake back instead of the win, selected by nothing but
+   holding a chamber at the cutover second.
+2. **It can pay somebody twice.** The void has to land in the store atomically
+   with the snapshot. A half-applied void leaves a wallet credited on chain and
+   still holding the shot off chain — on the one path that cannot be rolled
+   back.
+
+So: freeze, let every open shot run to its own expiry and settle on its own
+terms, then snapshot. The wait is bounded by the longest horizon actually open
+when the freeze went on — `latestExpiry`, which the tool prints — not by the
+1440 minutes the horizon table allows in the abstract. Nobody's outcome is taken
+from them, and no new money path is introduced on the day it can least afford
+one.
+
+This also answers the objection that "refuse while open" cannot scale: at a
+thousand concurrent players a naturally quiet moment may never arrive. True, and
+irrelevant. The legacy root is set ONCE. After cutover, balances live on chain
+and the crossing predicate settles them; there is no snapshot any more. The rule
+must survive exactly one cutover, not a thousand players — and building a
+void-and-credit path to handle a one-time event is added risk on the money path
+in exchange for nothing.
+
+**Both guards must be live.** `scripts/set-legacy-root.mjs` refuses to patch
+`LEGACY_ROOT` into `lib.rs` when any row of `merkle_balances.json` carries
+`staked > 0` — an independent second check that fires even when the builder was
+run with `--allow-open-stake`, which is the exact case it exists for. That check
+was dead until 2026-09-03: the builder wrote a hardcoded `staked: 0` for every
+player, so the guard read a constant and passed. It now writes the real
+per-wallet stake. A check that cannot fail is worse than no check, because the
+money path looks doubly protected when it is not.
+
 ### G6 — retire database authority and prove independent operation
 
 Switch clients and MCP to chain-derived records with visible source slot,

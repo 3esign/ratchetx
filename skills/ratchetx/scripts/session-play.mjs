@@ -15,7 +15,7 @@ const SHOT=/^[a-f0-9]{12}$/, COMMAND=/^(?:[0-9]{1,32}|[a-f0-9]{32})$/;
 const TOKEN=/^rxp1\.([1-9A-HJ-NP-Za-km-z]{32,44})\.([a-f0-9]{32})\.[a-f0-9]{64}$/;
 const CODES=new Set(['SESSION_EXPIRED','SESSION_REVOKED','INVALID_CAPABILITY','SESSION_RATE_LIMIT',
   'SESSION_BUDGET_EXHAUSTED','AGENT_ADMISSION_REQUIRED','PLAYER_BUSY','ORACLE_STALE',
-  'ORACLE_CONFIDENCE_TOO_WIDE','FEED_UNAVAILABLE','TARGET_UNAVAILABLE','CHAMBERS_FULL',
+  'ORACLE_CONFIDENCE_TOO_WIDE','FEED_UNAVAILABLE','TARGET_UNAVAILABLE','CHAMBERS_FULL','MIGRATION_FREEZE',
   'INVALID_STAKE','INSUFFICIENT_CREDITS','SETTLEMENT_DELIVERY_PENDING','INVALID_PROBABILITY',
   'RATE_LIMITED','WRITE_CONFLICT','WRITE_LEASE_EXPIRED','CREDIT_QUEUE_CONFLICT','SHOT_REFUSED',
   'RECOVERED_NO_DISPATCH','REQUEST_CONFLICT','PRIOR_ATTEMPT_UNRESOLVED','ASSET_NOT_ON_BOARD','ASSET_AMBIGUOUS']);
@@ -713,6 +713,7 @@ const REFUSALS={
   SESSION_RATE_LIMIT:r=>'Cooldown active. Please retry in '+(r.retryAfterSeconds??'a few')+' s. Nothing was sealed.',
   STATUS_THROTTLED:()=>'Another request for this wallet was running at the same time. Nothing was sealed - send the command again in a minute.',
   CHAMBERS_FULL:()=>'All your forecast chambers are active. Wait for one to settle.',
+  MIGRATION_FREEZE:()=>'The machine is not selling new shots right now: the migration snapshot is being taken. Shots already open settle normally and your credits are safe.',
   SESSION_BUDGET_EXHAUSTED:()=>'This play session\'s allowance is used up. '+NEW_SESSION,
   INSUFFICIENT_CREDITS:()=>'Not enough play credits for that stake.',
   SESSION_EXPIRED:()=>'Your play session has expired. '+NEW_SESSION,

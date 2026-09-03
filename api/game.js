@@ -1885,10 +1885,44 @@ function oracleSealSnapshot(prices, feeds) {
     snapshotHash:crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex') };
 }
 
+/** The migration freeze: stop SELLING, never stop settling.
+ *
+ *  The legacy root is a claim about every player's credits at one instant. A
+ *  stake in flight is credits that are in nobody's `cr`, so a root built while
+ *  a shot is open migrates that player short by exactly the stake. The tool
+ *  that builds the root already refuses in that case (tools/legacy_root.mjs).
+ *
+ *  The tempting fix -- credit the open stake back as `cr` and void the shot --
+ *  is the wrong one, and it is worth writing down why, because it looks
+ *  reasonable. It takes a player who sealed a CORRECT prediction and hands
+ *  back the stake instead of the win: an earned outcome confiscated, applied
+ *  to whoever happened to hold a chamber at the cutover second. And the void
+ *  has to land in the store atomically with the snapshot; a half-applied void
+ *  leaves a player credited on chain AND still holding the shot off chain,
+ *  paid twice, on the one path that cannot be rolled back.
+ *
+ *  So the machine does not void anything. It stops selling, lets every open
+ *  shot run to its own expiry and settle on its own terms, and the snapshot is
+ *  taken after the last one lands. Nobody's outcome is taken from them and the
+ *  wait is bounded by the longest horizon actually open when the freeze went
+ *  on -- which tools/legacy_root.mjs prints as `latestExpiry`, not the 1440
+ *  minutes the horizon table allows in the abstract.
+ *
+ *  It is an environment variable rather than a store key on purpose. The
+ *  cutover is one deliberate act, not something that needs flipping in five
+ *  seconds, and a freeze that ships in the source is one anybody can verify
+ *  against the running release. A flag hiding in the store is invisible to
+ *  exactly the people this is supposed to be honest with.
+ *
+ *  Settlement, claims, and payouts are untouched: this sits in takeStake,
+ *  which is the only place credits are ever COMMITTED. */
+const MIGRATION_FREEZE = process.env.RX_MIGRATION_FREEZE === '1';
+
 async function takeStake(p, stake, structured = false) {
   // Existing challenge callers still receive prose; the shot adapter needs a
   // stable code from this SAME validation, not a second copy of the credit rules.
   const refuse = (code, reason) => structured ? {code, reason} : reason;
+  if (MIGRATION_FREEZE) return refuse('MIGRATION_FREEZE', 'the machine is not selling new shots: the migration snapshot is being taken. Open shots settle normally and credits are safe.');
   if ((p.settlementOutbox || []).length >= 32) return refuse('SETTLEMENT_DELIVERY_PENDING', 'settlement delivery is pending; read state before opening another shot');
   if (badStake(stake)) return refuse('INVALID_STAKE', `stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}`);
   if (p.cr < stake) return refuse('INSUFFICIENT_CREDITS', `not enough credits - you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`);

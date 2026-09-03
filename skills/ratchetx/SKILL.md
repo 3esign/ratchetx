@@ -12,9 +12,9 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "1.6.2"
-  session-play-sha256: "4c4c2dcc00b6bb41e9afa01286f25b69ac28767934e2ab8acc8f6559dc746033"
-  session-smoke-sha256: "ef9facd64a367bccf989df3fc9acf80a4f28a502c29274a39bf7e187dc949b43"
+  version: "1.6.3"
+  session-play-sha256: "de69199efa31931d214fa19e01bcb19ec89911d8c0ac4ffe2ba8c3a75828f7ed"
+  session-smoke-sha256: "4f52789d5daf53841309b0dd8e9bed95ff0ed25f3afe60ddb21725f618bcef52"
 ---
 
 # RatchetX

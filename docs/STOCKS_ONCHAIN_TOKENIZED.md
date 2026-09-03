@@ -123,6 +123,16 @@ send a message in the minute after a publish.
 That is not a feature with a rough edge. It is a feature that does not work, and
 the freshness guard is right to refuse it.
 
+> **Answered 2026-09-03 in `docs/STOCKS_DECISION.md`.** The three options below
+> were written before ruleset 2 shipped `HORIZON_MASK`, and with per-feed horizon
+> control available the answer is a fourth one: do not relax the seal bound, bind
+> the ENTRY crossing forward. Option 2 below trades a refusal problem for an
+> information-asymmetry problem — a player who can seal on a 15-minute-old price
+> knows which way it moved and the program does not. Binding the entry to the
+> first publish at or after the seal removes that instead of bounding it, using
+> the crossing predicate ruleset 2 already binds at the other end of the shot.
+> The options below stay on record because the measurement in them is sound.
+
 ## So the decision is a settlement-rule question, and it is the founder's
 
 The mechanism is free, keyless and permissionless — everything that was wanted.
