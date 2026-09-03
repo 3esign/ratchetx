@@ -10,6 +10,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
+import { fileURLToPath } from 'node:url';
 
 function privateRoot() {
   const base = process.platform === 'win32'
@@ -71,16 +72,28 @@ for await (const line of lines) {
 }
 
 const mb = n => (n / 1048576).toFixed(2) + ' MB';
-console.log('CENSUS');
-for (const [fam, count] of [...counts.entries()].sort((a, b) => b[1] - a[1]))
-  console.log('  ' + fam.padEnd(32) + String(count).padStart(7) + '   ' + mb(bytesBy.get(fam)).padStart(10));
+// The census also goes to a file in the repository, because a console window
+// scrolls and the interesting families are the ones at the top. It carries
+// family names, counts and sizes only -- never a key, never a value -- so it is
+// safe to read, quote and commit.
+const out = [];
+const line = text => { out.push(text); console.log(text); };
+line('CENSUS  (families only, never individual keys)');
+for (const [fam, count] of [...counts.entries()].sort((a, b) => bytesBy.get(b[0]) - bytesBy.get(a[0])))
+  line('  ' + fam.padEnd(32) + String(count).padStart(7) + '   ' + mb(bytesBy.get(fam)).padStart(10));
+line('');
+line('  rows parsed        ' + rows);
+line('  unparseable lines  ' + bad + (bad ? '   <-- look at these' : ''));
+line('  already expired    ' + expired + '   (leases and caches; they do not need to move)');
+line('  file size          ' + mb(bytes));
+line('  sha256             ' + hash.digest('hex'));
 console.log('');
-console.log('  rows parsed        ' + rows);
-console.log('  unparseable lines  ' + bad + (bad ? '   <-- look at these' : ''));
-console.log('  already expired    ' + expired + '   (leases and caches; they do not need to move)');
-console.log('  file size          ' + mb(bytes));
-console.log('  sha256             ' + hash.digest('hex'));
-console.log('');
-console.log(bad === 0
+line('');
+line(bad === 0
   ? 'Every line parsed. This file is a complete, readable copy of the legacy store.'
   : 'Some lines did not parse. Do not treat this file as complete until that is explained.');
+
+const censusFile = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'rescue_census.txt');
+fs.writeFileSync(censusFile, out.join('\n') + '\n');
+console.log('');
+console.log('census written: ' + path.resolve(censusFile));
