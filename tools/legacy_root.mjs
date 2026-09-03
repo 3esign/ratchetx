@@ -125,7 +125,7 @@ export function reconcile(rows, { now = Date.now() } = {}) {
   const problems = [];
   const excluded = [];
   const seen = new Set();
-  let skippedExpired = 0, openStake = 0, openShots = 0;
+  let skippedExpired = 0, openStake = 0, openShots = 0, latestExpiry = 0;
 
   for (const [key, value, expiresAt] of rows) {
     if (!key.startsWith('u:')) continue;
@@ -162,13 +162,18 @@ export function reconcile(rows, { now = Date.now() } = {}) {
     for (const shot of open) {
       const stake = Number(shot && shot.stake);
       if (Number.isFinite(stake) && stake > 0) { openStake += stake; openShots++; }
+      // Refusing without saying WHEN the refusal lifts leaves somebody guessing
+      // at a wait. The last expiry is the answer and the rows already carry it.
+      const exp = Number(shot && shot.exp);
+      if (Number.isFinite(exp) && exp > latestExpiry) latestExpiry = exp;
     }
     players.push({ wallet, credits, xp, key32 });
   }
 
   players.sort((a, b) => Buffer.compare(a.key32, b.key32));
   excluded.sort((a, b) => (a.wallet < b.wallet ? -1 : a.wallet > b.wallet ? 1 : 0));
-  return { players, problems, excluded, skippedExpired, openStake, openShots };
+  return { players, problems, excluded, skippedExpired, openStake, openShots,
+    latestExpiry: latestExpiry || null };
 }
 
 export function buildRoot(players) {
@@ -220,7 +225,7 @@ if (invoked) {
   for (const line of fs.readFileSync(source, 'utf8').split('\n')) {
     if (line.trim()) rows.push(JSON.parse(line));
   }
-  const { players, problems, excluded, skippedExpired, openStake, openShots } = reconcile(rows);
+  const { players, problems, excluded, skippedExpired, openStake, openShots, latestExpiry } = reconcile(rows);
 
   console.log('');
   console.log('  player rows          ' + String(players.length).padStart(7));
@@ -246,7 +251,16 @@ if (invoked) {
   if (openStake > 0 && !allowOpen) {
     console.log('');
     console.log('REFUSING: ' + openShots + ' shot(s) hold ' + openStake + ' credits that are not in anybody\'s cr.');
-    console.log('Those players would migrate short by exactly that much. Settle or void them first,');
+    console.log('Those players would migrate short by exactly that much.');
+    if (latestExpiry) {
+      const mins = Math.ceil((latestExpiry - Date.now()) / 60000);
+      console.log('The last of them expires ' + new Date(latestExpiry).toISOString()
+        + (mins > 0 ? ' — about ' + mins + ' minute(s) from now.' : ' — already past, so they are settling.'));
+      console.log('Take a fresh snapshot after that and every stake is back in a cr where a leaf can see it:');
+      console.log('  node tools/live_snapshot.mjs      (or LEGACY_ROOT_LIVE.cmd, which does both)');
+    } else {
+      console.log('Settle or void them first,');
+    }
     console.log('or re-run with --allow-open-stake once you have decided who owns that stake and why.');
     process.exit(1);
   }
