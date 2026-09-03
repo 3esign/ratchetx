@@ -85,6 +85,26 @@ test('the repair tool rebuilds from the store and asks before it writes', () => 
     'values must come from the store being repaired, never from a file');
 });
 
+test('a WRONGTYPE names the key that is wrong', () => {
+  // Redis reports "WRONGTYPE Operation against a key holding the wrong kind of
+  // value" and does not say which key. That sentence reached a player on X as
+  // RELEASE_MISMATCH, and finding the key took a browser and an afternoon.
+  const src = read('lib/kv.js');
+  assert.ok(/KV_WRONG_TYPE/.test(src), 'the error must carry a code callers can branch on');
+  assert.ok(/kv_repair_shapes/.test(src), 'and say how to fix it');
+  for (const fn of ['HGETALL', 'HINCRBYFLOAT', 'ZINCRBY', 'ZREVRANGE']) {
+    assert.ok(new RegExp(`'${fn}'[\\s\\S]{0,240}?typed\\(key,`).test(src),
+      `${fn} must report which key held the wrong type`);
+  }
+});
+
+test('display counters degrade instead of taking a page down', () => {
+  const src = read('api/ledger.js');
+  assert.ok(/KV_WRONG_TYPE/.test(src), 'the ledger must tolerate an unreadable counter hash');
+  assert.ok(/excluded: drops,/.test(src) && !/excluded: drops \|\| \{\}/.test(src),
+    'and report it as null, never as "nothing was excluded"');
+});
+
 test('a health report survives counters it cannot read', async () => {
   // The 500 that reached a player was a telemetry hash taking down the endpoint
   // that gameplay reads. A missing statistic must report itself missing.

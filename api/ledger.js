@@ -106,9 +106,19 @@ module.exports = async (req, res) => {
       if (now - last > 6 * 3600e3) ticked = await tick(now);
     }
 
+    // The two hashes here are DISPLAY counters -- how many candidate markets
+    // were dropped, and the house fleet's own Brier row. Neither decides
+    // anything. A key the Supabase migration left with the wrong Redis type
+    // used to take this whole page down for a statistic; the same shape did it
+    // to /api/game?action=pyth-context and reached a player as a version
+    // mismatch. A counter that cannot be read reports itself unreadable.
+    const softHash = key => hall(key).catch(e => {
+      if (e && e.code === 'KV_WRONG_TYPE') return null;
+      throw e;
+    });
     const [scores, recent, open, drops, rx] = await Promise.all([
       getJSON(L.K_SCORE), getJSON(L.K_RECENT), getJSON(L.K_OPEN),
-      hall(L.K_DROP), hall('ldg:rx'),
+      softHash(L.K_DROP), softHash('ldg:rx'),
     ]);
     const sc = scores || {};
 
@@ -159,8 +169,10 @@ module.exports = async (req, res) => {
       scale: 'brier is the mean squared error (lower is better). brierIndex is (1 - sqrt(brier)) * 100 on the Forecasting Research Institute scale: 100 clairvoyant, 50 is what "always say 50%" scores, 0 is confidently wrong.',
       rows,
       pending: (open || []).length,
-      excluded: drops || {},
-      excludedNote: `every observation we could not read or could not settle is counted here rather than dropped silently. Cumulative since ${L.DROP_SINCE} — these counters are reset whenever the sampling rules change, because a count collected under older rules describes an older instrument.`,
+      excluded: drops,
+      excludedNote: drops
+        ? `every observation we could not read or could not settle is counted here rather than dropped silently. Cumulative since ${L.DROP_SINCE} — these counters are reset whenever the sampling rules change, because a count collected under older rules describes an older instrument.`
+        : 'these counters could not be read from the store, so they are null rather than zero. "None were excluded" and "we could not ask" are different claims and only one of them would be true.',
       recent: (recent || []).slice(0, 40),
       reproduce: 'https://github.com/3esign/ratchetx/blob/main/lib/ledger.js',
       ...(ticked ? { ticked } : {}),
