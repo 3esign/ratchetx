@@ -41,6 +41,17 @@ let bad=0; const check=(c,l)=>{ if(!c)bad++; console.log((c?'PASS  ':'FAIL  ')+l
 {
   const ctx = await b.newContext({ viewport:{width:1440,height:900} });
   const p = await ctx.newPage();
+  // The ask is shown only to somebody who has not answered yet -- the page
+  // checks `Notification.permission === "default"`, and correctly says nothing
+  // to a browser that already said no. Headless Chromium reports "denied" out
+  // of the box because it has no permission UI at all, so without this the
+  // fixture is not testing a fresh visitor, it is testing a visitor who
+  // declined -- and the assertion below asks for the opposite of what the code
+  // should do. Present the state the branch is about.
+  await p.addInitScript(() => {
+    if (!window.Notification) return;
+    Object.defineProperty(Notification, 'permission', { value: 'default', configurable: true });
+  });
   await installFixtureRoutes(p,'settle');
   await p.goto(BASE, { waitUntil:'domcontentloaded' });
   await p.evaluate(()=>localStorage.setItem('ratchet_auth', JSON.stringify(
@@ -52,7 +63,7 @@ let bad=0; const check=(c,l)=>{ if(!c)bad++; console.log((c?'PASS  ':'FAIL  ')+l
       flashed: !!document.querySelector('.cham.justsettled'),
       banner: (document.getElementById('mode')||{}).textContent||'',
       hasBtn: !!document.getElementById('notifYes') }));
-    if(m.flashed||m.hasBtn) break; }
+    if(m.hasBtn) break; }   // the flash can land first; keep waiting for the ask
   const _unused = (()=>({
     flashed: !!0,
     banner:'', hasBtn:false }))();

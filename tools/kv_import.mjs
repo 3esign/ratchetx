@@ -7,9 +7,20 @@
 // leaderboard query with nothing. Three shapes, decided by key and verified by
 // value:
 //
-//   h:*   -> HSET   (fields with numeric values)
-//   z:*   -> ZADD   (member/score pairs -- the XP ladders)
-//   rest  -> SET    (the JSON string form lib/kv.js writes and reads)
+//   hash   -> HSET   (fields with numeric values)
+//   zset   -> ZADD   (member/score pairs -- the XP ladders)
+//   string -> SET    (the JSON string form lib/kv.js writes and reads)
+//
+// WHICH IS WHICH IS NOT DECIDED HERE. The first version of this file decided by
+// prefix -- h:* a hash, z:* a sorted set, everything else a string -- and that
+// was wrong on 2026-09-03 for four hash families that never followed the
+// convention: g:fh, ldg:rx, ldg4:dropped, odds:<hour>, funnel_daily:<day>. They
+// imported as strings, HGETALL threw WRONGTYPE, /api/game?action=pyth-context
+// returned 500, and an agent trying to play was told RELEASE_MISMATCH. An
+// importer that infers types from names will always be one rename behind the
+// application. It now reads lib/kv_shapes.js -- the same declaration lib/kv.js
+// enforces on every hash and sorted-set command -- so the importer and the app
+// cannot disagree about what a key is.
 //
 // Anything that does not match its expected shape stops the import rather than
 // being guessed at. A row that was already expired is skipped: leases and
@@ -21,6 +32,12 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
+import { createRequire } from 'node:module';
+
+const require = createRequire(import.meta.url);
+// The one declaration of what each key family is. Shared with lib/kv.js on
+// purpose: an importer with its own opinion is how this broke the first time.
+const { shapeOf } = require('../lib/kv_shapes.js');
 
 const BATCH = 200;
 
@@ -64,7 +81,8 @@ for (const line of fs.readFileSync(rescued, 'utf8').split('\n')) {
   if (expiresAt && Date.parse(expiresAt) <= now) { skippedExpired++; continue; }
   const ttl = expiresAt ? Math.max(1, Math.floor((Date.parse(expiresAt) - now) / 1000)) : null;
 
-  if (key.startsWith('h:')) {
+  const shape = shapeOf(key);
+  if (shape === 'hash') {
     if (!value || typeof value !== 'object' || Array.isArray(value)) { problems.push(key + ' is not a hash'); continue; }
     const flat = [];
     for (const [field, n] of Object.entries(value)) {
@@ -72,7 +90,7 @@ for (const line of fs.readFileSync(rescued, 'utf8').split('\n')) {
       flat.push(field, String(Number(n)));
     }
     if (flat.length) { commands.push(['HSET', key, ...flat]); hashes++; }
-  } else if (key.startsWith('z:')) {
+  } else if (shape === 'zset') {
     const pairs = Array.isArray(value)
       ? value.map(entry => Array.isArray(entry) ? entry : null)
       : (value && typeof value === 'object' ? Object.entries(value) : null);

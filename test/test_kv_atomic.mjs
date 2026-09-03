@@ -76,25 +76,25 @@ async function run(label, durableMode) {
 
   // --- concurrent increments must ALL land ---
   const N = 50;
-  await Promise.all(Array.from({length:N}, () => kv.zincr('lbtest', 10, 'alice')));
-  const top = await kv.ztop('lbtest', 5);
+  await Promise.all(Array.from({length:N}, () => kv.zincr('z:lbtest', 10, 'alice')));
+  const top = await kv.ztop('z:lbtest', 5);
   assert.deepEqual(top, [['alice', N*10]], `${label}: expected 500, got ${JSON.stringify(top)}`);
 
   // --- ordering + top-N ---
-  await kv.zincr('lbtest', 900, 'bob');
-  await kv.zincr('lbtest', 300, 'carol');
-  await kv.zincr('lbtest', 50,  'dave');
-  const t3 = await kv.ztop('lbtest', 3);
+  await kv.zincr('z:lbtest', 900, 'bob');
+  await kv.zincr('z:lbtest', 300, 'carol');
+  await kv.zincr('z:lbtest', 50,  'dave');
+  const t3 = await kv.ztop('z:lbtest', 3);
   assert.deepEqual(t3.map(r=>r[0]), ['bob','alice','carol'], label + ': descending top-3');
-  const all = await kv.ztop('lbtest');
+  const all = await kv.ztop('z:lbtest');
   assert.equal(all.length, 4, label + ': full range');
   assert.equal(typeof all[0][1], 'number', label + ': scores are numbers');
 
   // --- absolute backfill can only raise a live score, never overwrite it ---
-  assert.equal(await kv.zmax('lbtest', 400, 'alice'), false, label + ': lower backfill ignored');
-  assert.equal(await kv.zmax('lbtest', 800, 'alice'), true, label + ': higher observed total lands');
-  assert.equal(await kv.zmax('lbtest', 700, 'alice'), false, label + ': later stale total cannot step it back');
-  assert.equal((await kv.ztop('lbtest')).find(x=>x[0]==='alice')[1], 800,
+  assert.equal(await kv.zmax('z:lbtest', 400, 'alice'), false, label + ': lower backfill ignored');
+  assert.equal(await kv.zmax('z:lbtest', 800, 'alice'), true, label + ': higher observed total lands');
+  assert.equal(await kv.zmax('z:lbtest', 700, 'alice'), false, label + ': later stale total cannot step it back');
+  assert.equal((await kv.ztop('z:lbtest')).find(x=>x[0]==='alice')[1], 800,
     label + ': monotonic backfill ends on the maximum');
 
   // --- the credit queue: deposits cannot be lost, and a take is exclusive ---
@@ -123,13 +123,13 @@ async function run(label, durableMode) {
   // --- one settlement moves both ladders once, even under retry pressure ---
   const ladderWins = await Promise.all(Array.from({length:20}, () =>
     kv.zincrManyOnce('ladder:alice:shot-1', {shot:'shot-1'}, [
-      ['season-once','alice',7], ['day-once','alice',7],
+      ['z:season-once','alice',7], ['z:day-once','alice',7],
     ])));
   assert.equal(ladderWins.filter(Boolean).length, 1, label + ': one ladder replay gate wins');
-  assert.deepEqual(await kv.ztop('season-once'), [['alice',7]], label + ': season XP applied once');
-  assert.deepEqual(await kv.ztop('day-once'), [['alice',7]], label + ': daily XP applied once');
+  assert.deepEqual(await kv.ztop('z:season-once'), [['alice',7]], label + ': season XP applied once');
+  assert.deepEqual(await kv.ztop('z:day-once'), [['alice',7]], label + ': daily XP applied once');
   assert.equal(await kv.zincrManyOnce('ladder:alice:shot-1', {shot:'shot-1'}, [
-    ['season-once','alice',7], ['day-once','alice',7],
+    ['z:season-once','alice',7], ['z:day-once','alice',7],
   ]), false, label + ': later ladder replay refused');
   console.log(`${label.padEnd(9)} atomic counters, hashes and ladders OK`);
 }

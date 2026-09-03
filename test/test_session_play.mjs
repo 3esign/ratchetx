@@ -62,6 +62,8 @@ function fixture(config={}){
     if(url===URLS.session&&!body)return reply({ok:true,v:'h105-test',enabled:true,network:config.network??'solana:mainnet',
       rights:['shot','status'],requiresExistingAdmittedAgent:true,endpoint:URLS.session,budgetRule:'gross-reserved-attempts-v1',
       agentContract:{shot:{replay:'retained',rejected:'terminal'}}},200,url);
+    if(config.contextDown&&url===URLS.context)return reply({ok:false,reason:'kv 400: WRONGTYPE Operation against a key holding the wrong kind of value'},500,url);
+    if(config.boardDown&&url===URLS.board)return reply({ok:false,reason:'down'},500,url);
     if(url===URLS.context)return reply({ok:true,v:'h105-test',schema:'ratchetx-pyth-context-v1',generatedAt:server()-(config.contextLag??0),
       access:{mode:'shared-read'},validation:{fullVerificationRequired:true,ownerFeedIdAndDiscriminatorChecked:true,maxConfidenceBps:200},
       feeds:[{feed:'PUMP',current:{price:1,ageNowS:config.age??1,confidenceBps:config.conf??1,
@@ -174,6 +176,13 @@ for(const [config,code] of [
   [{prior:true,priorAge:59000},'SESSION_RATE_LIMIT'],[{prior:true,pending:true},'PRIOR_ATTEMPT_UNRESOLVED'],
   [{revoked:true},'SESSION_REVOKED'],[{statusWallet:'2'.repeat(32)},'STATUS_IDENTITY_MISMATCH'],
   [{network:'solana:devnet'},'CONTRACT_REFUSED'],[{release:'other'},'RELEASE_MISMATCH'],[{createFail:true},'JOURNAL_CREATE_FAILED'],
+  // An endpoint that is simply DOWN must say so. On 2026-09-03 pyth-context
+  // returned 500 -- a key the Supabase migration had imported with the wrong
+  // Redis type -- and the player was told RELEASE_MISMATCH, because a body that
+  // was never delivered has no `v` and the version check ran first. A wrong
+  // diagnosis is worse than no diagnosis: it sends the reader to the one part
+  // of the system that was working.
+  [{contextDown:true},'ENDPOINT_UNAVAILABLE'],[{boardDown:true},'ENDPOINT_UNAVAILABLE'],
   [{redirect:true},'REDIRECT_REFUSED'],[{missingDate:true},'SERVER_DATE_REQUIRED'],
 ]){const f=fixture(config),r=await f.run();assert.equal(r.code,code);assert.equal(f.shotCalls(),0,code);}
 for(const [config,code,count] of [

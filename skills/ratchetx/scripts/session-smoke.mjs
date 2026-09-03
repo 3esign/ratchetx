@@ -154,6 +154,16 @@ export async function runSmoke(options={},dependencies={}){
         &&contract.body.budgetRule==='gross-reserved-attempts-v1'
         &&contract.body.agentContract?.shot?.replay&&contract.body.agentContract?.shot?.rejected,'CONTRACT_REFUSED');
       const context=await request(URLS.context),board=await request(URLS.board);
+      // An endpoint that did not answer has no version string, so comparing
+      // versions first reports RELEASE_MISMATCH for what is actually an outage.
+      // That happened on 2026-09-03: pyth-context was returning 500 (a migrated
+      // key had the wrong Redis type), and the player was told the releases did
+      // not match. Say which endpoint is down, and say it before anything that
+      // reads a field out of a body that was never delivered.
+      const dead=[['play-session',contract],['board',board],['pyth-context',context]]
+        .filter(([,r])=>r.http!==200||r.body?.ok!==true)
+        .map(([name,r])=>name+' '+r.http);
+      need(dead.length===0,'ENDPOINT_UNAVAILABLE');
       need(typeof contract.body.v==='string'&&contract.body.v===context.body.v&&contract.body.v===board.body.v,'RELEASE_MISMATCH');
       need(board.http===200&&board.body.ok===true&&board.body.prices?.src==='pyth-onchain'
         &&finite(board.body.flipsAt)&&board.body.flipsAt>serverNow()&&finite(board.body.stakeRule?.hitPayout)

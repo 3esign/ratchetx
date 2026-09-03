@@ -2396,17 +2396,25 @@ let lastVisibleRefresh=Date.now();
 async function pollState(){
   const liveShot=!!(STATE&&STATE.player&&(STATE.player.open||[]).length);
   const engaged=!!AUTH||liveShot;
-  // Poll as often as there is something to see, and no more. A player with a
-  // shot in the air is waiting for a number and gets the ten-second watch; a
-  // connected player with nothing open is watching a board that changes on the
-  // hour, and asking every ten seconds cost six times what it was worth. The
-  // countdown is drawn client-side and expiry has its own watch, so this
-  // interval only decides how quickly the BOARD catches up.
+  // A CONNECTED PLAYER GETS THE TEN-SECOND WATCH. A guest does not: with no
+  // wallet there is no settlement of theirs to miss, and the board they are
+  // watching changes on the hour.
   //
-  // The arithmetic that made this matter: one poll is ten store touches, so a
-  // single connected tab at ten seconds is about 86,000 a day -- roughly six
-  // days of a 500k monthly allowance, for a page nobody was looking at.
-  const delay=liveShot?10000:(AUTH?30000:60000);
+  // This was briefly `liveShot ? 10s : AUTH ? 30s : 60s`, on the reasoning that
+  // a connected player with nothing open is only waiting for the board. That
+  // reasoning used the wrong signal. `open.length` says THIS TAB sealed a shot;
+  // it does not say the player has an outcome coming. A shot sealed by their
+  // Bankr agent, from another device, or a challenge somebody else accepted all
+  // settle for a player whose `open` list here is empty -- and this interval is
+  // what decides how long before they are told. test_notify says so directly:
+  // a settlement arriving to a player with no open shot went unannounced for
+  // thirty seconds, and the tab title never carried it inside the window.
+  //
+  // The egress that motivated the slow-down was real, and it was already paid
+  // for in the right place: one state poll went from fourteen store touches to
+  // four. Making the poll cheaper costs nothing a player can feel. Making it
+  // rarer costs exactly the thing they are waiting for.
+  const delay=AUTH?10000:60000;
   setTimeout(async()=>{
     // Connected players and expiring shots keep a ten-second settlement watch,
     // including in a hidden tab. Idle guests poll once a minute, foreground only.

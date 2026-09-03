@@ -512,21 +512,62 @@ async function seedStats() {
 // at the cadence of the work rather than the cadence of traffic. The work is
 // unchanged and still lazy: whoever passes by after the gap does it.
 const attempts = globalThis.__ratchet_attempts || (globalThis.__ratchet_attempts = new Map());
-function tooSoon(key, gapMs) {
+/** `deps` names the store keys whose contents decide whether the work is
+ *  worth doing. A write to one of them clears this stamp, because the whole
+ *  claim a throttle makes is "nothing has changed since I last looked" -- and
+ *  once something has, waiting out the gap is no longer thrift, it is a
+ *  refund that does not arrive. test_harness caught that: an expired challenge
+ *  is swept on the next state read, and with a bare 20-second stamp in front
+ *  of the sweep the author's stake simply stayed gone. */
+function tooSoon(key, gapMs, deps = []) {
   const now = Date.now();
   if (now - (attempts.get(key) || 0) < gapMs) return true;
   attempts.set(key, now);
+  for (const dep of deps) {
+    let set = sharedDeps.get(dep);
+    if (!set) sharedDeps.set(dep, set = new Set());
+    set.add(key);
+  }
   return false;
 }
 
+// A TTL is not an invalidation. This memo started as `key + ttl` and nothing
+// else, and a display cache that only expires on a clock will, for the length
+// of that clock, show a player a board that does not contain their own last
+// action -- their settled shot missing from the leaderboard they are staring
+// at. The window is small and the confusion is not, and test_harness caught
+// the same shape at the stats end: two state reads either side of a write
+// returned the same figure.
+//
+// So every entry names the store keys it was DERIVED from, and any write to
+// one of those keys drops it. lib/kv.js's `rdrop` -- which every write already
+// calls -- walks this index. The TTL stays as the backstop for what a write on
+// ANOTHER instance changed; correctness on this one no longer depends on it.
 const shared = globalThis.__ratchet_shared || (globalThis.__ratchet_shared = new Map());
+const sharedDeps = globalThis.__ratchet_shared_deps
+  || (globalThis.__ratchet_shared_deps = new Map());   // store key -> Set(shared key)
 const SHARED_MAX = 32;
-async function sharedRead(key, ttlMs, produce) {
+function forgetShared(key) {
+  const hit = shared.get(key);
+  if (!hit) return;
+  for (const dep of hit.deps || []) {
+    const set = sharedDeps.get(dep);
+    if (set) { set.delete(key); if (!set.size) sharedDeps.delete(dep); }
+  }
+  shared.delete(key);
+}
+async function sharedRead(key, ttlMs, deps, produce) {
   const now = Date.now(), hit = shared.get(key);
   if (hit && now - hit.t < ttlMs) return hit.v;
   const value = await produce();
-  if (shared.size >= SHARED_MAX) shared.delete(shared.keys().next().value);
-  shared.set(key, { v: value, t: now });
+  if (shared.size >= SHARED_MAX) forgetShared(shared.keys().next().value);
+  forgetShared(key);
+  shared.set(key, { v: value, t: now, deps });
+  for (const dep of deps) {
+    let set = sharedDeps.get(dep);
+    if (!set) sharedDeps.set(dep, set = new Set());
+    set.add(key);
+  }
   return value;
 }
 
@@ -2215,7 +2256,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
     // the response) and made a refund appear only nondeterministically.
     // Expiring an unmatched challenge is not urgent to the second: the author's
     // stake comes back whenever the sweep runs, and every request is a chance.
-    if (!tooSoon('sweep:chal', 20_000)) { try { await sweepChallenges(); } catch {} }
+    if (!tooSoon('sweep:chal', 20_000, ['g:chal'])) { try { await sweepChallenges(); } catch {} }
 
     if (action === 'gauntlet') {
       const wallet = 'demo-' + gauntletHandle;
@@ -2401,10 +2442,10 @@ module.exports = async (req, res) => playerWrites.run(async () => {
       }
       await warmLadderMigrations([['lb:', seasonKey()], ['lbd:', today()], ['lba:', 'all']]);
       const [st, lbRows, dayRanked, allRanked] = await Promise.all([
-        sharedRead('display:stats', 5_000, () => loadStats()),
-        sharedRead('display:lb:' + seasonKey(), 8_000, () => ladderTop('lb:', seasonKey())),
-        sharedRead('display:lbd:' + today(), 8_000, () => ladderTop('lbd:', today())),
-        sharedRead('display:lba', 8_000, () => ladderTop('lba:', 'all')),
+        sharedRead('display:stats', 5_000, [STATS], () => loadStats()),
+        sharedRead('display:lb:' + seasonKey(), 8_000, [zkey('lb:', seasonKey())], () => ladderTop('lb:', seasonKey())),
+        sharedRead('display:lbd:' + today(), 8_000, [zkey('lbd:', today())], () => ladderTop('lbd:', today())),
+        sharedRead('display:lba', 8_000, [ALLTIME_BOARD], () => ladderTop('lba:', 'all')),
       ]);
       const ladder = lbRows.slice(0,20).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
       const ladderDay = dayRanked.slice(0,10).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));

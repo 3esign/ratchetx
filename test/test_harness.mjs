@@ -66,7 +66,17 @@ function call(method, { query = {}, body = null, ip = '1.2.3.4' } = {}) {
 let fails = 0;
 const ok = (cond, name) => { console.log((cond ? 'PASS' : 'FAIL') + '  ' + name); if (!cond) fails++; };
 const getMem = k => (mem.has(k) ? JSON.parse(mem.get(k)) : null);
-const setMem = (k, v) => mem.set(k, JSON.stringify(v));
+// A fixture that writes BEHIND the store must invalidate what a write THROUGH
+// the store would have invalidated, or it is testing the caches rather than the
+// code. lib/kv.js drops both in-process memos on every write (see `rdrop`);
+// mem.set reaches neither, so seeding the Warden's price history left the
+// pxlog bucket memo holding the empty hour it had already read, and the Warden
+// reported no measurable volatility from 200 minutes of it.
+const setMem = (k, v) => {
+  mem.set(k, JSON.stringify(v));
+  const buckets = globalThis.__ratchet_bucketmemo; if (buckets) buckets.delete(k);
+  const reads = globalThis.__ratchet_rmemo; if (reads) reads.delete(k);
+};
 // Ladders are Redis sorted sets now (ZINCRBY is atomic). In memory mode the
 // backend keeps them as a Map under a 'Z' prefix.
 // section 10 tests the rate limiter deliberately; after that it is spent, and
@@ -78,7 +88,20 @@ const resetRL = () => { const rl = globalThis.__ratchet_rl; if (rl && rl.clear) 
 const hMem = () => mem.get('H' + 'h:stats') || new Map();
 const stats = () => Object.fromEntries(hMem());
 const FLOOR_MIN_OK = 0;
-const setStat = (f, v) => { if (!mem.has('H' + 'h:stats')) mem.set('H' + 'h:stats', new Map()); mem.get('H' + 'h:stats').set(f, v); };
+// Behind the store again, so it invalidates by hand for the reason setMem does.
+// The display memo in api/game.js is keyed by what it was DERIVED from, so a
+// write to h:stats has to reach it through that index or the next state read
+// serves a figure from before this line ran.
+const dropDerived = key => {
+  const deps = globalThis.__ratchet_shared_deps, display = globalThis.__ratchet_shared;
+  const dependents = deps && deps.get(key);
+  if (dependents && display) { for (const d of dependents) display.delete(d); deps.delete(key); }
+};
+const setStat = (f, v) => {
+  if (!mem.has('H' + 'h:stats')) mem.set('H' + 'h:stats', new Map());
+  mem.get('H' + 'h:stats').set(f, v);
+  dropDerived('h:stats');
+};
 const zScore = (pfx, period, w) => { const m = mem.get('Z' + `z:${pfx}${period}`); return m ? (m.get(w) || 0) : 0; };
 
 const BOARD_TEST_HOUR = Math.floor(Date.now() / 3600e3);
@@ -400,6 +423,14 @@ ok(stats().pot === 600, 'weekly remainder rolled');
   // Mutate rather than replace: game.js captured this object at load time and
   // holds its own reference, so reassigning the global would not reach it.
   if (globalThis.__ratchet_wcache) { globalThis.__ratchet_wcache.hour = -1; globalThis.__ratchet_wcache.v = null; }
+  // Clearing ONE of the caches in front of the Warden is clearing none of them.
+  // wardenTick holds its own 30s answer, and the lease throttle holds a
+  // "recently attempted" stamp; by the time this section runs, earlier state
+  // calls in this file have set both, so the seeded market never reached
+  // wardenLine at all and the section failed on a stale empty record rather
+  // than on anything it was written to measure.
+  if (globalThis.__ratchet_wardentick) { globalThis.__ratchet_wardentick.t = 0; globalThis.__ratchet_wardentick.v = null; }
+  if (globalThis.__ratchet_attempts) globalThis.__ratchet_attempts.delete('lease:warden');
 }
 tickPx();
 await call('GET', { query: { action: 'state' } });          // seals this hour's line
@@ -408,6 +439,8 @@ ok(Array.isArray(wopen) && wopen.length > 0, 'the Warden posts a line once volat
 wopen[0].exp = Date.now() - 1000; wopen[0].thresh = 1;   // SOL(100) > 1 => outcome YES
 seedStubPx(wopen[0].exp);
 if (globalThis.__ratchet_wardentick) globalThis.__ratchet_wardentick.t = 0;
+// and the lease throttle in front of it, for the same reason as above
+if (globalThis.__ratchet_attempts) globalThis.__ratchet_attempts.delete('lease:warden');
 tickPx();
 setMem('g:warden:open', wopen);
 r = await call('GET', { query: { action: 'state' } });

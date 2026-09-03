@@ -9,18 +9,30 @@ assert.match(html, /phantom\.app\/ul\/browse\/\$\{page\}\?ref=\$\{ref\}/,
   'mobile Connect must hand off to Phantom’s documented in-app browse link');
 assert.match(html, /let refreshing=false;[\s\S]*if\(dead\|\|refreshing\)return;[\s\S]*finally\{clearTimeout\(timeout\);refreshing=false;\}/,
   'state refreshes must not overlap and create player-lock 409s');
-// The rule this pins is "poll as often as there is something to see, and no
-// more", not one particular set of numbers. It was a literal match on
-// `engaged?10000:60000`, so the tuning could not change without the test
-// failing for a reason unrelated to what it protects.
+// The rule this pins is about WHO waits how long, not how many tiers the
+// expression happens to have. The first version matched `engaged?10000:60000`
+// literally, so tuning broke it for reasons unrelated to what it protects; the
+// second matched a three-tier shape and broke the same way. So evaluate the
+// real expression and ask it the questions that matter.
 {
-  const tiers = html.match(/const delay=liveShot\?(\d+):\(AUTH\?(\d+):(\d+)\)/);
-  assert.ok(tiers, 'the poll interval must follow what the player is waiting for');
-  const [live, connectedIdle, guest] = tiers.slice(1).map(Number);
-  assert.ok(live <= 10000,
+  // Anchored inside pollState: index.html has more than one `const delay`,
+  // and the retry backoff is not the poll cadence.
+  const poll = html.slice(html.indexOf('function pollState('));
+  const m = poll.match(/const delay=([^;]+);/);
+  assert.ok(m, 'the poll interval must follow what the player is waiting for');
+  const delayFor = new Function('liveShot', 'AUTH', 'return (' + m[1] + ');');
+  const withShot = delayFor(true, true), connected = delayFor(false, true), guest = delayFor(false, false);
+  assert.ok(withShot <= 10000,
     'a shot in the air is a player waiting for a number: watch it at least every ten seconds');
-  assert.ok(connectedIdle >= live && guest >= connectedIdle,
-    'less to see must mean less polling, never more');
+  // The one that cost something. `open.length` says THIS TAB sealed a shot; it
+  // does not say the player has an outcome coming. A shot sealed by their agent,
+  // from another device, or a challenge somebody else accepted all settle for a
+  // player whose open list here is empty. Slowing that player to thirty seconds
+  // meant a settlement they were told about half a minute late, and test_notify
+  // found it: the tab title never carried the result inside the window.
+  assert.ok(connected <= 10000,
+    'a connected player can have a settlement coming without an open shot in THIS tab: never make them wait for it');
+  assert.ok(guest >= connected, 'less to see must mean less polling, never more');
   assert.ok(guest >= 60000, 'an idle guest must not hammer storage');
 }
 assert.match(html, /if\(left===0\)\{sp\.textContent="SETTLING…";[\s\S]*watchExpired\(sp\.dataset\.exp\)/,
