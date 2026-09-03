@@ -9,6 +9,7 @@
 // base58 decoder and the byte layout the program compiles in.
 import assert from 'node:assert/strict';
 import crypto from 'node:crypto';
+import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { leafOf, pairUp, buildTree, proofFor, foldProof, reconcile, buildRoot }
   from '../tools/legacy_root.mjs';
@@ -135,6 +136,41 @@ for (const size of [1, 2, 3, 5, 8, 17, 64, 1000]) {
   checks++;
   assert.throws(() => buildRoot([]), /EMPTY_TREE/,
     'the program treats an all-zero root as "no migration"; producing one by accident would be silent');
+}
+
+// ---- 8. a demo wallet is excluded by rule, not refused, and never silently ----
+//
+// The tool's stance -- "a root is a claim about every player, it cannot be built
+// around the ones that did not parse" -- is right and stays. A demo wallet is
+// not one of those. It is not an address at all: demo mode issues `demo-1ff` so
+// somebody can try the game with no wallet, and no keypair anywhere could sign a
+// claim for it. Refusing over them means no root can ever exist; dropping them
+// quietly means a root that decided who counts without saying so.
+{
+  const real = 'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM';
+  const out = reconcile([
+    ['u:demo-1ff', { cr: 10, xp: 1 }, null, null],
+    ['u:demo-009', { cr: 5, xp: 0 }, null, null],
+    ['u:' + real, { cr: 100, xp: 20 }, null, null],
+    ['u:not-a-wallet-0OIl', { cr: 1, xp: 1 }, null, null],
+  ]);
+  checks++; assert.equal(out.players.length, 1, 'the real wallet is the only leaf');
+  checks++; assert.equal(out.excluded.length, 2, 'both demo wallets are excluded');
+  checks++; assert.deepEqual(out.excluded.map(r => r.wallet), ['demo-009', 'demo-1ff'],
+    'exclusions are sorted, so two honest runs list them the same way');
+  checks++; assert.ok(out.excluded.every(r => /demo wallet/.test(r.reason)),
+    'every exclusion carries the reason it was excluded');
+  checks++; assert.equal(out.problems.length, 1,
+    'an address that is malformed rather than a demo wallet still refuses the whole root');
+  checks++; assert.match(out.problems[0], /not base58/);
+
+  // The rule is the game's, not this tool's. If lib/verify.js ever changes what
+  // counts as a demo wallet, this must follow it rather than keep its own copy.
+  const src = readFileSync(new URL('../tools/legacy_root.mjs', import.meta.url), 'utf8');
+  checks++; assert.match(src, /require\('\.\.\/lib\/verify\.js'\)/,
+    'the demo rule must be imported from lib/verify.js, never restated here');
+  checks++; assert.ok(!/startsWith\('demo-'\)/.test(src),
+    'a second copy of a rule is how the Supabase import got five key families wrong');
 }
 
 console.log(`PASS  legacy root: ${checks} checks — leaf matches the program, every proof folds, promotion not duplication`);

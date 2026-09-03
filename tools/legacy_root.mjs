@@ -41,6 +41,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { createRequire } from 'node:module';
+
+// WHOSE RULE A DEMO WALLET IS. Not this file's. `isDemo` lives in lib/verify.js
+// and is what the game itself uses to decide that a player is playing for free
+// and is never written to a ladder. Re-stating the pattern here would be a
+// second copy of a rule, and a second copy is how the Supabase import decided a
+// key's Redis type from its name and got five families wrong.
+const require = createRequire(import.meta.url);
+const { isDemo } = require('../lib/verify.js');
 
 const sha256 = (...parts) => crypto.createHash('sha256').update(Buffer.concat(parts)).digest();
 const B58 = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
@@ -114,6 +123,7 @@ export const foldProof = (leaf, proof) =>
 export function reconcile(rows, { now = Date.now() } = {}) {
   const players = [];
   const problems = [];
+  const excluded = [];
   const seen = new Set();
   let skippedExpired = 0, openStake = 0, openShots = 0;
 
@@ -124,6 +134,19 @@ export function reconcile(rows, { now = Date.now() } = {}) {
     if (seen.has(wallet)) { problems.push('duplicate player row: ' + wallet.slice(0, 8) + '…'); continue; }
     seen.add(wallet);
     if (!value || typeof value !== 'object') { problems.push('player row is not an object: ' + wallet.slice(0, 8) + '…'); continue; }
+
+    // A DEMO WALLET IS EXCLUDED, NOT REFUSED, AND THE DIFFERENCE MATTERS.
+    //
+    // "A root is a claim about every player" is the right stance and it stays.
+    // But `demo-1ff` is not a player who failed to parse; it is not an address
+    // at all. Demo mode issues these so somebody can try the game with no
+    // wallet, and there is no keypair anywhere on earth that could sign a claim
+    // for one. Refusing the whole root over them means no root can ever be
+    // built; silently dropping them means a root that quietly decided who
+    // counts. So they are excluded by a named rule, counted, listed, and
+    // written into the output next to the tree -- an exclusion that is a
+    // document rather than a decision that disappeared.
+    if (isDemo(wallet)) { excluded.push({ wallet, reason: 'demo wallet: no keypair exists that could claim it' }); continue; }
 
     let key32;
     try { key32 = base58Decode(wallet); } catch { problems.push('address is not base58: ' + wallet.slice(0, 8) + '…'); continue; }
@@ -144,7 +167,8 @@ export function reconcile(rows, { now = Date.now() } = {}) {
   }
 
   players.sort((a, b) => Buffer.compare(a.key32, b.key32));
-  return { players, problems, skippedExpired, openStake, openShots };
+  excluded.sort((a, b) => (a.wallet < b.wallet ? -1 : a.wallet > b.wallet ? 1 : 0));
+  return { players, problems, excluded, skippedExpired, openStake, openShots };
 }
 
 export function buildRoot(players) {
@@ -196,7 +220,7 @@ if (invoked) {
   for (const line of fs.readFileSync(source, 'utf8').split('\n')) {
     if (line.trim()) rows.push(JSON.parse(line));
   }
-  const { players, problems, skippedExpired, openStake, openShots } = reconcile(rows);
+  const { players, problems, excluded, skippedExpired, openStake, openShots } = reconcile(rows);
 
   console.log('');
   console.log('  player rows          ' + String(players.length).padStart(7));
@@ -205,6 +229,12 @@ if (invoked) {
   console.log('  credits committed    ' + String(openStake).padStart(7) + '   (stake in flight, not in cr)');
   console.log('  credits              ' + String(players.reduce((s, p) => s + p.credits, 0)).padStart(7));
   console.log('  xp                   ' + String(players.reduce((s, p) => s + p.xp, 0)).padStart(7));
+  if (excluded.length) {
+    console.log('  excluded (demo)      ' + String(excluded.length).padStart(7)
+      + '   no keypair exists that could claim these');
+    for (const row of excluded.slice(0, 5)) console.log('     ' + row.wallet);
+    if (excluded.length > 5) console.log('     ... and ' + (excluded.length - 5) + ' more, all listed in merkle_excluded.json');
+  }
 
   if (problems.length) {
     console.log('');
@@ -229,10 +259,16 @@ if (invoked) {
   console.log('');
   console.log('  every proof re-verified with the program\'s own fold before writing.');
 
-  fs.writeFileSync('merkle_tree.json', JSON.stringify({ root: tree.root, accounts: tree.accounts }, null, 1) + '\n');
+  // The exclusions ride WITH the root, not beside it. Anyone auditing this later
+  // gets the list in the same file as the claim it qualifies.
+  fs.writeFileSync('merkle_tree.json', JSON.stringify({
+    root: tree.root, accounts: tree.accounts,
+    excluded: { count: excluded.length, rule: 'lib/verify.js isDemo', wallets: excluded.map(r => r.wallet) },
+  }, null, 1) + '\n');
+  fs.writeFileSync('merkle_excluded.json', JSON.stringify(excluded, null, 1) + '\n');
   fs.writeFileSync('merkle_balances.json', JSON.stringify(
     players.map(p => ({ wallet: p.wallet, cr: p.credits, xp: p.xp, staked: 0 })), null, 1) + '\n');
-  console.log('  wrote merkle_tree.json and merkle_balances.json');
+  console.log('  wrote merkle_tree.json, merkle_balances.json and merkle_excluded.json');
   console.log('');
   console.log('  next: node scripts/set-legacy-root.mjs merkle_tree.json');
 }
