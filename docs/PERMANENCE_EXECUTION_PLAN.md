@@ -383,15 +383,16 @@ balance divergence; costs and liveness are measured; at least one full life is
 executed by a non-Ratchet runner. A shorter run may inform engineering but cannot
 be called this gate.
 
-### P7 - capped, opt-in mainnet generation
+### P7 - opt-in mainnet generation
 
 Deploy new Timepin and Core G2 program ids with upgrade authorities retained for
-the bounded pilot. Verify source/artifact/deployed bytes and register the verified
-build while authority exists. Admit only explicit opt-in positions under a hard
-published exposure cap. Existing production positions stay under their original
-authority and are not mirrored as G2 positions.
+the opt-in pilot. Verify source/artifact/deployed bytes and register the verified
+build while authority exists. Admission is permissionless under the published
+rules; there is no founder-controlled spend or exposure cap. Existing production
+positions stay under their original authority and are not mirrored as G2
+positions.
 
-Gate: real RCX Token-2022 reload/bounty and a complete small-value position work
+Gate: real RCX Token-2022 reload/bounty and a complete owner-chosen position work
 through independent clients; on-chain conservation and Timepin evidence match;
 stop-admission and deterministic resolution/VOID procedures are proven. The
 honest label is **upgradeable mainnet beta**, not permanent or frozen.
@@ -405,6 +406,12 @@ rebuild the Merkle root, compile it into a dedicated migration build and test
 one-time claims. Choose a cutover slot/time after which no new legacy position can
 be accepted. Old open positions settle under old rules; new positions exist only
 in G2.
+
+Supabase is used only to read this final legacy export. After the root, totals,
+open-position disposition and cutover point are independently verified, remove
+Supabase imports and environment variables from every canonical runtime path.
+Keep the raw export as protected audit evidence; never keep a silent database
+fallback or a second writable economy.
 
 Gate: total credits/XP and pending obligations conserve exactly; root is nonzero
 and reproduced independently; duplicate/cross-wallet claims fail; there is no
@@ -486,19 +493,25 @@ claim.
 ## Final deploy-click runbook
 
 The final release must be one guarded manifest-driven action, not a person copying
-addresses between terminals. P7 must deliver a tool with this interface (the tool
-does not yet exist and this document does not pretend otherwise):
+addresses between terminals. The first tool slice now exists:
+`tools/permanence-release.mjs` is offline and read-only, validates identities,
+the local ELF hash, one-time-snapshot -> Solana-only migration, and one exact
+declared action. It has no signer, RPC, transaction or secret path and actively
+refuses `--execute`, authority revocation and refreeze.
+
+```text
+node tools/permanence-release.mjs \
+  --dry-run \
+  --manifest releases/permanence-manifest.example.json
+```
+
+P7 must extend that reviewed schema with the network/simulation/execution layer.
+Only then is the intended final click available; this command is a target, not a
+currently accepted invocation:
 
 ```text
 node tools/permanence-release.mjs \
   --manifest releases/g2-mainnet-v1.json \
-  --cluster mainnet-beta \
-  --signer <local-authority-keypair> \
-  --dry-run
-
-node tools/permanence-release.mjs \
-  --manifest releases/g2-mainnet-v1.json \
-  --cluster mainnet-beta \
   --signer <local-authority-keypair> \
   --execute
 ```
@@ -507,7 +520,7 @@ The signer is a local Solana deployment authority, not an API credential. The
 manifest pins genesis hash, RPC commitment, Timepin/Core program ids, source
 commit, exact SBF hashes, loader, upgrade authority, RCX mint and Token-2022
 program, Pyth receiver/push-oracle/domain/feed accounts, schemas, ruleset values,
-pilot caps, fee/spend caps and expected initialization PDAs.
+exact expected transaction movements/destinations and initialization PDAs.
 
 The command must perform and journal these steps in order:
 
@@ -515,9 +528,10 @@ The command must perform and journal these steps in order:
    batches green for that exact commit/artifact pair.
 2. Read cluster genesis hash and finalized context from two RPC endpoints; prove
    program ids are unused (or exactly the expected upgradeable pilot) and print
-   every address and maximum SOL/RCX movement.
-3. Verify local signer public keys only, balances and spend caps. Never print or
-   copy secret key material.
+   every address and exact expected SOL/RCX movement.
+3. Verify local signer public keys only and balances. Compute and display every
+   expected fee, rent payment and token movement; reject undeclared instructions
+   or destinations. Never print or copy secret key material.
 4. Rebuild or verify the pinned artifacts and reject any byte/hash difference.
 5. Deploy Timepin, then Core G2, with upgrade authorities **retained** for the
    pilot. Read ProgramData back and compare executable bytes/hash to the manifest.
@@ -528,8 +542,9 @@ The command must perform and journal these steps in order:
 8. Execute a zero-value Timepin sentinel: pre-open Need, capture a real sponsored
    message, finalize/expire as appropriate, and decode it with the independent
    inspector.
-9. Execute the explicitly capped pilot: one small RCX bounty/reload path and one
-   complete G2 shot life, then reconcile every base unit and account transition.
+9. Execute an explicit opt-in pilot: one owner-chosen RCX bounty/reload path and
+   one complete G2 shot life, then reconcile every base unit and account
+   transition. The protocol does not impose a founder spend cap.
 10. Emit an append-only JSON result containing slots, signatures, account bytes,
     hashes, costs and pass/fail status. A partial execution is `INCOMPLETE`, never
     success.
@@ -564,7 +579,8 @@ The release tool exits before the next write if any of these is true:
   were rerun;
 - finalized RPC views disagree and the difference is not resolved at a common
   slot;
-- fees, rent or RCX movement exceed manifest caps;
+- fees, rent, instructions, destinations or RCX movement differ from the exact
+  manifest declaration;
 - legacy totals/root do not reproduce, `LEGACY_ROOT` is zero at migration, or a
   dual-write window exists;
 - a full-life position cannot resolve or deterministically void with Ratchet
@@ -586,6 +602,8 @@ the destination architecture is necessary.
 | 2026-09-03 | Build toward Timepin as reusable RCX infrastructure. | Public target-time evidence and multi-sponsor execution vouchers are separate from RatchetX game rules. |
 | 2026-09-03 | RCX utility must preserve existing token truth. | Token-2022 only, existing supply only, no new mint/faucet/treasury promise; bounties transfer escrowed RCX. |
 | 2026-09-03 | Test in grouped batches. | One candidate, six broad batches, one evidence report; no ceremony based on scattered green probes. |
+| 2026-09-03 | No founder-controlled pilot/spend cap. | Admission follows public rules; deployment tooling only rejects transactions whose exact movements or destinations differ from the reviewed manifest. |
+| 2026-09-03 | Supabase is a legacy extraction source, not the destination. | Export and independently reconcile the complete existing state once, cut admission without dual-write, then remove Supabase from every canonical runtime path. |
 | 2026-09-03 | No model-picked decision-band constant becomes permanent. | Preserve confidence evidence and collect actual shadow outcomes before a separately versioned rule decision. |
 | current | Equities remain held. | They return only with a permissionless source-bound on-chain evidence route; an authenticated market-data API is not acceptable. |
 | current | Horizons/PUMP board policy is reversible until G2. | UI changes can ship independently, but economic support requires on-chain ruleset and Timepin vectors. |
@@ -601,7 +619,7 @@ Use only the highest claim whose evidence gate has passed:
 - **After P3:** "A no-value Timepin devnet prototype is stranger-runnable."
 - **After P5:** "Core G2 passes local/devnet economic and oracle adversarial
   batches." This still is not a production claim.
-- **After P7:** "An opt-in, capped, upgradeable mainnet on-chain beta exists."
+- **After P7:** "An opt-in, upgradeable mainnet on-chain beta exists."
 - **After P6/P8/P9 and canonical cutover:** "RatchetX economic state and outcomes
   are recoverable and operable without Ratchet infrastructure."
 - **Only after a separately authorized P10:** "This named program generation is

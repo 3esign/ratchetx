@@ -1,5 +1,9 @@
 # RatchetX — the founder's clicks to "nothing depends on the founder"
 
+> **Superseded on 2026-09-03.** Do not execute the freeze or migration steps in
+> this old click list. The source-time, ring-evidence and Token-2022 findings
+> changed the architecture; `PERMANENCE_EXECUTION_PLAN.md` is the active handoff.
+
 Every remaining step is a script. Each writes a report file in the repo root
 that Claude (or anyone) reads; re-running any of them is safe. Order matters
 only where it says so. Rules that never bend: no keypair in the repo, no

@@ -96,7 +96,7 @@ website, not Bankr, not Supabase.
    instruction, PDA, parser and the commit, byte-checked against the program's
    vectors by `test/test_core_client.mjs`) and `client/crank.mjs` (the open
    runner). First run against a real cluster still open (devnet, then mainnet).
-5. Legacy snapshot → Merkle root compiled in → migration build → capped pilot.
+5. Legacy snapshot -> Merkle root compiled in -> migration build -> opt-in pilot.
 6. 72 h drill with everything of ours off, then `--final`.
 
 ## Client and open runner
@@ -223,6 +223,8 @@ client carry 120.
   comparison with the older committed artifact. The downloaded CI lockfile and
   vectors hash-match the repository, and the exact `.so` passes the nine-case
   LiteSVM battery including signed-source gaps and real Token-2022 reload.
+  Follow-up run `33697443251` is green through fresh-byte equality and the
+  LiteSVM battery on those exact pinned-toolchain bytes.
   This repairs `checkpoint` to retain Pyth's signed `prev_publish_time`; it does
   not remove the evicting ring or add confidence/ruleset evidence, is not
   deployed, and is explicitly not a permanent or mainnet candidate.

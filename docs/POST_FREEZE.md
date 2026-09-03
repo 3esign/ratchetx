@@ -3,6 +3,9 @@
 Announces the registered date. Post any time after docs/FREEZE.md is on main — the post
 links it. On 2026-09-08, after the ceremony, follow up with the verification post (bottom).
 
+> **Cancelled draft, 2026-09-03.** No 2026-09-08 ceremony is scheduled and
+> this copy must not be published. It remains only as a historical record.
+
 ---
 
 ## Single post

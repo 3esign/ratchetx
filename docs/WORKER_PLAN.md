@@ -1,5 +1,10 @@
 # RatchetX — worker plan to "nothing depends on the founder" (2026-09-02)
 
+> **Historical worker plan.** Owner direction on 2026-09-03 removed the freeze
+> deadline, and the Core audit invalidated the old completion path. Do not run
+> its deploy, migration or authority commands; use
+> `PERMANENCE_EXECUTION_PLAN.md`.
+
 Repo: `D:\Work\Software_Projects\pumpmind\ratchetx\ratchet_phase_a_clean`. Read
 `docs/CORE.md`, `docs/STOCKS_FEEDS.md`, `docs/RELEASE_H108.md` first. Rules that
 never bend: never commit a keypair; never `git add .` / `commit -a` (others'

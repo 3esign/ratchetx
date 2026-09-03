@@ -1,0 +1,79 @@
+{
+  "schema": "ratchetx.permanence-release",
+  "schemaVersion": 1,
+  "releaseId": "example-devnet-core-v1-source-bracket-verify-only",
+  "cluster": {
+    "name": "devnet",
+    "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1"
+  },
+  "source": {
+    "repository": "https://github.com/3esign/ratchetx",
+    "commit": "848ab2454ab25b20b242b46b9517b28a9938c9bc"
+  },
+  "migration": {
+    "legacyImport": "one-time-snapshot",
+    "canonicalStateAfterImport": "solana-only"
+  },
+  "token": {
+    "mint": "FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump",
+    "programId": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "decimals": 6
+  },
+  "oracle": {
+    "receiverProgramId": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+    "pushOracleProgramId": "pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou",
+    "shard": 0,
+    "feeds": [
+      {
+        "symbol": "SOL",
+        "id": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d"
+      },
+      {
+        "symbol": "BTC",
+        "id": "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43"
+      },
+      {
+        "symbol": "ETH",
+        "id": "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace"
+      },
+      {
+        "symbol": "BONK",
+        "id": "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419"
+      },
+      {
+        "symbol": "PUMP",
+        "id": "7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9"
+      },
+      {
+        "symbol": "JUP",
+        "id": "0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996"
+      },
+      {
+        "symbol": "WIF",
+        "id": "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc"
+      }
+    ]
+  },
+  "programs": [
+    {
+      "name": "core-v1-source-bracket-prototype",
+      "programId": "6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv",
+      "artifact": {
+        "path": "onchain/ratchet-core/artifacts/ratchet_core-v1-2026-09-03.so",
+        "sha256": "ca09f0a830d0b523d0f39a27bf66f47fdc18e9deb5816f4ddf99de77d4e1ef80"
+      }
+    }
+  ],
+  "action": {
+    "kind": "verify_artifact",
+    "program": "core-v1-source-bracket-prototype",
+    "expected": {
+      "transactions": 0,
+      "networkFeeLamports": "0",
+      "rentLamports": "0",
+      "solTransferLamports": "0",
+      "rcxDebitAtomic": "0",
+      "rcxCreditAtomic": "0"
+    }
+  }
+}

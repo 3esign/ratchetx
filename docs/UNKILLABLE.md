@@ -5,6 +5,11 @@ change, stop, censor, or quietly rug. Not as a slogan: as a sequence of properti
 each one **checkable the day we claim it**, most of them checkable on
 [the proof page](https://ratchetx.xyz/api/proof) already.
 
+> **Status correction, 2026-09-03:** dates and completed rings below are
+> historical, not current execution authority. No freeze is scheduled. Core v1
+> remains an upgradeable devnet prototype with known evidence gaps; follow
+> `PERMANENCE_EXECUTION_PLAN.md` for the active chain-first roadmap.
+
 This document is the map. Like [the freeze](FREEZE.md), it is registered in the
 repo before the fact, so you can hold us to it.
 

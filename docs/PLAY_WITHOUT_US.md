@@ -1,5 +1,10 @@
 # Play and settle RatchetX without us
 
+> **Prototype scope, corrected 2026-09-03.** Core v1 is devnet-only, upgradeable
+> and not the live credit ledger. Its old ring is not sufficient final evidence.
+> Use the signerless chain inspector for present facts and
+> `PERMANENCE_EXECUTION_PLAN.md` for the successor acceptance gates.
+
 Written for someone who has no relationship with the people who built this and
 would rather verify than trust. Everything below runs against the chain with your
 own keys and your own RPC. There is no account to make, no key to request, and no
