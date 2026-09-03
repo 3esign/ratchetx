@@ -275,6 +275,23 @@ export async function readShots(connection) {
   return list.map(({ pubkey, account }) => checkedShot(pubkey, account));
 }
 
+/** Every shot the program holds, discovered by discriminator and size alone --
+ * no wallet, no indexer, no list of players from anywhere. This is what lets a
+ * stranger reconstruct the game from a program id and a public RPC, which is the
+ * whole claim. readShots above does the same discovery but without a commitment
+ * or a context slot, so it cannot say WHEN what it saw was true; that makes it
+ * useful for a script and not useful for evidence. */
+export async function readAllShotsWithContext(connection, commitment = 'finalized') {
+  const filters = [
+    { dataSize: ACCOUNT_SIZE.Shot },
+    { memcmp: { offset: 0, bytes: toBase58(accountDiscriminator('Shot')) } },
+  ];
+  const response = await connection.getProgramAccounts(PROGRAM_ID, { commitment, filters, withContext: true });
+  if (!response || Array.isArray(response) || !response.context || !Array.isArray(response.value))
+    throw new TypeError('RPC did not return program accounts with context');
+  return { contextSlot: response.context.slot, shots: response.value.map(({ pubkey, account }) => checkedShot(pubkey, account)) };
+}
+
 /** Read one wallet's shots with the exact server-side memcmp and an RPC
  * context slot. No indexer or application database participates. */
 export async function readPlayerShots(connection, player, commitment = 'finalized') {
