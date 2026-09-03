@@ -109,8 +109,15 @@ if (problems.length) {
 console.log('');
 console.log('Target: a Redis-protocol KV (Upstash / Vercel KV). The token is typed');
 console.log('into this window only and is never written to a file.');
-const url = (process.env.KV_REST_API_URL || await ask('  REST URL  : ')).replace(/\/+$/, '');
-const token = process.env.KV_REST_API_TOKEN || await ask('  REST token: ');
+// Strip control characters before either value goes near a header. Windows
+// `for /f` hands back a PowerShell line with its carriage return still attached,
+// and `Bearer <token>\r` is not a legal header value -- undici rejects it as
+// "invalid Authorization header", which names the symptom and hides the cause.
+// Anything pasted by hand can carry stray whitespace too, so both are cleaned
+// here rather than trusted to arrive tidy.
+const clean = value => String(value || '').replace(/[\x00-\x1f\x7f]/g, '').trim();
+const url = clean(process.env.KV_REST_API_URL || await ask('  REST URL  : ')).replace(/\/+$/, '');
+const token = clean(process.env.KV_REST_API_TOKEN || await ask('  REST token: '));
 if (!url || !token) { console.log('No target given — nothing was sent.'); process.exit(2); }
 // The console shows a redis:// line for redis-cli and an https:// one for the
 // REST API. Only the second speaks the protocol lib/kv.js uses, and pasting the
