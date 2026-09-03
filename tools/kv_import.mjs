@@ -32,13 +32,16 @@ function privateRoot() {
   return path.join(path.resolve(base), 'RatchetX', 'private-snapshots');
 }
 
-const ask = (question, hidden = false) => new Promise(resolve => {
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
-  rl.question(question, answer => { rl.close(); if (hidden) process.stdout.write('\n'); resolve(answer.trim()); });
-  if (hidden) {
-    const write = process.stdout.write.bind(process.stdout);
-    rl._writeToOutput = () => write('');
-  }
+// One interface for every question. A fresh readline per prompt looked tidier
+// and did not work: closing the first one leaves stdin ended, so the second
+// question returns an empty string the instant it is asked -- which is exactly
+// what happened on the first run, printing both prompts and then "no target".
+// The credentials normally arrive through the environment (the .cmd collects
+// them, hiding the token), and this interactive path is the fallback.
+let rl = null;
+const ask = question => new Promise(resolve => {
+  rl ||= readline.createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+  rl.question(question, answer => resolve(answer.trim()));
 });
 
 const root = privateRoot();
@@ -107,8 +110,16 @@ console.log('');
 console.log('Target: a Redis-protocol KV (Upstash / Vercel KV). The token is typed');
 console.log('into this window only and is never written to a file.');
 const url = (process.env.KV_REST_API_URL || await ask('  REST URL  : ')).replace(/\/+$/, '');
-const token = process.env.KV_REST_API_TOKEN || await ask('  REST token (hidden): ', true);
+const token = process.env.KV_REST_API_TOKEN || await ask('  REST token: ');
 if (!url || !token) { console.log('No target given — nothing was sent.'); process.exit(2); }
+// The console shows a redis:// line for redis-cli and an https:// one for the
+// REST API. Only the second speaks the protocol lib/kv.js uses, and pasting the
+// first would fail later with something far less obvious than this sentence.
+if (!/^https:\/\//i.test(url)) {
+  console.log('\nThat is not the REST endpoint. Copy the HTTPS one from the Upstash console');
+  console.log('(the redis:// line is for redis-cli and will not work here). Nothing was sent.');
+  process.exit(2);
+}
 
 const go = await ask('\nType IMPORT to write ' + commands.length + ' commands: ');
 if (go !== 'IMPORT') { console.log('Not confirmed — nothing was sent.'); process.exit(2); }
@@ -136,3 +147,4 @@ console.log('');
 console.log(failed ? 'DONE with ' + failed + ' command error(s) — read them before trusting this store.'
                    : 'DONE. ' + done + ' commands accepted, none refused.');
 console.log('The legacy store was not touched. This wrote only to the target.');
+if (rl) rl.close();
