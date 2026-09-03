@@ -10,7 +10,12 @@ const fetchImpl=async(url,options)=>{
   return new Response(JSON.stringify({schema:'guarded-player-v1',ready:true}));
 };
 assert.equal(await check({env,fetchImpl}),true);assert.equal(calls,1);
-await assert.rejects(()=>check({env:{},fetchImpl}),/configured Supabase/);
+// The refusal is unchanged; only its noun is. The gate used to name Supabase
+// because Supabase was the only store; it now names the requirement itself,
+// because a Redis-protocol store satisfies it and a missing one still does not.
+await assert.rejects(()=>check({env:{},fetchImpl}),/requires a configured durable store/);
+assert.equal(await check({env:{KV_REST_API_URL:'https://x.upstash.io',KV_REST_API_TOKEN:'t'},
+  fetchImpl:async()=>{throw new Error('a Redis store must not be asked about migration 003');}}),true);
 await assert.rejects(()=>check({env:{...env,SUPABASE_URL:'http://fixture.supabase.co'},fetchImpl}),/Invalid database/);
 await assert.rejects(()=>check({env,fetchImpl:async()=>new Response('{}',{status:404})}),/migration 003/);
 await assert.rejects(()=>check({env,fetchImpl:async()=>new Response('{"schema":"guarded-player-v1","ready":false}')}),/trigger/);
