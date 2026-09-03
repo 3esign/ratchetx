@@ -348,6 +348,49 @@ select
       and (jsonb_typeof(f.value) <> 'number'
         or coalesce(f.value #>> '{}','') !~ '^(0|[1-9][0-9]*)$')
   ) offenders)::text stats_shape_offenders,
+  -- The single shape counter above says a field is not a plain non-negative
+  -- integer. That is four different facts wearing one number, and only three of
+  -- them are faults. Split them, because the fourth is history we cannot change
+  -- and must not pretend away. See validateConservation for which are fatal.
+  (select count(*) from stats where jsonb_typeof(value) <> 'object')::text
+    stats_container_shape_violations,
+  (select count(*) from stats s, jsonb_each(s.value) f
+    where jsonb_typeof(s.value) = 'object'
+      and f.key in ('burned','pot','potD','shots','realBurned','champPaid',
+        'champRetained','stakePaid','stakers','hitPaid')
+      and jsonb_typeof(f.value) <> 'number')::text stats_non_numeric_values,
+  (select count(*) from stats s, jsonb_each(s.value) f
+    where jsonb_typeof(s.value) = 'object'
+      and f.key in ('burned','pot','potD','shots','realBurned','champPaid',
+        'champRetained','stakePaid','stakers','hitPaid')
+      and jsonb_typeof(f.value) = 'number'
+      and (f.value #>> '{}')::numeric < 0)::text stats_negative_values,
+  (select count(*) from stats s, jsonb_each(s.value) f
+    where jsonb_typeof(s.value) = 'object'
+      and f.key in ('burned','pot','potD','shots','realBurned','champPaid',
+        'champRetained','stakePaid','stakers','hitPaid')
+      and jsonb_typeof(f.value) = 'number'
+      and (f.value #>> '{}')::numeric > ${MAX_SAFE_INTEGER_TEXT})::text
+    stats_unsafe_values,
+  (select count(*) from stats s, jsonb_each(s.value) f
+    where jsonb_typeof(s.value) = 'object'
+      and f.key in ('burned','pot','potD','shots','realBurned','champPaid',
+        'champRetained','stakePaid','stakers','hitPaid')
+      and jsonb_typeof(f.value) = 'number'
+      and (f.value #>> '{}')::numeric >= 0
+      and (f.value #>> '{}')::numeric <= ${MAX_SAFE_INTEGER_TEXT}
+      and (f.value #>> '{}')::numeric <> trunc((f.value #>> '{}')::numeric))::text
+    stats_fractional_values,
+  (select coalesce(string_agg(distinct f.key, ', ' order by f.key), '')
+    from stats s, jsonb_each(s.value) f
+    where jsonb_typeof(s.value) = 'object'
+      and f.key in ('burned','pot','potD','shots','realBurned','champPaid',
+        'champRetained','stakePaid','stakers','hitPaid')
+      and jsonb_typeof(f.value) = 'number'
+      and (f.value #>> '{}')::numeric >= 0
+      and (f.value #>> '{}')::numeric <= ${MAX_SAFE_INTEGER_TEXT}
+      and (f.value #>> '{}')::numeric <> trunc((f.value #>> '{}')::numeric))::text
+    stats_fractional_fields,
   (select coalesce(sum(10 - (
       (value ? 'burned')::int + (value ? 'pot')::int + (value ? 'potD')::int +
       (value ? 'shots')::int + (value ? 'realBurned')::int + (value ? 'champPaid')::int +
@@ -745,11 +788,38 @@ export function validateConservation(report) {
     'settlement_outbox_shape_violations', 'duplicate_settlement_outbox_ids',
     'closed_shot_shape_violations', 'duplicate_closed_shot_ids',
     'challenge_shape_violations', 'duplicate_challenge_ids',
-    'challenge_container_shape_violations', 'queue_shape_violations', 'stats_shape_violations',
+    'challenge_container_shape_violations', 'queue_shape_violations',
+    // `stats_shape_violations` was here and is deliberately not any more. It
+    // counted four different facts as one, and refused the only real backup
+    // that exists over the one of them that is not a fault:
+    //
+    //   container not an object   -> fault, still fatal below
+    //   field not a number        -> fault, still fatal below
+    //   negative                  -> fault, still fatal below. A burn counter
+    //                                that went backwards is a broken ledger.
+    //   above MAX_SAFE_INTEGER    -> fault, still fatal below. It cannot be
+    //                                carried across exactly, so it cannot be
+    //                                migrated honestly.
+    //   fractional               -> NOT a fault. It is dust from the old
+    //                                floating 0.70/0.15 stake split, which
+    //                                api/game.js `stakeAllocation` replaced
+    //                                with integer allocation ("every unit
+    //                                accounted for" is that commit's own
+    //                                comment). The fix is in the code, not in
+    //                                the past, and a rule no existing snapshot
+    //                                can satisfy is not a safety check -- it is
+    //                                a wall in front of the migration.
+    //
+    // So fractional dust is COUNTED and REPORTED rather than refused:
+    // stats_fractional_values and stats_fractional_fields ride in the
+    // conservation report, so the migration root is taken with that fact
+    // attached instead of swept away.
+    'stats_container_shape_violations', 'stats_non_numeric_values',
+    'stats_negative_values', 'stats_unsafe_values',
     'play_session_shape_violations', 'history_shape_violations',
     'champion_history_shape_violations']) {
     if (exactDecimal(report[name], name) !== '0') {
-      const offenders = name === 'stats_shape_violations' ? report.stats_shape_offenders : null;
+      const offenders = name.startsWith('stats_') ? report.stats_shape_offenders : null;
       fail('CONSERVATION_' + name.toUpperCase(),
         offenders ? `${report[name]} offending field(s), as name:jsonType -- ${offenders}` : null);
     }

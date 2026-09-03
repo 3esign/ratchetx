@@ -50,7 +50,9 @@ const cleanConservation = Object.fromEntries([
   'settlement_outbox_shape_violations','duplicate_settlement_outbox_ids',
   'closed_shot_shape_violations','duplicate_closed_shot_ids','challenge_shape_violations',
   'duplicate_challenge_ids','challenge_container_shape_violations','queue_shape_violations',
-  'stats_shape_violations','play_session_shape_violations','history_shape_violations',
+  'stats_shape_violations','stats_container_shape_violations','stats_non_numeric_values',
+  'stats_negative_values','stats_unsafe_values','stats_fractional_values',
+  'play_session_shape_violations','history_shape_violations',
   'champion_history_shape_violations',
 ].map(name => [name, name === 'player_count' ? '1' : '0']));
 
@@ -107,6 +109,31 @@ test('conservation validation rejects malformed or negative buckets', () => {
   assert.throws(() => validateConservation({ ...cleanConservation, player_credits:'-1' }), /NEGATIVE_PLAYER_CREDITS/);
   assert.throws(() => validateConservation({ ...cleanConservation, queue_shape_violations:'1' }), /CONSERVATION_QUEUE_SHAPE_VIOLATIONS/);
   assert.throws(() => validateConservation({ ...cleanConservation, history_shape_violations:'1' }), /CONSERVATION_HISTORY_SHAPE_VIOLATIONS/);
+
+  // The four facts that used to be one number, each judged on its own merits.
+  // Three are faults and stay fatal:
+  for (const name of ['stats_container_shape_violations', 'stats_non_numeric_values',
+    'stats_negative_values', 'stats_unsafe_values']) {
+    assert.throws(() => validateConservation({ ...cleanConservation, [name]:'1' }),
+      new RegExp('CONSERVATION_' + name.toUpperCase()), `${name} must still refuse the snapshot`);
+  }
+  // The fourth is not. Fractional dust is what the OLD floating 0.70/0.15 stake
+  // split left behind, before api/game.js `stakeAllocation` made the split
+  // integer-exact. It is in every backup taken before that fix, including the
+  // only one that exists, and a rule no real snapshot can satisfy is a wall in
+  // front of the migration rather than a check on it. So it passes --
+  assert.doesNotThrow(() => validateConservation({ ...cleanConservation,
+    stats_fractional_values:'3', stats_fractional_fields:'burned, pot, potD' }),
+    'fractional dust from the pre-integer allocation must not refuse a snapshot');
+  // -- and it is carried into the report, so the migration root is taken with
+  // that fact attached instead of swept away.
+  const withDust = validateConservation({ ...cleanConservation,
+    stats_fractional_values:'3', stats_fractional_fields:'burned, pot, potD' });
+  assert.equal(withDust.stats_fractional_values, '3');
+  assert.equal(withDust.stats_fractional_fields, 'burned, pot, potD');
+  // And the old rollup counter must not quietly become fatal again.
+  assert.doesNotThrow(() => validateConservation({ ...cleanConservation, stats_shape_violations:'3' }),
+    'stats_shape_violations is a rollup of the four above, not a rule of its own');
 });
 
 test('log reconstruction bounds indices and rejects representation conflicts', () => {
