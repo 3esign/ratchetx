@@ -112,7 +112,7 @@ The production system currently includes:
 - **Replay-gated reloads.** One Solana transaction signature cannot be credited twice.
 - **Published podium destinations.** A reload is rejected if its 30% distribution does not match the current immutable transaction snapshot.
 - **Cryptographic shot commitments.** Open answers are hidden from spectators and revealed after settlement.
-- **Deterministic first-crossing settlement.** The exit is tied to recorded oracle time, not operator timing.
+- **Deterministic first-crossing settlement.** The exit price is tied to recorded oracle time, not operator timing. Operator timing decides only whether a shot settles or refunds, and anyone — including the player — may settle it.
 - **Hash-chained events and Solana anchors.** Any wallet can notarize a checkpoint.
 - **Export and restore tooling.** The Black Box snapshot includes the state needed to verify and rebuild the machine on fresh storage.
 - **Public build identity and tests.** The live h53 release exposes its version, has zero known npm audit vulnerabilities, and passes 26 isolated test suites covering economic invariants, signatures, settlements, snapshots, log verification, responsive layout, and failure paths.

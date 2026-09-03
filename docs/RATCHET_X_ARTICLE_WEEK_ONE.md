@@ -42,7 +42,15 @@ All figures as of 25 August, all readable from public endpoints:
 
 Most "oracle games" read a price API at settlement time and ask you to trust the moment
 they picked. We did that for about a day and then killed it, because an expired bet that
-settles "whenever someone asks" is not a resolved bet — it's a free option.
+settles on "whatever the price is whenever someone asks" is not a resolved bet — it's a
+free option, held by whoever asks.
+
+Pinning the exit to the first crossing kills most of that option. It does not kill all of
+it, and it is worth saying which part survives: whoever would crank can still decline, and
+an unrecorded shot refunds instead of settling. So the option shrinks from "pick any price
+in the window" to "turn one particular settlement into a refund" — smaller, cheaper, and
+defended by the fact that cranking is permissionless and the person holding the winning
+position can do it themselves.
 
 The live rule is **pyth-first-observed-after-v3**: a shot settles on the first fully
 validated Pyth price transition our capture stream observed with `publish_time >= expiry`.

@@ -8,11 +8,14 @@
 // WHY THIS EXISTS
 // Settlement on RatchetX is lazy and permissionless: the exit price of a shot
 // is the first oracle sample recorded at or after its window closed, so
-// settling early, late, or by a stranger produces the same number. Any request
-// that touches a wallet settles that wallet's expired shots. This script just
-// touches wallets — which means ANYONE, not only us, can keep the game
-// settling. If our servers ever stop cranking, run this and the game keeps
-// paying out. (The v3 program moves this crank on-chain; see docs/UNKILLABLE.md.)
+// settling early or late produces the same number and no runner gets to choose
+// it. What a runner does decide is whether a shot settles at all: one that
+// nobody touches inside the window voids and refunds. Any request that touches
+// a wallet settles that wallet's expired shots. This script just touches
+// wallets — which means ANYONE, not only us, can keep the game settling, and
+// that openness is the entire answer to "what if the operator stops". It is not
+// a promise that somebody always will. If our servers ever stop cranking, run
+// this and the game keeps paying out. (The v3 program moves this crank on-chain; see docs/UNKILLABLE.md.)
 //
 // It is polite by design: it stays far under the public rate limit
 // (80 GET/min per address) and backs off on 429s.

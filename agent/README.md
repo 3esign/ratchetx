@@ -74,8 +74,12 @@ so in a quiet market the published price genuinely lags. `board.prices.ages` tel
 old each one is, and the server refuses a short-window seal on a stale feed rather than let
 anyone time it.
 
-**Settling early, late or never gives the same number.** The exit price is the first oracle
-sample at or after your window closed — recorded, published, and identical whoever triggers
-it. There is no timing game here, so do not write one. Build for the prediction.
+**Settling early or late gives the same number. Not settling gives a refund.** The exit
+price is the first oracle sample at or after your window closed — recorded, published, and
+identical whoever triggers it, so there is no timing game to play on the *price* and you
+should not write one. The one thing timing does decide is attendance: if nobody records the
+crossing inside the window the shot voids and the stake comes back. So if you care about a
+position, settle it — you are allowed to, it costs you nothing, and you are the party with
+the most reason to. Build for the prediction, and crank your own shots.
 
 Full protocol: [`../ARENA.md`](../ARENA.md)

@@ -1,11 +1,20 @@
 # Core v1: permissionless settlement, verified at the source (2026-09-02)
 
-> **Superseded finding (2026-09-03):** open instruction access is real, but the
-> conclusion that a cranker cannot delay-select or force a VOID is not. The
-> source-predecessor bug and evicting 64-entry ring invalidate that claim, and
-> RCX's real Token-2022 path was not the positive control in the old LiteSVM
-> run. See `PERMANENCE_EXECUTION_PLAN.md`; do not use this page as freeze or
-> deployment evidence.
+> **Superseded finding (2026-09-02), and where it stands now (2026-09-03).**
+> Open instruction access is real. The conclusion that a cranker cannot
+> delay-select or force a VOID was not: the source-predecessor bug and the
+> evicting 64-entry ring both invalidated it, and RCX's real Token-2022 path was
+> not the positive control in the old LiteSVM run.
+>
+> All three have since been fixed — the signed predecessor is stored, ruleset 2
+> adds permissionless `bind_crossing` so a recorded crossing cannot be buried,
+> and Token-2022 is the positive control with a classic-SPL negative one. **One
+> part of the old claim is still wrong and is not being repaired**, because it
+> is not a bug: a cranker who simply does nothing still turns a settlement into
+> a refund. That is a liveness assumption, not an attack the program can
+> forbid, and it is stated as an assumption throughout — see
+> `SETTLEMENT.md`. Do not quote a "cannot choose the outcome" line from this
+> page without it.
 
 Source read of `onchain/ratchet-core/programs/ratchet-core/src/lib.rs` (the
 crypto-only candidate on `main`). This is an audit of *who may act*. It is not a
@@ -27,7 +36,7 @@ is nothing for a founder to hold.
 comparison, no allowlist. Any wallet may call them. The cranker pays the
 transaction fee and the account rent, and receives no privilege for it.
 
-## 3. The cranker cannot choose the outcome
+## 3. The cranker cannot choose the settling price. It can choose not to act.
 
 `settle` does not accept a price. It reads `feed_clock.crossing(shot.expiry_ts)`
 — the first crossing already recorded in the on-chain clock ring. `checkpoint`
@@ -35,6 +44,21 @@ accepts only a validated Pyth print (owner, feed id, Full verification,
 confidence, `prev_publish_time < publish_time`) and advances the ring only when
 `publish_time` is newer. A hostile cranker can contribute a true observation or
 do nothing; it cannot manufacture, delay-select or back-date the settling price.
+
+Doing nothing is not neutral, and this section used to imply it was. A shot
+whose crossing nobody records inside the window voids and refunds, and against a
+position that was going to win, a refund is a loss. So the accurate statement is
+narrower than the old heading: **nobody can make you lose on a price they
+picked; somebody can decline to record the price that beat them.**
+
+Ruleset 2 removed the version of this that was an attack rather than an
+absence. `bind_crossing` is permissionless, idempotent, and costs one cheap
+transaction; once a crossing is bound into the shot, flooding the ring past
+capacity does not move the outcome (there is a LiteSVM test that floods it and
+proves the answer does not move, alongside an unbound control on identical facts
+that cannot settle at all). What remains is the seconds between a crossing
+appearing and anybody binding it — and the party with the most to lose is
+allowed to bind it themselves.
 
 ## 4. A stake cannot be trapped
 
@@ -92,7 +116,9 @@ the work. Verified in **both** runners — `onchain/ratchet-core/client/{crank,c
 - **Duplicate runners are safe.** Per the runner's own contract: a second
   checkpoint of the same update is a no-op, and a second settle fails on state
   for the cost of one fee. Any number of unrelated crankers may race with zero
-  coordination — which is what liveness without an operator actually requires.
+  coordination — which is what liveness without an operator would need, and is
+  not by itself enough to produce it. Permissionlessness widens the set of
+  parties who MAY crank to everybody; it does not make one exist.
 - **The runner cannot act as a player.** It never holds a player's key and
   cannot reveal; only the salt holder can. A hostile cranker gains nothing.
 - **Cost of being a cranker:** transaction fees plus roughly 0.015 SOL once per
@@ -163,7 +189,9 @@ the ordering constraint above is the part that cannot be undone.)
 | token | freeze authority revoked | done |
 | program | no admin / config / pause / governance | done |
 | program | anyone may crank | done |
-| program | cranker cannot choose the outcome | done |
+| program | cranker cannot choose the settling PRICE | done |
+| program | cranker cannot bury a recorded crossing (ruleset 2 `bind_crossing`) | done |
+| — | cranker can decline to act; the shot then refunds | standing liveness assumption, not closable by the program |
 | program | stake cannot be trapped | done |
 | client | stranger-runnable with only RPC + keypair | done |
 | program | deployed and verified build registered | pending deploy |

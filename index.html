@@ -525,9 +525,13 @@ section{padding-top:34px;padding-bottom:42px}.playgrid{gap:20px}
         <s style="text-decoration:none;color:var(--ice)">CLEARS / BREAKS / BAND</s> is the rule. The public log
         stores only a commitment; other players and spectators cannot read your side before settlement. The server
         necessarily retains the reveal terms until settlement — this is commit-reveal, not zero knowledge.<br>
-        <b style="color:var(--ink)">2 · It settles itself.</b> When the window closes, the shot settles on
+        <b style="color:var(--ink)">2 · Nobody picks your exit price.</b> When the window closes, the shot settles on
         <b style="color:var(--ink)">Pyth oracle prices</b>, the same source used at seal. There is no cron and no
-        operator: the next request that touches your account does the work. Those prices are
+        privileged operator: the next request that touches your account does the work, and so can a stranger, and so
+        can you. What that buys you is precise — the exit is the first verified print at or after expiry and nobody
+        can substitute a different one. It is not a promise that a settlement always happens: if nobody records the
+        crossing in time the shot <b style="color:var(--ink)">voids and your stake comes back</b>. The worst case is
+        a refund, never a price somebody chose. Those prices are
         <b style="color:var(--ink)">read straight off Solana</b> from sponsored Pyth accounts and stored with
         their publish time. Settlement uses the recorded first sample crossing expiry; anyone can recompute it from
         the public record. The legacy mainnet program is not used by the live game. Every displayed price carries

@@ -19,7 +19,9 @@ must happen in the right order because one of them cannot be undone.
 | token | freeze authority revoked — no seizure, no blacklist | done |
 | program | no admin, config, pause or governance account | done |
 | program | anyone may crank (`cranker` is an unconstrained signer) | done |
-| program | cranker cannot choose the outcome (deterministic first crossing) | done |
+| program | cranker cannot choose the settling PRICE (deterministic first crossing) | done |
+| program | cranker cannot bury a recorded crossing (ruleset 2 `bind_crossing`) | done |
+| — | cranker can decline to act, turning a settlement into a refund | standing liveness assumption; permissionless and dischargeable by the player, never closable by the program |
 | program | a stake cannot be trapped (void refunds; rent returns to player) | done |
 | client | settling is stranger-runnable (RPC + keypair, chain discovery, no IDL) | done |
 | client | playing is stranger-runnable (seal & reveal in the open client) | done |

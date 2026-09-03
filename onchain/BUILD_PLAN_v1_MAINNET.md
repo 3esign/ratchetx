@@ -36,7 +36,7 @@ changed to point at real prices.
 
 Two changes, both of which should land *before* mainnet, because mainnet is expensive to redo.
 
-### The cranker's last freedom is gone
+### The cranker's last freedom over the PRICE is gone
 
 v0 let whoever settled a shot choose any Pyth update inside a 60-second window after expiry.
 Bounded — but a choice is an edge, and we said so publicly.
@@ -48,7 +48,11 @@ prev_publish_time < expiry <= publish_time
 ```
 
 is provably **the first price published at or after the window closed**. Exactly one update in
-existence satisfies it. There is nothing left to pick.
+existence satisfies it. There is nothing left to pick — *among prices*. Two
+freedoms are untouched by this predicate and should not be described as gone:
+whether to post at all, and (before ruleset 2's `bind_crossing`) whether to bury
+a posted crossing under later ones. The first is the standing liveness
+assumption; the second is closed.
 
 Settling strictly means posting the crossing update from Hermes rather than reading whatever the
 sponsored account currently holds. Strict settlement is accepted only before the one-hour

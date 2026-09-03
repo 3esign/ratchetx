@@ -83,8 +83,12 @@ how a price enters the program differs.
 - **Pull feeds cannot be forged.** The same test proves a stranger-owned posted
   account (`BadPriceAccount`), a partially verified one (`PartialVerification`),
   and one carrying the wrong feed id (`BadFeed`) are all refused.
-- **Trustless.** The posted price is Pyth-signed and receiver-verified on-chain;
-  anyone can post it from the keyless Hermes mirror, so no founder is in the loop.
+- **Nobody can pick the price.** The posted price is Pyth-signed and
+  receiver-verified on-chain; anyone can post it from the keyless Hermes mirror,
+  so no founder is in the loop. Note what that is and is not: it is
+  fabrication-resistance and open access. It is not trustlessness, because it
+  does not make anyone post, and for equities the set of parties willing to pay
+  for a post is smaller than for crypto.
 - **Same safety valve.** An equity shot with no posted crossing inside the 120 s
   window voids and refunds, exactly like a quiet feed today.
 

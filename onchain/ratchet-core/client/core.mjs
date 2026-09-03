@@ -211,10 +211,47 @@ export function crossing(clock, expiryTs) {
 /** shots: [{pubkey, ...parseShot}], clocks: Map feedIndex -> parseClock|null,
  *  pushes: Map feedIndex -> parsePriceUpdate|null, now: unix seconds (chain).
  *  Returns actions in the order they should be sent. */
-export function planActions({ shots, clocks, pushes, now, close = false, warmSecs = 300 }) {
+export function planActions({ shots, clocks, pushes, now, close = false, warmSecs = 300,
+                              bindFrom = 2 }) {
   const t = BigInt(now);
   const actions = [];
   const warmed = new Set();
+  // WHY BINDING IS PLANNED SEPARATELY AT ALL, given that `settle` binds
+  // atomically by itself.
+  //
+  // `settle` protects the transaction that lands. It does nothing for the ones
+  // still queued behind it. Fifty shots expiring on the same feed in the same
+  // second are fifty serial settles, and the ring holds sixty-four
+  // observations: on a busy feed the last of those settles can arrive after the
+  // crossing it needed has been overwritten, and that shot voids for no reason
+  // but queue position. That is the failure mode at the scale this is being
+  // built for, not at the scale it runs at today.
+  //
+  // `bind_crossing` is three accounts, no ledger and no economic effect, so
+  // many of them fit in one transaction. Binding the batch first turns "every
+  // settle must land before the ring wraps" into "one cheap transaction must",
+  // and after it lands the settles can take as long as they take.
+  //
+  // For a single shot it buys nothing and costs a fee, so it is planned only
+  // from `bindFrom` shots on the same feed upward. Pass bindFrom: 1 to always
+  // bind first, or Infinity to never.
+  const bindable = new Map();   // feedIndex -> [shot, ...]
+  for (const s of shots) {
+    if (s.state !== STATE.SEALED || s.crossingBound || t < s.expiryTs) continue;
+    if (t >= s.expiryTs + BigInt(SETTLE_DEADLINE_SECS)) continue;
+    const clock = clocks.get(s.feedIndex) ?? null;
+    if (!clock || !crossing(clock, s.expiryTs)) continue;
+    if (!bindable.has(s.feedIndex)) bindable.set(s.feedIndex, []);
+    bindable.get(s.feedIndex).push(s);
+  }
+  const bindNow = new Set();
+  for (const [feedIndex, rows] of bindable) {
+    if (rows.length < bindFrom) continue;
+    for (const s of rows) {
+      actions.push({ kind: 'bind', shot: s.pubkey, player: s.player, feedIndex });
+      bindNow.add(String(s.pubkey));
+    }
+  }
   for (const s of shots) {
     const clock = clocks.get(s.feedIndex) ?? null;
     const push = pushes.get(s.feedIndex) ?? null;

@@ -145,14 +145,22 @@ Your open chambers are capped by rank: 2 at COG, up to 5 at REACTOR.
 [SETTLEMENT.md](SETTLEMENT.md).)
 
 **The exit price is not "the price when someone checks."** It is the first oracle
-sample recorded at or after your window closed. Settling early, late, or never
-produces the same number, and anyone can trigger it — including a stranger.
+sample recorded at or after your window closed. Settling early or late produces
+the same number, and anyone can trigger it — including a stranger.
 
-That is not a detail. It means holding an expired call gains you nothing, so there
-is no timing game to play and no reason to write one. Build for the prediction.
+That is not a detail. It means holding an expired call gains you nothing *on the
+price*, so there is no timing game to play there and no reason to write one.
 
-If no oracle sample exists within 15 minutes of expiry, the call **voids** and the
-stake comes back. We would rather refund than invent a price.
+There is one thing timing still decides, and it is worth stating plainly rather
+than leaving in the gap between two claims. If no oracle sample exists within 15
+minutes of expiry, the call **voids** and the stake comes back — we would rather
+refund than invent a price. So somebody who declines to record the crossing
+cannot make you lose on a price of their choosing; they can only turn a
+settlement into a refund. Against a winning position that is a real cost, and it
+is the residual risk the design carries. The defence is that recording is
+permissionless and cheap, the person with the most to gain is allowed to do it
+themselves, and once the crossing is recorded on-chain (`bind_crossing`,
+ruleset 2) nothing anyone does afterwards can move the result.
 
 Settlement is lazy: it happens on the next request that touches your wallet. Poll
 your own state to collect.

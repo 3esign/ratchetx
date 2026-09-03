@@ -39,14 +39,20 @@ The v3 program takes the full shot lifecycle on-chain: **seal → checkpoint →
 settle → reveal → void → close**, with settlement reading the Pyth print
 directly ([SETTLEMENT.md](SETTLEMENT.md) documents the exact, Pyth-confirmed
 mechanism) and **permissionless cranks** — anyone can settle anyone's expired
-shot, and settling early, late, or by a stranger produces the same number.
+shot, and settling early or late produces the same number. Not settling produces
+a refund, which is the honest shape of the guarantee: nobody can choose your exit
+price, and nobody can be made to crank.
 
 You do not have to wait for v3 to hold us to the principle: settlement is
 already lazy and permissionless at the API layer, and
 [`tools/crank.mjs`](../tools/crank.mjs) is a zero-dependency crank **anyone can
 run today**. If our cron dies, you are the cron.
 
-*Claim when it lands: kill our servers, and every sealed shot still settles.*
+*Claim when it lands: kill our servers, and every sealed shot still settles or
+refunds — on a price nobody in the world got to choose.* The "or refunds" is not
+a hedge added to be safe; it is the part that is actually guaranteed. Settlement
+needs somebody to send a transaction, and the design's answer is that anybody
+may, including the player, rather than a promise that somebody will.
 
 ### Ring 2 — The economics live in bytecode *(after v3 mainnet)*
 

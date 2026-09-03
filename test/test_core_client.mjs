@@ -165,12 +165,57 @@ test('the crank plans exactly the program\'s permissionless moves', () => {
   assert.deepEqual(plan([mk(2, 2000)], {}, {}, 5600), ['forfeit']);
   assert.deepEqual(plan([mk(3, 2000), mk(4, 2000), mk(5, 2000)], {}, {}, 9000), []);
   assert.deepEqual(plan([mk(3, 2000), mk(4, 2000), mk(5, 2000)], {}, {}, 9000, true), ['close', 'close', 'close']);
+  // Binding is planned when, and only when, it buys something. `settle` binds
+  // atomically, so for ONE expiring shot a separate bind is a wasted fee. For a
+  // queue of them it is the difference between "every settle must land before
+  // the ring wraps" and "one cheap transaction must" -- and the ring is 64 deep,
+  // so a queue is exactly where shots are lost to their own position in it.
+  {
+    const crossed = { 0: clock([{ prevPublishTime: 1990n, publishTime: 2003n }]) };
+    const one = [mk(1, 2000)];
+    assert.deepEqual(plan(one, crossed, {}, 2020), ['settle'], 'one shot needs no separate bind');
+
+    const queue = [mk(1, 2000), mk(1, 2000), mk(1, 2000)];
+    const planned = plan(queue, crossed, {}, 2020);
+    assert.deepEqual(planned, ['bind', 'bind', 'bind', 'settle', 'settle', 'settle'],
+      'a queue is frozen first, then settled at leisure');
+
+    // Already bound: never bound again, and it still settles.
+    assert.deepEqual(plan([mk(1, 2000, 0, 1), mk(1, 2000, 0, 1)], crossed, {}, 2020),
+      ['settle', 'settle'], 'a bound shot is not re-bound');
+    // No crossing to freeze yet, so there is nothing to plan.
+    assert.deepEqual(plan(queue, { 0: clock([{ prevPublishTime: 1900n, publishTime: 1990n }]) }, {}, 2020),
+      [], 'binding needs a crossing, exactly like settling does');
+    // Past the deadline the shot voids; binding it then would be pointless.
+    assert.deepEqual(plan(queue, crossed, {}, 2121), ['void', 'void', 'void']);
+    // The threshold is a knob, not a law: bindFrom 1 always freezes first.
+    const always = C.planActions({ shots: one, clocks: new Map([[0, crossed[0]]]),
+      pushes: new Map(), now: 2020, bindFrom: 1 }).map(a => a.kind);
+    assert.deepEqual(always, ['bind', 'settle']);
+  }
+
   // Instructions for each action are the program's, with the cranker as the only signer.
   for (const a of C.planActions({ shots: [mk(1, 2000)], clocks: new Map([[0, clock([{ prevPublishTime: 1900n, publishTime: 1990n }])]]), pushes: new Map([[0, push(2003)]]), now: 2005 })) {
     const ixs = C.instructionsFor(a, D);
     assert.equal(ixs.length, 2);
     assert.ok(ixs.every(i => i.keys.filter(k => k.isSigner).every(k => k.pubkey.equals(D))));
   }
+});
+
+test('the crank sends binds together and settles afterwards', () => {
+  // The plan is only half of it. A runner that planned three binds and then
+  // sent three transactions would have bought nothing: the point is that many
+  // binds fit in ONE transaction, because a bind is three accounts and no
+  // economic effect. This pins the runner's side of that.
+  const src = fs.readFileSync(new URL('../onchain/ratchet-core/client/crank.mjs', import.meta.url), 'utf8');
+  assert.ok(/BIND_PER_TX\s*=\s*(\d+)/.test(src), 'the runner must batch binds');
+  const perTx = Number(src.match(/BIND_PER_TX\s*=\s*(\d+)/)[1]);
+  assert.ok(perTx > 1 && perTx <= 24, `${perTx} per transaction is not a batch that fits`);
+  assert.ok(/binds\.slice\(i, i \+ BIND_PER_TX\)/.test(src), 'binds are chunked, not sent one by one');
+  assert.ok(/if \(a\.kind === 'bind'\) continue;/.test(src),
+    'the second pass must not send the binds a second time');
+  // A failed batch must degrade to singles rather than losing the whole tick.
+  assert.ok(/for \(const a of batch\)/.test(src), 'a failed batch falls back to one at a time');
 });
 
 test('chain-only reads reject spoofed Core accounts and return context slots', async () => {

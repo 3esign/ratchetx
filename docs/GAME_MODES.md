@@ -9,7 +9,9 @@ the same machinery:
 ```
 seal (commit hash, before the outcome)
   → stake (credits at risk, 70/30 to burn/pot)
-    → settle (first oracle publish at or after expiry — deterministic, unarguable)
+    → settle (first oracle publish at or after expiry — the PRICE is deterministic
+              and unarguable; whether anyone settles is a liveness assumption, and
+              an unsettled shot refunds. See docs/SETTLEMENT.md)
       → credits + XP + ladder + a row in THE RECORD
 ```
 

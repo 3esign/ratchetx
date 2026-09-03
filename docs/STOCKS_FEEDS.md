@@ -41,15 +41,25 @@ That does not kill stocks. It changes the mechanism from *push* to *pull*.
   closes the update account (`closeUpdateAccounts: true`) so the rent comes
   back. Net cost ≈ the ordinary Solana transaction fee — a fraction of a cent —
   plus a little compute. No standing rent, no subscription, no licence.
-- **Still trustless.** The price is **Pyth-signed** and **receiver-verified
-  on-chain**; our program keeps every check it does today (owner = the Pyth
-  receiver, Full verification, `feed_id` match, freshness, confidence ≤ 200 bp).
-  The crank is **permissionless** — anyone can fetch from the public Hermes and
-  post — so there is no founder in the loop. The settle rule (first observation
+- **Nobody picks the price, and nobody has to be trusted to.** The price is
+  **Pyth-signed** and **receiver-verified on-chain**; our program keeps every
+  check it does today (owner = the Pyth receiver, Full verification, `feed_id`
+  match, freshness, confidence ≤ 200 bp). The crank is **permissionless** —
+  anyone can fetch from the public Hermes and post — so there is no founder in
+  the loop. That is fabrication-resistance plus open access, which is not the
+  same thing as trustless: it does not make anybody post. See the bullet below
+  for what that costs, and read it before quoting this one. The settle rule (first observation
   with `prev_publish < expiry ≤ publish`, equality voids) is **unchanged**.
-- **Same safety valve.** An equity shot settles only if some crank posts a
-  crossing update within the 120 s window; if none does, it **voids and
-  refunds**, exactly like a quiet feed today. Nobody can be cheated by absence.
+- **Same safety valve, and the same residual risk.** An equity shot settles
+  only if some crank posts a crossing update within the 120 s window; if none
+  does, it **voids and refunds**, exactly like a quiet feed today. So absence
+  cannot produce a *wrong* price — but it can produce a refund where a
+  settlement was due, and against a winning position a refund is a loss. This is
+  sharper for equities than for crypto: a SOL crossing is free for anyone to
+  read and post, while an equity crossing needs somebody willing to fetch and
+  pay for the post. The set of people who might is smaller, which makes the
+  liveness assumption bigger, and it is the strongest argument against shipping
+  equities before there is a runner nobody has to ask.
 
 The honest difference from crypto: SOL is *free to read*, equities are *cheap to
 post*. The crank does a little more work (fetch + post) per equity update

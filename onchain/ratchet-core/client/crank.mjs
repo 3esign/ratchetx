@@ -6,6 +6,9 @@
 //
 //   checkpoint  keep each feed's clock warm while a shot is open, and capture
 //               the first sponsored Pyth update at/after expiry
+//   bind        freeze the crossing into each shot before settling a batch of
+//               them, so the last settle in a queue cannot lose to a ring that
+//               wrapped while it waited
 //   settle      pin the crossing into the shot (equality voids and refunds)
 //   void        refund a shot that got no valid price inside the 120 s window
 //   forfeit     a settled shot nobody revealed within an hour becomes a MISS
@@ -40,6 +43,12 @@ async function chainNow() {
   return t ?? Math.floor(Date.now() / 1000);
 }
 
+// A bind is three accounts and no economic effect, so a lot of them fit in one
+// transaction. Sixteen is well inside the size limit with room for the
+// signature and blockhash, and it means a hundred expiring shots are frozen in
+// seven transactions rather than lost one at a time to whoever settles last.
+const BIND_PER_TX = 16;
+
 async function send(ixs, label) {
   if (dry) { log('DRY', label); return null; }
   const tx = new Transaction().add(...ixs);
@@ -60,7 +69,29 @@ async function tick() {
   const [clocks, pushes] = indices.length ? await Promise.all([readClocks(connection, indices), readPushes(connection, indices)]) : [new Map(), new Map()];
   const actions = planActions({ shots, clocks, pushes, now, close });
   log(`shots=${shots.length} open=${open.length} actions=${actions.length}` + (open.length ? ' ' + open.map(s => `${FEEDS[s.feedIndex].symbol}:${STATE_NAME[s.state]}@${s.expiryTs}`).join(' ') : ''));
+
+  // Binds go first and go together. They are idempotent, so a second runner
+  // racing this one wastes a fee and nothing else; and if one batch fails the
+  // rest still land, because each transaction is independent.
+  const binds = actions.filter(a => a.kind === 'bind');
+  for (let i = 0; i < binds.length; i += BIND_PER_TX) {
+    const batch = binds.slice(i, i + BIND_PER_TX);
+    const label = `bind x${batch.length} ${FEEDS[batch[0].feedIndex].symbol}`;
+    try { await send(batch.flatMap(a => instructionsFor(a, cranker.publicKey)), label); }
+    catch (e) {
+      log('FAIL', label, String(e.message || e).split('\n')[0]);
+      // One oversized or unlucky batch must not cost the whole tick. Fall back
+      // to one at a time: slower, and it still freezes what it can.
+      for (const a of batch) {
+        const one = `bind ${a.shot.toBase58()}`;
+        try { await send(instructionsFor(a, cranker.publicKey), one); }
+        catch (err) { log('FAIL', one, String(err.message || err).split('\n')[0]); }
+      }
+    }
+  }
+
   for (const a of actions) {
+    if (a.kind === 'bind') continue;
     const label = `${a.kind} ${a.feedIndex !== undefined ? FEEDS[a.feedIndex].symbol : ''} ${a.shot ? a.shot.toBase58() : ''}`.trim();
     try { await send(instructionsFor(a, cranker.publicKey), label); }
     catch (e) { log('FAIL', label, String(e.message || e).split('\n')[0]); }

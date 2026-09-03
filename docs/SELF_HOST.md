@@ -9,7 +9,10 @@ us and when that dependency dies.
 
 Settlement is lazy and permissionless: any request that touches a wallet
 settles that wallet's expired shots, and the exit price is the first oracle
-sample at or after expiry — the same number no matter who triggers it or when.
+sample at or after expiry — the same number no matter who triggers it. What
+triggering decides is whether it happens at all. A shot nobody settles inside
+the window **voids and refunds**, which is why this page exists: running the
+crank is not charity, it is the mechanism.
 
 ```bash
 node tools/crank.mjs           # keeps the live game settling, forever
@@ -17,7 +20,9 @@ node tools/crank.mjs --once    # single pass
 ```
 
 Zero dependencies, Node 18+. It stays politely under the public rate limits.
-If our own cron ever dies, whoever runs this **is** the infrastructure.
+If our own cron ever dies, whoever runs this **is** the infrastructure — and
+until somebody does, expiring shots refund instead of settling. Liveness here is
+an assumption with a named way to discharge it, not a property of the machine.
 
 ## 2. Run the frontend
 

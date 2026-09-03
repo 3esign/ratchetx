@@ -111,7 +111,8 @@ a{color:var(--gold)}
 <p class="lede">RATCHET is a game, but the thing it produces is a dataset. Each row below was a
 <b>commitment hash published before the result existed</b>, a <b>stake</b> the caller stood to lose, and an
 <b>exit price pinned by rule</b> — the first oracle publish at or after expiry, so it does not matter who
-settled it or when. That combination is unusual: prediction markets publish prices but not who said what,
+settled it. (Whether a shot settles at all is a different question with an honest answer: if nobody records
+the crossing in time it voids and the stake is returned. The rule fixes the price, not the attendance.) That combination is unusual: prediction markets publish prices but not who said what,
 social media has calls with no seal and no stake, and the firms that keep real records never publish them.
 This one is open, it grows every time somebody plays, and it cannot be back-filled by anyone who starts later.</p>
 

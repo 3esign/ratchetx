@@ -53,8 +53,10 @@ is the point.
 
 Run several from different machines if you like. Duplicates are safe by
 construction: a second checkpoint of the same update is a no-op, and a second
-settle fails on state for the cost of one fee. No coordination required, which is
-what liveness without an operator actually means.
+settle fails on state for the cost of one fee. No coordination required — which is what
+permissionlessness means. It is not the same as liveness: nothing here makes a
+cranker exist. What it does is make the set of people allowed to be one include
+everybody, and put the person with the most to lose inside it.
 
 ## Play a shot yourself
 
@@ -73,11 +75,22 @@ the salt deterministically from a wallet signature (see
 `onchain/ratchet-core/client/salt.mjs`), so it is reproducible on any machine
 from the wallet alone and never has to be stored at all.
 
-## What cannot go wrong
+## What cannot go wrong, and the one thing that can
 
 - **Nobody cranks your shot.** After 120 seconds past expiry, `settle` refuses
   and anyone — including you — may call `void_shot`. That is a refund. Neglect by
-  every cranker on earth costs you the outcome, never the stake.
+  every cranker on earth costs you the outcome, never the stake. **This is the
+  one thing that can go wrong**, and it is worth being blunt about: against a
+  position that was going to win, a refund is a loss. Nobody can pick a price
+  that beats you; somebody can decline to record the price that did. The answer
+  is not a promise that they won't — it is that recording is permissionless,
+  costs one cheap transaction, and you are allowed to do it yourself.
+- **A crossing that is recorded and then buried.** Ruleset 2's `bind_crossing`
+  copies the crossing out of the 64-slot ring and into the shot, permissionlessly
+  and idempotently. Before it, a party who could influence checkpoint volume
+  could push a valid crossing out of the ring inside the decision window and
+  force the refund at will. After binding, the ring can be flooded to capacity
+  and the outcome does not move — there is a LiteSVM test that does exactly that.
 - **A hostile cranker.** `settle` does not accept a price. It reads the first
   crossing already recorded in the on-chain clock ring, and `checkpoint` only
   accepts a Pyth print that is fully verified, correctly owned, inside the

@@ -1,9 +1,37 @@
 # How RatchetX pins the exit price
 
-The whole game rests on one sentence: **the exit price is the first oracle
-sample at or after expiry — settling early, late, or by a stranger produces the
-same number.** This page documents how that sentence is enforced today, and how
-the v3 program enforces it on-chain. The mechanics below were worked through
+The whole game rests on one sentence, and the sentence has two halves. Both
+matter, and for a long time this page printed only the first.
+
+> **Which price is not a choice.** The exit is the first fully verified oracle
+> print at or after expiry. Settling early, late, or by a stranger produces the
+> same number.
+>
+> **Whether it settles at all is a liveness assumption.** If nobody records the
+> crossing inside the window, the shot voids and the stake comes back. That is
+> not a guarantee that a shot always settles; it is a guarantee that the worst
+> case is a refund rather than an invented price — and that anyone, including
+> the player, can discharge the assumption themselves.
+
+The distinction is the whole honest content of the claim. The program's checks
+— owner is the Pyth receiver, the account is the canonical shard-0 PDA for that
+feed id, `VerificationLevel::Full`, feed id match, confidence bound — stop a
+cranker from **fabricating or substituting** a price. They do not, and cannot,
+stop one from **doing nothing**. A party who withholds cannot make you lose on a
+price they chose; they can only turn a settlement into a refund, which is a real
+loss of expected value to a winning position and is the residual risk this
+system carries.
+
+Ruleset 2 closed the other half of that exposure. A cranker who could influence
+checkpoint *volume* used to be able to push the crossing out of the 64-slot ring
+during the decision window and force the refund at will; `bind_crossing` is
+permissionless, costs one cheap transaction, and freezes the crossing into the
+shot the moment it exists. After it lands, no amount of later cranking moves the
+outcome. What remains is the window between the crossing appearing and anyone
+binding it — seconds, dischargeable by the person with the most to lose.
+
+This page documents how the price half is enforced today, and how the v3 program
+enforces it on-chain. The mechanics below were worked through
 with the Pyth team on their developer forum in August 2026. Ratchet uses the
 PriceUpdateV2 state Pyth publishes on Solana as the canonical live evidence plane.
 
@@ -34,7 +62,10 @@ if none is recorded inside the void window, the shot refunds.
 
 Why this is safe to open to strangers: the recorded value is monotone — a
 competing cranker can only *improve* the answer by submitting an **earlier**
-qualifying print, never worsen it. The party who profits from prompt settlement
+qualifying print, never worsen it. It is monotone in the price, not in the
+outcome: a cranker who submits nothing at all still converts a settlement into a
+refund, which is why the paragraph at the top of this page is two halves and not
+one. The party who profits from prompt settlement
 has every incentive to checkpoint immediately; our own keeper and every
 `tools/crank.mjs` runner add redundancy; and the void refund caps the damage of
 total neglect. This is v2's "first recorded sample" rule with the recording
@@ -60,8 +91,9 @@ reconstruct arbitrary historical updates. (Also per Pyth: the Pyth Pro
 `/v1/{channel}/price` payload is a different format and is *not* a drop-in
 replacement for a Core receiver.)
 
-RatchetX's stance: the checkpoint race is the guaranteed floor and ships
-first; the keyed predicate path is an optional sharpening we can turn on
+RatchetX's stance: the checkpoint race is the floor that ships first — a floor
+in the sense that the worst case is a refund, not in the sense that a settlement
+is guaranteed to happen; the keyed predicate path is an optional sharpening we can turn on
 without changing any game rule, if and when we choose to pay for it.
 
 ### Design consequences we accept on purpose

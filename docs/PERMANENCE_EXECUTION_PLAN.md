@@ -78,7 +78,29 @@ Every quantity is time-stamped because supply and cluster state can change.
 
 ## Known blockers that invalidate earlier "done" language
 
-The following are release blockers, not documentation polish:
+The following are release blockers, not documentation polish.
+
+**Status, 2026-09-03.** Five of the eight are closed, and each is closed by a
+test rather than by this paragraph saying so. Blocker 6 waits on one click.
+Blockers 7 and 8 are below in their own sections. The one-line ledger:
+
+| # | Blocker | Status | What proves it |
+| --- | --- | --- | --- |
+| 1 | Fabricated source coverage | **closed** | `checkpoint` stores the signed `prev_publish_time`; `clock_never_fabricates_coverage_across_a_source_gap` |
+| 2 | Ring eviction is a refund option | **closed** | `bind_crossing`, permissionless and idempotent; `a_bound_crossing_survives_a_ring_flooded_past_capacity` floods the ring past 64 after binding and settles on the bound print, with an unbound control on identical facts that cannot settle at all |
+| 3 | Confidence is not preserved | **closed** | `Observation.conf_e12` and `Shot.exit_conf_e12`; `a_settled_shot_carries_the_confidence_it_settled_on`. The band is implemented and `BAND_K_BPS` is 0 — the mechanism ships, the number does not |
+| 4 | Rules are not version-bound | **closed** | `Shot.ruleset` written at seal and enforced at settle; `HORIZON_MASK` checked in `seal`; `a_closed_market_refuses_the_horizons_it_cannot_resolve` is the negative control, and the shipped table is fully open |
+| 5 | JS token path names the wrong family | **closed** | `RCX paths are explicitly Token-2022, never classic SPL Token`, with a classic-token negative control |
+| 6 | Legacy root empty, source ledger unavailable | **unblocked, waiting on one run** | the rescue took 37,805 rows over a direct Postgres path; `tools/legacy_root.mjs` builds the root with 45 checks against the program's own leaf and pairing rules. Needs `LEGACY_ROOT_BUILD.cmd` run against the snapshot |
+| 7 | Prose overclaimed cranker neutrality | **closed** | corrected across the public surfaces; `test/test_settlement_claims.mjs` fails if any of it drifts back |
+| 8 | A mutable sponsored account is not an archive | **narrowed; proposal on the table** | `docs/CORE_G3_ARCHIVE.md`. The archival-challenge option is closed by measurement, not opinion: every Hermes host this repo has named answers 401, historical and latest alike, so that path needs a paid key and the standing rule forbids one in the settlement path. What survives is that an uncaptured crossing is unrecoverable — and the proposal measures it rather than assuming it away |
+
+A ruleset bump is also a claim about what did NOT change, and that is held by
+`test_core_vectors.mjs`: `core-rules-v2.json` is checked against
+`core-rules-v1.json` field by field, and every instruction that existed in
+ruleset 1 must still encode byte for byte.
+
+The blockers as originally written:
 
 1. **Fabricated source coverage.** Core v1 `checkpoint` recorded the previous
    protocol checkpoint as `prev_publish_time`. That is not Pyth's signed
@@ -109,6 +131,21 @@ The following are release blockers, not documentation polish:
    checks stop fabricated prices, but they do not by themselves stop withholding,
    missed crossing or ring-eviction selection. Documentation must follow the
    executable evidence, not the intended story.
+
+   *Closed 2026-09-03.* Ring-eviction selection is no longer in the list — it is
+   closed by `bind_crossing` (blocker 2). Withholding is, and always will be:
+   a program cannot compel anyone to send a transaction. So the claim was
+   rewritten rather than repaired, in two halves that are both true — **which
+   price is not a choice; whether it settles is a liveness assumption, floored
+   by a refund and dischargeable by the player** — and the corrected sentence
+   now appears on the homepage, `agent/README.md`, `docs/ARENA.md`,
+   `docs/SETTLEMENT.md`, `docs/SELF_HOST.md`, `docs/UNKILLABLE.md`,
+   `docs/PLAY_WITHOUT_US.md`, `docs/STOCKS_FEEDS.md`, `api/record.js`,
+   `tools/crank.mjs` and both article mirrors.
+   `test/test_settlement_claims.mjs` scans the repository and fails if any
+   document says never settling gives the same number, if a page calls
+   settlement trustless without naming the liveness assumption, or if a public
+   surface stops telling a stranger that an unsettled shot refunds.
 8. **A mutable sponsored account is not an archive.** The sponsored Pyth shard-0
    PDA can be overwritten by the next update. A 180-second challenge deadline
    does not preserve the earlier bytes, and a sponsored-PDA-only instruction
@@ -117,8 +154,27 @@ The following are release blockers, not documentation polish:
    for an audited archival-challenge path or a narrower rule whose remaining
    omission assumption is explicitly accepted and economically defended.
 
-The source-predecessor patch is necessary, but it does not solve items 2-6 and is
-therefore not a reason to deploy Core v1 as the permanent mainnet generation.
+   *Narrowed 2026-09-03, see `docs/CORE_G3_ARCHIVE.md`.* Three things changed
+   the shape of this. First, the archival-challenge option is closed by
+   measurement: `hermes.pyth.network` and `pyth.dourolabs.app/hermes` both
+   answer **401** for historical *and* latest updates, so reposting a signed
+   historical message needs `PYTH_API_KEY`, and no correctness or liveness path
+   here may require a paid credential. Second, the source-predecessor predicate
+   means a skipped print cannot be substituted — exactly one message in
+   existence can settle a given shot, so a miss produces a void, never a wrong
+   number. Third, `exit_posted_slot` on the ruleset-2 Shot makes every
+   settlement locatable in Solana's own ledger, which *is* an archive and costs
+   nothing. What genuinely remains is that a crossing nobody captures before the
+   next push is unrecoverable. The proposal does not accept that as an
+   assumption; it counts it — `FeedClock.gaps` plus `Shot.gaps_at_seal` let
+   anyone check, on chain, whether the protocol clock observed every Pyth
+   publish between a shot's seal and its binding.
+
+The source-predecessor patch was necessary and did not solve items 2-6, which is
+why Core v1 was never the permanent mainnet generation. Ruleset 2 closes 2, 3, 4
+and 7; 5 was closed separately; 6 needs a run, not a decision. **Blocker 8 is the
+only design question left**, and it is the one that decides whether Core G2
+carries value or remains a prototype.
 
 ## Hard invariants
 
