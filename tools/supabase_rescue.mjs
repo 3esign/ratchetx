@@ -103,20 +103,59 @@ if (!password || password.length < 8) {
 const ca = pinnedCa();
 say('CA        pinned Supabase root, sha256 verified');
 
-const client = new Client({
-  host: HOST, port: 5432, user: USER, database: 'postgres', password,
-  ssl: { rejectUnauthorized: true, ca, servername: HOST },
-  connectionTimeoutMillis: 20_000, statement_timeout: 120_000,
-  // Read-only is asserted by the session itself, not only by the queries below:
-  // if anything in this file ever tried to write, Postgres would refuse it.
-  options: '-c default_transaction_read_only=on -c statement_timeout=120000',
-});
+// Supabase answers on three different doors, and they do not fail alike. The
+// pooler in session mode is the one the tools use; transaction mode is a
+// separate port with its own gate; the direct database host bypasses the pooler
+// entirely and takes the plain 'postgres' role. When a password is refused on
+// one, the useful question is whether it is refused on all three -- a password
+// that fails everywhere is a wrong password, and a password that fails only at
+// the pooler is a restriction wearing an authentication error's clothes.
+const DOORS = [
+  { name: 'pooler · session mode',     host: HOST, port: 5432, user: USER },
+  { name: 'pooler · transaction mode', host: HOST, port: 6543, user: USER },
+  { name: 'direct database host',      host: 'db.' + PROJECT + '.supabase.co', port: 5432, user: 'postgres' },
+];
+
+async function openFirstDoor() {
+  const failures = [];
+  for (const door of DOORS) {
+    const candidate = new Client({
+      host: door.host, port: door.port, user: door.user, database: 'postgres', password,
+      ssl: { rejectUnauthorized: true, ca, servername: door.host },
+      connectionTimeoutMillis: 15_000,
+      // Read-only is asserted by the session itself, not only by the queries below:
+      // if anything in this file ever tried to write, Postgres would refuse it.
+      options: '-c default_transaction_read_only=on -c statement_timeout=120000',
+    });
+    try {
+      await candidate.connect();
+      say('OPEN      ' + door.name + '  (' + door.host + ':' + door.port + ' as ' + door.user + ')');
+      return candidate;
+    } catch (error) {
+      const why = String(error && error.message || error);
+      failures.push(door.name + ' → ' + why);
+      say('closed    ' + door.name + ' → ' + why);
+      try { await candidate.end(); } catch { }
+    }
+  }
+  const all = failures.join(' | ');
+  say('');
+  if (/password authentication failed/i.test(all) && !/quota|restricted|too many|not permitted/i.test(all))
+    say('Every door refused the same password. That is a wrong password, not a restriction.');
+  else if (/quota|restricted|not permitted/i.test(all))
+    say('At least one door named the quota. The project is restricted, not misconfigured.');
+  throw new Error('NO_DOOR_OPENED');
+}
+
+// Declared here, opened inside the try below: a door that refuses must still
+// leave a report behind, and an exception thrown at module scope would not.
+let client = null;
 
 let rowCount = 0, bytes = 0, exitCode = 0;
 const hash = crypto.createHash('sha256');
 try {
-  await client.connect();
-  say('CONNECTED — the direct Postgres path is open even though the REST API is not.');
+  client = await openFirstDoor();
+  say('CONNECTED — a Postgres path is open even though the REST API is not.');
 
   const total = await client.query(`select count(*)::text as n from ${TABLE}`);
   say('rows in table: ' + total.rows[0].n);
@@ -173,7 +212,7 @@ try {
   else if (/timeout|ENOTFOUND|ECONN/i.test(message))
     say('→ The host could not be reached from this machine.');
 } finally {
-  try { await client.end(); } catch { }
+  try { if (client) await client.end(); } catch { }
   fs.writeFileSync(reportFile, lines.join('\n') + '\n', { mode: 0o600 });
   console.log('\nreport written: ' + reportFile);
   process.exit(exitCode);
