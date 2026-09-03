@@ -57,17 +57,25 @@ let bad=0; const check=(c,l)=>{ if(!c)bad++; console.log((c?'PASS  ':'FAIL  ')+l
   await p.evaluate(()=>localStorage.setItem('ratchet_auth', JSON.stringify(
     { wallet:'HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM', ts:Date.now(), sig:'x' })));
   await p.goto(new URL('?who=settle&reset=1', BASE).href, { waitUntil:'networkidle' });
+  // TWO SIGNALS OF DIFFERENT KINDS, SO TWO OBSERVATIONS.
+  //
+  // The flash is transient by definition -- `.justsettled` is added and taken
+  // away again -- while the permission ask persists once it appears. Sampling
+  // both at the same instant and requiring both at once is a race, and it lost
+  // on the owner's machine against real Chrome while passing in a container:
+  // the flash had already faded by the time the ask landed. A transient signal
+  // has to be LATCHED (did it ever happen) and a persistent one read (is it
+  // here now).
+  let sawFlash=false;
   let m={flashed:false,banner:'',hasBtn:false};
   for (let i=0;i<30;i++){ await p.waitForTimeout(400);
     m = await p.evaluate(()=>({
       flashed: !!document.querySelector('.cham.justsettled'),
       banner: (document.getElementById('mode')||{}).textContent||'',
       hasBtn: !!document.getElementById('notifYes') }));
-    if(m.hasBtn) break; }   // the flash can land first; keep waiting for the ask
-  const _unused = (()=>({
-    flashed: !!0,
-    banner:'', hasBtn:false }))();
-  check(m.flashed, 'the settled card flashes when you are looking at it');
+    sawFlash = sawFlash || m.flashed;
+    if(m.hasBtn) break; }
+  check(sawFlash, 'the settled card flashes when you are looking at it');
   check(/Want to know when the next one does/.test(m.banner) && m.hasBtn,
         'and the permission ask arrives AFTER a settlement, with a button');
   await ctx.close();
