@@ -495,6 +495,28 @@ async function seedStats() {
       stakers: +legacy.stakers || 0 });
   } catch { statsSeeded = false; }        // let the next request try again
 }
+// The board figures every player sees are identical for all of them, and they
+// change when a shot settles -- not when somebody polls. Reading them per
+// request is how one settled shot became thousands of identical reads: a
+// connected client polls every ten seconds, and each poll re-read the stats
+// hash and all three ladders from scratch.
+//
+// This memo is deliberately NOT applied inside loadStats or ladderTop
+// themselves. Those are also called from the podium and payout paths, where a
+// figure that is eight seconds old could be written back as if it were current.
+// The cache lives at the call site that only displays, so the money paths keep
+// reading the store exactly as before.
+const shared = globalThis.__ratchet_shared || (globalThis.__ratchet_shared = new Map());
+const SHARED_MAX = 32;
+async function sharedRead(key, ttlMs, produce) {
+  const now = Date.now(), hit = shared.get(key);
+  if (hit && now - hit.t < ttlMs) return hit.v;
+  const value = await produce();
+  if (shared.size >= SHARED_MAX) shared.delete(shared.keys().next().value);
+  shared.set(key, { v: value, t: now });
+  return value;
+}
+
 async function loadStats() {
   await seedStats();
   const st = await hall(STATS);
@@ -2172,7 +2194,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
       const changed = await settle(p, prices);
       if (p._existed || changed || p._drained > 0 || p._drained7 > 0 || p._drainedSelf7 > 0)
         await savePlayer(p);
-      const history = ((await getCached('hist:' + wallet, 3_000)) || []).slice(0, 200);
+      const history = ((await getCached('hist:' + wallet, 10_000)) || []).slice(0, 200);
       const latestScored = history.find(row => row
         && (row.res === 'hit' || row.res === 'miss')
         && row.sp !== null && row.sp !== undefined && row.sp !== ''
@@ -2280,7 +2302,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
         // brierIndex is (1 - sqrt(brier)) * 100: 100 = clairvoyant, 50 = the
         // score of always saying 50%, 0 = maximally confident and wrong.
         Object.assign(player, brierOf(p));
-        player.history = ((await getCached(`hist:${w}`, 3_000)) || []).slice(0, 200);
+        player.history = ((await getCached(`hist:${w}`, 10_000)) || []).slice(0, 200);
         player.qualified = !!p.qualified;
         // CHAMPION CONSOLE: live seat/share, separate RCX receipts and balance.
         let changed2 = false;
@@ -2316,7 +2338,7 @@ module.exports = async (req, res) => playerWrites.run(async () => {
                          stale: !Number.isFinite(cb.bal) || !!cb.stale };
           const received7 = champWindowSum(p.champ7, Date.now(), CHAMP.receiptDays);
           const retained7 = champWindowSum(p.champSelf7, Date.now(), CHAMP.receiptDays);
-          const champHistory = ((await getCached(`chist:${w}`, 3_000)) || []).slice(0, 100);
+          const champHistory = ((await getCached(`chist:${w}`, 10_000)) || []).slice(0, 100);
           if (seat || received7 || retained7 || champHistory.length) {
             const known = Number.isFinite(cb.bal);
             player.champion = { active:!!seat, pct:seat ? seat.pct : 0, source:seat ? seat.source : null,
@@ -2350,10 +2372,10 @@ module.exports = async (req, res) => playerWrites.run(async () => {
       }
       await warmLadderMigrations([['lb:', seasonKey()], ['lbd:', today()], ['lba:', 'all']]);
       const [st, lbRows, dayRanked, allRanked] = await Promise.all([
-        loadStats(),
-        ladderTop('lb:', seasonKey()),
-        ladderTop('lbd:', today()),
-        ladderTop('lba:', 'all'),
+        sharedRead('display:stats', 5_000, () => loadStats()),
+        sharedRead('display:lb:' + seasonKey(), 8_000, () => ladderTop('lb:', seasonKey())),
+        sharedRead('display:lbd:' + today(), 8_000, () => ladderTop('lbd:', today())),
+        sharedRead('display:lba', 8_000, () => ladderTop('lba:', 'all')),
       ]);
       const ladder = lbRows.slice(0,20).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
       const ladderDay = dayRanked.slice(0,10).map(([wl,xp])=>({ w: shortW(wl), xp, me: wl===w }));
@@ -2376,9 +2398,9 @@ module.exports = async (req, res) => playerWrites.run(async () => {
       const [playerFeed, warden, wardenPrev, wardenHist, mcap, tokenProgram,
         lastSeason, lastDay, logHead] = await Promise.all([
         require('../lib/activity_feed.js').readFeed(), wardenLine(prices),
-        getCached('g:warden:rec:prev', 60_000), getCached('g:warden:hist', 5_000),
+        getCached('g:warden:rec:prev', 60_000), getCached('g:warden:hist', 15_000),
         getMcap(), getMintProgram(), getCached('g:seasonResults', 30_000),
-        getCached('g:dayResults', 15_000), getCached('g:log:head', 3_000),
+        getCached('g:dayResults', 30_000), getCached('g:log:head', 10_000),
       ]);
       const feed = await require('../lib/activity_agents.js').combine(playerFeed);
       return res.json({ ok:true, v: VERSION, durable, storage:backend,
