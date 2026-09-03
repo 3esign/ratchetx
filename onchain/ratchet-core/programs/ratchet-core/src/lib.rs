@@ -66,6 +66,17 @@ pub const REVEAL_DEADLINE_SECS: i64 = 3_600;
 pub const MAX_CONF_BPS: u128 = 200;
 pub const SALT_HEX_BYTES: usize = 32;
 pub const CLOCK_CAPACITY: usize = 64;
+/// The ruleset a shot sealed today is sold under.
+pub const RULESET_V2: u16 = 2;
+/// The decision band, in basis points of the print's own confidence: a shot
+/// whose exit lands within `band_k_bps/10_000 x conf` of its strike voids and
+/// refunds, because that is exactly the zone a manipulator pays for.
+///
+/// It ships at ZERO -- the mechanism exists, the constant does not yet. No k
+/// may be chosen from a model: the on-chain layout could not even retain the
+/// confidence until now, so there has never been anything to measure one
+/// against. It becomes a number after the 72-hour drill, from real rounds.
+pub const BAND_K_BPS: u16 = 0;
 pub const SECONDS_PER_DAY: i64 = 86_400;
 
 /// Supported horizons (minutes) and their base XP, exactly the live board.
@@ -89,6 +100,17 @@ pub const FEEDS: [[u8; 32]; 7] = [
     hex32(b"0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996"), // JUP
     hex32(b"7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9"), // PUMP
 ];
+
+/// Which horizons each feed may be sold at: bit `i` is `HORIZONS[i]`, indexed
+/// by `feed_index`. A market whose source cadence cannot resolve a window has
+/// no business selling that window -- the shot would void by design, and a
+/// void that was predictable at seal is not a refund, it is a wasted chamber.
+///
+/// Every bit ships OPEN (0x7f = all seven horizons), so this changes nothing
+/// today. It exists because the policy belongs in the program, where it is
+/// one audited constant, rather than scattered across a server that can be
+/// redeployed without anybody noticing.
+pub const HORIZON_MASK: [u8; 7] = [0x7f; 7];
 
 const fn hex_nibble(c: u8) -> u8 {
     match c {
@@ -293,10 +315,15 @@ pub mod ratchet_core {
         // protocol clock may have missed one or more source updates; using
         // its own last checkpoint here would fabricate coverage across that
         // gap and let a late cranker choose a favourable later price.
+        let conf_e12 = scale_to_e12(
+            i64::try_from(msg.conf).map_err(|_| error!(CoreError::MathOverflow))?,
+            msg.exponent,
+        )?;
         let observation = Observation {
             prev_publish_time: msg.prev_publish_time,
             publish_time: msg.publish_time,
             price_e12,
+            conf_e12,
             posted_slot: pu.posted_slot,
         };
         if feed_clock.observations.len() < CLOCK_CAPACITY {
@@ -323,21 +350,25 @@ pub mod ratchet_core {
     /// update with `prev_publish_time < expiry <= publish_time`, inside the
     /// strict window. Equality voids and refunds. The economy waits for reveal.
     pub fn settle(ctx: Context<Settle>) -> Result<()> {
-        let shot = &mut ctx.accounts.shot;
-        require!(shot.state == ShotState::Sealed as u8, CoreError::WrongState);
         let now = Clock::get()?.unix_timestamp;
-        require!(now >= shot.expiry_ts, CoreError::NotExpired);
-        let deadline = shot.expiry_ts.checked_add(SETTLE_DEADLINE_SECS).ok_or(CoreError::MathOverflow)?;
-        require!(now < deadline, CoreError::SettlementDeadlinePassed);
+        require!(ctx.accounts.shot.state == ShotState::Sealed as u8, CoreError::WrongState);
+        require!(now >= ctx.accounts.shot.expiry_ts, CoreError::NotExpired);
+        // A shot is settled under the rules it was SOLD under, or not at all.
+        // An upgrade that changes what these fields mean must bump RULESET and
+        // teach settle the old one; it must never quietly re-price the air.
+        require!(ctx.accounts.shot.ruleset == RULESET_V2, CoreError::UnknownRuleset);
 
-        let feed_clock = &ctx.accounts.feed_clock;
-        require!(feed_clock.feed_id == shot.feed_id, CoreError::BadFeed);
-        let observation = feed_clock.crossing(shot.expiry_ts).ok_or(CoreError::CrossingNotCheckpointed)?;
-        require!(observation.publish_time <= deadline, CoreError::PriceOutsideWindow);
-        let exit_e12 = observation.price_e12;
-        shot.exit_e12 = exit_e12;
-        shot.exit_publish_time = observation.publish_time;
+        // Bind first if nobody did. From here down settlement reads only what
+        // the shot itself carries, so a ring that wrapped between expiry and
+        // this transaction cannot change the answer -- and neither can anyone
+        // who chooses when to send it.
+        if ctx.accounts.shot.crossing_bound == 0 {
+            bind_from_ring(&mut ctx.accounts.shot, &ctx.accounts.feed_clock, now)?;
+        }
+
+        let shot = &mut ctx.accounts.shot;
         shot.settled_ts = now;
+        let exit_e12 = shot.exit_e12;
 
         if exit_e12 == shot.entry_e12 {
             let ledger = &mut ctx.accounts.ledger;
@@ -347,13 +378,59 @@ pub mod ratchet_core {
             emit!(Voided { shot: shot.key(), player: shot.player, reason: shot.void_reason, exit_e12 });
             return Ok(());
         }
+
+        // The decision band, under the number this shot was SOLD under. At
+        // k = 0 the band is empty and this is exactly the old rule; the
+        // branch exists so that choosing a k later is a constant, not a fork.
+        if shot.band_k_bps > 0 {
+            let band = decision_band(shot.exit_conf_e12, shot.band_k_bps)?;
+            let gap = i128::from(exit_e12)
+                .checked_sub(i128::from(shot.entry_e12))
+                .ok_or(CoreError::MathOverflow)?
+                .unsigned_abs();
+            if gap <= band {
+                let ledger = &mut ctx.accounts.ledger;
+                close_position(ledger, shot, Outcome::Void)?;
+                shot.state = ShotState::Voided as u8;
+                shot.void_reason = VoidReason::TooClose as u8;
+                emit!(Voided { shot: shot.key(), player: shot.player, reason: shot.void_reason, exit_e12 });
+                return Ok(());
+            }
+        }
+
         shot.state = ShotState::Settled as u8;
         emit!(Settled {
             shot: shot.key(),
             exit_e12,
-            publish_time: observation.publish_time,
-            posted_slot: observation.posted_slot,
+            publish_time: shot.exit_publish_time,
+            posted_slot: shot.exit_posted_slot,
             cranker: ctx.accounts.cranker.key(),
+        });
+        Ok(())
+    }
+
+    /// Permissionless: copy the crossing print into the shot the moment it
+    /// exists. It costs one transaction and it is the only thing standing
+    /// between a 64-slot ring and an outcome that depends on how busy the feed
+    /// happened to be afterwards. Idempotent, so crankers may race freely.
+    pub fn bind_crossing(ctx: Context<BindCrossing>) -> Result<()> {
+        let now = Clock::get()?.unix_timestamp;
+        require!(ctx.accounts.shot.state == ShotState::Sealed as u8, CoreError::WrongState);
+        require!(now >= ctx.accounts.shot.expiry_ts, CoreError::NotExpired);
+        if ctx.accounts.shot.crossing_bound != 0 {
+            return Ok(());
+        }
+        bind_from_ring(&mut ctx.accounts.shot, &ctx.accounts.feed_clock, now)?;
+        let shot = &ctx.accounts.shot;
+        emit!(CrossingBound {
+            shot: shot.key(),
+            player: shot.player,
+            exit_e12: shot.exit_e12,
+            conf_e12: shot.exit_conf_e12,
+            prev_publish_time: shot.exit_prev_publish_time,
+            publish_time: shot.exit_publish_time,
+            posted_slot: shot.exit_posted_slot,
+            binder: ctx.accounts.cranker.key(),
         });
         Ok(())
     }
@@ -427,7 +504,11 @@ pub mod ratchet_core {
     pub fn void_shot(ctx: Context<VoidShot>) -> Result<()> {
         let shot = &mut ctx.accounts.shot;
         require!(shot.state == ShotState::Sealed as u8, CoreError::WrongState);
-        let deadline = shot.expiry_ts.checked_add(SETTLE_DEADLINE_SECS).ok_or(CoreError::MathOverflow)?;
+        // A bound shot has an answer already; voiding it would put the race
+        // back where bind_crossing took it out. It stays voidable only as a
+        // last-resort unlock, once even the reveal deadline has gone by.
+        let grace = if shot.crossing_bound == 0 { SETTLE_DEADLINE_SECS } else { REVEAL_DEADLINE_SECS };
+        let deadline = shot.expiry_ts.checked_add(grace).ok_or(CoreError::MathOverflow)?;
         require!(Clock::get()?.unix_timestamp >= deadline, CoreError::NotVoidable);
         let ledger = &mut ctx.accounts.ledger;
         close_position(ledger, shot, Outcome::Void)?;
@@ -511,6 +592,7 @@ fn seal_inner<'info>(
     require!((STAKE_MIN..=STAKE_MAX).contains(&stake), CoreError::InvalidStake);
     let base_xp = base_xp_for(minutes)?;
     let feed_id = feed_id_at(feed_index)?;
+    horizon_allowed(feed_index, minutes)?;
     let expiry_ts = now.checked_add(i64::from(minutes) * 60).ok_or(CoreError::MathOverflow)?;
 
     ledger.touch(player, ledger_bump);
@@ -540,6 +622,9 @@ fn seal_inner<'info>(
     shot.sealed_ts = now;
     shot.expiry_ts = expiry_ts;
     shot.entry_e12 = entry_e12;
+    shot.ruleset = RULESET_V2;
+    shot.band_k_bps = BAND_K_BPS;
+    shot.crossing_bound = 0;
     shot.state = ShotState::Sealed as u8;
     emit!(Sealed {
         shot: shot.key(),
@@ -553,6 +638,40 @@ fn seal_inner<'info>(
         entry_e12,
     });
     Ok(())
+}
+
+/// Copy the crossing print out of the ring and into the shot. Afterwards the
+/// shot owns every number its settlement depends on -- price, confidence, the
+/// predecessor it bracketed, the slot it was posted in -- so the outcome can be
+/// rechecked by anyone from the shot alone, long after the ring has wrapped.
+fn bind_from_ring(shot: &mut Shot, feed_clock: &FeedClock, now: i64) -> Result<()> {
+    require!(feed_clock.feed_id == shot.feed_id, CoreError::BadFeed);
+    let deadline = shot.expiry_ts.checked_add(SETTLE_DEADLINE_SECS).ok_or(CoreError::MathOverflow)?;
+    require!(now < deadline, CoreError::SettlementDeadlinePassed);
+    let observation = feed_clock.crossing(shot.expiry_ts).ok_or(CoreError::CrossingNotCheckpointed)?;
+    require!(observation.publish_time <= deadline, CoreError::PriceOutsideWindow);
+    shot.exit_e12 = observation.price_e12;
+    shot.exit_publish_time = observation.publish_time;
+    shot.exit_conf_e12 = observation.conf_e12;
+    shot.exit_prev_publish_time = observation.prev_publish_time;
+    shot.exit_posted_slot = observation.posted_slot;
+    shot.crossing_bound = 1;
+    Ok(())
+}
+
+/// Half-width of the decision band around the strike, in e12 units. `k` is
+/// basis points OF THE PRINT'S OWN CONFIDENCE, so k = 10_000 is exactly one
+/// confidence interval either side. A non-positive confidence yields no band:
+/// an unusable number must never widen the zone in which the house refunds.
+pub fn decision_band(conf_e12: i64, k_bps: u16) -> Result<u128> {
+    if k_bps == 0 || conf_e12 <= 0 {
+        return Ok(0);
+    }
+    Ok(u128::try_from(conf_e12)
+        .map_err(|_| error!(CoreError::MathOverflow))?
+        .checked_mul(u128::from(k_bps))
+        .ok_or(CoreError::MathOverflow)?
+        / 10_000)
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -654,6 +773,28 @@ pub fn base_xp_for(minutes: u16) -> Result<u64> {
         .find(|(m, _)| *m == minutes)
         .map(|(_, xp)| *xp)
         .ok_or(error!(CoreError::BadHorizon))
+}
+
+pub fn horizon_index_of(minutes: u16) -> Result<usize> {
+    HORIZONS
+        .iter()
+        .position(|(m, _)| *m == minutes)
+        .ok_or(error!(CoreError::BadHorizon))
+}
+
+/// The matrix rule itself, taking the mask rather than reading the table, so
+/// that a closed market can be tested without shipping a closed market.
+pub fn horizon_allowed_in(mask: u8, minutes: u16) -> Result<()> {
+    let i = horizon_index_of(minutes)?;
+    require!(mask & (1u8 << i) != 0, CoreError::HorizonNotOfferedOnFeed);
+    Ok(())
+}
+
+pub fn horizon_allowed(feed_index: u8, minutes: u16) -> Result<()> {
+    let mask = *HORIZON_MASK
+        .get(feed_index as usize)
+        .ok_or(error!(CoreError::BadFeed))?;
+    horizon_allowed_in(mask, minutes)
 }
 
 pub fn feed_id_at(index: u8) -> Result<[u8; 32]> {
@@ -854,6 +995,15 @@ pub struct Settle<'info> {
 }
 
 #[derive(Accounts)]
+pub struct BindCrossing<'info> {
+    #[account(mut)]
+    pub shot: Account<'info, Shot>,
+    #[account(seeds = [b"clock".as_ref(), &[shot.feed_index]], bump = feed_clock.bump)]
+    pub feed_clock: Account<'info, FeedClock>,
+    pub cranker: Signer<'info>,
+}
+
+#[derive(Accounts)]
 pub struct Reveal<'info> {
     #[account(mut)]
     pub shot: Account<'info, Shot>,
@@ -985,6 +1135,20 @@ pub struct Shot {
     pub entry_e12: i64,
     pub exit_e12: i64,
     pub exit_publish_time: i64,
+    /// The confidence of the print this settled on, and the predecessor it
+    /// bracketed. Kept WITH the shot so the settlement can be checked later
+    /// against the rule that produced it, by anyone, without the ring.
+    pub exit_conf_e12: i64,
+    pub exit_prev_publish_time: i64,
+    pub exit_posted_slot: u64,
+    /// Which rules this shot was sold under. A later generation must never
+    /// silently reinterpret an older shot.
+    pub ruleset: u16,
+    /// The decision band in force at SEAL, not at settle: if k ever changes,
+    /// shots already in the air keep the number they were sold under.
+    pub band_k_bps: u16,
+    /// 0 unbound, 1 the crossing has been copied in from the ring.
+    pub crossing_bound: u8,
     pub p_bps: u16,
     pub side: u8,
     pub hit: u8,
@@ -992,7 +1156,8 @@ pub struct Shot {
     pub void_reason: u8,
 }
 impl Shot {
-    pub const SIZE: usize = 32 + 32 + 8 + 32 + 32 + 1 + 2 + 8 + 8 + 8 + (8 * 6) + 2 + 4;
+    pub const SIZE: usize =
+        32 + 32 + 8 + 32 + 32 + 1 + 2 + 8 + 8 + 8 + (8 * 6) + 2 + 4 + 8 + 8 + 8 + 2 + 2 + 1;
 }
 
 #[account]
@@ -1066,6 +1231,11 @@ pub struct Observation {
     pub prev_publish_time: i64,
     pub publish_time: i64,
     pub price_e12: i64,
+    /// Pyth's confidence for this print, in the same e12 scale as the price.
+    /// It was checked at checkpoint and then discarded, which made a decision
+    /// band impossible to implement and -- worse -- impossible to audit: a
+    /// settled shot did not carry the number the rule would have used.
+    pub conf_e12: i64,
     pub posted_slot: u64,
 }
 
@@ -1078,7 +1248,7 @@ pub struct FeedClock {
     pub observations: Vec<Observation>,
 }
 impl FeedClock {
-    pub const SIZE: usize = 32 + 8 + 1 + 1 + 4 + (CLOCK_CAPACITY * 32);
+    pub const SIZE: usize = 32 + 8 + 1 + 1 + 4 + (CLOCK_CAPACITY * 40);
     fn crossing(&self, expiry_ts: i64) -> Option<Observation> {
         self.observations
             .iter()
@@ -1125,6 +1295,9 @@ pub enum VoidReason {
     None = 0,
     Equality = 1,
     Deadline = 2,
+    /// The exit landed inside the print's own uncertainty around the strike.
+    /// Too close to call is not a loss.
+    TooClose = 3,
 }
 
 // ---------------------------------------------------------------------------
@@ -1161,6 +1334,18 @@ pub struct Checkpointed {
     pub posted_slot: u64,
     pub cranker: Pubkey,
 }
+#[event]
+pub struct CrossingBound {
+    pub shot: Pubkey,
+    pub player: Pubkey,
+    pub exit_e12: i64,
+    pub conf_e12: i64,
+    pub prev_publish_time: i64,
+    pub publish_time: i64,
+    pub posted_slot: u64,
+    pub binder: Pubkey,
+}
+
 #[event]
 pub struct Settled {
     pub shot: Pubkey,
@@ -1264,6 +1449,10 @@ pub enum CoreError {
     NoMigration,
     #[msg("invalid Merkle proof")]
     InvalidMerkleProof,
+    #[msg("this horizon is not offered on this feed")]
+    HorizonNotOfferedOnFeed,
+    #[msg("shot was sealed under a ruleset this program cannot settle")]
+    UnknownRuleset,
     #[msg("math overflow")]
     MathOverflow,
 }
@@ -1386,6 +1575,12 @@ mod tests {
             entry_e12: 1,
             exit_e12: 2,
             exit_publish_time: 0,
+            exit_conf_e12: 0,
+            exit_prev_publish_time: 0,
+            exit_posted_slot: 0,
+            ruleset: RULESET_V2,
+            band_k_bps: 0,
+            crossing_bound: 0,
             p_bps: 0,
             side: 1,
             hit: 1,
@@ -1416,9 +1611,9 @@ mod tests {
             head: 3,
             bump: 255,
             observations: vec![
-                Observation { prev_publish_time: 90, publish_time: 100, price_e12: 1, posted_slot: 1 },
-                Observation { prev_publish_time: 100, publish_time: 110, price_e12: 2, posted_slot: 2 },
-                Observation { prev_publish_time: 110, publish_time: 120, price_e12: 3, posted_slot: 3 },
+                Observation { prev_publish_time: 90, publish_time: 100, price_e12: 1, conf_e12: 0, posted_slot: 1 },
+                Observation { prev_publish_time: 100, publish_time: 110, price_e12: 2, conf_e12: 0, posted_slot: 2 },
+                Observation { prev_publish_time: 110, publish_time: 120, price_e12: 3, conf_e12: 0, posted_slot: 3 },
             ],
         };
         assert_eq!(feed_clock.crossing(105).unwrap().publish_time, 110);
@@ -1435,8 +1630,8 @@ mod tests {
             head: 2,
             bump: 255,
             observations: vec![
-                Observation { prev_publish_time: 90, publish_time: 100, price_e12: 1, posted_slot: 1 },
-                Observation { prev_publish_time: 120, publish_time: 140, price_e12: 2, posted_slot: 2 },
+                Observation { prev_publish_time: 90, publish_time: 100, price_e12: 1, conf_e12: 0, posted_slot: 1 },
+                Observation { prev_publish_time: 120, publish_time: 140, price_e12: 2, conf_e12: 0, posted_slot: 2 },
             ],
         };
         assert!(feed_clock.crossing(110).is_none(), "the missing 100..=120 source interval must void");
@@ -1445,10 +1640,180 @@ mod tests {
 
     #[test]
     fn account_sizes_match_layouts() {
-        assert_eq!(Shot::SIZE, 32 + 32 + 8 + 32 + 32 + 1 + 2 + 8 + 8 + 8 + 48 + 2 + 4);
+        // 217 bytes of G1 layout, plus the 29 bytes G2 added so that a settled
+        // shot carries every number its own settlement used.
+        assert_eq!(Shot::SIZE, 32 + 32 + 8 + 32 + 32 + 1 + 2 + 8 + 8 + 8 + 48 + 2 + 4 + 29);
+        assert_eq!(Shot::SIZE, 246);
+        assert_eq!(FeedClock::SIZE, 46 + CLOCK_CAPACITY * 40);
         assert_eq!(PlayerLedger::SIZE, 131);
         assert_eq!(Podium::SIZE, 128);
         assert_eq!(DelegateGrant::SIZE, 105);
+    }
+
+    fn sealed_shot(expiry_ts: i64, entry_e12: i64, band_k_bps: u16) -> Shot {
+        Shot {
+            player: Pubkey::new_unique(),
+            delegate: Pubkey::default(),
+            nonce: 1,
+            commit: [0; 32],
+            feed_id: [7; 32],
+            feed_index: 0,
+            minutes: 5,
+            stake: 500,
+            xp_base: 22,
+            xp_awarded: 0,
+            sealed_ts: 0,
+            expiry_ts,
+            settled_ts: 0,
+            entry_e12,
+            exit_e12: 0,
+            exit_publish_time: 0,
+            exit_conf_e12: 0,
+            exit_prev_publish_time: 0,
+            exit_posted_slot: 0,
+            ruleset: RULESET_V2,
+            band_k_bps,
+            crossing_bound: 0,
+            p_bps: 0,
+            side: 1,
+            hit: 0,
+            state: ShotState::Sealed as u8,
+            void_reason: 0,
+        }
+    }
+
+    fn ring(observations: Vec<Observation>) -> FeedClock {
+        FeedClock {
+            feed_id: [7; 32],
+            latest_publish_time: observations.last().map(|o| o.publish_time).unwrap_or(0),
+            head: observations.len() as u8,
+            bump: 255,
+            observations,
+        }
+    }
+
+    #[test]
+    fn binding_freezes_every_number_the_settlement_will_use() {
+        let mut shot = sealed_shot(300, 1_000, 0);
+        let clock = ring(vec![
+            Observation { prev_publish_time: 280, publish_time: 290, price_e12: 900, conf_e12: 5, posted_slot: 11 },
+            Observation { prev_publish_time: 290, publish_time: 305, price_e12: 1_100, conf_e12: 7, posted_slot: 12 },
+            Observation { prev_publish_time: 305, publish_time: 320, price_e12: 1_900, conf_e12: 9, posted_slot: 13 },
+        ]);
+        bind_from_ring(&mut shot, &clock, 301).unwrap();
+        assert_eq!(shot.crossing_bound, 1);
+        assert_eq!(shot.exit_e12, 1_100);
+        assert_eq!(shot.exit_publish_time, 305);
+        assert_eq!(shot.exit_prev_publish_time, 290, "the predecessor Pyth signed, not our last checkpoint");
+        assert_eq!(shot.exit_conf_e12, 7);
+        assert_eq!(shot.exit_posted_slot, 12);
+    }
+
+    /// The property `bind_crossing` exists for: once bound, no amount of later
+    /// cranking moves the answer. Here the ring is refilled past capacity with
+    /// prints that would each have been chosen by a fresh lookup.
+    #[test]
+    fn a_bound_crossing_survives_a_ring_that_wrapped_entirely() {
+        let mut shot = sealed_shot(300, 1_000, 0);
+        let clock = ring(vec![
+            Observation { prev_publish_time: 290, publish_time: 305, price_e12: 1_100, conf_e12: 7, posted_slot: 12 },
+        ]);
+        bind_from_ring(&mut shot, &clock, 301).unwrap();
+        let bound = (shot.exit_e12, shot.exit_publish_time, shot.exit_conf_e12, shot.exit_posted_slot);
+
+        let mut later = Vec::new();
+        for i in 0..(CLOCK_CAPACITY as i64 * 2) {
+            later.push(Observation {
+                prev_publish_time: 299 + i,
+                publish_time: 300 + i,
+                price_e12: 5_000 + i,
+                conf_e12: 400,
+                posted_slot: 900 + i as u64,
+            });
+        }
+        let flooded = ring(later.split_off(later.len() - CLOCK_CAPACITY));
+        // A fresh lookup in the flooded ring WOULD pick something else...
+        assert_ne!(flooded.crossing(300).map(|o| o.price_e12), Some(bound.0));
+        // ...and the shot does not care, because it no longer reads the ring.
+        assert_eq!((shot.exit_e12, shot.exit_publish_time, shot.exit_conf_e12, shot.exit_posted_slot), bound);
+        assert_eq!(shot.crossing_bound, 1);
+    }
+
+    #[test]
+    fn binding_refuses_what_settlement_would_have_refused() {
+        // No crossing captured at all.
+        let mut shot = sealed_shot(300, 1_000, 0);
+        let empty = ring(vec![]);
+        assert!(bind_from_ring(&mut shot, &empty, 301).is_err());
+        assert_eq!(shot.crossing_bound, 0, "a failed bind must leave the shot untouched");
+
+        // A crossing that lands beyond the strict window.
+        let late = ring(vec![Observation {
+            prev_publish_time: 299,
+            publish_time: 300 + SETTLE_DEADLINE_SECS + 1,
+            price_e12: 1_100,
+            conf_e12: 7,
+            posted_slot: 12,
+        }]);
+        assert!(bind_from_ring(&mut shot, &late, 301).is_err());
+
+        // The wrong feed's clock.
+        let mut wrong_feed = sealed_shot(300, 1_000, 0);
+        wrong_feed.feed_id = [9; 32];
+        let clock = ring(vec![Observation {
+            prev_publish_time: 290, publish_time: 305, price_e12: 1_100, conf_e12: 7, posted_slot: 12,
+        }]);
+        assert!(bind_from_ring(&mut wrong_feed, &clock, 301).is_err());
+
+        // Past the deadline nothing binds: that shot voids, as it always did.
+        let mut stale = sealed_shot(300, 1_000, 0);
+        assert!(bind_from_ring(&mut stale, &clock, 300 + SETTLE_DEADLINE_SECS).is_err());
+    }
+
+    #[test]
+    fn the_decision_band_is_zero_until_a_k_is_chosen() {
+        // What ships: the mechanism, with no width.
+        assert_eq!(BAND_K_BPS, 0);
+        assert_eq!(decision_band(1_000_000, BAND_K_BPS).unwrap(), 0);
+        // And with a k, it is exactly k basis points of the print's own conf.
+        assert_eq!(decision_band(1_000_000, 10_000).unwrap(), 1_000_000);
+        assert_eq!(decision_band(1_000_000, 5_000).unwrap(), 500_000);
+        assert_eq!(decision_band(1_000_000, 1).unwrap(), 100);
+        // An unusable confidence never widens the zone in which the house refunds.
+        assert_eq!(decision_band(0, 10_000).unwrap(), 0);
+        assert_eq!(decision_band(-5, 10_000).unwrap(), 0);
+        assert_eq!(decision_band(i64::MAX, 10_000).unwrap(), i64::MAX as u128);
+    }
+
+    #[test]
+    fn the_feed_horizon_matrix_ships_fully_open() {
+        assert_eq!(HORIZON_MASK.len(), FEEDS.len());
+        for feed_index in 0..FEEDS.len() as u8 {
+            for (minutes, _) in HORIZONS {
+                horizon_allowed(feed_index, minutes)
+                    .unwrap_or_else(|_| panic!("feed {feed_index} must still sell {minutes}m"));
+            }
+        }
+        // An unknown horizon is still an unknown horizon, not a closed market.
+        assert!(horizon_allowed(0, 7).is_err());
+        assert!(horizon_allowed(FEEDS.len() as u8, 5).is_err());
+    }
+
+    /// The negative control: the mechanism must actually be able to say no.
+    #[test]
+    fn a_closed_market_refuses_the_horizons_it_cannot_resolve() {
+        // 0b0000_0011 = only the 5m and 10m horizons are open.
+        assert!(horizon_allowed_in(0b0000_0011, 5).is_ok());
+        assert!(horizon_allowed_in(0b0000_0011, 10).is_ok());
+        assert!(horizon_allowed_in(0b0000_0011, 15).is_err());
+        assert!(horizon_allowed_in(0b0000_0011, 1440).is_err());
+        // 0b0110_0000 = only the two slow horizons, which is what a market
+        // that prints a few times an hour could honestly offer.
+        assert!(horizon_allowed_in(0b0110_0000, 5).is_err());
+        assert!(horizon_allowed_in(0b0110_0000, 360).is_ok());
+        assert!(horizon_allowed_in(0b0110_0000, 1440).is_ok());
+        assert!(horizon_allowed_in(0, 5).is_err(), "a fully closed market sells nothing");
+        assert_eq!(horizon_index_of(1440).unwrap(), 6);
     }
 
     /// Prints the golden vectors consumed by `test/test_core_vectors.mjs`.
@@ -1465,6 +1830,11 @@ mod tests {
             "\"program\":\"{}\",\"stake\":{{\"min\":{},\"max\":{},\"xpCapStake\":{}}},\"hitPayout\":[{},{}],\"settleXp\":{},\"rankXp\":{:?},\"maxConfBps\":{},\"settleDeadlineSecs\":{},\"revealDeadlineSecs\":{},\"burnPerMille\":{},\"podiumPerMille\":{:?},\n",
             crate::ID, STAKE_MIN, STAKE_MAX, XP_CAP_STAKE, HIT_PAYOUT_NUM, HIT_PAYOUT_DEN, SETTLE_XP, RANK_XP, MAX_CONF_BPS,
             SETTLE_DEADLINE_SECS, REVEAL_DEADLINE_SECS, BURN_PER_MILLE, PODIUM_CURVE_PER_MILLE
+        ));
+        out.push_str(&format!(
+            "\"ruleset\":{},\"bandKBps\":{},\"clockCapacity\":{},\"horizonMask\":{:?},\"voidReasons\":{{\"none\":{},\"equality\":{},\"deadline\":{},\"tooClose\":{}}},\n",
+            RULESET_V2, BAND_K_BPS, CLOCK_CAPACITY, HORIZON_MASK,
+            VoidReason::None as u8, VoidReason::Equality as u8, VoidReason::Deadline as u8, VoidReason::TooClose as u8
         ));
         out.push_str("\"horizons\":[");
         for (i, (m, b)) in HORIZONS.iter().enumerate() {
@@ -1514,6 +1884,7 @@ mod tests {
             ("seal_delegated", instruction::SealDelegated { nonce: 42, commit: [7u8; 32], feed_index: 6, minutes: 1440, stake: 1_000_000_000 }.data()),
             ("checkpoint", instruction::Checkpoint { feed_index: 3 }.data()),
             ("settle", instruction::Settle {}.data()),
+            ("bind_crossing", instruction::BindCrossing {}.data()),
             ("reveal", instruction::Reveal { side: 1, p_bps: 6500, salt: salt.to_string() }.data()),
             ("forfeit", instruction::Forfeit {}.data()),
             ("void_shot", instruction::VoidShot {}.data()),
@@ -1545,12 +1916,12 @@ mod tests {
         let (grant_pda, _) = Pubkey::find_program_address(&[b"grant", wallet.as_ref(), Pubkey::new_from_array([9u8; 32]).as_ref()], &crate::ID);
         let (claim_pda, _) = Pubkey::find_program_address(&[b"claim", wallet.as_ref()], &crate::ID);
         // Serialized account samples (discriminator + Borsh), for parsers.
-        let shot = Shot { player: wallet, delegate: Pubkey::new_from_array([9u8; 32]), nonce: 42, commit: [7u8; 32], feed_id: FEEDS[3], feed_index: 3, minutes: 30, stake: 2_500, xp_base: 70, xp_awarded: 81, sealed_ts: 1_800_000_000, expiry_ts: 1_800_001_800, settled_ts: 1_800_001_805, entry_e12: 123_456_789_012_345, exit_e12: 123_456_789_999_999, exit_publish_time: 1_800_001_803, p_bps: 6500, side: 1, hit: 1, state: 3, void_reason: 0 };
+        let shot = Shot { player: wallet, delegate: Pubkey::new_from_array([9u8; 32]), nonce: 42, commit: [7u8; 32], feed_id: FEEDS[3], feed_index: 3, minutes: 30, stake: 2_500, xp_base: 70, xp_awarded: 81, sealed_ts: 1_800_000_000, expiry_ts: 1_800_001_800, settled_ts: 1_800_001_805, entry_e12: 123_456_789_012_345, exit_e12: 123_456_789_999_999, exit_publish_time: 1_800_001_803, exit_conf_e12: 61_728_394, exit_prev_publish_time: 1_800_001_700, exit_posted_slot: 300_000_250, ruleset: RULESET_V2, band_k_bps: BAND_K_BPS, crossing_bound: 1, p_bps: 6500, side: 1, hit: 1, state: 3, void_reason: 0 };
         let ledger = PlayerLedger { player: wallet, credits: 9_350, xp: 24, streak: 0, best: 1, hits: 1, shots: 2, voids: 1, forfeits: 0, sealed: 3, open: 1, day: 20_833, daily_xp: 24, burned: 700_000, reloaded: 1_000_000, bump: 254 };
         let podium = Podium { day: 20_833, seats: [Seat { player: wallet, daily_xp: 24 }, Seat { player: Pubkey::new_from_array([9u8; 32]), daily_xp: 7 }, Seat::default()] };
         let clock = FeedClock { feed_id: FEEDS[3], latest_publish_time: 1_800_001_803, head: 2, bump: 253, observations: vec![
-            Observation { prev_publish_time: 1_800_001_700, publish_time: 1_800_001_700, price_e12: 123_456_789_012_345, posted_slot: 300_000_000 },
-            Observation { prev_publish_time: 1_800_001_700, publish_time: 1_800_001_803, price_e12: 123_456_789_999_999, posted_slot: 300_000_250 },
+            Observation { prev_publish_time: 1_800_001_700, publish_time: 1_800_001_700, price_e12: 123_456_789_012_345, conf_e12: 55_000_000, posted_slot: 300_000_000 },
+            Observation { prev_publish_time: 1_800_001_700, publish_time: 1_800_001_803, price_e12: 123_456_789_999_999, conf_e12: 61_728_394, posted_slot: 300_000_250 },
         ] };
         let grant = DelegateGrant { player: wallet, delegate: Pubkey::new_from_array([9u8; 32]), allowance: 10_000, max_stake: 500, used: 1_000, shots: 2, expiry_ts: 1_800_000_000, bump: 252 };
         let mut samples: Vec<(&str, Vec<u8>)> = Vec::new();

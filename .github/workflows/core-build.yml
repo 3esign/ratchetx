@@ -71,15 +71,27 @@ jobs:
           cargo test --locked print_golden_vectors -- --ignored --nocapture 2>/dev/null \
             | sed -n '/^GOLDEN_VECTORS_BEGIN$/,/^GOLDEN_VECTORS_END$/p' | sed '1d;$d' > /tmp/vectors.json
           test -s /tmp/vectors.json || { echo "::error::no vectors printed"; exit 1; }
-          if ! diff -q vectors/core-rules-v1.json /tmp/vectors.json; then
-            echo "::error::the program's rules differ from vectors/core-rules-v1.json — the server (lib/core_rules.js) and client are pinned to that file; reprint and re-test before anything ships"
-            diff vectors/core-rules-v1.json /tmp/vectors.json | head -40
+          if ! diff -q vectors/core-rules-v2.json /tmp/vectors.json; then
+            echo "::error::the program's rules differ from vectors/core-rules-v2.json — the server (lib/core_rules.js) and client are pinned to that file; reprint and re-test before anything ships"
+            diff vectors/core-rules-v2.json /tmp/vectors.json | head -40
             exit 1
           fi
+          # v1 stays on disk as the record of ruleset 1. test/test_core_vectors.mjs
+          # holds v2 to it: a ruleset bump must move the layout and nothing a
+          # player was paid by.
+          test -s vectors/core-rules-v1.json || { echo "::error::vectors/core-rules-v1.json was deleted; the bump has nothing to be checked against"; exit 1; }
           echo "golden vectors: identical"
 
       - name: Build the program with the frozen recipe
         run: cargo build-sbf -- --locked
+
+      - name: Keep the fresh bytes, whatever the gate below decides
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ratchet_core.so
+          path: onchain/ratchet-core/target/deploy/ratchet_core.so
+          if-no-files-found: error
 
       - name: The fresh bytes must equal the newest committed artifact
         shell: bash
@@ -93,6 +105,7 @@ jobs:
           echo "::notice title=ratchet_core.so::$(stat -c%s "$so") bytes · sha256 $fresh"
           if [ "$fresh" != "$committed" ]; then
             echo "::error::a clean build of the committed source does not reproduce $newest — either the source moved after the artifact was built, or the toolchain drifted. Nothing built here is trustworthy until this is green."
+            echo "::notice::If the source moved on purpose (a ruleset bump), download the ratchet_core.so artifact from this run, commit it as artifacts/ratchet_core-<ruleset>-<date>.so, and re-run. Never edit the gate to make it pass."
             exit 1
           fi
           echo "reproducible: the committed artifact is this source"

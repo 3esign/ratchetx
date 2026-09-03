@@ -7,7 +7,7 @@ import { PublicKey } from '@solana/web3.js';
 import * as C from '../onchain/ratchet-core/client/core.mjs';
 import { DEVNET_NOTICE, inspectionJson } from '../onchain/ratchet-core/client/inspect.mjs';
 
-const V = JSON.parse(fs.readFileSync(new URL('../onchain/ratchet-core/vectors/core-rules-v1.json', import.meta.url), 'utf8'));
+const V = JSON.parse(fs.readFileSync(new URL('../onchain/ratchet-core/vectors/core-rules-v2.json', import.meta.url), 'utf8'));
 const W = new PublicKey(V.pdas.wallet), D = new PublicKey(V.pdas.delegate);
 const SALT = V.commit.salt;
 const hex = ix => Buffer.from(ix.data).toString('hex');
@@ -89,6 +89,11 @@ test('parsers read what the program serialized', () => {
   assert.deepEqual([s.nonce, s.feedIndex, s.minutes, s.stake, s.xpBase, s.xpAwarded], [42n, 3, 30, 2500n, 70n, 81n]);
   assert.deepEqual([s.sealedTs, s.expiryTs, s.settledTs, s.entryE12, s.exitE12, s.exitPublishTime], [1800000000n, 1800001800n, 1800001805n, 123456789012345n, 123456789999999n, 1800001803n]);
   assert.deepEqual([s.pBps, s.side, s.hit, s.state, s.voidReason], [6500, 1, 1, 3, 0]);
+  // Ruleset 2: a settled shot carries the numbers its own settlement used, so
+  // the client can recheck the verdict from the shot alone -- no ring, no RPC
+  // archive, no trust in whoever happened to crank it.
+  assert.deepEqual([s.exitConfE12, s.exitPrevPublishTime, s.exitPostedSlot], [61728394n, 1800001700n, 300000250n]);
+  assert.deepEqual([s.ruleset, s.bandKBps, s.crossingBound], [V.ruleset, V.bandKBps, 1]);
   assert.equal(s.commit, '07'.repeat(32)); assert.equal(s.feedId, V.feeds[3].feedId);
   const l = C.parseLedger(Buffer.from(V.samples.PlayerLedger, 'hex'));
   assert.deepEqual([l.credits, l.xp, l.streak, l.best, l.hits, l.shots, l.voids, l.forfeits, l.sealed, l.open, l.day, l.dailyXp, l.burned, l.reloaded, l.bump],
@@ -98,7 +103,7 @@ test('parsers read what the program serialized', () => {
   assert.equal(p.seats[1].player.toBase58(), V.pdas.delegate); assert.equal(p.seats[1].dailyXp, 7n);
   const k = C.parseClock(Buffer.from(V.samples.FeedClock, 'hex'));
   assert.equal(k.feedId, V.feeds[3].feedId); assert.equal(k.latestPublishTime, 1800001803n); assert.equal(k.observations.length, 2);
-  assert.deepEqual(k.observations[1], { prevPublishTime: 1800001700n, publishTime: 1800001803n, priceE12: 123456789999999n, postedSlot: 300000250n });
+  assert.deepEqual(k.observations[1], { prevPublishTime: 1800001700n, publishTime: 1800001803n, priceE12: 123456789999999n, confE12: 61728394n, postedSlot: 300000250n });
   const g = C.parseGrant(Buffer.from(V.samples.DelegateGrant, 'hex'));
   assert.deepEqual([g.allowance, g.maxStake, g.used, g.shots, g.expiryTs, g.bump], [10000n, 500n, 1000n, 2n, 1800000000n, 252]);
   assert.throws(() => C.parseShot(Buffer.from(V.samples.PlayerLedger, 'hex')), /not a Shot/);
@@ -125,7 +130,7 @@ test('parsePriceUpdate reads a Full and a Partial PriceUpdateV2', () => {
 
 test('the crank plans exactly the program\'s permissionless moves', () => {
   const shotPk = C.shotPda(W, 1);
-  const mk = (state, expiryTs, feedIndex = 0) => ({ pubkey: shotPk, player: W, feedIndex, state, expiryTs: BigInt(expiryTs) });
+  const mk = (state, expiryTs, feedIndex = 0, crossingBound = 0) => ({ pubkey: shotPk, player: W, feedIndex, state, expiryTs: BigInt(expiryTs), crossingBound });
   const clock = obs => ({ latestPublishTime: obs.length ? obs[obs.length - 1].publishTime : 0n, observations: obs });
   const push = (publishTime, full = true) => ({ full, publishTime: BigInt(publishTime) });
   const plan = (shots, clocks, pushes, now, close) => C.planActions({ shots, clocks: new Map(Object.entries(clocks).map(([k, v]) => [Number(k), v])), pushes: new Map(Object.entries(pushes).map(([k, v]) => [Number(k), v])), now, close }).map(a => a.kind);
@@ -140,6 +145,22 @@ test('the crank plans exactly the program\'s permissionless moves', () => {
   // Past the settlement window -> void; settled and unrevealed for an hour -> forfeit; final -> close only when asked.
   assert.deepEqual(plan([mk(1, 2000)], { 0: null }, { 0: push(1990) }, 2119), [], 'inside the two-minute window with no post-expiry update yet: wait');
   assert.deepEqual(plan([mk(1, 2000)], { 0: null }, { 0: push(2150) }, 2120), ['void']);
+  // Ruleset 2: a shot whose crossing was bound in time settles however late the
+  // cranker is, with no clock read at all. The deadline was for capturing the
+  // print, and it was captured. Planning `void` here would burn a real answer.
+  assert.deepEqual(plan([mk(1, 2000, 0, 1)], { 0: null }, {}, 2120), ['settle'], 'a bound shot never voids on the settle deadline');
+  assert.deepEqual(plan([mk(1, 2000, 0, 1)], { 0: null }, {}, 99999), ['settle']);
+  assert.deepEqual(plan([mk(1, 2000, 0, 1)], { 0: null }, {}, 1999), [], 'and it still waits for its own expiry');
+  // The instruction exists for anyone who wants to freeze an answer without
+  // settling it, even though the runner never needs to plan it separately.
+  {
+    const [bind] = C.instructionsFor({ kind: 'bind', shot: shotPk, feedIndex: 3 }, D);
+    assert.equal(bind.keys.length, 3, 'shot, clock, cranker -- no ledger, nothing else');
+    assert.ok(bind.keys[0].pubkey.equals(shotPk) && bind.keys[0].isWritable && !bind.keys[0].isSigner);
+    assert.ok(bind.keys[1].pubkey.equals(C.clockPda(3)) && !bind.keys[1].isWritable);
+    assert.ok(bind.keys[2].pubkey.equals(D) && bind.keys[2].isSigner && !bind.keys[2].isWritable);
+    assert.equal(bind.data.toString('hex'), V.ix.bind_crossing);
+  }
   assert.deepEqual(plan([mk(2, 2000)], {}, {}, 5599), []);
   assert.deepEqual(plan([mk(2, 2000)], {}, {}, 5600), ['forfeit']);
   assert.deepEqual(plan([mk(3, 2000), mk(4, 2000), mk(5, 2000)], {}, {}, 9000), []);
@@ -179,7 +200,8 @@ test('chain-only reads reject spoofed Core accounts and return context slots', a
   ]);
 
   assert.throws(() => C.assertCoreAccount(shotAddress, account(shotData, { owner: D }), 'Shot'), /wrong owner/);
-  assert.throws(() => C.assertCoreAccount(shotAddress, account(shotData.subarray(0, -1)), 'Shot'), /expected 225/);
+  assert.throws(() => C.assertCoreAccount(shotAddress, account(shotData.subarray(0, -1)), 'Shot'),
+    new RegExp(`expected ${C.ACCOUNT_SIZE.Shot}`), 'the size check must follow the layout, not a number typed once');
   const wrongPdaConnection = {
     async getProgramAccounts() {
       return { context: { slot: 801 }, value: [{ pubkey: C.shotPda(W, 43), account: account(shotData) }] };

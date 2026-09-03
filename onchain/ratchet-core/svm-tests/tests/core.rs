@@ -239,6 +239,25 @@ impl World {
         ]);
         self.send(ix, &[cranker])
     }
+    fn bind_crossing(&mut self, cranker: &Keypair, player: &Pubkey, nonce: u64, feed_index: u8) -> Result<(), String> {
+        let ix = self.ix("bind_crossing", vec![], vec![
+            AccountMeta::new(shot_pda(player, nonce), false),
+            AccountMeta::new_readonly(clock_pda(feed_index), false),
+            AccountMeta::new_readonly(cranker.pubkey(), true),
+        ]);
+        self.send(ix, &[cranker])
+    }
+    /// Push `n` fresh, fully verified observations into the ring, one per
+    /// second, each one newer than the last. Returns the last publish time.
+    fn flood_ring(&mut self, cranker: &Keypair, feed_index: u8, n: usize, price: i64, from_ts: i64) -> i64 {
+        let mut t = from_ts;
+        for _ in 0..n {
+            self.pyth(feed_index, price, 1_000_000, t, t - 1);
+            self.checkpoint(cranker, feed_index).unwrap();
+            t += 1;
+        }
+        t - 1
+    }
     fn reveal(&mut self, revealer: &Keypair, player: &Pubkey, nonce: u64, side: u8, p_bps: u16, salt: &str) -> Result<(), String> {
         let mut args = vec![side];
         args.extend_from_slice(&p_bps.to_le_bytes());
@@ -319,18 +338,28 @@ impl Ledger {
     }
 }
 #[derive(Debug)]
-struct ShotView { stake: u64, xp_base: u64, xp_awarded: u64, expiry_ts: i64, entry_e12: i64, exit_e12: i64, p_bps: u16, side: u8, hit: u8, state: u8, void_reason: u8 }
+struct ShotView {
+    stake: u64, xp_base: u64, xp_awarded: u64, expiry_ts: i64, entry_e12: i64, exit_e12: i64,
+    exit_publish_time: i64, exit_conf_e12: i64, exit_prev_publish_time: i64, exit_posted_slot: u64,
+    ruleset: u16, band_k_bps: u16, crossing_bound: u8,
+    p_bps: u16, side: u8, hit: u8, state: u8, void_reason: u8,
+}
 impl ShotView {
     fn parse(d: &[u8]) -> Self {
         let u64at = |o: usize| u64::from_le_bytes(d[o..o + 8].try_into().unwrap());
         let i64at = |o: usize| i64::from_le_bytes(d[o..o + 8].try_into().unwrap());
+        let u16at = |o: usize| u16::from_le_bytes(d[o..o + 2].try_into().unwrap());
         // 8 disc + 32 player + 32 delegate + 8 nonce + 32 commit + 32 feed_id + 1 feed_index + 2 minutes = 147
         let o = 147;
+        assert_eq!(d.len(), 254, "ruleset 2 Shot is 8 + 246 bytes");
         ShotView {
             stake: u64at(o), xp_base: u64at(o + 8), xp_awarded: u64at(o + 16),
             expiry_ts: i64at(o + 32), entry_e12: i64at(o + 48), exit_e12: i64at(o + 56),
-            p_bps: u16::from_le_bytes(d[o + 72..o + 74].try_into().unwrap()),
-            side: d[o + 74], hit: d[o + 75], state: d[o + 76], void_reason: d[o + 77],
+            exit_publish_time: i64at(o + 64), exit_conf_e12: i64at(o + 72),
+            exit_prev_publish_time: i64at(o + 80), exit_posted_slot: u64at(o + 88),
+            ruleset: u16at(o + 96), band_k_bps: u16at(o + 98), crossing_bound: d[o + 100],
+            p_bps: u16at(o + 101),
+            side: d[o + 103], hit: d[o + 104], state: d[o + 105], void_reason: d[o + 106],
         }
     }
 }
@@ -755,4 +784,215 @@ fn ring_wrap_and_wrong_clock() {
     w.set_clock(expiry + 120);
     w.simple("void_shot", &cranker, &p.pubkey(), 1).unwrap();
     assert_eq!(w.ledger(&p.pubkey()).credits, 1000);
+}
+
+// ============================================================================
+// Ruleset 2: binding the crossing
+// ============================================================================
+
+/// THE test this instruction exists for.
+///
+/// The feed clock is a 64-slot ring. Before ruleset 2 the outcome of a shot was
+/// read out of that ring at settle time, which meant the answer depended on how
+/// busy the feed happened to be between expiry and whenever a cranker got
+/// around to it -- and on nothing stopping a well-funded party from *making* it
+/// busy. `bind_crossing` copies the crossing print into the shot; after that
+/// the ring is scenery.
+///
+/// Two shots, same feed, same expiry, same crossing. One is bound the moment it
+/// expires. Then the ring is flooded past capacity, evicting that crossing
+/// entirely. The bound shot settles on the print it was bound to; the unbound
+/// one, on identical facts, cannot settle at all -- which is what proves the
+/// flood really did destroy the evidence.
+#[test]
+fn a_bound_crossing_survives_a_ring_flooded_past_capacity() {
+    let mut w = World::new();
+    let p = w.player(10_000);
+    let attacker = w.player(1);
+    w.reload(&p, 10_000 * UNIT, &[]).unwrap();
+
+    w.pyth(0, 100_00000000, 1_000_000, w.now - 1, w.now - 2);
+    w.seal(&p, 1, commit(&p.pubkey(), 1, "YES", 0, SALT), 0, 5, 500).unwrap();
+    w.seal(&p, 2, commit(&p.pubkey(), 2, "YES", 0, SALT), 0, 5, 500).unwrap();
+    let expiry = w.now + 300;
+
+    // The crossing: the first print at or after expiry. A YES win at 102.
+    w.set_clock(expiry + 1);
+    w.pyth(0, 102_00000000, 1_234_567, expiry, expiry - 30);
+    w.checkpoint(&attacker, 0).unwrap();
+
+    // Shot 1 binds immediately. Shot 2 does not.
+    w.bind_crossing(&attacker, &p.pubkey(), 1, 0).unwrap();
+    let bound = w.shot(&p.pubkey(), 1).unwrap();
+    assert_eq!(bound.crossing_bound, 1);
+    assert_eq!(bound.exit_e12, 102_000_000_000_000);
+    assert_eq!(bound.exit_publish_time, expiry);
+    assert_eq!(bound.exit_prev_publish_time, expiry - 30, "the predecessor Pyth signed");
+    assert_eq!(bound.exit_conf_e12, 12_345_670_000, "conf 1_234_567 at exponent -8, in e12");
+    assert_eq!(bound.state, 1, "binding does not settle");
+    assert_eq!(w.shot(&p.pubkey(), 2).unwrap().crossing_bound, 0);
+
+    // Now bury it: 70 fresh prints at a price that would flip both shots.
+    let last = w.flood_ring(&attacker, 0, 70, 96_00000000, expiry + 2);
+    w.set_clock(last + 1);
+    assert!(last + 1 < expiry + 120, "the flood must fit inside the settle window");
+
+    // The bound shot settles on the print it was bound to. Not 96.
+    w.settle(&attacker, &p.pubkey(), 1, 0).unwrap();
+    let s = w.shot(&p.pubkey(), 1).unwrap();
+    assert_eq!(s.exit_e12, 102_000_000_000_000, "a bound crossing is not for sale");
+    assert_eq!(s.exit_publish_time, expiry);
+    assert_eq!(s.state, 2, "settled, not voided");
+    w.reveal(&p, &p.pubkey(), 1, 1, 0, SALT).unwrap();
+    assert_eq!(w.shot(&p.pubkey(), 1).unwrap().hit, 1, "YES from 100 to 102 is a hit");
+
+    // The identical unbound shot: the flood ate its evidence, so it cannot
+    // settle at all. This is the counterfactual that makes the test mean
+    // something -- without it, the first half proves nothing.
+    assert_err(w.settle(&attacker, &p.pubkey(), 2, 0), "CrossingNotCheckpointed");
+    w.set_clock(expiry + 120);
+    w.simple("void_shot", &attacker, &p.pubkey(), 2).unwrap();
+    let s2 = w.shot(&p.pubkey(), 2).unwrap();
+    assert_eq!((s2.state, s2.void_reason), (4, 2), "voided on the deadline, refunded");
+}
+
+/// A bound shot is not on the clock any more. The settle deadline was a
+/// deadline for CAPTURING the print; once captured, a slow cranker must not be
+/// able to turn a real answer into a refund -- and neither must anyone who
+/// would rather the answer went away.
+#[test]
+fn a_bound_shot_settles_late_and_cannot_be_voided_out_from_under_it() {
+    let mut w = World::new();
+    let p = w.player(10_000);
+    let cranker = w.player(1);
+    w.reload(&p, 10_000 * UNIT, &[]).unwrap();
+    w.pyth(0, 100_00000000, 1_000_000, w.now - 1, w.now - 2);
+    w.seal(&p, 1, commit(&p.pubkey(), 1, "NO", 0, SALT), 0, 5, 700).unwrap();
+    let expiry = w.now + 300;
+
+    w.set_clock(expiry + 1);
+    w.pyth(0, 98_00000000, 1_000_000, expiry, expiry - 10);
+    w.checkpoint(&cranker, 0).unwrap();
+    w.bind_crossing(&cranker, &p.pubkey(), 1, 0).unwrap();
+
+    // Long past the settle deadline, and past the reveal deadline too.
+    w.set_clock(expiry + 121);
+    assert_err(w.simple("void_shot", &cranker, &p.pubkey(), 1), "NotVoidable");
+    w.set_clock(expiry + 4000);
+    w.settle(&cranker, &p.pubkey(), 1, 0).unwrap();
+    let s = w.shot(&p.pubkey(), 1).unwrap();
+    assert_eq!((s.state, s.exit_e12), (2, 98_000_000_000_000));
+    w.reveal(&p, &p.pubkey(), 1, 0, 0, SALT).unwrap();
+    assert_eq!(w.shot(&p.pubkey(), 1).unwrap().hit, 1, "NO from 100 to 98 is a hit");
+}
+
+/// Permissionless and idempotent: anyone may bind, nobody may bind twice into a
+/// different answer, and binding before there is anything to bind fails cleanly
+/// without touching the shot.
+#[test]
+fn binding_is_permissionless_idempotent_and_refuses_the_same_things_settle_does() {
+    let mut w = World::new();
+    let p = w.player(10_000);
+    let stranger = w.player(1);
+    let other = w.player(1);
+    w.reload(&p, 10_000 * UNIT, &[]).unwrap();
+    w.pyth(0, 100_00000000, 1_000_000, w.now - 1, w.now - 2);
+    w.seal(&p, 1, commit(&p.pubkey(), 1, "YES", 0, SALT), 0, 5, 500).unwrap();
+    let expiry = w.now + 300;
+
+    // Before expiry there is nothing to bind.
+    assert_err(w.bind_crossing(&stranger, &p.pubkey(), 1, 0), "NotExpired");
+    // After expiry with an empty clock: refused, and the shot is untouched.
+    w.set_clock(expiry + 1);
+    assert_err(w.bind_crossing(&stranger, &p.pubkey(), 1, 0), "CrossingNotCheckpointed");
+    assert_eq!(w.shot(&p.pubkey(), 1).unwrap().crossing_bound, 0);
+
+    w.pyth(0, 105_00000000, 1_000_000, expiry, expiry - 5);
+    w.checkpoint(&stranger, 0).unwrap();
+    // A stranger with no stake in the shot binds it. That is the point.
+    w.bind_crossing(&stranger, &p.pubkey(), 1, 0).unwrap();
+    let first = w.shot(&p.pubkey(), 1).unwrap();
+
+    // A second binder cannot move it, even with a newer print in the ring.
+    w.advance(5);
+    w.pyth(0, 90_00000000, 1_000_000, w.now, w.now - 1);
+    w.checkpoint(&other, 0).unwrap();
+    w.bind_crossing(&other, &p.pubkey(), 1, 0).unwrap();
+    let second = w.shot(&p.pubkey(), 1).unwrap();
+    assert_eq!(second.exit_e12, first.exit_e12, "rebinding is a no-op, not a re-roll");
+    assert_eq!(second.exit_publish_time, first.exit_publish_time);
+    assert_eq!(second.exit_conf_e12, first.exit_conf_e12);
+
+    // Past the deadline nothing new binds: that shot voids, exactly as before.
+    w.seal(&p, 2, commit(&p.pubkey(), 2, "YES", 0, SALT), 0, 5, 500).unwrap();
+    let expiry2 = w.now + 300;
+    w.set_clock(expiry2 + 121);
+    w.pyth(0, 105_00000000, 1_000_000, expiry2 + 1, expiry2 - 1);
+    w.checkpoint(&stranger, 0).unwrap();
+    assert_err(w.bind_crossing(&stranger, &p.pubkey(), 2, 0), "SettlementDeadlinePassed");
+    w.simple("void_shot", &stranger, &p.pubkey(), 2).unwrap();
+
+    // And a shot that is already finished is not bindable.
+    w.settle(&stranger, &p.pubkey(), 1, 0).unwrap();
+    assert_err(w.bind_crossing(&stranger, &p.pubkey(), 1, 0), "WrongState");
+}
+
+/// Every settled shot carries the numbers its own settlement used -- including
+/// the confidence, which ruleset 1 checked and then threw away. Without this a
+/// settlement could not be re-derived after the ring wrapped, by anyone, ever.
+#[test]
+fn a_settled_shot_carries_the_confidence_it_settled_on() {
+    let mut w = World::new();
+    let p = w.player(10_000);
+    let cranker = w.player(1);
+    w.reload(&p, 10_000 * UNIT, &[]).unwrap();
+    w.pyth(0, 100_00000000, 1_000_000, w.now - 1, w.now - 2);
+    w.seal(&p, 1, commit(&p.pubkey(), 1, "YES", 0, SALT), 0, 5, 500).unwrap();
+    let expiry = w.now + 300;
+    w.set_clock(expiry + 1);
+    // conf 999_999 at exponent -8 -> 9_999_990_000 in e12.
+    w.pyth(0, 103_00000000, 999_999, expiry, expiry - 44);
+    w.checkpoint(&cranker, 0).unwrap();
+    let posted = ((expiry as u64) * 2) as u64; // World::pyth's posted_slot rule
+    w.settle(&cranker, &p.pubkey(), 1, 0).unwrap();
+
+    let s = w.shot(&p.pubkey(), 1).unwrap();
+    assert_eq!(s.exit_e12, 103_000_000_000_000);
+    assert_eq!(s.exit_conf_e12, 9_999_990_000);
+    assert_eq!(s.exit_publish_time, expiry);
+    assert_eq!(s.exit_prev_publish_time, expiry - 44);
+    assert_eq!(s.exit_posted_slot, posted);
+    assert_eq!(s.crossing_bound, 1, "settle binds what it uses, even unasked");
+    // Sold under ruleset 2 with the band that shipped: a mechanism, no width.
+    assert_eq!((s.ruleset, s.band_k_bps), (2, 0));
+    // With k = 0 the band is empty, so a real move still decides normally.
+    assert_eq!(s.state, 2);
+}
+
+/// The band ships at zero, so nothing may void for being "too close" -- not at
+/// one unit of difference, not at a difference far inside the confidence.
+/// If this test ever fails, somebody set `k` without saying so.
+#[test]
+fn the_decision_band_is_inert_until_someone_chooses_a_k() {
+    let mut w = World::new();
+    let p = w.player(10_000);
+    let cranker = w.player(1);
+    w.reload(&p, 10_000 * UNIT, &[]).unwrap();
+    // Entry 100.00000000, exit one e-8 unit above it: 10_000 in e12 terms.
+    w.pyth(0, 100_00000000, 1_000_000, w.now - 1, w.now - 2);
+    w.seal(&p, 1, commit(&p.pubkey(), 1, "YES", 0, SALT), 0, 5, 500).unwrap();
+    let expiry = w.now + 300;
+    w.set_clock(expiry + 1);
+    w.pyth(0, 100_00000001, 1_000_000, expiry, expiry - 3);
+    w.checkpoint(&cranker, 0).unwrap();
+    w.settle(&cranker, &p.pubkey(), 1, 0).unwrap();
+    let s = w.shot(&p.pubkey(), 1).unwrap();
+    assert_eq!(s.band_k_bps, 0);
+    assert!(
+        (s.exit_e12 - s.entry_e12).unsigned_abs() < s.exit_conf_e12.unsigned_abs(),
+        "the move is well inside the print's own confidence -- exactly the case a band would void"
+    );
+    assert_eq!((s.state, s.void_reason), (2, 0), "with k = 0 it settles anyway, and YES wins");
+    w.reveal(&p, &p.pubkey(), 1, 1, 0, SALT).unwrap();
+    assert_eq!(w.shot(&p.pubkey(), 1).unwrap().hit, 1);
 }

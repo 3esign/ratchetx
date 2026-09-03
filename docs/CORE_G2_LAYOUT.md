@@ -1,7 +1,10 @@
 # Core G2 — the account layout, and the three blockers it closes
 
-Status: **proposal, not built.** Nothing here has been written in Rust. It exists
-to be argued with before it is bytes.
+Status: **built.** Approved as written below and implemented as ruleset 2 on
+2026-09-03. The proposal is kept intact because it is the argument, not the
+changelog; **"What was actually built" at the end records where the code differs
+from it, and why.** Where the two disagree, the code is the truth and the
+difference is explained there rather than quietly edited out of here.
 
 The execution plan lists eight release blockers. Three are closed (source-time
 binding, Token-2022, and the legacy snapshot). Of the five open ones, three are
@@ -110,16 +113,17 @@ pub struct Observation {
     pub price_e12: i64,
     pub conf_e12: i64,          // NEW — the band needs it; the audit needs it more
     pub posted_slot: u64,
-}                                // 24 -> 32 bytes
+}                                // 32 -> 40 bytes
 
 pub struct Shot {
     // ... every existing field, unchanged ...
     pub exit_conf_e12: i64,          // NEW — what the band was computed against
     pub exit_prev_publish_time: i64, // NEW — the bracket, kept with the price
+    pub exit_posted_slot: u64,       // NEW — the slot the print was posted in
     pub ruleset: u16,                // NEW — which rules this was sold under
     pub band_k_bps: u16,             // NEW — the k in force at seal, not at settle
-    pub crossing_bound: u8,          // NEW — 0 unbound, 1 bound, 2 bound-and-settled
-}                                    // 225 -> 245 bytes with the discriminator
+    pub crossing_bound: u8,          // NEW — 0 unbound, 1 bound
+}                                    // 225 -> 254 bytes with the discriminator
 ```
 
 `band_k_bps` is stored per shot deliberately. If `k` ever changes, shots already
@@ -134,13 +138,14 @@ Rent-exempt minimum on Solana is `(128 + size) × 6960` lamports.
 | Account | Size | Rent | 1,000 of them |
 | --- | --- | --- | --- |
 | `PlayerLedger` | 139 B | 0.00186 SOL | **1.86 SOL** |
-| `Shot` (G2) | 245 B | 0.00260 SOL | 2.60 SOL |
-| `FeedClock` | 2,102 B | 0.0155 SOL | 12 feeds ≈ 0.19 SOL |
+| `Shot` (G2, as built) | 254 B | 0.00266 SOL | 2.66 SOL |
+| `FeedClock` (G2, as built) | 2,614 B | 0.0191 SOL | 12 feeds ≈ 0.23 SOL |
 
 Player ledgers are permanent; that is the real number, and it is under two SOL
 for a thousand players. Shots are working capital: the account closes when the
 shot resolves and the rent comes back. `Shot` growing by 20 bytes costs
-0.00014 SOL per open shot — about three cents at present prices, refundable.
+0.000202 SOL per open shot — a few cents at present prices, and refundable when
+the shot closes.
 
 The measurement that makes this tractable was the census: the entire canonical
 state of the live game today is 64 players and 140 KB. What is large — 21 MB of
@@ -176,3 +181,86 @@ claims otherwise needs correcting, and this document does not do it.
    byte, as they do today.
 5. Only then a build, and only then a number for `k` — from the drill, not from a
    model.
+
+
+---
+
+## What was actually built
+
+Ruleset 2, 2026-09-03. Five differences from the proposal above, each one found
+while writing it rather than while planning it.
+
+**`exit_posted_slot` was added.** The proposal kept the confidence and the
+bracket. It did not keep the slot. Without it a settlement can be re-derived
+arithmetically but not *located* — you cannot go and look at the transaction that
+posted the print. That is 8 more bytes for the difference between "the numbers
+add up" and "here is where it happened", so `Shot` grew by 29 bytes, not 20, and
+is 254 on chain.
+
+**`crossing_bound` has two values, not three.** The proposal had `2 =
+bound-and-settled`. `Shot.state` already says whether a shot settled, and a
+second field that also says it is a second field that can *disagree* with it.
+One fact, one place.
+
+**Two rules follow from binding that the proposal did not name.** Once evidence
+belongs to the shot, the settle deadline stops being a deadline for settling and
+becomes a deadline for *capturing* — so a bound shot settles however late a
+cranker is. And `void_shot` had to be taught to refuse a bound shot, or the race
+binding removed would simply move to whoever calls void first. It stays voidable
+after the reveal deadline, as a last-resort unlock that cannot be used as a
+weapon.
+
+**The horizon matrix ships fully open.** `HORIZON_MASK[feed_index]` is a bitmask
+over `HORIZONS`, checked in `seal`, and every bit is set. The mechanism is in the
+program; the policy is not, because the policy is the stocks question and that is
+not a decision to make from a keyboard at four in the morning. The negative
+control the proposal asked for tests the *rule* (`horizon_allowed_in`) rather
+than the shipped table, so a closed market can be proven to close without
+shipping a closed market.
+
+There is a second half of that question this does not touch, and it should be
+written down where it will be found: `max_seal_age` is
+`min(60, max(30, 0.15 × minutes × 60))`. The `min(60, …)` flattens the
+window-proportional rule at one minute, which is right for feeds that print
+constantly and wrong for anything slower. Cadence is a property of a feed, not of
+a horizon. That is a real change and not part of ruleset 2.
+
+**`k` is still zero.** The band is implemented, gated on `band_k_bps > 0`,
+producing `VoidReason::TooClose = 3`, and `BAND_K_BPS` is `0`. A LiteSVM test
+settles a shot whose move is well inside the print's own confidence and asserts
+it settles anyway. If that test ever fails, somebody set `k` without saying so.
+
+### What holds the promise
+
+A ruleset bump is a claim about what did **not** change, and prose is not that
+claim. `vectors/core-rules-v2.json` is printed by the program;
+`test/test_core_vectors.mjs` holds it against `core-rules-v1.json` field by
+field and fails if payout, XP, ranks, chambers, horizons, feeds, deadlines, the
+burn split, the podium curve, the PDAs or the commit preimage moved — or if any
+instruction that existed in ruleset 1 re-encodes differently. The measured diff
+is exactly: two account layouts, one new instruction, four new rule facts.
+
+`v1` stays on disk for that reason. Deleting it would leave the claim with
+nothing to prove it.
+
+### The adversarial test
+
+`svm-tests`: two shots, same feed, same expiry, same crossing. One is bound the
+moment it expires. Then the ring is flooded past capacity with 70 prints that
+would flip both. The bound shot settles on the print it was bound to; the
+unbound one, on identical facts, **cannot settle at all** — which is the
+counterfactual that proves the flood really did destroy the evidence. Without
+that second shot the first half proves nothing.
+
+### Running it
+
+`CORE_G2_BUILD.cmd` runs four steps and stops at the first failure: the
+program's unit tests, the golden vectors against `core-rules-v2.json`,
+`cargo build-sbf` with the frozen recipe, and the LiteSVM battery against those
+exact bytes. CI does the same.
+
+**The reproducibility gate will fail until a ruleset-2 artifact is committed, and
+that failure is correct.** The workflow now uploads the fresh `.so` whatever the
+gate decides, so the artifact can be taken from the run — download it, commit it
+as `artifacts/ratchet_core-v2-YYYY-MM-DD.so`, re-run. Never edit the gate to make
+it pass.

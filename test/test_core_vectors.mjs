@@ -1,5 +1,5 @@
-// Golden vectors: the Core v1 program (Rust) and the server (JS) must give one
-// answer for every rule. `onchain/ratchet-core/vectors/core-rules-v1.json` is
+// Golden vectors: the Core program (Rust) and the server (JS) must give one
+// answer for every rule. `onchain/ratchet-core/vectors/core-rules-v2.json` is
 // printed by the program's own test
 // (`cargo test print_golden_vectors -- --ignored --nocapture` in
 // onchain/ratchet-core); this file checks lib/core_rules.js against it, checks
@@ -12,7 +12,49 @@ import { createRequire } from 'node:module';
 import { test } from 'node:test';
 const require = createRequire(import.meta.url);
 const R = require('../lib/core_rules.js');
-const V = JSON.parse(fs.readFileSync(new URL('../onchain/ratchet-core/vectors/core-rules-v1.json', import.meta.url), 'utf8'));
+const V = JSON.parse(fs.readFileSync(new URL('../onchain/ratchet-core/vectors/core-rules-v2.json', import.meta.url), 'utf8'));
+
+const V1 = JSON.parse(fs.readFileSync(new URL('../onchain/ratchet-core/vectors/core-rules-v1.json', import.meta.url), 'utf8'));
+
+// A ruleset bump is a promise about what did NOT change. Anyone can bump a
+// number and say "only the layout moved"; this is the check that says it back.
+// The list below is every rule a player's money depends on. If a future
+// generation needs to change one of these, it must delete it from this list by
+// hand -- which is exactly the moment somebody should be made to think.
+test('ruleset 2 changed the layout and nothing a player was paid by', () => {
+  const UNCHANGED = [
+    'program', 'stake', 'hitPayout', 'settleXp', 'rankXp', 'maxConfBps',
+    'settleDeadlineSecs', 'revealDeadlineSecs', 'burnPerMille', 'podiumPerMille',
+    'horizons', 'feeds', 'sealXp', 'skillXp', 'hitPayoutVectors', 'rank',
+    'pdas', 'commit',
+  ];
+  for (const k of UNCHANGED) {
+    assert.ok(k in V1, `v1 vectors have no ${k} to compare against`);
+    assert.deepEqual(V[k], V1[k], `${k} moved under a ruleset bump that claimed not to move it`);
+  }
+  // And the instruction encodings that existed in v1 still encode identically:
+  // an old client must not be able to send a differently-meaning transaction.
+  for (const [name, data] of Object.entries(V1.ix)) {
+    assert.equal(V.ix[name], data, `instruction ${name} re-encoded under ruleset 2`);
+  }
+});
+
+test('the G2 rules are present and ship inert', () => {
+  assert.equal(V.ruleset, 2);
+  assert.equal(V.bandKBps, 0, 'the decision band ships as a mechanism with no width');
+  assert.equal(V.clockCapacity, 64);
+  assert.deepEqual(V.voidReasons, { none: 0, equality: 1, deadline: 2, tooClose: 3 });
+  assert.equal(V.horizonMask.length, V.feeds.length);
+  // Fully open: every feed still sells every horizon it sold yesterday.
+  const all = (1 << V.horizons.length) - 1;
+  for (const [i, mask] of V.horizonMask.entries()) {
+    assert.equal(mask, all, `feed ${i} silently stopped selling a horizon`);
+  }
+  assert.ok(V.ix.bind_crossing, 'bind_crossing must be callable by any client');
+  // The Shot account grew by exactly the 29 bytes G2 documented.
+  assert.equal(V.accounts.Shot.size - V1.accounts.Shot.size, 29);
+  assert.equal(V.accounts.Shot.discriminator, V1.accounts.Shot.discriminator);
+});
 
 test('vectors were printed by the frozen program id', () => {
   assert.equal(V.program, '6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv');

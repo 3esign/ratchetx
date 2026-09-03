@@ -36,7 +36,10 @@ export const REVEAL_DEADLINE_SECS = 3600;
 export const STATE = { SEALED: 1, SETTLED: 2, REVEALED: 3, VOIDED: 4, FORFEITED: 5 };
 export const STATE_NAME = { 1: 'Sealed', 2: 'Settled', 3: 'Revealed', 4: 'Voided', 5: 'Forfeited' };
 export const VOID_REASON = { 0: 'none', 1: 'equality', 2: 'deadline' };
-export const ACCOUNT_SIZE = { Shot: 225, PlayerLedger: 139, Podium: 136, FeedClock: 2102, DelegateGrant: 113, LegacyClaim: 9 };
+// Ruleset 2: Shot grew by 29 bytes (the settlement's own numbers) and each
+// clock observation by 8 (confidence). These are RPC filters as well as sanity
+// checks -- a stale size here does not mis-parse, it finds nothing at all.
+export const ACCOUNT_SIZE = { Shot: 254, PlayerLedger: 139, Podium: 136, FeedClock: 2614, DelegateGrant: 113, LegacyClaim: 9 };
 
 const sha256 = (...parts) => { const h = createHash('sha256'); for (const p of parts) h.update(p); return h.digest(); };
 export const ixDiscriminator = name => sha256(`global:${name}`).subarray(0, 8);
@@ -110,6 +113,10 @@ export function checkpointIx({ cranker, feedIndex }) {
 export function settleIx({ cranker, shot, player, feedIndex }) {
   return ix('settle', [meta(shot, false, true), meta(ledgerPda(player), false, true), meta(clockPda(feedIndex)), meta(cranker, true)]);
 }
+/** Freeze the crossing print into the shot. Permissionless and idempotent:
+ *  send it as soon as the shot expires and the ring can wrap all it likes. */
+export const bindCrossingIx = ({ cranker, shot, feedIndex }) =>
+  ix('bind_crossing', [meta(shot, false, true), meta(clockPda(feedIndex)), meta(cranker, true)]);
 export function revealIx({ revealer, shot, player, side, pBps = 0, salt }) {
   if (!SALT_RE.test(salt)) throw new RangeError('salt must be 32 lower-case hex chars');
   const s = side === 1 || side === 'YES' ? 1 : 0;
@@ -148,7 +155,10 @@ export function parseShot(data) {
   return {
     player: r.key(), delegate: r.key(), nonce: r.u64(), commit: r.hex32(), feedId: r.hex32(), feedIndex: r.u8(), minutes: r.u16(),
     stake: r.u64(), xpBase: r.u64(), xpAwarded: r.u64(), sealedTs: r.i64(), expiryTs: r.i64(), settledTs: r.i64(),
-    entryE12: r.i64(), exitE12: r.i64(), exitPublishTime: r.i64(), pBps: r.u16(), side: r.u8(), hit: r.u8(), state: r.u8(), voidReason: r.u8(),
+    entryE12: r.i64(), exitE12: r.i64(), exitPublishTime: r.i64(),
+    exitConfE12: r.i64(), exitPrevPublishTime: r.i64(), exitPostedSlot: r.u64(),
+    ruleset: r.u16(), bandKBps: r.u16(), crossingBound: r.u8(),
+    pBps: r.u16(), side: r.u8(), hit: r.u8(), state: r.u8(), voidReason: r.u8(),
   };
 }
 export function parseLedger(data) {
@@ -168,7 +178,7 @@ export function parseClock(data) {
   const r = new Reader(data, 'FeedClock');
   const out = { feedId: r.hex32(), latestPublishTime: r.i64(), head: r.u8(), bump: r.u8(), observations: [] };
   const n = r.u32();
-  for (let i = 0; i < n; i++) out.observations.push({ prevPublishTime: r.i64(), publishTime: r.i64(), priceE12: r.i64(), postedSlot: r.u64() });
+  for (let i = 0; i < n; i++) out.observations.push({ prevPublishTime: r.i64(), publishTime: r.i64(), priceE12: r.i64(), confE12: r.i64(), postedSlot: r.u64() });
   return out;
 }
 export function parseGrant(data) {
@@ -215,7 +225,16 @@ export function planActions({ shots, clocks, pushes, now, close = false, warmSec
         // Keep a predecessor in the clock so the first post-expiry checkpoint forms the crossing.
         const stale = !clock || clock.latestPublishTime < t - BigInt(warmSecs);
         if (stale && pushIsNew && !warmed.has(s.feedIndex)) { warmed.add(s.feedIndex); actions.push({ kind: 'checkpoint', feedIndex: s.feedIndex, reason: 'warm' }); }
+      } else if (s.crossingBound) {
+        // Ruleset 2: a bound shot owns its answer. The settle deadline was a
+        // deadline for CAPTURING the crossing, and that already happened, so
+        // this settles whenever a cranker gets to it -- never voids.
+        actions.push({ kind: 'settle', shot: s.pubkey, player: s.player, feedIndex: s.feedIndex });
       } else if (t < deadline) {
+        // `settle` binds from the ring itself, atomically, so there is nothing
+        // to gain by planning a separate `bind_crossing` in front of it. The
+        // instruction exists for anyone who wants to freeze an answer without
+        // being the one to settle it; the runner simply never needs to.
         if (clock && crossing(clock, s.expiryTs)) actions.push({ kind: 'settle', shot: s.pubkey, player: s.player, feedIndex: s.feedIndex });
         else if (pushIsNew && push.publishTime >= s.expiryTs) actions.push({ kind: 'checkpoint+settle', shot: s.pubkey, player: s.player, feedIndex: s.feedIndex });
         // else: Pyth has not pushed a post-expiry update yet; try again next tick.
@@ -235,6 +254,7 @@ export function instructionsFor(action, cranker) {
     case 'checkpoint': return [checkpointIx({ cranker, feedIndex: action.feedIndex })];
     case 'settle': return [settleIx({ cranker, shot: action.shot, player: action.player, feedIndex: action.feedIndex })];
     case 'checkpoint+settle': return [checkpointIx({ cranker, feedIndex: action.feedIndex }), settleIx({ cranker, shot: action.shot, player: action.player, feedIndex: action.feedIndex })];
+    case 'bind': return [bindCrossingIx({ cranker, shot: action.shot, feedIndex: action.feedIndex })];
     case 'void': return [voidShotIx({ cranker, shot: action.shot, player: action.player })];
     case 'forfeit': return [forfeitIx({ cranker, shot: action.shot, player: action.player })];
     case 'close': return [closeShotIx({ cranker, shot: action.shot, player: action.player })];
