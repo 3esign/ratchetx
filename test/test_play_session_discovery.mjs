@@ -8,7 +8,7 @@ let time=Date.UTC(2026,7,30,18),network=0,audit=false,failRead=false,operations=
 Date.now=()=>time;globalThis.fetch=async()=>{network++;throw new Error('discovery fixture forbids network');};
 globalThis.__ratchet_mem=new Map();
 const kv=require('../lib/kv.js');assert.equal(kv.backend,'memory');
-const backend=kv.backend,originals={};
+const backend=kv.backend,durable=kv.durable,originals={};
 for(const [name,fn] of Object.entries(kv))if(typeof fn==='function'){
   originals[name]=fn;kv[name]=(...args)=>{
     if(audit){operations.push({name,key:args[0]});assert.equal(name,'getJSONStrict','discovery may only read one exact key');
@@ -54,7 +54,9 @@ async function lookup(f,request=body(f),headers={},reads=1){
   return result;
 }
 try{
-  kv.backend='supabase'; // Gate metadata only; every read/write remains in memory.
+  // Gate metadata only; every read/write remains in memory. The gate asks for
+  // durability now rather than for a vendor's name, so open it that way.
+  kv.backend='supabase';kv.durable=true;
   const a=owner(),b=owner(),empty=await lookup(a);
   assert.deepEqual(empty.body,{ok:true,readOnly:true,discovery:'latest-retained-session-v1',wallet:a.wallet,
     nonce:id(999),observedAt:time,session:null});
@@ -109,4 +111,4 @@ try{
   await originals.setJSON(key,retained);
   assert.equal(network,0);
   console.log('Owner discovery PASS: exact signed bytes, latest/null, expiry/revoke/pending, no bearer/hash exposure, strict errors and zero KV/player/settlement writes');
-}finally{audit=false;Object.assign(kv,originals);kv.backend=backend;Date.now=originalNow;globalThis.fetch=originalFetch;}
+}finally{audit=false;Object.assign(kv,originals);kv.backend=backend;kv.durable=durable;Date.now=originalNow;globalThis.fetch=originalFetch;}

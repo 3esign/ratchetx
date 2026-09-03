@@ -9,8 +9,20 @@ assert.match(html, /phantom\.app\/ul\/browse\/\$\{page\}\?ref=\$\{ref\}/,
   'mobile Connect must hand off to Phantom’s documented in-app browse link');
 assert.match(html, /let refreshing=false;[\s\S]*if\(dead\|\|refreshing\)return;[\s\S]*finally\{clearTimeout\(timeout\);refreshing=false;\}/,
   'state refreshes must not overlap and create player-lock 409s');
-assert.match(html, /const delay=engaged\?10000:60000/,
-  'connected play stays responsive while idle guests stop hammering storage');
+// The rule this pins is "poll as often as there is something to see, and no
+// more", not one particular set of numbers. It was a literal match on
+// `engaged?10000:60000`, so the tuning could not change without the test
+// failing for a reason unrelated to what it protects.
+{
+  const tiers = html.match(/const delay=liveShot\?(\d+):\(AUTH\?(\d+):(\d+)\)/);
+  assert.ok(tiers, 'the poll interval must follow what the player is waiting for');
+  const [live, connectedIdle, guest] = tiers.slice(1).map(Number);
+  assert.ok(live <= 10000,
+    'a shot in the air is a player waiting for a number: watch it at least every ten seconds');
+  assert.ok(connectedIdle >= live && guest >= connectedIdle,
+    'less to see must mean less polling, never more');
+  assert.ok(guest >= 60000, 'an idle guest must not hammer storage');
+}
 assert.match(html, /if\(left===0\)\{sp\.textContent="SETTLING…";[\s\S]*watchExpired\(sp\.dataset\.exp\)/,
   'an expired shot must show SETTLING and trigger bounded live refresh without a manual reload');
 assert.match(html, /function settlementMargin\(e\)[\s\S]*INDICATIVE[\s\S]*NOT USED TO SETTLE/,

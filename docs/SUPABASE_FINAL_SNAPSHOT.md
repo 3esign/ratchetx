@@ -118,3 +118,19 @@ After success, keep the legacy runtime credential revoked. The reviewed public
 manifest becomes the only input to the separate on-chain import build. Supabase
 is retained read-only only as historical evidence until independent import
 verification completes; it is never the authority for the new generation.
+
+## Environment
+
+**`RATCHET_PG_BIN`** — the directory holding `pg_dump`, `pg_restore`, `initdb` and
+`pg_ctl`. The tool needs real Postgres binaries: it takes a schema and data dump
+at one snapshot id and restores them into a throwaway local cluster to verify the
+result, which is not something a client library can do. When the variable is
+unset the tool falls back to the extracted toolchain path recorded in its source
+and, failing that, stops with `POSTGRES_TOOLS_NOT_FOUND` rather than proceeding
+with half a ceremony.
+
+The database password is entered at the prompt and lives only in that process.
+Private outputs go under `%LOCALAPPDATA%\RatchetX\private-snapshots` on Windows,
+or `$XDG_DATA_HOME/RatchetX/private-snapshots` (default `~/.local/share`)
+elsewhere; see `RESCUE_AND_MIGRATION_TOOLS.md`, which covers the four lighter
+tools that share that private root.
