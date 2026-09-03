@@ -22,6 +22,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import readline from 'node:readline';
+import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
@@ -32,6 +33,23 @@ const PROJECT = 'gxwffzshaicpewbkziau';
 const USER = 'postgres.' + PROJECT;
 const TABLE = 'public.ratchet_kv';
 const PAGE = 2000;
+const REPO = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+// The pooler presents a chain Node's default bundle does not carry, which is why a
+// first attempt failed with "self-signed certificate in certificate chain". The
+// answer is the real CA, not a disabled check: the same pinned Supabase root the
+// snapshot tool uses, already in the repository, verified by digest before use. If
+// it is missing or altered, this stops -- an unverified connection to a database
+// holding the whole ledger is not a shortcut worth taking.
+const CA_FILE = path.join(REPO, 'backups', 'pre003-20260830-P7LEkP', 'supabase-ca.pem');
+const CA_SHA256 = '1c68487d30b821fd07127d5b92dea6d0c148458ca78498d2c3918a4c038b83c5';
+
+function pinnedCa() {
+  if (!fs.existsSync(CA_FILE)) throw new Error('CA_FILE_MISSING: ' + CA_FILE);
+  const bytes = fs.readFileSync(CA_FILE);
+  const digest = crypto.createHash('sha256').update(bytes).digest('hex');
+  if (digest !== CA_SHA256) throw new Error('CA_PIN_MISMATCH: refusing to connect');
+  return bytes.toString('utf8');
+}
 
 function privateRoot() {
   const base = process.platform === 'win32'
@@ -82,10 +100,16 @@ if (!password || password.length < 8) {
   process.exit(2);
 }
 
+const ca = pinnedCa();
+say('CA        pinned Supabase root, sha256 verified');
+
 const client = new Client({
   host: HOST, port: 5432, user: USER, database: 'postgres', password,
-  ssl: { rejectUnauthorized: true, servername: HOST },
+  ssl: { rejectUnauthorized: true, ca, servername: HOST },
   connectionTimeoutMillis: 20_000, statement_timeout: 120_000,
+  // Read-only is asserted by the session itself, not only by the queries below:
+  // if anything in this file ever tried to write, Postgres would refuse it.
+  options: '-c default_transaction_read_only=on -c statement_timeout=120000',
 });
 
 let rowCount = 0, bytes = 0, exitCode = 0;
@@ -144,6 +168,8 @@ try {
     say('→ The quota blocks the direct path too. Nothing can be pulled until the cycle resets.');
   else if (/password|auth/i.test(message))
     say('→ Authentication was refused. That is the database password, not the service key.');
+  else if (/certificate|self-signed|SELF_SIGNED/i.test(message))
+    say('→ TLS verification failed even with the pinned CA. Do not disable the check; report this.');
   else if (/timeout|ENOTFOUND|ECONN/i.test(message))
     say('→ The host could not be reached from this machine.');
 } finally {
