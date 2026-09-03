@@ -24,6 +24,12 @@ import {
   SystemProgram, sendAndConfirmTransaction,
 } from '@solana/web3.js';
 
+// --cu-out <file> records every simulated instruction's compute units as JSON
+// for tools/onchain_cost.mjs to read. Works under --dry, which sends nothing
+// and spends nothing, so the measurement costs a run and no SOL.
+const CU_OUT = (() => { const i = process.argv.indexOf('--cu-out'); return i > 0 ? process.argv[i + 1] : null; })();
+const cuMeasured = {};
+
 const PROGRAM_ID = new PublicKey('23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX');
 const AUTHORITY  = 'AAaU3oyrcmy6GDGxcSUEgg4uUag4pF9jwL2rThB49gks';   // never sign with this
 const SETTLE_DEADLINE_SECS = 900;
@@ -222,7 +228,13 @@ async function main() {
       for (const l of sim.value.logs || []) say('      ' + l);
       throw new Error(name + ' would fail');
     }
-    say('  [' + name + '] simulation ok, ' + (sim.value.unitsConsumed || 0) + ' CU');
+    // The compute number is the one thing G4 asks for that cannot be derived
+    // from source, and a simulation reports it for free. Printing it and
+    // throwing it away was the waste: docs/ONCHAIN_COST.md has a hole shaped
+    // exactly like this file's output, so --cu-out fills it.
+    const units = sim.value.unitsConsumed || 0;
+    if (CU_OUT) cuMeasured[name] = units;
+    say('  [' + name + '] simulation ok, ' + units + ' CU');
     if (DRY) return null;
     const sig = await sendAndConfirmTransaction(conn, tx, [player], { commitment: 'confirmed' });
     say('  [' + name + '] SENT ' + sig);
@@ -312,6 +324,23 @@ async function main() {
   for (const [k, v] of Object.entries(state.sigs)) say('  ' + k.padEnd(14) + v);
   const end = await conn.getBalance(player.publicKey);
   say(''); say('balance after: ' + (end / 1e9).toFixed(6) + ' SOL (spent ' + ((bal - end) / 1e9).toFixed(6) + ')');
+
+  if (CU_OUT) {
+    // Recorded with provenance, because a compute number without the program
+    // and cluster it came from is a number about nothing. onchain_cost.mjs
+    // reads these fields and refuses a file that does not carry them.
+    const report = {
+      schema: 'ratchetx-compute-units-v1',
+      program: PROGRAM_ID.toBase58(),
+      cluster: RPC,
+      dry: DRY,
+      measuredAt: new Date().toISOString(),
+      units: cuMeasured,
+    };
+    fs.writeFileSync(CU_OUT, JSON.stringify(report, null, 2) + '\n');
+    say(''); say('wrote ' + CU_OUT + ' — ' + Object.keys(cuMeasured).length + ' instructions measured');
+    say('feed it to the cost model:  node tools/onchain_cost.mjs --cu ' + CU_OUT);
+  }
   flush();
 }
 

@@ -5,7 +5,7 @@
 // claim -- the one the self-funding argument rests on -- actually holds.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { accountSizes, rentExempt, model, crank, bounty,
+import { accountSizes, rentExempt, model, crank, bounty, readComputeUnits, priorityFee,
   LAMPORTS_PER_BYTE_YEAR, ACCOUNT_STORAGE_OVERHEAD, EXEMPTION_THRESHOLD,
   SIGNATURE_FEE, SHOT_LIFECYCLE } from '../tools/onchain_cost.mjs';
 
@@ -22,7 +22,7 @@ const { sizes, consts } = accountSizes(rust);
   checks++; assert.equal(rentExempt(0), 128 * 3480 * 2,
     'an empty account still pays for its 128 bytes of metadata');
 
-  for (const name of ['Shot', 'PlayerLedger', 'Podium', 'FeedClock', 'LegacyClaim'])
+  for (const name of ['Shot', 'PlayerLedger', 'Podium', 'FeedClock', 'LegacyClaim', 'CrankPurse'])
     { checks++; assert.ok(sizes[name], name + ' must be found in lib.rs'); }
 
   // The discriminator is not decoration: Anchor's `space = 8 + X::SIZE` is what
@@ -45,6 +45,14 @@ const { sizes, consts } = accountSizes(rust);
     /NON_ARITHMETIC|UNKNOWN/, 'a function call is refused, not evaluated');
   checks++; assert.throws(() => accountSizes('// nothing here'), /NO_SIZES_FOUND/,
     'an empty read is an error, never a cost table of zero');
+
+  // A comment inside a const expression is ordinary Rust, and the first one
+  // anybody wrote made this refuse a size it could have computed. Refusing was
+  // right; refusing something VALID is a bug in the reader.
+  const commented = accountSizes(`impl X { pub const SIZE: usize =
+      8 + 4   // the discriminator and a counter
+      + 2; }`);
+  checks++; assert.equal(commented.sizes.X.data, 14, 'a commented SIZE expression still evaluates');
 }
 
 // ---- 3. locked vs spent are different kinds of money ----------------------
@@ -114,6 +122,46 @@ const { sizes, consts } = accountSizes(rust);
     'compute units must be reported as unmeasured rather than estimated');
   checks++; assert.ok(!/computeUnits\s*=\s*\d/.test(src),
     'no hardcoded CU count — that number requires a real transaction on a real cluster');
+}
+
+// ---- 6. the compute-unit loop, and what it refuses ------------------------
+// The only G4 number that cannot come from source is compute, and
+// mainnet-exercise.mjs already had it and printed it away. --cu-out now records
+// it and this reads it back. A CU figure without the program and cluster it
+// came from is a number about nothing, so provenance is required rather than
+// preferred.
+{
+  const good = { schema:'ratchetx-compute-units-v1', program:'P', cluster:'C',
+    measuredAt:'2026-09-03T00:00:00.000Z', dry:true, units:{ seal:48900, settle:41100 } };
+  checks++; assert.equal(readComputeUnits(good).units.seal, 48900, 'a well-formed report reads back');
+  checks++; assert.equal(readComputeUnits(JSON.stringify(good)).units.settle, 41100, 'and parses from text');
+
+  checks++; assert.throws(() => readComputeUnits({ schema:'something-else' }), /NOT_A_CU_REPORT/,
+    'a file that is not a CU report is refused, never coerced');
+  checks++; assert.throws(() => readComputeUnits({ ...good, program:undefined }), /PROVENANCE/,
+    'no program id, no measurement — CU differs per program');
+  checks++; assert.throws(() => readComputeUnits({ ...good, cluster:undefined }), /PROVENANCE/,
+    'no cluster either');
+  checks++; assert.throws(() => readComputeUnits({ ...good, units:{} }), /EMPTY/,
+    'an empty report is an error, not a cost of zero');
+  checks++; assert.throws(() => readComputeUnits({ ...good, units:{ seal:0, settle:0 } }), /ALL_ZERO/,
+    'a simulation that consumed nothing did not run');
+
+  // Solana's compute-budget arithmetic, not an approximation of it.
+  checks++; assert.equal(priorityFee(1_000_000, 1), 1, 'a million CU at 1 microlamport/CU is 1 lamport');
+  checks++; assert.equal(priorityFee(48_900, 1000), 49, 'rounds UP — a fee that rounds down is a fee that fails');
+  checks++; assert.equal(priorityFee(1, 1), 1, 'and never rounds a real cost to zero');
+
+  // The exercise must actually write what this reads, or the loop is imaginary.
+  const ex = readFileSync(new URL('../tools/mainnet-exercise.mjs', import.meta.url), 'utf8');
+  checks++; assert.match(ex, /ratchetx-compute-units-v1/,
+    'mainnet-exercise.mjs must emit the schema onchain_cost.mjs demands');
+  checks++; assert.match(ex, /unitsConsumed/, 'and must take the number from the simulation itself');
+  checks++; assert.match(ex, /cuMeasured\[name\] = units/, 'recording every simulated instruction, not just the last');
+  for (const field of ['program:', 'cluster:', 'measuredAt:'])
+    { checks++; assert.ok(ex.includes(field), 'the report must carry ' + field + ' or it will be refused on read'); }
+  checks++; assert.ok(/--dry/.test(ex) && /if \(DRY\) return null/.test(ex),
+    'the measurement must be available under --dry, which sends nothing and spends nothing');
 }
 
 console.log(`PASS  onchain cost: ${checks} checks — sizes lifted from lib.rs, rent is Solana's formula, and checkpoints amortise (the claim self-funding rests on)`);

@@ -65,7 +65,11 @@ export function accountSizes(source) {
   const sizes = {};
   for (const m of source.matchAll(/impl (\w+) \{\s*pub const SIZE: usize =\s*([^;]+);/g)) {
     const name = m[1];
-    const expr = m[2].replace(/\s+/g, ' ').trim();
+    // Strip line comments before flattening. A comment inside a const
+    // expression is ordinary Rust, and the first one written made this tool
+    // refuse a size it could have computed -- refusing was right, but refusing
+    // something valid is a bug in the reader, not in the source.
+    const expr = m[2].replace(/\/\/[^\n]*/g, ' ').replace(/\s+/g, ' ').trim();
     // Only arithmetic over integers and the constants just read. Anything else
     // is refused rather than guessed at.
     const resolved = expr.replace(/[A-Z_]{2,}/g, k => {
@@ -80,6 +84,31 @@ export function accountSizes(source) {
   for (const s of Object.values(sizes)) s.onChain = s.data + ANCHOR_DISCRIMINATOR;
   return { sizes, consts };
 }
+
+/** Read a compute-unit report produced by `mainnet-exercise.mjs --cu-out`.
+ *
+ *  A CU figure without the program and cluster it came from is a number about
+ *  nothing, so a file missing its provenance is refused rather than used. The
+ *  same goes for a report whose units are all zero: a simulation that consumed
+ *  nothing did not run.
+ *
+ *  Priority fee = ceil(CU x microLamportsPerCU / 1e6) lamports, which is
+ *  Solana's own compute-budget arithmetic. It is applied ONLY when both a
+ *  measured CU count and an explicit --cu-price are present. Neither is ever
+ *  invented. */
+export function readComputeUnits(json) {
+  const r = typeof json === 'string' ? JSON.parse(json) : json;
+  if (!r || r.schema !== 'ratchetx-compute-units-v1') throw new Error('NOT_A_CU_REPORT');
+  if (!r.program || !r.cluster || !r.measuredAt) throw new Error('CU_REPORT_LACKS_PROVENANCE');
+  const units = r.units || {};
+  const names = Object.keys(units);
+  if (!names.length) throw new Error('CU_REPORT_IS_EMPTY');
+  if (names.every(n => !units[n])) throw new Error('CU_REPORT_ALL_ZERO');
+  return r;
+}
+
+export const priorityFee = (units, microLamportsPerCU) =>
+  Math.ceil((units * microLamportsPerCU) / 1_000_000);
 
 const sol = lamports => (lamports / LAMPORTS_PER_SOL);
 const fmt = lamports => sol(lamports).toFixed(6).replace(/0+$/, '').replace(/\.$/, '.0');
@@ -270,12 +299,61 @@ if (invoked) {
   console.log(`  "unpaid but still permissionless" rather than to "the game stops".`);
   console.log('');
 
-  console.log('NOT MEASURED, AND NOT GUESSED');
-  console.log('  compute units per instruction, and therefore any priority fee, cannot');
-  console.log('  be derived from source. They need one real transaction on a real');
-  console.log('  cluster. Re-run with --cu-price <microlamports> once measured.');
-  if (cuPrice) console.log(`  (--cu-price ${cuPrice} given, but CU counts are still unmeasured, so it is ignored rather than multiplied by a number nobody has.)`);
-  console.log('');
+  const cuFile = (() => { const i = process.argv.indexOf('--cu'); return i > 0 ? process.argv[i+1] : null; })();
+  let cu = null;
+  if (cuFile) {
+    try { cu = readComputeUnits(fs.readFileSync(cuFile, 'utf8')); }
+    catch (e) { console.log(`COMPUTE UNITS: ${cuFile} refused — ${e.message}`); console.log(''); }
+  }
+
+  if (cu) {
+    console.log('COMPUTE UNITS, MEASURED');
+    console.log(`  program   ${cu.program}`);
+    console.log(`  cluster   ${cu.cluster}`);
+    console.log(`  measured  ${cu.measuredAt}${cu.dry ? '  (simulation only — nothing was sent)' : ''}`);
+    console.log('');
+    const entries = Object.entries(cu.units).sort((a,b) => b[1]-a[1]);
+    const lifecycle = new Set(SHOT_LIFECYCLE.map(s => s.ix));
+    let lifecycleCU = 0;
+    console.log('  instruction        CU' + (cuPrice ? '     priority fee at ' + cuPrice + ' µlamports/CU' : ''));
+    for (const [name, units] of entries) {
+      if (lifecycle.has(name)) lifecycleCU += units;
+      console.log(`  ${name.padEnd(16)} ${String(units).padStart(7)}`
+        + (cuPrice ? `     ${priorityFee(units, cuPrice).toLocaleString().padStart(10)} lamports` : ''));
+    }
+    console.log('');
+    if (cuPrice) {
+      const perShot = priorityFee(lifecycleCU, cuPrice);
+      console.log(`  one shot's four instructions: ${lifecycleCU.toLocaleString()} CU = ${perShot.toLocaleString()} lamports in priority fee,`);
+      console.log(`  on top of the ${(SHOT_LIFECYCLE.length * SIGNATURE_FEE).toLocaleString()} lamports of base fee.`);
+      const k = 1000 * openShotsEach;
+      console.log(`  at 1,000 players x ${openShotsEach} shots: ${fmt(perShot * k)} SOL per cycle in priority fees.`);
+    } else {
+      console.log('  Pass --cu-price <microlamports per CU> to turn these into priority fees.');
+      console.log('  That price is a market rate, not a property of this program, so it is');
+      console.log('  asked for rather than assumed.');
+    }
+    const missing = SHOT_LIFECYCLE.map(s => s.ix).filter(n => !(n in cu.units));
+    if (missing.length) {
+      console.log('');
+      console.log(`  INCOMPLETE: no measurement for ${missing.join(', ')} — the per-shot`);
+      console.log('  total above is a floor, not the figure.');
+    }
+    console.log('');
+  } else {
+    console.log('COMPUTE UNITS: NOT MEASURED, AND NOT GUESSED');
+    console.log('  Compute units, and therefore any priority fee, cannot be derived from');
+    console.log('  source. They need a real transaction against a real cluster — but a');
+    console.log('  SIMULATED one reports them too, and costs nothing:');
+    console.log('');
+    console.log('    node tools/mainnet-exercise.mjs --keypair <throwaway.json> --dry \\');
+    console.log('         --cu-out onchain_cu.json');
+    console.log('    node tools/onchain_cost.mjs --cu onchain_cu.json --cu-price 1000');
+    console.log('');
+    console.log('  --dry sends nothing and spends nothing. The measurement is one run away.');
+    if (cuPrice) console.log(`  (--cu-price ${cuPrice} was given but there are no CU counts to multiply, so it is ignored rather than applied to a number nobody has.)`);
+    console.log('');
+  }
   console.log('  Also unmeasured: account contention under load, failed-transaction');
   console.log('  fees, RPC cost at 1,000 players, and the void rate. G4 asks for all');
   console.log('  of them and this file answers only the part arithmetic can reach.');
