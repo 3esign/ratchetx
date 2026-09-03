@@ -31,7 +31,7 @@ globalThis.__ratchet_pxgate = {t: 0, x: time};
 
 const kv = require('../lib/kv.js');
 assert.equal(kv.backend, 'memory', 'fixture must not use a durable backend');
-const originalBackend = kv.backend;
+const originalBackend = kv.backend, originalDurable = kv.durable;
 const originalCommit = kv.commitGuarded;
 const sessions = require('../lib/play_session.js');
 const {PREFIX} = require('../lib/play_session_record.js');
@@ -86,7 +86,7 @@ gameModule.exports = async (req, res) => {
 };
 // The metadata override opens the real production HTTP gate. Storage functions
 // remain the memory implementations asserted above, never Supabase or Redis.
-kv.backend = 'supabase';
+kv.backend = 'supabase'; kv.durable = true;   // the gate asks for durability, not for a name
 
 const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 const id = n => n.toString(16).padStart(32, '0');
@@ -301,7 +301,7 @@ try {
   console.log('Session-smoke canonical contract: post-preflight ORACLE_STALE refusal, no debit/score/replay and consumed one-attempt allowance PASS');
 } finally {
   gameModule.exports = game;
-  kv.backend = originalBackend;
+  kv.backend = originalBackend; kv.durable = originalDurable;
   kv.commitGuarded = originalCommit;
   if (originalPricesModule) require.cache[pricesPath] = originalPricesModule;
   else delete require.cache[pricesPath];

@@ -11,7 +11,7 @@ const require=createRequire(import.meta.url),originalFetch=globalThis.fetch,orig
 const time=Date.UTC(2026,7,30,18);let networkAttempts=0;
 Date.now=()=>time;globalThis.fetch=async()=>{networkAttempts++;throw new Error('identity fixture forbids network');};
 globalThis.__ratchet_mem=new Map();
-const kv=require('../lib/kv.js'),originalBackend=kv.backend;assert.equal(kv.backend,'memory');
+const kv=require('../lib/kv.js'),originalBackend=kv.backend,originalDurable=kv.durable;assert.equal(kv.backend,'memory');
 const feeds=['SOL','BTC','ETH','BONK','PUMP','JUP','WIF'],pricePath=require.resolve('../lib/prices.js');
 require.cache[pricePath]={id:pricePath,filename:pricePath,loaded:true,exports:{getPrices:async()=>({src:'pyth-onchain',
   ...Object.fromEntries(feeds.map(f=>[f,100])),ages:Object.fromEntries(feeds.map(f=>[f,0])),
@@ -42,7 +42,10 @@ async function invoke(body,headers={},query={action:'play-session'}){
   return {status,body:result};
 }
 try{
-  kv.backend='supabase'; // Production transport gate only; underlying KV stays memory.
+  // Production transport gate only; underlying KV stays memory. The gate now
+  // asks for durability rather than for a vendor's name, so the fixture opens
+  // it the way production does.
+  kv.backend='supabase'; kv.durable=true;
   const alice=await owner(1),bob=await owner(2);
   const keys=[alice,bob].flatMap(f=>['u:'+f.wallet,'play-session:v1:'+f.wallet]);
   const snapshot=()=>Promise.all(keys.map(k=>kv.getJSONStrict(k))),before=await snapshot();
@@ -75,4 +78,4 @@ try{
   assert.equal(bobSession.attempts,1);assert.equal(bobSession.grossCredits,100);
   assert.equal(networkAttempts,0);
   console.log('Owner identity boundary PASS: public wallet/session/command IDs and claimed X headers cannot authorize; only the protected capability owner is debited (offline fixtures)');
-}finally{kv.backend=originalBackend;Date.now=originalNow;globalThis.fetch=originalFetch;}
+}finally{kv.backend=originalBackend;kv.durable=originalDurable;Date.now=originalNow;globalThis.fetch=originalFetch;}

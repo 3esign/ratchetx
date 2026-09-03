@@ -1117,7 +1117,16 @@ async function wardenTick(prices) {
   // instance that lost, or one whose tick produced nothing, came back and asked
   // again on the very next request. The warden moves on its own schedule, so
   // asking more often than that buys nothing and costs a read every poll.
-  if (tooSoon('lease:warden', 15_000)) return publicWarden(await getCached('g:warden:rec', 15_000));
+  if (tooSoon('lease:warden', 15_000)) {
+    // Only take the cheap path when it can actually answer. A throttle exists to
+    // avoid a redundant read, not to turn "I did not look" into "there is
+    // nothing" -- and on a fresh instance, or before the warden has ever posted,
+    // the cache is empty and the honest move is to do the work. test_harness
+    // caught exactly that: it seeds a measurable market and expects a line, and
+    // got the empty record back because this returned before the tick could run.
+    const cached = await getCached('g:warden:rec', 15_000);
+    if (cached) return publicWarden(cached);
+  }
   const lease = await acquireLease('lock:g:warden', 45);
   if (!lease) return publicWarden(await getCached('g:warden:rec', 15_000));
   try {

@@ -134,6 +134,21 @@ try {
   assert.equal(result.status,503);
   assert.equal(result.body.code,'DURABLE_SESSION_STORE_REQUIRED');
   assert.equal(await record(a),null);
+  // The refusal above is the memory backend being refused, which is correct and
+  // stays. What changed on 2026-09-03 is that it must be the DURABILITY being
+  // tested, not the vendor's name: a Redis-protocol store meets the requirement
+  // and was being turned away, which took session creation -- and therefore all
+  // Bankr play -- off the live site.
+  kv.durable = true; kv.backend = 'upstash';
+  result = await invoke({body:a.body});
+  assert.notEqual(result.status, 503, 'a durable Redis store must be allowed to issue a session');
+  // The advertisement and the enforcement must agree. They are one predicate in
+  // the source for exactly this reason: when they disagreed, the page told the
+  // owner session creation was unavailable while the endpoint would have served
+  // it -- or the reverse, which is worse.
+  const advertised = await invoke({method:'GET'});
+  assert.equal(advertised.body.enabled, true,
+    'GET must advertise what POST enforces, on the same store');
   kv.backend = 'supabase'; // TEST-ONLY metadata override; KV functions stay in memory.
 
   for (const method of ['POST','OPTIONS']) {

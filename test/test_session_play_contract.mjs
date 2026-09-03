@@ -28,7 +28,7 @@ globalThis.__ratchet_mem = new Map();
 globalThis.__ratchet_pxgate = {t: 0, x: time};
 const kv = require('../lib/kv.js');
 assert.equal(kv.backend, 'memory', 'fixture must use memory storage implementations');
-const originalBackend = kv.backend, originalCommit = kv.commitGuarded;
+const originalBackend = kv.backend, originalDurable = kv.durable, originalCommit = kv.commitGuarded;
 const sessions = require('../lib/play_session.js');
 const {PREFIX} = require('../lib/play_session_record.js');
 const feeds = ['SOL', 'BTC', 'ETH', 'BONK', 'PUMP', 'JUP', 'WIF'];
@@ -67,7 +67,7 @@ gameModule.exports = async (req, res) => {
 };
 // Open the durable-backend HTTP gate only. The functions remain the memory
 // implementations asserted above; no durable client or sockets are installed.
-kv.backend = 'supabase';
+kv.backend = 'supabase'; kv.durable = true;   // the gate asks for durability, not for a name
 async function invoke({method = 'POST', query = {action: 'play-session'}, body, headers = {}} = {}) {
   let status = 200, result;
   const responseHeaders = {};
@@ -296,7 +296,7 @@ try {
   assert.equal(networkAttempts, 0, 'entire fixture must attempt zero external connections');
   console.log('Session-play canonical contract: stats use protected status only, no journal or new forecast PASS');
 } finally {
-  gameModule.exports = game; kv.backend = originalBackend; kv.commitGuarded = originalCommit;
+  gameModule.exports = game; kv.backend = originalBackend; kv.durable = originalDurable; kv.commitGuarded = originalCommit;
   if (originalPricesModule) require.cache[pricesPath] = originalPricesModule;
   else delete require.cache[pricesPath];
   Date.now = originalNow; globalThis.fetch = originalFetch;
