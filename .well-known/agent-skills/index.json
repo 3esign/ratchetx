@@ -6,7 +6,7 @@
       "type": "skill-md",
       "description": "Operate a forecasting agent on RatchetX using shared validated Pyth context, the live Solana board, public record and ranked arena.",
       "url": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
-      "digest": "sha256:ebbe3b4abd0d7a62a631591e096f6422e94653d2e65385c0c5f8263f9a422a59"
+      "digest": "sha256:803c48ac5235a6bf957ed6164378540034611533985a265444c63dfc8a14f77d"
     }
   ]
 }
