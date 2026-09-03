@@ -226,6 +226,60 @@ report lands.
 
 That is the answer to "do we have to wait": no, not to build. Only to publish.
 
+## Measured 2026-09-03: 870 seconds is a metronome, and AAPLX is not on it
+
+71 minutes, 211 polls, **zero RPC errors**, control sound (SOL wrote on every
+poll). This is the measurement the decision was waiting for.
+
+| feed | writes | min gap | median | max | verdict |
+| --- | --- | --- | --- | --- | --- |
+| TSLAX | 5 | 870s | 870s | 871s | exact |
+| NVDAX | 5 | 870s | 870s | 871s | exact |
+| SPYX | 5 | 870s | 870s | 871s | exact |
+| MSTRX | 5 | 870s | 870s | 871s | exact |
+| CRCLX | 5 | 870s | 870s | 871s | exact |
+| **AAPLX** | 7 | **600s** | **600s** | **600s** | **a different schedule** |
+| COINX | 0 | — | — | — | 34.7 hours stale — dead |
+| HOODX | 0 | — | — | — | 6.25 hours stale — intermittent, not dead |
+
+**870 seconds is not approximate, it is a metronome.** Min, median and max
+agree to within one second across five feeds and five writes each. That is a
+scheduled batch, not a market-driven publisher, and it is the strongest possible
+form of the answer: the cadence can be planned around rather than hedged
+against.
+
+**AAPLX is on its own 600-second schedule**, exactly, which the 13-minute run on
+2 September could not have seen — it read AAPLX as part of the same batch. So
+"the six xStocks share one publisher" was wrong: there are at least two
+schedules. It does not change the mask, but it means the feed table needs a
+per-feed cadence rather than one number for the group.
+
+**HOODX is intermittent, not abandoned.** It was 6.8 days stale on 2 September
+and 6.25 hours stale tonight, so it has written since. COINX has gone from 10.7
+to 34.7 hours stale and has not. Neither is listable, but they fail differently
+and a liveness rule has to catch the intermittent one too.
+
+### What lands today, and what the mask should be
+
+Seals that would clear the freshness bound under the current rule: **4–6%** for
+the 870-second feeds, **7–9%** for AAPLX. The 7% estimate was right.
+
+Applying the rule that the worst binding delay must be under 5% of the window,
+every feed gives the same answer:
+
+```
+HORIZON_MASK = 0b1100000  (0x60)   — 360 and 1440 only
+```
+
+Forward-binding delay is typically 435s and never worse than 871s (300s / 600s
+for AAPLX). Against a 6-hour window that worst case is 4.0%; against 24 hours,
+1.0%.
+
+**So the design is confirmed and the constant is decided.** What remains is a
+listing decision rather than a measurement: whether to add these six to the
+referee table, which grows `FEEDS`, `HORIZON_MASK` and `ENTRY_MODE` from 7 to
+13 and is a product choice rather than an engineering one.
+
 ## What must be measured before any of it ships
 
 1. **Is 870s the real cadence, or was it a quiet afternoon?** 13.4 minutes and

@@ -34,7 +34,8 @@ question is answerable now rather than after a devnet campaign.
 
 | account | bytes | rent (SOL) | held |
 | --- | --- | --- | --- |
-| `Shot` | 254 | 0.002659 | until `close_shot` |
+| `Shot` | 271 | 0.002777 | until `close_shot` |
+| `CrankPurse` | 33 | 0.001121 | forever, shared, one |
 | `PlayerLedger` | 139 | 0.001858 | forever |
 | `LegacyClaim` | 9 | 0.000954 | forever |
 | `DelegateGrant` | 113 | 0.001677 | until revoked |
@@ -42,7 +43,7 @@ question is answerable now rather than after a devnet campaign.
 | `FeedClock` | 2614 | 0.019084 | forever, shared, ×7 feeds |
 
 One shot end to end is four transactions — `seal`, `settle`, `reveal`,
-`close_shot` — so **0.00002 SOL spent** in fees and **0.002659 SOL locked** while
+`close_shot` — so **0.00002 SOL spent** in fees and **0.002777 SOL locked** while
 the chamber is open.
 
 At three open chambers each:
@@ -51,10 +52,10 @@ At three open chambers each:
 | --- | --- | --- |
 | 1 | 0.146 | 0.00006 |
 | 100 | 1.214 | 0.006 |
-| 1,000 | 10.923 | 0.06 |
+| 1,000 | 11.278 | 0.06 |
 
 **A thousand players is affordable, and the assumption the plan rested on
-survives contact with arithmetic.** Per player it is 0.0108 SOL to exist on
+survives contact with arithmetic.** Per player it is 0.0111 SOL to exist on
 chain with three chambers open — and that is the *player's* SOL, held as a
 refundable deposit, not the house's.
 
@@ -93,6 +94,46 @@ which is **proportional at low volume and capped at high volume**:
 **Cost per shot falls as the game grows.** That is the shape a self-funding fee
 needs, and it is a property of the design as built rather than something bolted
 on afterwards.
+
+## Correction, 2026-09-03: the ring may cover far less time than assumed
+
+The table above priced the crank at a 60-second SOL heartbeat, which is what
+`docs/STOCKS_ONCHAIN_TOKENIZED.md` measured on 2 September. The live run tonight
+says something different and it changes the arithmetic.
+
+In 71 minutes at a 20-second poll, SOL produced **210 distinct publish times
+across 211 polls** — one write per poll, mean gap 20.3 seconds. When writes
+track polls one-for-one, the measurement is *sampling-limited*: the true cadence
+is at or below the poll rate and this run cannot resolve it. So SOL is not on a
+60-second heartbeat right now; it is writing at least three times faster than
+that, and possibly much faster.
+
+The reason is structural rather than anomalous. A Pyth push account updates on
+**price deviation OR heartbeat**, so 60 seconds is the floor when nothing is
+happening, not the typical rate. Under volatility the feed writes more often.
+
+That inverts the ring's comfort:
+
+| if SOL truly writes every | ring covers | horizons that outrun it |
+| --- | --- | --- |
+| 60s | 64 min | 360, 1440 |
+| 20s | 21 min | 30, 60, 360, 1440 |
+| 10s | 11 min | 15, 30, 60, 360, 1440 |
+| 5s | 5 min | 10, 15, 30, 60, 360, 1440 |
+
+**The ring covers least time exactly when the market is moving** — which is when
+shots are most likely to be open and most likely to matter. `bind_crossing` is
+therefore not an edge-case instruction for long horizons; on a busy day it is
+load-bearing for nearly every horizon, and the crank levy has to be sized for
+that rather than for a quiet market.
+
+Two things follow. The cost table above is a **floor** on checkpoint volume, not
+an estimate. And the next measurement of SOL needs a poll faster than the thing
+it is measuring — `STOCK_CADENCE.cmd` with `--every 5` for a short window would
+resolve it, where 20 seconds cannot.
+
+This is also why the slow feeds are the comfortable ones: at 870 seconds the
+ring covers 15.5 hours and nothing outruns it but the 24-hour horizon.
 
 ## The principle: find the ground in the chain
 
@@ -172,11 +213,47 @@ Worth stating plainly, since it comes up:
 The first is worth being clear about so nobody spends a month on it. The second
 is worth doing, and belongs with G6 (retire the server) rather than here.
 
+## Compute units: one dry run away, and it costs nothing
+
+Added 2026-09-03. Compute is the only G4 number that cannot be derived from
+source — and `tools/mainnet-exercise.mjs` was already measuring it and printing
+it away. Every transaction it builds is first put through
+`simulateTransaction`, which returns `unitsConsumed` whether or not the
+transaction is ever sent.
+
+So the measurement does not need a mainnet spend, a devnet faucet, or a deploy.
+It needs a run:
+
+```
+node tools/mainnet-exercise.mjs --keypair <throwaway.json> --dry --cu-out onchain_cu.json
+node tools/onchain_cost.mjs --cu onchain_cu.json --cu-price <microlamports per CU>
+```
+
+`--dry` sends nothing and spends nothing. `--cu-out` records each instruction's
+units with the program id, cluster and timestamp attached, and the cost model
+refuses a report missing any of them — **a compute figure without the program it
+came from is a number about nothing**, and CU differs per program. It also
+refuses a report whose units are all zero, because a simulation that consumed
+nothing did not run.
+
+The price per CU is asked for, never assumed: it is a market rate, a property of
+network congestion rather than of this program, and G4 explicitly forbids
+guessed forecasts.
+
+**The caveat that matters.** `mainnet-exercise.mjs` drives Seal v2
+(`23k3r8AJ…`), not Core. Seal v2 is the referee; Core is the referee plus the
+whole economy — credits, XP, streaks, podium. So a dry run today gives a
+**lower bound** on Core's compute, not Core's compute. The real figure needs the
+ruleset-2 artifact deployed somewhere, at which point the same two commands
+produce it. The plumbing is finished either way, so the moment there is a
+program to point at, the last hole in this page closes without further analysis.
+
 ## Still unmeasured
 
 Named so nothing here is mistaken for a complete G4:
 
-- compute units per instruction, and priority fees under real congestion
+- compute units for **Core specifically** (Seal v2 gives a floor; see above)
+- priority fees under real congestion
 - account contention at 1,000 players — several settles racing one `FeedClock`
 - failed-transaction fees, which are charged and are not in any table above
 - RPC cost and rate limits at 1,000 players
