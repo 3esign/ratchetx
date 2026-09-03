@@ -29,6 +29,8 @@ where node >nul 2>nul
 if errorlevel 1 goto :nonode
 
 call node tools\crank.mjs --once
+REM  A pass that could not look is not a pass that found nothing. The crank
+REM  exits non-zero on a failed single pass so this can tell them apart.
 if errorlevel 1 goto :failed
 
 echo.
@@ -45,9 +47,19 @@ goto :end
 
 :failed
 echo.
-echo   The crank stopped on an error, printed above. Nothing here
-echo   can corrupt anything: every action it takes is one the API
-echo   already lets any stranger take.
+echo ============================================================
+echo   THE PASS FAILED - nothing was settled.
+echo.
+echo   The reason is printed above. Nothing here can corrupt
+echo   anything: every action it takes is one the API already lets
+echo   any stranger take, and a failed pass simply did not act.
+echo.
+echo   If it says TIMEOUT: the full snapshot builds the entire
+echo   hash-chained log before it answers. This crank asks for the
+echo   cheap players-only view first, which exists once the site is
+echo   redeployed; until then it falls back to the slow one with a
+echo   two-minute patience. Run it again before worrying.
+echo ============================================================
 goto :end
 
 :nonode

@@ -25,8 +25,38 @@ const MINT = process.env.RATCHET_MINT || '';
 
 const memo = globalThis.__ratchet_snap || (globalThis.__ratchet_snap = { t: 0, body: null });
 
+const lightMemo = globalThis.__ratchet_snap_light
+  || (globalThis.__ratchet_snap_light = { t: 0, body: null });
+
 module.exports = async (req, res) => {
   try {
+    // ?only=players — everything a settlement crank needs and nothing else.
+    //
+    // The full snapshot assembles the whole hash-chained log before it answers,
+    // which is right for what it is (the Black Box: the entire machine, verifiable
+    // from genesis) and wrong for a crank that runs every minute. tools/crank.mjs
+    // was timing out at twenty seconds against it, which means the permissionless
+    // settlement path -- the thing that is supposed to keep the game alive if we
+    // stop -- was too expensive to run. A crank nobody can afford to run is not
+    // permissionless in any sense that matters.
+    if (String((req.query && req.query.only) || '') === 'players') {
+      if (lightMemo.body && Date.now() - lightMemo.t < 30_000) {
+        res.setHeader('Content-Type', 'application/json');
+        return res.end(lightMemo.body);
+      }
+      const light = {};
+      for (const k of await scanKeys('u:*')) {
+        const p = await getJSON(k);
+        // Same redaction as the full export: an open shot leaves without its
+        // side or salt, so sealed still means sealed here too.
+        if (p) light[k.slice(2)] = { ...p, open: (p.open || []).map(({ side, salt, xp, sp, ...rest }) => rest) };
+      }
+      lightMemo.t = Date.now();
+      lightMemo.body = JSON.stringify({ ok: true, v: VERSION, t: Date.now(), only: 'players', players: light });
+      res.setHeader('Content-Type', 'application/json');
+      return res.end(lightMemo.body);
+    }
+
     if (memo.body && Date.now() - memo.t < 300_000) {
       res.setHeader('Content-Type', 'application/json');
       return res.end(memo.body);
