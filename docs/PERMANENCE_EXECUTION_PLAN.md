@@ -28,7 +28,8 @@ The non-negotiable product direction is:
    outcomes.
 3. RCX should earn infrastructure utility by paying open execution and by being
    usable by other applications, not by adding an administrator, a treasury
-   promise or an investment guarantee.
+   promise or an investment guarantee. RatchetX's preferred board is one client
+   of the primitive, not a global policy imposed on every other client.
 4. Tests are grouped into meaningful batches. We do not spend the project on
    repeated tiny checks, but every irreversible boundary still needs a positive
    control, adversarial controls and a reproducible release record.
@@ -49,11 +50,15 @@ stronger engineering promise is a **perpetual protocol, not perpetual compute**:
   the ledger.
 
 The irreducible dependencies remain Solana consensus and data availability,
-Pyth's signed price messages and sponsored account publication, transaction
-submitters, account rent, and a route to a Solana RPC. If Solana halts, execution
-halts. If the admissible oracle source stops, new affected play pauses and open
-positions follow an explicit fail-closed rule. Those are protocol dependencies,
-not founder permissions.
+Pyth's signed price messages and sponsored account publication, at least one
+economically or independently motivated participant capturing a mutable source
+message before it is overwritten, transaction submitters, account rent, and a
+route to a Solana RPC. If Solana halts, execution halts. If the admissible oracle
+source or every capturer stops, new affected play pauses and open positions
+follow an explicit fail-closed rule. A finalized Timepin proves which valid
+messages were submitted; it cannot cryptographically prove that no other valid
+message ever existed and was withheld. Those are protocol dependencies and an
+explicit availability assumption, not founder permissions.
 
 ## Evidence baseline: what exists now
 
@@ -104,6 +109,13 @@ The following are release blockers, not documentation polish:
    checks stop fabricated prices, but they do not by themselves stop withholding,
    missed crossing or ring-eviction selection. Documentation must follow the
    executable evidence, not the intended story.
+8. **A mutable sponsored account is not an archive.** The sponsored Pyth shard-0
+   PDA can be overwritten by the next update. A 180-second challenge deadline
+   does not preserve the earlier bytes, and a sponsored-PDA-only instruction
+   cannot later accept an independently reposted historical Receiver update.
+   Timepin v1 is therefore a no-value live-capture prototype. Core G2 value waits
+   for an audited archival-challenge path or a narrower rule whose remaining
+   omission assumption is explicitly accepted and economically defended.
 
 The source-predecessor patch is necessary, but it does not solve items 2-6 and is
 therefore not a reason to deploy Core v1 as the permanent mainnet generation.
@@ -136,19 +148,23 @@ than patched with an operational promise.
 8. **Ruleset binding.** Every position names the exact ruleset, feed domain,
    horizon/target, rounding rules and evidence schema that decide it. Existing
    positions never inherit a later rule.
-9. **No privileged economic transition.** No admin may award credits/XP, choose an
+9. **Content-addressed rules, not an admin ruleset.** Every economic ruleset is
+   immutable and addressed by a hash of canonical bytes. Registration is
+   permissionless. A board may recommend a ruleset, but no founder can edit it
+   in place or prevent another application from selecting another supported set.
+10. **No privileged economic transition.** No admin may award credits/XP, choose an
    outcome, change a recipient, withdraw player value, pause refunds or replace a
    ruleset in place.
-10. **Open execution.** Capture, finalization, settlement, void, forfeit and safe
+11. **Open execution.** Capture, finalization, settlement, void, forfeit and safe
     cleanup are callable by any funded transaction sender. Rent and rewards go to
     addresses fixed by state, not to arbitrary accounts supplied by the caller.
-11. **No dual authority.** During migration, every new position has one named
+12. **No dual authority.** During migration, every new position has one named
     canonical generation. The database and chain must never both be able to
     settle or credit the same position.
-12. **Evidence before permanence.** Source, deterministic artifact, deployed
+13. **Evidence before permanence.** Source, deterministic artifact, deployed
     executable, verified-build record, program authority, program accounts and
     full-life transactions must all agree before any future authority revocation.
-13. **Permanent publication is last.** Arweave publication and immutability are
+14. **Permanent publication is last.** Arweave publication and immutability are
     irreversible acts. Drafts, secrets, disputed manifests and unverified claims
     are never made permanent merely to meet a date.
 
@@ -167,16 +183,30 @@ indexable; no SQL row is needed to establish truth.
 Timepin is a separate, small program so other Solana applications can request and
 reuse the same target-time evidence without importing RatchetX game economics.
 Its unit of work is a predeclared `Need` for one oracle domain, feed and target
-timestamp. Anyone may capture the current sponsored Pyth shard-0 account, but the
-program accepts it only when the signed source interval brackets the target.
+timestamp. In the v1 prototype anyone may capture the current sponsored Pyth
+shard-0 account, but the program accepts it only when the signed source interval
+brackets the target. That account is mutable: capture must happen before the
+qualifying update is overwritten. A later value-bearing schema must additionally
+prove a safe permissionless path for replaying a fully Receiver-verified archived
+message, or retain the live-capture assumption as a named and tested limitation.
 
 The permanent `Timepin` records the full decision material, not a rounded display
 price: oracle/receiver domain, feed id, price, confidence, exponent, EMA fields,
 signed previous and current publish times, verification level, source account,
 posted slot, capture slot/time, capturer and message hash. Identical submissions
-collapse. Conflicting fully valid messages enter an explicit challenge path; if
-uniqueness cannot be proven, the terminal state is `Ambiguous`, never a
-caller-selected winner. No ring can evict a finalized Timepin.
+collapse. Conflicting fully valid submitted messages enter an explicit challenge
+path; if uniqueness among submitted evidence cannot be established, the terminal
+state is `Ambiguous`, never a caller-selected winner. `Final` means exactly one
+valid message reached the account by the deadline; it does not prove global
+nonexistence of a withheld Pyth-signed message. No ring can evict a finalized
+Timepin.
+
+The free sponsored account is the default live ingress, not the only permissible
+future delivery route. A public Hermes gateway, self-hosted Hermes/Pythnet
+observer, peer, or permanent archive may transport historical signed bytes, but
+none is trusted to decide a value. The pinned Pyth Receiver and Timepin validators
+must verify the same message on chain. Thus an HTTP service can improve delivery
+without becoming a canonical API, API key, or oracle authority.
 
 This is the infrastructure stamp: **Solana decides; Timepin remembers; RCX pays
 open execution.** RatchetX is the first consumer, not a privileged consumer.
@@ -191,28 +221,72 @@ expires without admissible evidence, the refund address is the original sponsor.
 Anyone may submit the payout/refund transaction, but cannot select its recipient.
 Multiple games can sponsor the same Need and reuse one public Timepin.
 
-The bounty is an incentive, not an outcome input. With no bounty or no actor, the
-protocol still reaches an explicit expiry/VOID path. No founder runner is special.
+The bounty is an incentive and anti-withholding mechanism, not an outcome input.
+Each value-bearing consumer funds its own declared execution budget or accepts
+the unsponsored fail-closed path; there is no founder spend cap or permanent
+subsidy. A later challenger must be able to bring archived fully verified source
+evidence after the sponsored PDA changes, otherwise the challenge bounty is not
+an honest control. With no bounty or no actor, the protocol still reaches an
+explicit expiry/VOID path. No founder runner is special.
 
 ### 4. Core G2: versioned economic consumer
 
 Core G2 is a new program id, not an in-place reinterpretation of Core v1. At seal
-it atomically debits credits, binds the player/nonce/commitment, stores the
-ruleset, validates and stores entry price plus confidence, and creates or joins a
-Need for expiry. At settlement it accepts only a finalized Timepin for that exact
-Need. `Missing`, `Expired` or `Ambiguous` evidence follows a deterministic refund
-rule. It never reads an evicting checkpoint ring.
+it atomically debits credits, binds the player/nonce/commitment, stores the hash
+of canonical immutable ruleset bytes, validates and stores entry price plus
+confidence, and creates or joins a Need for expiry. Ruleset PDAs are derived from
+their content hash and can be registered by anyone; they have no authority or
+update instruction. At settlement Core accepts only a finalized Timepin for that
+exact Need. `Missing`, `Expired` or `Ambiguous` evidence follows a deterministic
+refund rule. It never reads an evicting checkpoint ring.
 
-The ruleset enforces the supported feed/horizon matrix on chain. Horizons and
-PUMP may remain reversible board presentation before G2, but they become economic
-protocol support only when their sponsored source account, Timepin vectors and
-ruleset entry pass the same gate. Held equities stay out until they have an
-equally permissionless, source-bound on-chain evidence path.
+The ruleset binds its feed/horizon matrix on chain, but RatchetX's selected matrix
+is not a global allowlist. Any application may register another canonical
+ruleset using feeds and horizons admitted by the program's source-safety bounds.
+Horizons and PUMP may remain reversible RatchetX board presentation before G2;
+they become this game's economic policy only when their source, Timepin vectors
+and exact ruleset hash pass the same gate. Held equities stay out of RatchetX's
+ruleset until they have an equally permissionless, source-bound on-chain evidence
+path; that does not give RatchetX an administrator over third-party rulesets.
 
-If a confidence decision band is later accepted, the ruleset names its integer
-formula and constant, and both entry and exit confidence are stored. Until real
-shadow observations justify that separate rule decision, G2 must not pretend a
-model-picked `k` is permanent truth.
+The program may implement a versioned integer confidence-band algorithm without
+hardcoding one universal `k`. Each immutable ruleset carries its explicit
+rational band multiplier and every Shot binds that ruleset hash; both entry and
+exit confidence are stored. RatchetX can choose a measured policy later while
+another application chooses another visible parameter today. Until real
+observations justify RatchetX's selection, the canonical board must not pretend a
+model-picked `k` is universal or permanent truth.
+
+### 4.1 Infrastructure-shaped games
+
+The game adapts to the free source instead of asking the source to imitate the
+game. Every immutable market/ruleset declares a target grid, minimum opening
+lead, maximum pre-target source gap, maximum post-target publication lag,
+capture/challenge duration, confidence-band formula and horizon. These values
+are visible before sealing and cannot be widened afterward.
+
+A replaceable board derives recommendations from Timepin history already on
+Solana: observed cadence, gap distribution, confidence distribution, successful
+capture rate and price movement relative to uncertainty. Fast, tight feeds may
+offer short games. Slower, gapped or wider-confidence feeds automatically move to
+longer horizons, a wider symmetric VOID zone, or an explicitly unranked lab mode.
+The protocol still permits every feed/ruleset inside hard source-safety bounds;
+the board is a deterministic suitability filter, not an authority or an attempt
+to steer outcomes toward RatchetX.
+
+This creates a neutral validity envelope:
+
+- accept only the signed first bracket around the predeclared target;
+- reject a bracket whose before/after gaps exceed the sealed tolerance;
+- resolve only when the strike lies outside the sealed symmetric uncertainty
+  band;
+- VOID/refund when evidence is missing, late, too uncertain or ambiguous; and
+- lengthen the next offered horizon from public on-chain observations rather than
+  substituting a friendlier price.
+
+Tolerance changes which questions are safe to ask, never which side wins after a
+question was asked. That is how RatchetX can maximize valid games on free
+infrastructure without bending the infrastructure or the result.
 
 ### 5. Replaceable clients, runners and indexers
 
@@ -277,20 +351,24 @@ Candidate Timepin instructions:
   recipient is fixed in state. `Need`/`Timepin` evidence remains addressable.
 
 P2 must decide the exact treatment of same-publish-time messages, forks,
-verification upgrades, challenge duration, rent and whether a compact raw message
-is copied or hash-bound to an immutable source account. No value is attached
-until those decisions have adversarial vectors.
+verification upgrades, challenge duration, rent, archival replay after the
+sponsored account is overwritten, and whether a compact raw message is copied or
+hash-bound to an immutable source account. No value is attached until those
+decisions have adversarial vectors.
 
 ### Core G2 program accounts and instructions
 
-Candidate PDAs include `Ruleset['ruleset', version]`,
+Candidate PDAs include
+`Ruleset['ruleset', sha256(canonical_ruleset_bytes)]`,
 `PlayerLedger['ledger', player]`, `Shot['shot', player, nonce]`,
 `DelegateGrant['delegate', player, delegate]` and bounded/sharded season or podium
-accounts. A Shot stores ruleset version, feed/domain, target, Need/Timepin address,
+accounts. A Shot stores ruleset hash, feed/domain, target, Need/Timepin address,
 entry price/confidence/exponent/source times, stake, commit, status and every value
 needed to reproduce the final integer transition.
 
-The minimum instruction surface is `init_ledger`, `reload`, `seal`,
+`register_ruleset(canonical_bytes)` is permissionless and create-only: it
+verifies the schema and content hash, then has no edit/close/authority path. The
+minimum economic instruction surface is `init_ledger`, `reload`, `seal`,
 `seal_delegated`, `settle`, `reveal`, `void_shot`, `forfeit`, `close_shot`,
 `grant_delegate`, `revoke_delegate`, and a one-time `claim_legacy` in the migration
 build. Initialization may create a named immutable ruleset; it must not create a
@@ -331,8 +409,10 @@ harness for gaps, reorder, duplicate, conflict, withholding and expiry. Make the
 source interval and exact target eligibility visible in every vector.
 
 Gate: each declared evidence stream has exactly one terminal result (`Final`,
-`Ambiguous` or `Expired`); no submission order can improve a player's economic
-outcome; no ring or cleanup deletes terminal evidence.
+`Ambiguous` or `Expired`); message records have canonical hash order while
+capture provenance truthfully remains transaction-order dependent; no ring or
+cleanup deletes terminal evidence. This no-value gate does not certify global
+source completeness or unblock Core G2 value.
 
 ### P3 - deploy Timepin no-value devnet
 
@@ -605,6 +685,10 @@ the destination architecture is necessary.
 | 2026-09-03 | No founder-controlled pilot/spend cap. | Admission follows public rules; deployment tooling only rejects transactions whose exact movements or destinations differ from the reviewed manifest. |
 | 2026-09-03 | Supabase is a legacy extraction source, not the destination. | Export and independently reconcile the complete existing state once, cut admission without dual-write, then remove Supabase from every canonical runtime path. |
 | 2026-09-03 | No model-picked decision-band constant becomes permanent. | Preserve confidence evidence and collect actual shadow outcomes before a separately versioned rule decision. |
+| 2026-09-03 | Games adapt to the free on-chain source, not the reverse. | Seal feed-specific gap, lag, horizon and symmetric uncertainty tolerances up front; change future questions, never a live outcome. |
+| 2026-09-03 | Rulesets are permissionless and content-addressed. | RatchetX may recommend one immutable ruleset; other applications may use other supported canonical bytes without Ratchet authority. |
+| 2026-09-03 | Transport is replaceable; verification is on chain. | Sponsored Pyth is the free live path; public gateways, peers or archives may deliver signed history but cannot decide validity. |
+| 2026-09-03 | Timepin v1 Final means unique submitted evidence only. | Mutable-source archival challenge and explicit liveness assumptions remain blockers before Core G2 carries value. |
 | current | Equities remain held. | They return only with a permissionless source-bound on-chain evidence route; an authenticated market-data API is not acceptable. |
 | current | Horizons/PUMP board policy is reversible until G2. | UI changes can ship independently, but economic support requires on-chain ruleset and Timepin vectors. |
 | current | New canonical economics use a new program generation. | Core v1 repairs are evidence and learning; they do not justify in-place permanence or a silent mainnet cutover. |

@@ -1,0 +1,123 @@
+# INACTIVE TEMPLATE.
+# GitHub only discovers workflows from repository-root .github/workflows/.
+# Keep this here until moving/activating it is explicitly approved. It never
+# deploys, never reads a wallet, and never uploads cargo-build-sbf's automatic
+# throwaway key file.
+name: timepin-build
+
+on:
+  push:
+    paths:
+      - onchain/rcx-timepin/**
+      - .github/workflows/timepin-build.yml
+  pull_request:
+    paths:
+      - onchain/rcx-timepin/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      AGAVE_VERSION: v3.1.10
+      AGAVE_LINUX_SHA256: a7205ff29bcf0f7199740225ecae2b85a28ea9668892d5ec21bd9749882984a1
+      HOST_RUST_VERSION: 1.98.0
+      REQUIRED_PLATFORM_TOOLS: v1.52
+      PROTOTYPE_PROGRAM_ID: Fg6PaFpoGXkYsidMpWxTWqkZgYHFwD4GwxV6Wt5VwFQ
+    defaults:
+      run:
+        working-directory: onchain/rcx-timepin
+    steps:
+      # actions/checkout v4.4.0
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+
+      - name: Install exact host Rust and checksum-pinned Agave
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustup toolchain install "$HOST_RUST_VERSION" --profile minimal --component rustfmt
+          rustup default "$HOST_RUST_VERSION"
+
+          archive="$(mktemp)"
+          install_root="$(mktemp -d)"
+          url="https://github.com/anza-xyz/agave/releases/download/$AGAVE_VERSION/solana-release-x86_64-unknown-linux-gnu.tar.bz2"
+          curl --proto '=https' --tlsv1.2 --retry 3 --fail --location --silent --show-error "$url" --output "$archive"
+          printf '%s  %s\n' "$AGAVE_LINUX_SHA256" "$archive" | sha256sum --check --strict
+          tar -xjf "$archive" -C "$install_root"
+          test -x "$install_root/solana-release/bin/solana"
+          test -x "$install_root/solana-release/bin/cargo-build-sbf"
+          echo "$install_root/solana-release/bin" >> "$GITHUB_PATH"
+
+      # Swatinem/rust-cache v2.9.2
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6
+        with:
+          workspaces: |
+            onchain/rcx-timepin
+            onchain/rcx-timepin/svm-tests
+
+      - name: Toolchain and prototype identity must be exact
+        shell: bash
+        run: |
+          set -euo pipefail
+          rustc --version | tee /tmp/timepin-rustc.txt
+          cargo --version | tee /tmp/timepin-cargo.txt
+          grep -Fqx "rustc 1.98.0 (88d9e12ae 2026-08-18)" /tmp/timepin-rustc.txt
+          grep -Fqx "cargo 1.98.0 (797e8a9bc 2026-08-05)" /tmp/timepin-cargo.txt
+          solana --version | tee /tmp/timepin-solana.txt
+          grep -Fq "3.1.10" /tmp/timepin-solana.txt
+          cargo-build-sbf --version | tee /tmp/timepin-builder.txt
+          grep -Fqx "platform-tools $REQUIRED_PLATFORM_TOOLS" /tmp/timepin-builder.txt || {
+            echo "::error::wrong platform-tools; required $REQUIRED_PLATFORM_TOOLS"
+            exit 1
+          }
+          grep -Fq "declare_id!(\"$PROTOTYPE_PROGRAM_ID\")" programs/rcx-timepin/src/lib.rs
+          grep -Fq "rcx_timepin = \"$PROTOTYPE_PROGRAM_ID\"" Anchor.toml
+
+      - name: Format and host adversarial model
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo fmt --check
+          cargo test --locked
+
+      - name: Build SBF with the pinned dependency graph
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo build-sbf -- --locked
+          rm -f target/deploy/rcx_timepin-keypair.json
+          test -s target/deploy/rcx_timepin.so
+
+      - name: Transaction-level LiteSVM battery against fresh bytes
+        working-directory: onchain/rcx-timepin/svm-tests
+        env:
+          RCX_TIMEPIN_SO: ${{ github.workspace }}/onchain/rcx-timepin/target/deploy/rcx_timepin.so
+        run: cargo test --locked -- --nocapture
+
+      - name: Candidate hash (informational; no deploy)
+        shell: bash
+        run: |
+          set -euo pipefail
+          so=target/deploy/rcx_timepin.so
+          digest=$(sha256sum "$so" | cut -d' ' -f1)
+          bytes=$(stat -c%s "$so")
+          printf '%s  %s\n' "$digest" rcx_timepin.so > target/deploy/rcx_timepin.sha256
+          echo "::notice title=rcx_timepin.so::$bytes bytes; sha256 $digest; UNDEPLOYED NO-VALUE CANDIDATE"
+
+      # actions/upload-artifact v4.6.2
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: rcx-timepin-no-value-${{ github.sha }}
+          path: |
+            onchain/rcx-timepin/target/deploy/rcx_timepin.so
+            onchain/rcx-timepin/Cargo.lock
+            onchain/rcx-timepin/svm-tests/Cargo.lock
+            onchain/rcx-timepin/SPEC.md
+            onchain/rcx-timepin/target/deploy/rcx_timepin.sha256
+          if-no-files-found: error

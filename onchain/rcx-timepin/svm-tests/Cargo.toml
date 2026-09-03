@@ -1,0 +1,14 @@
+[package]
+name = "rcx-timepin-svm-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Transaction-level LiteSVM tests for the no-value RCX Timepin prototype"
+
+# Keep the transaction harness outside the reproducible SBF dependency graph.
+[workspace]
+
+[dependencies]
+litesvm = "=0.16.0"
+sha2 = "=0.10.9"
+solana-sdk = "=4.0.1"

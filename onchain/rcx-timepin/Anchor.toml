@@ -1,0 +1,17 @@
+[toolchain]
+anchor_version = "1.0.2"
+solana_version = "3.1.10"
+
+[features]
+resolution = true
+skip-lint = false
+
+# This is deliberately a non-deployment prototype id. Generate and review a
+# new dedicated program keypair before any devnet deployment, then replace it
+# in Anchor.toml and declare_id! together.
+[programs.localnet]
+rcx_timepin = "Fg6PaFpoGXkYsidMpWxTWqkZgYHFwD4GwxV6Wt5VwFQ"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"
