@@ -49,18 +49,23 @@ const call = query => new Promise((resolve, reject) => {
   game(req, res).catch(reject);
 });
 
-const BUDGET = 12;
-await call({ action:'state', wallet:WALLET });     // first call builds shared state
+// Steady state, not the first call. The first request of an instance's life
+// warms caches and does the housekeeping nobody else has done yet -- 55 touches
+// here -- and the second still pays for what the first invalidated. What a
+// player actually costs is the fourth poll and every one after it.
+const BUDGET = 6;
+for (let i = 0; i < 3; i++) await call({ action:'state', wallet:WALLET });
 touches = 0;
-const second = await call({ action:'state', wallet:WALLET });
+const steady = await call({ action:'state', wallet:WALLET });
 const cost = touches;
 
-assert.equal(second.status, 200, 'the probe must actually get a state response');
-assert.ok(second.body && second.body.ok, 'and it must be a real one');
+assert.equal(steady.status, 200, 'the probe must actually get a state response');
+assert.ok(steady.body && steady.body.ok, 'and it must be a real one');
 assert.ok(cost > 0, 'a state read that touches nothing is measuring nothing');
 assert.ok(cost <= BUDGET,
-  `one action=state now costs ${cost} store touches, budget is ${BUDGET}. ` +
+  `one steady-state action=state now costs ${cost} store touches, budget is ${BUDGET}. ` +
   'If this is a deliberate new read, raise the budget in the same commit and say why. ' +
-  'A connected client sends this every ten seconds.');
+  'Two of the remaining touches are the pot pointers, which rolloverPots refuses to cache ' +
+  'on purpose -- a test caught a payout firing late when they were. Do not "fix" those.');
 
-console.log(`PASS  state read budget: ${cost} store touches per action=state (budget ${BUDGET})`);
+console.log(`PASS  state read budget: ${cost} store touches per steady-state action=state (budget ${BUDGET})`);

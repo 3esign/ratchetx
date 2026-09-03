@@ -506,6 +506,19 @@ async function seedStats() {
 // figure that is eight seconds old could be written back as if it were current.
 // The cache lives at the call site that only displays, so the money paths keep
 // reading the store exactly as before.
+// Taking a lease is itself a store read, and the housekeeping leases were being
+// ATTEMPTED by every request -- two touches per poll spent asking "is it my turn
+// to sweep?". Remembering the attempt (not only the win) makes an instance ask
+// at the cadence of the work rather than the cadence of traffic. The work is
+// unchanged and still lazy: whoever passes by after the gap does it.
+const attempts = globalThis.__ratchet_attempts || (globalThis.__ratchet_attempts = new Map());
+function tooSoon(key, gapMs) {
+  const now = Date.now();
+  if (now - (attempts.get(key) || 0) < gapMs) return true;
+  attempts.set(key, now);
+  return false;
+}
+
 const shared = globalThis.__ratchet_shared || (globalThis.__ratchet_shared = new Map());
 const SHARED_MAX = 32;
 async function sharedRead(key, ttlMs, produce) {
@@ -1100,8 +1113,13 @@ const wardenTickCache = globalThis.__ratchet_wardentick
 async function wardenTick(prices) {
   if (wardenTickCache.v && Date.now() - wardenTickCache.t < 30_000)
     return wardenTickCache.v;
+  // The cache above only remembers a tick that WON the lease and finished. An
+  // instance that lost, or one whose tick produced nothing, came back and asked
+  // again on the very next request. The warden moves on its own schedule, so
+  // asking more often than that buys nothing and costs a read every poll.
+  if (tooSoon('lease:warden', 15_000)) return publicWarden(await getCached('g:warden:rec', 15_000));
   const lease = await acquireLease('lock:g:warden', 45);
-  if (!lease) return publicWarden(await getCached('g:warden:rec', 5_000));
+  if (!lease) return publicWarden(await getCached('g:warden:rec', 15_000));
   try {
     await wardenRollover();
     const wl = await wardenLine(prices);
@@ -2186,7 +2204,9 @@ module.exports = async (req, res) => playerWrites.run(async () => {
     // Expiry moves credits, so it completes before the request continues.
     // Fire-and-forget is unsafe on serverless (the function may freeze after
     // the response) and made a refund appear only nondeterministically.
-    try { await sweepChallenges(); } catch {}
+    // Expiring an unmatched challenge is not urgent to the second: the author's
+    // stake comes back whenever the sweep runs, and every request is a chance.
+    if (!tooSoon('sweep:chal', 20_000)) { try { await sweepChallenges(); } catch {} }
 
     if (action === 'gauntlet') {
       const wallet = 'demo-' + gauntletHandle;
