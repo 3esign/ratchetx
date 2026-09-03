@@ -339,6 +339,15 @@ select
           or case when coalesce(field.value #>> '{}','') ~ '^(0|[1-9][0-9]*)$'
             then (field.value #>> '{}')::numeric > ${MAX_SAFE_INTEGER_TEXT} else false end))
       end)::text stats_shape_violations,
+  (select coalesce(string_agg(distinct offender, ', ' order by offender), '') from (
+    select f.key || ':' || jsonb_typeof(f.value) as offender
+    from stats s, jsonb_each(s.value) f
+    where jsonb_typeof(s.value) = 'object'
+      and f.key in ('burned','pot','potD','shots','realBurned','champPaid',
+        'champRetained','stakePaid','stakers','hitPaid')
+      and (jsonb_typeof(f.value) <> 'number'
+        or coalesce(f.value #>> '{}','') !~ '^(0|[1-9][0-9]*)$')
+  ) offenders)::text stats_shape_offenders,
   (select coalesce(sum(10 - (
       (value ? 'burned')::int + (value ? 'pot')::int + (value ? 'potD')::int +
       (value ? 'shots')::int + (value ? 'realBurned')::int + (value ? 'champPaid')::int +
@@ -372,9 +381,19 @@ const hex = value => sha256(value).toString('hex');
 const safeCode = value => String(value || 'SNAPSHOT_FAILED').toUpperCase()
   .replace(/[^A-Z0-9_]/g, '').slice(0, 80) || 'SNAPSHOT_FAILED';
 
-function fail(code) {
-  const error = new Error(code);
+function fail(code, detail = null) {
+  // A code with no detail is the same trap `WRONGTYPE Operation against a key
+  // holding the wrong kind of value` sets: it names the rule that was broken and
+  // not the thing that broke it. CONSERVATION_STATS_SHAPE_VIOLATIONS cost an
+  // afternoon for exactly that reason -- it says a stats field is not a
+  // plain integer and does not say WHICH field, or what it is instead.
+  //
+  // `detail` carries field NAMES and JSON TYPES only. Never a value: this runs
+  // against the whole ledger, and a diagnostic that prints balances is a
+  // diagnostic nobody can safely paste into a chat window.
+  const error = new Error(detail ? `${code}: ${detail}` : code);
   error.code = code;
+  if (detail) error.detail = detail;
   throw error;
 }
 
@@ -729,7 +748,11 @@ export function validateConservation(report) {
     'challenge_container_shape_violations', 'queue_shape_violations', 'stats_shape_violations',
     'play_session_shape_violations', 'history_shape_violations',
     'champion_history_shape_violations']) {
-    if (exactDecimal(report[name], name) !== '0') fail('CONSERVATION_' + name.toUpperCase());
+    if (exactDecimal(report[name], name) !== '0') {
+      const offenders = name === 'stats_shape_violations' ? report.stats_shape_offenders : null;
+      fail('CONSERVATION_' + name.toUpperCase(),
+        offenders ? `${report[name]} offending field(s), as name:jsonType -- ${offenders}` : null);
+    }
   }
   if (BigInt(report.player_count) === 0n) fail('NO_PLAYERS');
   return Object.fromEntries(Object.entries(report).sort(([a], [b]) => compareC(a, b)));
