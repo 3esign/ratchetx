@@ -106,7 +106,7 @@ export function inspectDeployInput(root = process.cwd(), {ignoreFile = '.verceli
     files.push(name);
     if(isNeverReadPath(name)) errors.push('Private path is not excluded from deployment: '+name);
     if(!name.includes('/')){
-      if(!ROOT_FILES.has(name)&&!isReviewedRootAsset(name,tracked))
+      if(!(ROOT_FILES.has(name)&&tracked.has(name))&&!isReviewedRootAsset(name,tracked))
         errors.push('Unreviewed root deployment file: '+name);
     }else{
       const top=name.split('/')[0];

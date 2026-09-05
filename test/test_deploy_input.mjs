@@ -16,6 +16,19 @@ function fixture(t, ignore='*.md\nnode_modules/\n.env*\n_to_delete/\n') {
   return{root,put,track,check:()=>inspectDeployInput(root)};
 }
 test('known site and tracked API inputs remain uploadable',t=>{const f=fixture(t),r=f.check();assert.deepEqual(r.errors,[]);for(const n of ['index.html','robots.txt','llms.txt','play-session.js','api/game.js'])assert.ok(r.files.includes(n));});
+test('named root allowlist files ship only once tracked',t=>{
+  const f=fixture(t),names=['merkle_tree.json','rescue_census.txt','manifest.json'];
+  for(const name of names)f.put(name);
+  const unreviewed=f.check();
+  for(const name of names){
+    assert.ok(unreviewed.files.includes(name),'the folder upload would include '+name);
+    assert.ok(unreviewed.errors.includes('Unreviewed root deployment file: '+name),name);
+  }
+  f.track(names);
+  const reviewed=f.check();
+  assert.deepEqual(reviewed.errors,[]);
+  for(const name of names)assert.ok(reviewed.files.includes(name));
+});
 test('untracked root scripts and data fail even though tracked source is clean',t=>{const f=fixture(t);for(const n of ['fix12.js','claim.js','push_report.txt','merkle_excluded.json','rogue.patch','approx'])f.put(n);const r=f.check();for(const n of ['fix12.js','claim.js','push_report.txt','merkle_excluded.json','rogue.patch','approx'])assert.ok(r.errors.some(e=>e.endsWith(n)),n);});
 test('gitignored root and nested scratch cannot hide from folder upload guard',t=>{const f=fixture(t);f.put('.gitignore','private_dump.txt\napi/scratch.js\n');f.put('private_dump.txt');f.put('api/scratch.js');const r=f.check();assert.ok(r.files.includes('private_dump.txt'));assert.ok(r.errors.some(e=>e.endsWith('private_dump.txt')));assert.ok(r.errors.some(e=>e.endsWith('api/scratch.js')));});
 test('vercelignore exclusions apply to tracked and untracked files',t=>{const f=fixture(t,'fix*.js\n*.patch\n_to_delete/\n');f.put('fix.js');f.put('fix2.js');f.put('a.patch');f.put('_to_delete/data.json');f.track(['fix.js']);const r=f.check();assert.deepEqual(r.errors,[]);for(const n of ['fix.js','fix2.js','a.patch','_to_delete/data.json'])assert.ok(!r.files.includes(n));});
