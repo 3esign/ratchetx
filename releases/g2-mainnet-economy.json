@@ -124,78 +124,57 @@
       "symbol": "SOL",
       "sponsoredAccount": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
       "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
-      "maxPostTargetLagSeconds": {
-        "tag": "D",
-        "proposed": 299,
-        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
-      },
-      "enabledAtLaunch": true
+      "maxPostTargetLagSeconds": 299,
+      "enabledAtLaunch": true,
+      "maxPostTargetLagDerivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
     },
     {
       "symbol": "BTC",
       "sponsoredAccount": "APgzQGGdv2qCgBkX6aHVkrGePtBVDDg68GiqaM7rmtf5",
       "feedId": "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
-      "maxPostTargetLagSeconds": {
-        "tag": "D",
-        "proposed": 299,
-        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
-      },
-      "enabledAtLaunch": true
+      "maxPostTargetLagSeconds": 299,
+      "enabledAtLaunch": true,
+      "maxPostTargetLagDerivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
     },
     {
       "symbol": "ETH",
       "sponsoredAccount": "7odryi4WfoMFHtv2eubdMgP1pqQMmdiXSK1N2tqZ2nRH",
       "feedId": "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
-      "maxPostTargetLagSeconds": {
-        "tag": "D",
-        "proposed": 299,
-        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
-      },
-      "enabledAtLaunch": true
+      "maxPostTargetLagSeconds": 299,
+      "enabledAtLaunch": true,
+      "maxPostTargetLagDerivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
     },
     {
       "symbol": "BONK",
       "sponsoredAccount": "3nMpgBXnjBSDYupQQEVR7DZM65zkJCdKy1Up7nkqp99w",
       "feedId": "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419",
-      "maxPostTargetLagSeconds": {
-        "tag": "D",
-        "proposed": 299,
-        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
-      },
-      "enabledAtLaunch": true
+      "maxPostTargetLagSeconds": 299,
+      "enabledAtLaunch": true,
+      "maxPostTargetLagDerivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
     },
     {
       "symbol": "PUMP",
       "sponsoredAccount": "4KL8nVtrXmLjbbHtrDz5YCHNqmii62oHfr9bsUtx1bgi",
       "feedId": "7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9",
-      "maxPostTargetLagSeconds": {
-        "tag": "D",
-        "proposed": 299,
-        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
-      },
-      "enabledAtLaunch": true
+      "maxPostTargetLagSeconds": 299,
+      "enabledAtLaunch": true,
+      "maxPostTargetLagDerivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
     },
     {
       "symbol": "JUP",
       "sponsoredAccount": "EitcZS5LtbR4EyNhCSy56vvUHPhsifSfWFG5gwSkjNpV",
       "feedId": "0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996",
-      "maxPostTargetLagSeconds": {
-        "tag": "D",
-        "proposed": 299,
-        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
-      },
-      "enabledAtLaunch": true
+      "maxPostTargetLagSeconds": 299,
+      "enabledAtLaunch": true,
+      "maxPostTargetLagDerivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
     },
     {
       "symbol": "WIF",
       "sponsoredAccount": "9Sn9FVu6WpufA8yZFSRuxYyFgpBrhc5PpTgB3mq2DcsG",
       "feedId": "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc",
-      "maxPostTargetLagSeconds": {
-        "tag": "D",
-        "proposed": 299,
-        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
-      },
-      "enabledAtLaunch": true
+      "maxPostTargetLagSeconds": 299,
+      "enabledAtLaunch": true,
+      "maxPostTargetLagDerivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
     }
   ],
   "procedure": [
@@ -246,7 +225,7 @@
     "approvedBy": "Semir Poturak",
     "approvedAt": "2026-09-05",
     "approvalStatement": "ANV; sve ostaje kako je; lead 60 na oba; traka ostaje iskljucena",
-    "approvalStatementOriginal": "\u201eANV; sve ostaje kako je; lead 60 na oba; traka ostaje isklju\u010dena\u201c",
+    "approvalStatementOriginal": "„ANV; sve ostaje kako je; lead 60 na oba; traka ostaje isključena“",
     "whatEachClauseSettled": {
       "ANV": "WITHDRAWN BY THE OWNER THE SAME EVENING, and the withdrawal is the record. He said 'stani - ne znam za ovaj key' and then 'nisam siguran': the word ANV in his sentence was NOT a claim about custody. I had already moved declare_id! and sixteen other declaring files to ANV and written here that custody decided it. That sentence was MY inference presented as his statement, which is precisely what this manifest is not allowed to contain. All seventeen files are reverted to the identity the source declares and the question is open, assigned to CodexAstra.",
       "sve ostaje kako je": "Every economic number is unchanged: burn 700 / podium 300 per mille, podium curve 500/300/200, hit payout 17/10, stake 100 to 1,000,000,000, maxOpen 5, revealWindowSeconds 3600, settleXp 1 plus base XP 10/11/12/14/16/20/24 across the seven horizons, rankShardCount 16, cleanupBondLamports 50,000.",
@@ -285,6 +264,16 @@
       "a deploy, an upgrade or a freeze ceremony",
       "B1 (the built artifacts) or B2 (the golden vectors), which are evidence rather than permission",
       "L1 and L2, which require a devnet signature and a working crank"
-    ]
+    ],
+    "cadenceBasis": {
+      "kind": "DERIVED_GRID_BOUND",
+      "recordedAt": "2026-09-05T21:35:11.270Z",
+      "ownerStatements": [
+        "ali rekli smo da nema merenja samo idemo na ono sto je ocigledno",
+        "nesto sto je odmah dokazivo i to je ponavljano kroz rad"
+      ],
+      "rule": "For consecutive grid-aligned targets T and T+g, admissibility windows [T,T+L] and [T+g,T+g+L] are disjoint when L<g. Integer timestamps give the maximum admissible L=g-1. With approved g=300, L=299 for every feed.",
+      "scope": "Non-overlap and maximal admissible coverage under MIN-CAPTURE. This approval uses that direct rule and does not require an empirical cadence measurement window."
+    }
   }
 }

@@ -1,7 +1,8 @@
 #!/usr/bin/env node
-// Tracker item 2.3: measure, keylessly, how the sponsored Pyth push accounts
-// actually behave against a target grid — so that `max_post_target_lag` in the
-// write-once mainnet manifest is a measured number and not a guess.
+// Tracker item 2.3: keyless cadence diagnostics and the approved grid-bound proof.
+// The owner selected DERIVED_GRID_BOUND for the mainnet manifest: grid 300 and
+// lag 299. auditDerivedManifest checks that policy without cadence measurements.
+// Sampling and auditManifest remain available for separate measurement analysis.
 //
 // Two modes, and the split is the point:
 //
@@ -40,6 +41,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Connection, PublicKey } from '@solana/web3.js';
 import {
+  ADAPTER_PYTH_MIN_CAPTURE_V2, OFFICIAL_PYTH_RECEIVER_PROGRAM,
   OFFICIAL_PYTH_PUSH_ORACLE_PROGRAM, derivePushSourcePda, decodePriceUpdateV2,
 } from '../../rcx-timepin/model-v2.mjs';
 
@@ -198,6 +200,71 @@ export function summarize(lines, { grids = [60, 300] } = {}) {
   };
 }
 
+// --- approved derived policy: pure, no measurement prerequisite ---------------
+// Resolve the canonical source table once at module load. The validator itself
+// performs only comparisons and PDA arithmetic; it does not read cadence files.
+const DERIVED_FEED_NAMES = Object.freeze(['SOL', 'BTC', 'ETH', 'BONK', 'PUMP', 'JUP', 'WIF']);
+const DERIVED_FEED_IDS = Object.freeze(Object.fromEntries(gameFeeds().map(f => [f.symbol, f.feedId])));
+
+// For targets T and T+g, the inclusive windows [T,T+L] and [T+g,T+g+L]
+// are disjoint iff L<g. Integer timestamps make g-1 the greatest such L.
+// This proves non-overlap and maximal admissible coverage, not source uptime.
+export function auditDerivedManifest(manifest) {
+  const requirePolicy = (condition, message) => {
+    if (!condition) throw new Error('DERIVED_GRID_BOUND: ' + message);
+  };
+  requirePolicy(manifest?.approval?.cadenceBasis?.kind === 'DERIVED_GRID_BOUND',
+    'explicit owner policy approval is required');
+  requirePolicy(/^APPROVED\b/.test(manifest.status ?? ''), 'manifest must be approved');
+  const rules = manifest.rulesetTemplate;
+  const spec = manifest.evidenceSpecTemplate;
+  const grid = 300;
+  const lag = grid - 1;
+  requirePolicy(rules?.targetGridSeconds === grid && spec?.targetGridSeconds === grid,
+    'both template grids must equal the approved 300 seconds');
+  requirePolicy(spec.adapter === ADAPTER_PYTH_MIN_CAPTURE_V2, 'adapter must be MIN-CAPTURE (2)');
+  requirePolicy(rules.minOpenLeadSeconds === 60 && spec.minOpenLeadSeconds === 60,
+    'both minOpenLeadSeconds must equal the approved 60 seconds');
+  requirePolicy(Number.isSafeInteger(spec.maxFutureSkewSeconds) && spec.maxFutureSkewSeconds >= 0
+    && spec.minOpenLeadSeconds > spec.maxFutureSkewSeconds,
+    'minOpenLeadSeconds must exceed nonnegative integer maxFutureSkewSeconds');
+  requirePolicy(spec.shardId === 0, 'canonical sponsored accounts require shardId 0');
+  requirePolicy(spec.pushOracleProgram === new PublicKey(OFFICIAL_PYTH_PUSH_ORACLE_PROGRAM).toBase58()
+    && spec.receiverProgram === new PublicKey(OFFICIAL_PYTH_RECEIVER_PROGRAM).toBase58(),
+    'official push oracle and receiver programs are required');
+  requirePolicy(Array.isArray(manifest.feeds) && manifest.feeds.length === DERIVED_FEED_NAMES.length,
+    'exactly all seven canonical feeds are required');
+  const seen = new Set();
+  const feeds = manifest.feeds.map(feed => {
+    const symbol = feed?.symbol;
+    requirePolicy(DERIVED_FEED_NAMES.includes(symbol) && !seen.has(symbol),
+      'unknown or duplicate feed: ' + symbol);
+    seen.add(symbol);
+    requirePolicy(feed.feedId === DERIVED_FEED_IDS[symbol], symbol + ': canonical feedId required');
+    const sourceAddress = sourceAddressFor(feed.feedId, spec.shardId).toBase58();
+    requirePolicy(feed.sponsoredAccount === sourceAddress, symbol + ': canonical source PDA required');
+    requirePolicy(feed.enabledAtLaunch === true, symbol + ': canonical feed must be enabled at launch');
+    requirePolicy(feed.targetGridSeconds === undefined || feed.targetGridSeconds === grid,
+      symbol + ': feed grid must agree with both templates');
+    requirePolicy(feed.maxPostTargetLagSeconds?.tag !== 'D', symbol + ': lag is still undecided (D)');
+    const value = feed.maxPostTargetLagSeconds;
+    requirePolicy(Number.isSafeInteger(value) && value > 0 && value < grid,
+      symbol + ': lag must be a decided positive integer below the grid');
+    requirePolicy(value === lag, symbol + ': lag must equal grid - 1 = 299');
+    return { symbol, feedId: feed.feedId, sourceAddress, maxPostTargetLagSeconds: value };
+  });
+  requirePolicy(seen.size === DERIVED_FEED_NAMES.length, 'exactly all seven canonical feeds are required');
+  const scope = manifest.launchScope;
+  requirePolicy(scope?.targetGridSeconds === grid && scope.maxPostTargetLagSeconds === lag,
+    'launchScope grid and lag must agree with the derived policy');
+  requirePolicy(Array.isArray(scope.feeds) && scope.feeds.length === DERIVED_FEED_NAMES.length
+    && new Set(scope.feeds).size === DERIVED_FEED_NAMES.length
+    && scope.feeds.every(symbol => DERIVED_FEED_NAMES.includes(symbol)),
+    'launchScope must name exactly all seven canonical feeds');
+  return { kind: 'DERIVED_GRID_BOUND', targetGridSeconds: grid, maxPostTargetLagSeconds: lag, feeds };
+}
+
+// Measurement analysis retains its original requirements when explicitly used.
 // --- the gate, as a pure function --------------------------------------------
 //
 // Kept here, exported, and free of filesystem paths for one reason: a gate that

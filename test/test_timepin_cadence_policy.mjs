@@ -1,29 +1,9 @@
-// Tracker item 2.3. Two jobs, and they are deliberately different in kind.
-//
-// 1. The arithmetic behind the GATE 2 decision. `cadence-sampler.mjs summarize`
-//    is pure, so the hit-rate table it produces is checked here against
-//    hand-computable fixtures — including one that reproduces the tracker's own
-//    "0/25 strict bracket" result in miniature. If the reducer is wrong, every
-//    number in the manifest is wrong, and nobody would find out until a
-//    write-once ruleset was already on chain.
-//
-// 2. The gate itself: a mainnet economy manifest may not exist without a
-//    measurement behind it, and `maxPostTargetLagSeconds` may not be below the
-//    measured p99 first-print lag. `releases/g2-mainnet-economy.json` is
-//    Semir's decision 2 and does not exist yet, so today that half is ARMED AND
-//    INERT: it prints what it is waiting for and passes. The day the manifest
-//    lands it starts refusing, and it refuses at the exact moment the number
-//    becomes permanent.
-//
-// A note on why the gate is shaped as "manifest implies measurement" rather than
-// "measurement must exist": a test that fails because nobody has run a 24-hour
-// sampler yet would be red for a day and then get an env-var escape hatch, and
-// this repository already learned what happens to those (scripts/run-tests.mjs
-// lines 143-152, and the seven false greens in tools/p6-canary). A gate that
-// cannot be vacuously green about the thing that matters is worth more than one
-// that is loudly red about the thing that does not.
-//
-// Evidence tier: host.
+// Tracker item 2.3: host proofs for cadence arithmetic and the owner's policy.
+// Measurement analysis keeps its original duration, polling and tail checks.
+// The explicitly approved DERIVED_GRID_BOUND manifest uses a separate pure proof:
+// all seven canonical feeds, grid 300, integer lag 299 and coherent MIN-CAPTURE
+// admission settings. This policy does not require a cadence measurement window.
+// Evidence tier: host; the derived proof establishes non-overlap, not uptime.
 
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
@@ -31,7 +11,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  summarize, percentile, gameFeeds, sourceAddressFor, auditManifest, acquireOutputLock,
+  summarize, percentile, gameFeeds, sourceAddressFor, auditManifest, auditDerivedManifest, acquireOutputLock,
   assertOwnFile, runStampedPath,
 } from '../onchain/rcx-timepin-v2/scripts/cadence-sampler.mjs';
 import {
@@ -448,18 +428,114 @@ check(() => {
     /is not a number/, 'and a non-number is still a non-number');
 }, 'every other way the gate can be cheated is refused');
 
+// --- the approved derived-grid policy ----------------------------------------
+const derivedManifest = () => ({
+  status: 'APPROVED BY THE OWNER (synthetic fixture)',
+  approval: { cadenceBasis: { kind: 'DERIVED_GRID_BOUND' } },
+  rulesetTemplate: { targetGridSeconds: 300, minOpenLeadSeconds: 60 },
+  evidenceSpecTemplate: {
+    adapter: ADAPTER_PYTH_MIN_CAPTURE_V2, targetGridSeconds: 300, minOpenLeadSeconds: 60,
+    maxFutureSkewSeconds: 30, shardId: 0,
+    receiverProgram: 'rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp',
+    pushOracleProgram: 'pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou',
+  },
+  feeds: gameFeeds().map(({ symbol, feedId }) => ({
+    symbol, feedId, sponsoredAccount: EXPECTED_SOURCES[symbol],
+    maxPostTargetLagSeconds: 299, enabledAtLaunch: true,
+  })),
+  launchScope: { feeds: Object.keys(EXPECTED_SOURCES), targetGridSeconds: 300, maxPostTargetLagSeconds: 299 },
+});
+
+check(() => {
+  const manifest = derivedManifest();
+  const before = structuredClone(manifest);
+  const proof = auditDerivedManifest(manifest);
+  assert.deepEqual(manifest, before, 'pure audit leaves all manifest fields unchanged');
+  assert.deepEqual(auditDerivedManifest(manifest), proof, 'proof is deterministic without measurement input');
+  assert.equal(proof.kind, 'DERIVED_GRID_BOUND');
+  assert.equal(proof.targetGridSeconds, 300);
+  assert.equal(proof.maxPostTargetLagSeconds, 299);
+  assert.equal(proof.feeds.length, 7);
+  for (const row of proof.feeds) {
+    assert.equal(row.sourceAddress, EXPECTED_SOURCES[row.symbol]);
+    assert.equal(row.maxPostTargetLagSeconds, 299);
+    assert.equal('measuredP99' in row, false, 'arithmetic proof does not fabricate measurements');
+  }
+  const contains = (target, publishTime, lag) => target <= publishTime && publishTime <= target + lag;
+  for (let publishTime = 0; publishTime <= 599; publishTime += 1) {
+    assert.equal(Number(contains(0, publishTime, 299)) + Number(contains(300, publishTime, 299)), 1,
+      'adjacent inclusive integer windows cover the boundary without overlap');
+  }
+  assert.ok(contains(0, 300, 300) && contains(300, 300, 300), 'lag equal to grid overlaps at the next target');
+}, 'approved derived policy is pure and proves the maximal non-overlapping integer window');
+
+const rejectsDerived = (mutate, pattern) => {
+  const manifest = derivedManifest();
+  mutate(manifest);
+  assert.throws(() => auditDerivedManifest(manifest), pattern);
+};
+check(() => {
+  rejectsDerived(m => { delete m.approval; }, /explicit owner policy approval/);
+  rejectsDerived(m => { m.approval.cadenceBasis.kind = 'MEASURED'; }, /explicit owner policy approval/);
+  rejectsDerived(m => { m.status = 'DRAFT - NOT APPROVED'; }, /manifest must be approved/);
+}, 'numeric lags alone cannot select the owner-approved derived policy');
+check(() => {
+  rejectsDerived(m => { m.rulesetTemplate.targetGridSeconds = 60; }, /both template grids/);
+  rejectsDerived(m => { m.evidenceSpecTemplate.targetGridSeconds = 60; }, /both template grids/);
+  rejectsDerived(m => { m.rulesetTemplate.targetGridSeconds = m.evidenceSpecTemplate.targetGridSeconds = 60; }, /both template grids/);
+  rejectsDerived(m => { m.feeds[0].targetGridSeconds = 60; }, /feed grid must agree/);
+  rejectsDerived(m => { m.launchScope.targetGridSeconds = 60; }, /launchScope grid and lag/);
+}, 'changed grids cannot inherit the approved 300-second proof');
+check(() => {
+  for (const invalid of [0, -1, 300, 301, 299.5, '299', null, NaN, Infinity, { tag: 'M', proposed: 299 }])
+    rejectsDerived(m => { m.feeds[0].maxPostTargetLagSeconds = invalid; }, /decided positive integer below the grid/);
+  rejectsDerived(m => { m.feeds[0].maxPostTargetLagSeconds = 298; }, /grid - 1 = 299/);
+  rejectsDerived(m => { m.feeds[0].maxPostTargetLagSeconds = { tag: 'D', proposed: 299 }; }, /still undecided/);
+  rejectsDerived(m => { m.launchScope.maxPostTargetLagSeconds = 298; }, /launchScope grid and lag/);
+}, 'lag must be a decided numeric 299, never a proposed or overlapping value');
+check(() => {
+  rejectsDerived(m => { m.feeds.pop(); }, /exactly all seven/);
+  rejectsDerived(m => { delete m.feeds[6]; }, /exactly all seven/);
+  rejectsDerived(m => { m.feeds[6] = structuredClone(m.feeds[0]); }, /unknown or duplicate feed/);
+  rejectsDerived(m => { m.feeds[0].symbol = 'UNKNOWN'; }, /unknown or duplicate feed/);
+  rejectsDerived(m => {
+    m.feeds[0].feedId = m.feeds[1].feedId;
+    m.feeds[0].sponsoredAccount = m.feeds[1].sponsoredAccount;
+  }, /SOL: canonical feedId/);
+  rejectsDerived(m => { m.feeds[0].sponsoredAccount = m.feeds[1].sponsoredAccount; }, /SOL: canonical source PDA/);
+  rejectsDerived(m => { m.feeds[0].enabledAtLaunch = false; }, /must be enabled/);
+  rejectsDerived(m => { m.launchScope.feeds.pop(); }, /launchScope must name exactly all seven/);
+  rejectsDerived(m => { m.launchScope.feeds[6] = 'SOL'; }, /launchScope must name exactly all seven/);
+}, 'missing, duplicate, substituted or disabled feeds cannot pass');
+check(() => {
+  rejectsDerived(m => { m.evidenceSpecTemplate.adapter = ADAPTER_PYTH_PUSH_V2; }, /adapter must be MIN-CAPTURE/);
+  rejectsDerived(m => { m.rulesetTemplate.minOpenLeadSeconds = 30; }, /both minOpenLeadSeconds/);
+  rejectsDerived(m => { m.evidenceSpecTemplate.minOpenLeadSeconds = 30; }, /both minOpenLeadSeconds/);
+  rejectsDerived(m => { m.rulesetTemplate.minOpenLeadSeconds = m.evidenceSpecTemplate.minOpenLeadSeconds = 31; }, /both minOpenLeadSeconds/);
+  for (const skew of [60, 61, -1, 30.5, '30'])
+    rejectsDerived(m => { m.evidenceSpecTemplate.maxFutureSkewSeconds = skew; }, /must exceed nonnegative integer/);
+  rejectsDerived(m => { m.evidenceSpecTemplate.shardId = 1; }, /require shardId 0/);
+  rejectsDerived(m => { m.evidenceSpecTemplate.pushOracleProgram = EXPECTED_SOURCES.SOL; }, /official push oracle and receiver/);
+  rejectsDerived(m => { m.evidenceSpecTemplate.receiverProgram = EXPECTED_SOURCES.SOL; }, /official push oracle and receiver/);
+}, 'MIN-CAPTURE, official source programs and the selected lead must agree');
+
 // --- and now the real files ---------------------------------------------------
 
 check(() => {
+  const manifestData = existsSync(MANIFEST) ? JSON.parse(readFileSync(MANIFEST, 'utf8')) : null;
+  if (manifestData?.approval?.cadenceBasis?.kind === 'DERIVED_GRID_BOUND') {
+    const proof = auditDerivedManifest(manifestData);
+    console.log(`  approved derived policy: ${proof.feeds.length} canonical feeds, grid=${proof.targetGridSeconds}s, lag=${proof.maxPostTargetLagSeconds}s; no cadence measurement prerequisite`);
+    return;
+  }
   const found = latestSummary();
-  if (!existsSync(MANIFEST)) {
+  if (!manifestData) {
     console.log(`  gate ARMED AND INERT: ${MANIFEST} does not exist yet (tracker section 4, decision 2).`);
     console.log(`  measurement present: ${found ? found.path : 'none'}`);
     console.log('  the day that manifest lands, auditManifest above runs against it, and refuses any');
     console.log('  maxPostTargetLagSeconds below the measured p99 first-print lag.');
     return;
   }
-  const manifestData = JSON.parse(readFileSync(MANIFEST, 'utf8'));
   if (String(manifestData.status ?? '').startsWith('DRAFT')) {
     // The lead's 12:00Z ruling: "while status is DRAFT it asserts SHAPE ONLY -
     // fields present, types right, no placeholder zeros where a number is
