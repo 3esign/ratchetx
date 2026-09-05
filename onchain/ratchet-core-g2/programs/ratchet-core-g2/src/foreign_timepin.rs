@@ -23,19 +23,29 @@ pub const NEED_FINAL: u8 = 2;
 pub const NEED_AMBIGUOUS: u8 = 3;
 pub const NEED_EXPIRED: u8 = 4;
 
-pub const NEED_ACCOUNT_LEN: usize = 8 + 124;
+// 8 discriminator + TimepinNeedV2::LEN. The payload is
+// 124 (through candidate_b_hash) + 108 (the inline observation) + 36 (rent),
+// which is rcx-timepin-v2 lib.rs's own arithmetic for the same struct.
+//
+// THIS READ `8 + 124` UNTIL 2026-09-05, and 124 is not a wrong guess - it is
+// exactly the pre-inline Need, field for field. When Timepin moved the
+// observation inside the Need this view was never updated, and decode_exact
+// requires an EQUAL length, so every Core instruction that loads a Need failed
+// on chain with BadTimepinLength. Both crates compiled; both host suites passed;
+// no shot could be sealed or settled. The tests in this file FABRICATE the Need
+// from the struct below, so the fixture and the reader were the same definition
+// and agreed with each other about a shape the other program had stopped
+// writing.
+pub const NEED_ACCOUNT_LEN: usize = 8 + 268;
 pub const EVIDENCE_SPEC_ACCOUNT_LEN: usize = 8 + 254;
-pub const CANDIDATE_ACCOUNT_LEN: usize = 8 + 111;
 pub const EVIDENCE_POLICY_CANONICAL_LEN: usize = 134;
 pub const EVIDENCE_SPEC_CANONICAL_LEN: usize = 214;
 
 const NEED_DISCRIMINATOR: [u8; 8] = [0xe1, 0xf8, 0xcc, 0x82, 0x10, 0x15, 0x58, 0x6c];
 const EVIDENCE_SPEC_DISCRIMINATOR: [u8; 8] = [0x5e, 0x4c, 0x19, 0xf1, 0x27, 0x41, 0x46, 0xe4];
-const CANDIDATE_DISCRIMINATOR: [u8; 8] = [0xdc, 0xdf, 0x41, 0x08, 0xb3, 0x71, 0x5f, 0x4f];
 
 const NEED_SEED: &[u8] = b"need";
 const EVIDENCE_SPEC_SEED: &[u8] = b"evidence_spec";
-const CANDIDATE_SEED: &[u8] = b"candidate";
 const PRICE_MESSAGE_HASH_DOMAIN: &[u8] = b"rcx-timepin:pyth-price-message:v2\0";
 const EVIDENCE_POLICY_HASH_DOMAIN: &[u8] = b"rcx-timepin:evidence-policy:v2\0";
 const EVIDENCE_SPEC_HASH_DOMAIN: &[u8] = b"rcx-timepin:evidence-spec:v2-generation\0";
@@ -53,29 +63,36 @@ pub struct TimepinNeedV2View {
     pub capture_deadline_ts: i64,
     pub candidate_a_hash: [u8; 32],
     pub candidate_b_hash: [u8; 32],
+
+    // THE OBSERVATION, INLINE. It used to live in its own CandidateV2 PDA and
+    // this file used to load that account; Timepin removed it because every
+    // replacement minted a new one at 1,564,251 lamports of permanent
+    // actor-funded rent with no close path. These names and this order mirror
+    // rcx-timepin-v2 lib.rs TimepinNeedV2 exactly - borsh reads by position, so
+    // an order that merely looks right decodes garbage.
+    pub obs_price: i64,
+    pub obs_conf: u64,
+    pub obs_exponent: i32,
+    pub obs_publish_time: i64,
+    pub obs_prev_publish_time: i64,
+    pub obs_ema_price: i64,
+    pub obs_ema_conf: u64,
+    pub obs_posted_slot: u64,
+    pub obs_capture_slot: u64,
+    pub obs_capture_ts: i64,
+    pub obs_worker: Pubkey,
+
+    // Rent bookkeeping. Core never writes these and must never reason from
+    // them; they are here because they are IN the account, and a view that
+    // stops short of the end of the account cannot decode it at all.
+    pub open_refs: u32,
+    pub rent_payer: Pubkey,
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct EvidenceRecordV2View {
     pub message_hash: [u8; 32],
     pub feed_id: [u8; 32],
-    pub price: i64,
-    pub conf: u64,
-    pub exponent: i32,
-    pub publish_time: i64,
-    pub prev_publish_time: i64,
-    pub ema_price: i64,
-    pub ema_conf: u64,
-    pub posted_slot: u64,
-    pub capture_slot: u64,
-    pub capture_ts: i64,
-}
-
-#[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
-struct CandidateV2AccountView {
-    pub schema: u16,
-    pub bump: u8,
-    pub need: Pubkey,
     pub price: i64,
     pub conf: u64,
     pub exponent: i32,
@@ -242,55 +259,45 @@ fn validate_need_shape(need: &TimepinNeedV2View) -> Result<()> {
     Ok(())
 }
 
-fn load_candidate(
-    account: &AccountInfo,
-    program: &Pubkey,
-    need_key: &Pubkey,
+/// Build the evidence record from the Need's OWN inline observation.
+///
+/// This used to be `load_candidate`, and it decoded a separate CandidateV2 PDA.
+/// That account no longer exists: Timepin inlined the observation, and a grep of
+/// rcx-timepin-v2/src for `struct CandidateV2` and for a candidate seed returns
+/// nothing. Core was demanding, on every settle and every void, an account a real
+/// Timepin will never have created.
+///
+/// THE CHECKS THAT DISAPPEARED ARE ONLY THE ONES ABOUT THAT ACCOUNT - its
+/// schema, its PDA derivation, its bump, and its back-reference to the Need.
+/// They were proving that a second account belonged to this Need. There is no
+/// second account, so belonging is not a question that can be asked or needs to
+/// be: the bytes are IN the Need this function was handed.
+///
+/// EVERY CHECK ABOUT THE OBSERVATION ITSELF SURVIVES UNCHANGED, and the first
+/// one is what makes the removal safe rather than merely smaller:
+/// `price_message_hash(&record) == *message_hash` still validates the
+/// observation against `need.candidate_a_hash`, which is the hash Timepin's own
+/// finalize wrote. So Core still refuses to settle on an observation that does
+/// not hash to what the Need commits to - it simply reads that observation from
+/// the account that commits to it, instead of from an account that claimed to.
+fn record_from_need(
     message_hash: &[u8; 32],
     need: &TimepinNeedV2View,
     spec: &EvidenceSpecV2View,
 ) -> Result<EvidenceRecordV2View> {
-    let candidate: CandidateV2AccountView = decode_exact(
-        account,
-        program,
-        CANDIDATE_ACCOUNT_LEN,
-        &CANDIDATE_DISCRIMINATOR,
-    )?;
-    require!(
-        candidate.schema == TIMEPIN_SCHEMA_V2,
-        TimepinConsumerError::WrongTimepinSchema
-    );
-    let (expected, bump) = Pubkey::find_program_address(
-        &[CANDIDATE_SEED, need_key.as_ref(), message_hash.as_ref()],
-        program,
-    );
-    require_keys_eq!(
-        account.key(),
-        expected,
-        TimepinConsumerError::WrongCandidatePda
-    );
-    require!(
-        candidate.bump == bump,
-        TimepinConsumerError::WrongTimepinBump
-    );
-    require_keys_eq!(
-        candidate.need,
-        *need_key,
-        TimepinConsumerError::WrongNeedReference
-    );
     let record = EvidenceRecordV2View {
         message_hash: *message_hash,
         feed_id: spec.feed_id,
-        price: candidate.price,
-        conf: candidate.conf,
-        exponent: candidate.exponent,
-        publish_time: candidate.publish_time,
-        prev_publish_time: candidate.prev_publish_time,
-        ema_price: candidate.ema_price,
-        ema_conf: candidate.ema_conf,
-        posted_slot: candidate.posted_slot,
-        capture_slot: candidate.capture_slot,
-        capture_ts: candidate.capture_ts,
+        price: need.obs_price,
+        conf: need.obs_conf,
+        exponent: need.obs_exponent,
+        publish_time: need.obs_publish_time,
+        prev_publish_time: need.obs_prev_publish_time,
+        ema_price: need.obs_ema_price,
+        ema_conf: need.obs_ema_conf,
+        posted_slot: need.obs_posted_slot,
+        capture_slot: need.obs_capture_slot,
+        capture_ts: need.obs_capture_ts,
     };
     require!(
         price_message_hash(&record) == *message_hash,
@@ -320,9 +327,10 @@ fn load_candidate(
     Ok(record)
 }
 
+/// NOTE FOR CALLERS: this used to take a `candidate_account: &AccountInfo`
+/// between `need_account` and `program`. It is gone, with the account it read.
 pub fn authenticate_final(
     need_account: &AccountInfo,
-    candidate_account: &AccountInfo,
     program: &Pubkey,
     evidence_spec_hash: &[u8; 32],
     spec: &EvidenceSpecV2View,
@@ -336,14 +344,7 @@ pub fn authenticate_final(
             && evidence_spec_hash_from_spec(spec)? == *evidence_spec_hash,
         TimepinConsumerError::WrongEvidenceSpec
     );
-    let record = load_candidate(
-        candidate_account,
-        program,
-        &need_key,
-        &need.candidate_a_hash,
-        &need,
-        spec,
-    )?;
+    let record = record_from_need(&need.candidate_a_hash, &need, spec)?;
     Ok((
         TerminalTimepinV2View {
             terminal_kind: NEED_FINAL,
@@ -747,17 +748,15 @@ mod tests {
         data
     }
 
+    /// Builds the ONE account a settlement now reads. It used to return a
+    /// Candidate account alongside it; that account is gone from Timepin, so it
+    /// is gone from here, and the observation is built into the Need where
+    /// Timepin puts it.
     fn final_accounts(
         program: &Pubkey,
         spec: &EvidenceSpecV2View,
         target_ts: i64,
-    ) -> (
-        [u8; 32],
-        Pubkey,
-        TimepinNeedV2View,
-        Pubkey,
-        CandidateV2AccountView,
-    ) {
+    ) -> ([u8; 32], Pubkey, TimepinNeedV2View) {
         let spec_hash = evidence_spec_hash_from_spec(spec).unwrap();
         let schema = TIMEPIN_SCHEMA_V2.to_le_bytes();
         let target = target_ts.to_le_bytes();
@@ -770,10 +769,9 @@ mod tests {
             ],
             program,
         );
-        let mut candidate = CandidateV2AccountView {
-            schema: TIMEPIN_SCHEMA_V2,
-            bump: 0,
-            need: need_key,
+        let record = EvidenceRecordV2View {
+            message_hash: [0; 32],
+            feed_id: spec.feed_id,
             price: 10_000,
             conf: 10,
             exponent: -8,
@@ -785,26 +783,7 @@ mod tests {
             capture_slot: 44,
             capture_ts: target_ts + 1,
         };
-        let record = EvidenceRecordV2View {
-            message_hash: [0; 32],
-            feed_id: spec.feed_id,
-            price: candidate.price,
-            conf: candidate.conf,
-            exponent: candidate.exponent,
-            publish_time: candidate.publish_time,
-            prev_publish_time: candidate.prev_publish_time,
-            ema_price: candidate.ema_price,
-            ema_conf: candidate.ema_conf,
-            posted_slot: candidate.posted_slot,
-            capture_slot: candidate.capture_slot,
-            capture_ts: candidate.capture_ts,
-        };
         let message_hash = price_message_hash(&record);
-        let (candidate_key, candidate_bump) = Pubkey::find_program_address(
-            &[CANDIDATE_SEED, need_key.as_ref(), message_hash.as_ref()],
-            program,
-        );
-        candidate.bump = candidate_bump;
         let need = TimepinNeedV2View {
             schema: TIMEPIN_SCHEMA_V2,
             bump: need_bump,
@@ -813,10 +792,28 @@ mod tests {
             target_ts,
             source_deadline_ts: target_ts + 120,
             capture_deadline_ts: target_ts + 180,
+            // The Need COMMITS to the observation below. price_message_hash is
+            // computed over the record and stored here, exactly as Timepin's
+            // finalize does, which is why reading the observation out of this
+            // same account is not a weaker check than reading it out of a
+            // separate one - it is the account that carries the commitment.
             candidate_a_hash: message_hash,
             candidate_b_hash: [0; 32],
+            obs_price: record.price,
+            obs_conf: record.conf,
+            obs_exponent: record.exponent,
+            obs_publish_time: record.publish_time,
+            obs_prev_publish_time: record.prev_publish_time,
+            obs_ema_price: record.ema_price,
+            obs_ema_conf: record.ema_conf,
+            obs_posted_slot: record.posted_slot,
+            obs_capture_slot: record.capture_slot,
+            obs_capture_ts: record.capture_ts,
+            obs_worker: Pubkey::new_from_array([7; 32]),
+            open_refs: 0,
+            rent_payer: Pubkey::new_from_array([8; 32]),
         };
-        (spec_hash, need_key, need, candidate_key, candidate)
+        (spec_hash, need_key, need)
     }
 
     #[test]
@@ -824,8 +821,7 @@ mod tests {
         let program = Pubkey::new_from_array([9; 32]);
         let spec = spec();
         let target_ts = 1_800;
-        let (spec_hash, need_key, need, candidate_key, candidate) =
-            final_accounts(&program, &spec, target_ts);
+        let (spec_hash, need_key, need) = final_accounts(&program, &spec, target_ts);
         let schema = TIMEPIN_SCHEMA_V2.to_le_bytes();
         let (spec_key, _) = Pubkey::find_program_address(
             &[EVIDENCE_SPEC_SEED, schema.as_ref(), spec_hash.as_ref()],
@@ -851,10 +847,11 @@ mod tests {
         assert_eq!(loaded_spec, spec);
 
         let mut need_data = encode(&NEED_DISCRIMINATOR, &need, NEED_ACCOUNT_LEN);
-        let mut candidate_data =
-            encode(&CANDIDATE_DISCRIMINATOR, &candidate, CANDIDATE_ACCOUNT_LEN);
+        // ONE ACCOUNT. This test used to build a second, and encode() asserts the
+        // encoded length equals NEED_ACCOUNT_LEN - which is how a fabricated
+        // fixture stays self-consistent while disagreeing with the program that
+        // actually writes the account.
         let mut need_lamports = 1;
-        let mut candidate_lamports = 1;
         let need_info = AccountInfo::new(
             &need_key,
             false,
@@ -864,18 +861,8 @@ mod tests {
             &program,
             false,
         );
-        let candidate_info = AccountInfo::new(
-            &candidate_key,
-            false,
-            false,
-            &mut candidate_lamports,
-            &mut candidate_data,
-            &program,
-            false,
-        );
         let (terminal, record) = authenticate_final(
             &need_info,
-            &candidate_info,
             &program,
             &spec_hash,
             &loaded_spec,
@@ -973,90 +960,46 @@ mod tests {
     }
 
     #[test]
-    fn wrong_need_spec_candidate_state_and_hash_are_rejected() {
+    fn wrong_need_spec_state_and_a_tampered_observation_are_rejected() {
         let program = Pubkey::new_from_array([9; 32]);
         let spec = spec();
         let target_ts = 1_800;
-        let (spec_hash, need_key, need, candidate_key, candidate) =
-            final_accounts(&program, &spec, target_ts);
+        let (spec_hash, need_key, need) = final_accounts(&program, &spec, target_ts);
 
-        let mut need_data = encode(&NEED_DISCRIMINATOR, &need, NEED_ACCOUNT_LEN);
-        let mut need_lamports = 1;
-        let wrong_need_key = Pubkey::new_unique();
-        let wrong_candidate_key = Pubkey::new_unique();
-        let wrong_need_info = AccountInfo::new(
-            &wrong_need_key,
-            false,
-            false,
-            &mut need_lamports,
-            &mut need_data,
-            &program,
-            false,
-        );
-        assert!(load_need(&wrong_need_info, &program, &spec_hash, target_ts).is_err());
+        let account = |key: &Pubkey, data: &mut Vec<u8>, lamports: &mut u64| {
+            AccountInfo::new(key, false, false, lamports, data, &program, false)
+        };
 
-        let mut need_data = encode(&NEED_DISCRIMINATOR, &need, NEED_ACCOUNT_LEN);
-        let mut candidate_data =
-            encode(&CANDIDATE_DISCRIMINATOR, &candidate, CANDIDATE_ACCOUNT_LEN);
-        let mut need_lamports = 1;
-        let mut candidate_lamports = 1;
-        let need_info = AccountInfo::new(
-            &need_key,
-            false,
-            false,
-            &mut need_lamports,
-            &mut need_data,
-            &program,
-            false,
-        );
-        let wrong_candidate_info = AccountInfo::new(
-            &wrong_candidate_key,
-            false,
-            false,
-            &mut candidate_lamports,
-            &mut candidate_data,
-            &program,
-            false,
-        );
-        assert!(authenticate_final(
-            &need_info,
-            &wrong_candidate_info,
+        // 1. A Need at the wrong address is refused, however well-formed.
+        let mut data = encode(&NEED_DISCRIMINATOR, &need, NEED_ACCOUNT_LEN);
+        let mut lamports = 1;
+        let wrong_key = Pubkey::new_unique();
+        assert!(load_need(
+            &account(&wrong_key, &mut data, &mut lamports),
             &program,
             &spec_hash,
-            &spec,
             target_ts
         )
         .is_err());
-        assert!(load_need(&need_info, &program, &[0x77; 32], target_ts).is_err());
 
-        let mut wrong_state = need;
-        wrong_state.state = NEED_CANDIDATE;
-        let mut wrong_state_data = encode(&NEED_DISCRIMINATOR, &wrong_state, NEED_ACCOUNT_LEN);
-        let mut candidate_data =
-            encode(&CANDIDATE_DISCRIMINATOR, &candidate, CANDIDATE_ACCOUNT_LEN);
-        let mut wrong_state_lamports = 1;
-        let mut candidate_lamports = 1;
-        let wrong_state_info = AccountInfo::new(
-            &need_key,
-            false,
-            false,
-            &mut wrong_state_lamports,
-            &mut wrong_state_data,
+        // 2. The right Need under the wrong spec hash is refused.
+        let mut data = encode(&NEED_DISCRIMINATOR, &need, NEED_ACCOUNT_LEN);
+        let mut lamports = 1;
+        assert!(load_need(
+            &account(&need_key, &mut data, &mut lamports),
             &program,
-            false,
-        );
-        let candidate_info = AccountInfo::new(
-            &candidate_key,
-            false,
-            false,
-            &mut candidate_lamports,
-            &mut candidate_data,
-            &program,
-            false,
-        );
+            &[0x77; 32],
+            target_ts
+        )
+        .is_err());
+
+        // 3. A Need that is not FINAL cannot settle.
+        let mut not_final = need;
+        not_final.state = NEED_CANDIDATE;
+        let mut data = encode(&NEED_DISCRIMINATOR, &not_final, NEED_ACCOUNT_LEN);
+        let mut lamports = 1;
         assert!(authenticate_final(
-            &wrong_state_info,
-            &candidate_info,
+            &account(&need_key, &mut data, &mut lamports),
             &program,
             &spec_hash,
             &spec,
@@ -1064,42 +1007,61 @@ mod tests {
         )
         .is_err());
 
-        let mut tampered_candidate = candidate;
-        tampered_candidate.price += 1;
-        let mut need_data = encode(&NEED_DISCRIMINATOR, &need, NEED_ACCOUNT_LEN);
-        let mut tampered_data = encode(
-            &CANDIDATE_DISCRIMINATOR,
-            &tampered_candidate,
-            CANDIDATE_ACCOUNT_LEN,
-        );
-        let mut need_lamports = 1;
-        let mut candidate_lamports = 1;
-        let need_info = AccountInfo::new(
-            &need_key,
-            false,
-            false,
-            &mut need_lamports,
-            &mut need_data,
-            &program,
-            false,
-        );
-        let tampered_info = AccountInfo::new(
-            &candidate_key,
-            false,
-            false,
-            &mut candidate_lamports,
-            &mut tampered_data,
-            &program,
-            false,
-        );
+        // 4. AND THE CASE THAT USED TO NEED A SECOND ACCOUNT. This was "a
+        //    tampered CandidateV2 is rejected": the price was changed in a
+        //    separate account and the message hash no longer matched. There is no
+        //    separate account now, so the tamper happens where the bytes actually
+        //    live - INSIDE the Need - and it is caught by the same check,
+        //    price_message_hash(&record) == need.candidate_a_hash. The property
+        //    did not weaken when the account disappeared; it moved to the account
+        //    that carries the commitment.
+        let mut tampered = need;
+        tampered.obs_price += 1;
+        let mut data = encode(&NEED_DISCRIMINATOR, &tampered, NEED_ACCOUNT_LEN);
+        let mut lamports = 1;
         assert!(authenticate_final(
-            &need_info,
-            &tampered_info,
+            &account(&need_key, &mut data, &mut lamports),
             &program,
             &spec_hash,
             &spec,
             target_ts
         )
         .is_err());
+
+        // Every other observation field is covered by the same commitment, and a
+        // check that only ever tested one of them would be a check about `price`.
+        for tamper in [
+            |n: &mut TimepinNeedV2View| n.obs_conf += 1,
+            |n: &mut TimepinNeedV2View| n.obs_publish_time += 1,
+            |n: &mut TimepinNeedV2View| n.obs_prev_publish_time -= 1,
+            |n: &mut TimepinNeedV2View| n.obs_ema_price += 1,
+            |n: &mut TimepinNeedV2View| n.obs_capture_slot += 1,
+        ] {
+            let mut broken = need;
+            tamper(&mut broken);
+            let mut data = encode(&NEED_DISCRIMINATOR, &broken, NEED_ACCOUNT_LEN);
+            let mut lamports = 1;
+            assert!(authenticate_final(
+                &account(&need_key, &mut data, &mut lamports),
+                &program,
+                &spec_hash,
+                &spec,
+                target_ts
+            )
+            .is_err());
+        }
+
+        // The unmodified Need still settles, so the assertions above are about
+        // the tampering and not about the fixture being broken all along.
+        let mut data = encode(&NEED_DISCRIMINATOR, &need, NEED_ACCOUNT_LEN);
+        let mut lamports = 1;
+        assert!(authenticate_final(
+            &account(&need_key, &mut data, &mut lamports),
+            &program,
+            &spec_hash,
+            &spec,
+            target_ts
+        )
+        .is_ok());
     }
 }
