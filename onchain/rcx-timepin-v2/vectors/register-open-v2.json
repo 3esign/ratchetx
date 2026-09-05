@@ -54,7 +54,7 @@
       "minOpenLeadSeconds": 30,
       "maxTargetAheadSeconds": 3600,
       "maxPreTargetGapSeconds": 120,
-      "maxPostTargetLagSeconds": 120,
+      "maxPostTargetLagSeconds": 59,
       "captureGraceSeconds": 60,
       "maxFutureSkewSeconds": 5,
       "minExponent": -12,

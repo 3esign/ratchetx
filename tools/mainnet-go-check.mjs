@@ -123,9 +123,19 @@ check('B1', 'the built artifacts are NEWER THAN THE SOURCE and carry the right i
 }, 'build owner');
 
 check('B2', 'the golden vectors re-pin to the current source', () => {
+  // B2 DEPENDS ON B1 and the dependency is not obvious: generate-vectors.mjs
+  // requires --sbf <immutable hash-addressed artifact>, and repin refuses to pair
+  // new-id PDAs with an old-id artifact. So vectors cannot be regenerated before
+  // the build; they can only be regenerated FROM it. Measured 2026-09-05 14:05Z
+  // by trying it.
   const r = spawnSync('node', ['tools/repin-timepin-vectors.mjs', '--check'], { encoding: 'utf8', timeout: 120000 });
-  return { ok: r.status === 0, detail: r.status === 0 ? 'repin --check PASS' : 'repin --check FAILED' };
-}, 'Opus A');
+  if (r.status === 0) return { ok: true, detail: 'repin --check PASS' };
+  const b1Pending = results.find(x => x.id === 'B1' && x.state !== 'GO');
+  return { ok: false, pending: true,
+           detail: b1Pending
+             ? 'repin --check FAILS, and it cannot pass before B1: vectors are regenerated FROM the artifact, not before it'
+             : 'repin --check FAILED with a fresh artifact available - this one is a real defect' };
+}, 'build owner, then Opus A');
 
 check('B3', 'the release safety gate is green', () => {
   const r = spawnSync('node', ['scripts/check-release-safety.mjs'], { encoding: 'utf8', timeout: 120000 });
