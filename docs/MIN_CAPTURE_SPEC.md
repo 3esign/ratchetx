@@ -114,8 +114,17 @@ Consequences to carry through, all of them:
   This makes `foreign_timepin.rs` **smaller**, not bigger.
 - `prev_publish_time` is still stored (it is part of the signed message and of
   `price_message_hash`), it is simply no longer part of the predicate.
-- Need rent rises by roughly 0.0008 SOL; each avoided candidate account saves 0.00156 SOL. Net cost
-  per shot goes down, and the unbounded case goes away entirely.
+- **Rent, measured 2026-09-05, not estimated.** Codex's two figures (CandidateV2 1,564,251 lamports
+  at 119 bytes; Need 1,646,580 at 132) imply one constant — 6,333 lamports per `(128 + data_len)`
+  unit — and that constant reproduces *both* of his measurements exactly, which is why it is trusted
+  here. Applying it: the Need at 240 bytes costs 2,330,544, an increase of **683,964**; removing
+  `CandidateV2` saves **1,564,251**. **Net saving per Need with one observation: 880,287 lamports
+  (~0.00088 SOL cheaper than today).** Every additional capture costs another 1,564,251 permanently
+  under the old shape and nothing under this one — cheaper at one observation, unboundedly cheaper
+  at two.
+- **The layout change is pinned and will not land silently.** Prototyped in the cloud: it compiles,
+  and exactly two tests fail — `subject_account_size` (`lifecycle.rs:549`, `8 + TimepinNeedV2::LEN`)
+  and the frozen-length assertion, both with `left: 240 right: 132`. Update both deliberately.
 - Every vector, every `model.mjs` decoder, `client-v2.mjs`, and `docs/CORE_G2_LAYOUT.md` change with
   it. Opus B owns the JS side and moves in lockstep; land them in one commit.
 
