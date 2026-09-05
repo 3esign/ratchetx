@@ -1,0 +1,198 @@
+{
+  "schema": 1,
+  "status": "DRAFT - drafted by GEMINI2 based on Semir parameters",
+  "author": "Fable 2026-09-05",
+  "cluster": {
+    "name": "mainnet-beta",
+    "genesisHash": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
+  },
+  "programs": {
+    "core": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+    "timepin": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp"
+  },
+  "economy": {
+    "schema": 2,
+    "timepinProgram": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+    "timepinSchema": 2,
+    "clusterGenesisHash": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+    "migrationId": "ratchetx-g2-mainnet-2026-09-fresh-start",
+    "legacyRoot": "0000000000000000000000000000000000000000000000000000000000000000",
+    "legacySnapshotHash": "0000000000000000000000000000000000000000000000000000000000000000",
+    "legacyCutoverSlot": "0",
+    "legacyLeafCount": 0,
+    "legacyTotalCredits": "0",
+    "legacyTotalXp": "0",
+    "rulesetPolicyRoot": {
+      "tag": "derived",
+      "from": "rulesets[]"
+    },
+    "rulesetPolicyCount": 49,
+    "rcxMint": "FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump",
+    "rcxTokenProgram": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "rcxDecimals": 6,
+    "rawUnitsPerCredit": "1000000",
+    "burnPerMille": 700,
+    "podiumPerMille": 300,
+    "podiumCurve": [
+      500,
+      300,
+      200
+    ],
+    "rankShardCount": 16,
+    "daySeconds": 86400,
+    "hitPayoutNumerator": "17",
+    "hitPayoutDenominator": "10",
+    "settleXp": "1",
+    "minStake": "100",
+    "maxStake": "1000000000",
+    "maxOpen": 5,
+    "cleanupBondLamports": "50000",
+    "revealWindowSeconds": 3600,
+    "maxHorizonSeconds": 86400
+  },
+  "rulesetTemplate": {
+    "schema": 2,
+    "entryMode": 2,
+    "targetGridSeconds": 60,
+    "minOpenLeadSeconds": 30,
+    "maxEntryAgeSeconds": 0,
+    "bandNumerator": 0,
+    "bandDenominator": 1,
+    "horizons": [
+      {
+        "minutes": 5,
+        "horizonSeconds": 300,
+        "baseXp": "10"
+      },
+      {
+        "minutes": 10,
+        "horizonSeconds": 600,
+        "baseXp": "11"
+      },
+      {
+        "minutes": 15,
+        "horizonSeconds": 900,
+        "baseXp": "12"
+      },
+      {
+        "minutes": 30,
+        "horizonSeconds": 1800,
+        "baseXp": "14"
+      },
+      {
+        "minutes": 60,
+        "horizonSeconds": 3600,
+        "baseXp": "16"
+      },
+      {
+        "minutes": 360,
+        "horizonSeconds": 21600,
+        "baseXp": "20"
+      },
+      {
+        "minutes": 1440,
+        "horizonSeconds": 86400,
+        "baseXp": "24"
+      }
+    ]
+  },
+  "evidenceSpecTemplate": {
+    "schema": 2,
+    "adapter": 3,
+    "receiverProgram": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+    "pushOracleProgram": "pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou",
+    "shardId": 0,
+    "requiredVerification": 1,
+    "targetGridSeconds": 60,
+    "minOpenLeadSeconds": 30,
+    "maxTargetAheadSeconds": 90000,
+    "maxPreTargetGapSeconds": 1,
+    "challengeWindowSeconds": 900,
+    "maxFutureSkewSeconds": 30,
+    "minExponent": -12,
+    "maxExponent": 2,
+    "maxConfidenceBps": 200,
+    "generationPins": {
+      "tag": "derived",
+      "from": "finalized readback of rec2 ProgramData slot, receiver config, wormhole program + ProgramData slot; two RPCs must agree"
+    }
+  },
+  "feeds": [
+    {
+      "symbol": "SOL",
+      "sponsoredAccount": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+      "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+      "maxPostTargetLagSeconds": {
+        "tag": "M",
+        "proposed": 30,
+        "measured": "first print +2..3 s over 300 msgs, 25 min, 2026-09-05"
+      }
+    },
+    {
+      "symbol": "BTC",
+      "sponsoredAccount": "APgzQGGdv2qCgBkX6aHVkrGePtBVDDg68GiqaM7rmtf5",
+      "feedId": "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
+      "maxPostTargetLagSeconds": {
+        "tag": "M",
+        "proposed": 30,
+        "measured": "first print +2..3 s over 300 msgs"
+      }
+    },
+    {
+      "symbol": "ETH",
+      "sponsoredAccount": "7odryi4WfoMFHtv2eubdMgP1pqQMmdiXSK1N2tqZ2nRH",
+      "feedId": "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
+      "maxPostTargetLagSeconds": {
+        "tag": "M",
+        "proposed": 120,
+        "measured": "pushes every 52-54 s, first print +2..51 s over 31 msgs"
+      }
+    },
+    {
+      "symbol": "BONK",
+      "sponsoredAccount": "3nMpgBXnjBSDYupQQEVR7DZM65zkJCdKy1Up7nkqp99w",
+      "feedId": "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419",
+      "maxPostTargetLagSeconds": {
+        "tag": "M",
+        "proposed": 120,
+        "measured": "~45 s cadence in Sol's 555 s sample (13 states) — confirm with 24 h run"
+      }
+    },
+    {
+      "symbol": "PUMP",
+      "sponsoredAccount": "4KL8nVtrXmLjbbHtrDz5YCHNqmii62oHfr9bsUtx1bgi",
+      "feedId": "7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9",
+      "maxPostTargetLagSeconds": {
+        "tag": "M",
+        "proposed": 120,
+        "measured": "~45 s cadence (12 states / 555 s) — confirm"
+      }
+    },
+    {
+      "symbol": "JUP",
+      "sponsoredAccount": "EitcZS5LtbR4EyNhCSy56vvUHPhsifSfWFG5gwSkjNpV",
+      "feedId": "0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996",
+      "maxPostTargetLagSeconds": {
+        "tag": "M",
+        "proposed": 120,
+        "measured": "~45 s cadence (13 states / 555 s) — confirm"
+      }
+    },
+    {
+      "symbol": "WIF",
+      "sponsoredAccount": "9Sn9FVu6WpufA8yZFSRuxYyFgpBrhc5PpTgB3mq2DcsG",
+      "feedId": "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc",
+      "maxPostTargetLagSeconds": {
+        "tag": "M",
+        "proposed": 120,
+        "measured": "~45 s cadence (12 states / 555 s) — confirm"
+      }
+    }
+  ],
+  "procedure": [
+    "Semir edits every D row and records the file sha256 in BRIDGE_LOG",
+    "model.mjs derives economy_hash, 49 ruleset hashes, 7 evidence spec hashes from this file and pins them as golden vectors",
+    "tools/permanence-release.mjs --dry-run reproduces the same hashes and refuses any manifest that differs",
+    "registration transactions are built from this file, never typed"
+  ]
+}
