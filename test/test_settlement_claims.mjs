@@ -60,8 +60,27 @@ test('no document says that never settling gives the same number', () => {
 // "Trustless" is a strong word and it is not earned by fabrication-resistance
 // plus open access. Where a document uses it about settlement, the liveness
 // assumption has to be somewhere on the same page.
+//
+// "About settlement" was the stated intent from the first line of this comment
+// and was never actually checked: any affirmative "trustless" anywhere, about
+// anything, demanded liveness text on the page. On 2026-09-05, when 0.5 tracked
+// the 120 files of docs/reviews/, that fired on
+// docs/reviews/svemir-2026-09-05/serveroff-review.md, where the word is about
+// P10 authority removal -- "immutable/trustless completion additionally needs
+// separately approved staged P10 authority removal" -- and not about which
+// price settles a shot. Measured over the whole repository before narrowing:
+// ten files carry an affirmative "trustless"; three of them are about
+// settlement and all three already name the liveness assumption; the six other
+// off-topic ones pass only because some unrelated sentence happens to contain a
+// matching word. Requiring settlement context therefore changes the verdict for
+// exactly one file, the false positive, and leaves every real settlement claim
+// checked. A test broader than its own stated rule is a test that gets turned
+// off, which is the one outcome this file cannot afford.
 test('every page that calls settlement trustless also names the liveness assumption', () => {
   const LIVENESS = /(liveness|voids and refunds|void and refund|refunds instead|declin|withhold|nobody (records|cranks|posts)|does not make (anyone|anybody|somebody|one) post)/i;
+  // The claim has to be about the thing this file is about. The window is the
+  // same 160 characters either side that the affirmative test already reads.
+  const ABOUT_SETTLEMENT = /settl|exit price|entry price|which price|crank|oracle|pyth|referee|price is not a choice/i;
   const bad = [];
   for (const [path, text] of files) {
     if (!/\.(md|html)$/.test(path)) continue;
@@ -78,6 +97,7 @@ test('every page that calls settlement trustless also names the liveness assumpt
       const before = flat.slice(Math.max(0, m.index - 120), m.index);
       if (NEGATED.test(before)) continue;
       if (/is an engineering claim|Do not describe/i.test(flat.slice(Math.max(0, m.index - 80), m.index + 80))) continue;
+      if (!ABOUT_SETTLEMENT.test(flat.slice(Math.max(0, m.index - 160), m.index + 160))) continue;
       affirmative = true;
       break;
     }

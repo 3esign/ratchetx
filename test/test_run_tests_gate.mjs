@@ -10,7 +10,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { verdictFor, gateExit, tapCount } from '../scripts/suite-verdict.mjs';
+import os from 'node:os';
+import path from 'node:path';
+import { spawn } from 'node:child_process';
+import { verdictFor, gateExit, tapCount, runSuite } from '../scripts/suite-verdict.mjs';
 
 const tap = ({ tests = 1, pass = 1, fail = 0, skipped = 0, todo = 0 }) =>
   `TAP version 13\n1..${tests}\n# tests ${tests}\n# suites 0\n# pass ${pass}\n` +
@@ -61,4 +64,74 @@ test('DEPLOY.cmd never accepts the gap on the release path', () => {
   assert.ok(/npm test/.test(deploy), 'DEPLOY.cmd must still run the full release gate');
   assert.ok(!/RATCHET_ALLOW_SKIPS/.test(deploy),
     'DEPLOY.cmd must never set RATCHET_ALLOW_SKIPS: a release may not ship on suites that did not run');
+});
+
+// A gate that never returns is not a gate. On 2026-09-05 a full run sat past
+// test_settle.mjs for over ten minutes and never came back, with DEPLOY.cmd
+// waiting on that very command and no output naming the file. Driven against a
+// real sleeping child so the kill path itself is exercised, not just the label.
+test('a suite that will not finish is killed and named, not waited on', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ratchetx-hang-'));
+  const file = path.join(dir, 'test_sleeper.mjs');
+  fs.writeFileSync(file, 'setInterval(() => {}, 1000); console.log("started and never ends");\n');
+  const started = Date.now();
+  const r = await runSuite(file, { execPath: process.execPath, cwd: dir, timeoutMs: 400, spawn });
+  const elapsed = Date.now() - started;
+  fs.rmSync(dir, { recursive: true });
+  assert.equal(r.timedOut, true);
+  assert.equal(verdictFor(r).status, 'hung');
+  assert.ok(/killed after 400 ms/.test(r.out), 'the output says why it stopped');
+  assert.ok(elapsed < 10_000, `the runner returned in ${elapsed} ms instead of waiting forever`);
+});
+
+test('a suite that finishes in time is not called hung', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ratchetx-quick-'));
+  const file = path.join(dir, 'test_quick.mjs');
+  fs.writeFileSync(file, 'console.log("done");\n');
+  const r = await runSuite(file, { execPath: process.execPath, cwd: dir, timeoutMs: 30_000, spawn });
+  fs.rmSync(dir, { recursive: true });
+  assert.equal(r.timedOut, false);
+  assert.equal(r.code, 0);
+  assert.equal(verdictFor(r).status, 'pass');
+});
+
+test('a hang outranks every other reading of the same run', () => {
+  // Killed mid-suite, the child may still have printed a clean-looking TAP tail.
+  const out = 'TAP version 13\n# tests 3\n# pass 3\n# fail 0\n# skipped 0\n# todo 0\n';
+  assert.equal(verdictFor({ code: 0, out, timedOut: true }).status, 'hung');
+  assert.equal(verdictFor({ code: null, out: '', timedOut: true }).status, 'hung');
+});
+
+// The timeout must not become the hang. SIGKILL is not prompt against a process
+// blocked in uninterruptible I/O -- measured on the network-backed mount this
+// repository is worked through, where one repo-walking suite spent 26.9 s of
+// wall time against 0.5 s of user time -- and a runner that kills and then waits
+// for the `close` it asked for waits forever. Driven with a child whose kill
+// lands on nothing, exactly as it would against an unfinished read.
+test('a child that will not die still does not stall the run', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'ratchetx-unkillable-'));
+  const file = path.join(dir, 'deaf.mjs');
+  fs.writeFileSync(file, 'setInterval(() => {}, 1000);\n');
+  let child = null;
+  const started = Date.now();
+  const r = await runSuite(file, {
+    execPath: process.execPath, cwd: dir, timeoutMs: 300, graceMs: 200,
+    spawn: (cmd, args, opts) => {
+      child = spawn(cmd, args, opts);
+      child.kill = () => {};   // the kill lands on nothing
+      return child;
+    },
+  });
+  const elapsed = Date.now() - started;
+  // The runner is free of it; this test still has to bury its own child, or the
+  // orphan's pipes keep THIS process alive and the demonstration becomes the bug.
+  try { process.kill(child.pid, 'SIGKILL'); } catch {}
+  child.stdout?.destroy();
+  child.stderr?.destroy();
+  child.unref?.();
+  try { fs.rmSync(dir, { recursive: true, force: true }); } catch {}
+  assert.equal(r.timedOut, true);
+  assert.equal(verdictFor(r).status, 'hung');
+  assert.ok(/still had not exited/.test(r.out), 'the output says the kill did not take');
+  assert.ok(elapsed < 10_000, `the runner returned in ${elapsed} ms instead of waiting on a child that cannot die`);
 });

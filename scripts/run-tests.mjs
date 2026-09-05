@@ -9,7 +9,7 @@ import { readdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { verdictFor, gateExit } from './suite-verdict.mjs';
+import { verdictFor, gateExit, runSuite } from './suite-verdict.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = join(root, 'test');
@@ -111,12 +111,13 @@ try {
 }
 
 const files = readdirSync(dir).filter(f => /^test_.*\.mjs$/.test(f)).sort();
-const run = f => new Promise(res => {
-  const p = spawn(process.execPath, [join(dir, f)], { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
-  let out = '';
-  p.stdout.on('data', d => out += d);
-  p.stderr.on('data', d => out += d);
-  p.on('close', code => res({ f, code, out }));
+// No suite gets to run forever. DEPLOY.cmd waits on `npm test`, so one suite
+// blocked on a socket that will never answer used to hang the release gate
+// itself, with no output naming the file. Two minutes is generous for
+// everything here; RATCHET_SUITE_TIMEOUT_MS raises it for a slow machine.
+const SUITE_TIMEOUT_MS = Number(process.env.RATCHET_SUITE_TIMEOUT_MS) || 120_000;
+const run = f => runSuite(join(dir, f), {
+  execPath: process.execPath, cwd: dir, timeoutMs: SUITE_TIMEOUT_MS, spawn,
 });
 
 // A suite that exits 0 is not the same as a suite that proved something, and the
@@ -146,9 +147,17 @@ for (const f of files) {
     skipped++;
     continue;
   }
+  const started = Date.now();
   const r = await run(f);
+  const took = Date.now() - started;
+  // A slow suite and a stuck one look identical from outside, and looking stuck
+  // is what makes somebody kill a release gate that was still working.
+  const slow = took >= 5000 ? `  (${(took / 1000).toFixed(1)} s)` : '';
   const v = verdictFor(r);
-  if (v.status === 'fail') {
+  if (v.status === 'hung') {
+    failed++;
+    console.log(`HUNG  ${f.padEnd(28)} (killed after ${SUITE_TIMEOUT_MS} ms; it never finished)`);
+  } else if (v.status === 'fail') {
     failed++;
     console.log(`FAIL  ${f}\n${r.out.split('\n').slice(-25).join('\n')}`);
   } else if (v.status === 'empty') {
@@ -156,8 +165,8 @@ for (const f of files) {
     console.log(`EMPTY ${f.padEnd(28)} (exited 0 with ${v.cases} case(s) and 0 assertions passed)`);
   } else if (v.status === 'dark') {
     skipped++;
-    console.log(`ok*   ${f.padEnd(28)} (${v.dark} case(s) skipped inside the suite; see its TAP output)`);
-  } else console.log(`ok    ${f}`);
+    console.log(`ok*   ${f.padEnd(28)} (${v.dark} case(s) skipped inside the suite; see its TAP output)${slow}`);
+  } else console.log(`ok    ${f}${slow}`);
 }
 console.log(`\n${files.length - failed - skipped} passed · ${failed} failed · ${skipped} skipped`);
 if (servedBy) servedBy.close();

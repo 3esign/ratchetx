@@ -17,7 +17,13 @@ import fs from 'node:fs';
 const CORE = 'onchain/ratchet-core-g2/programs/ratchet-core-g2/src/';
 const TIMEPIN = 'onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/';
 
-const read = f => fs.readFileSync(f, 'utf8');
+// Anchored to this file, not to the caller's directory. `npm test` runs every
+// suite with cwd=test/, where these repository-relative paths resolved to
+// test/onchain/... and this suite died on ENOENT before its first assertion --
+// so it passed only when a person ran it by hand from the repository root, which
+// is the one place the release gate never runs it from. Measured 2026-09-05:
+// exit 0 from the root, exit 1 from test/.
+const read = f => fs.readFileSync(new URL('../' + f, import.meta.url), 'utf8');
 const num = (src, re, what) => {
   const m = src.match(re);
   assert.ok(m, `could not read ${what} from source`);

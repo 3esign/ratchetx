@@ -22,7 +22,15 @@ const { sizes, consts } = accountSizes(rust);
   checks++; assert.equal(rentExempt(0), 128 * 3480 * 2,
     'an empty account still pays for its 128 bytes of metadata');
 
-  for (const name of ['Shot', 'PlayerLedger', 'Podium', 'FeedClock', 'LegacyClaim', 'CrankPurse'])
+  // CrankPurse was added by `c42baf8` and REVERTED by `70de57e`, which touched
+  // only lib.rs -- this list, added separately in `95391fb`, kept demanding a
+  // struct the revert had deliberately removed, so the release gate has been
+  // red on a design decision that was already taken. The decision register says
+  // so in as many words (docs/PERMANENCE_EXECUTION_PLAN.md:1083: "Historical
+  // c42baf8 CrankPurse is rejected and reverted by 70de57e"). This completes
+  // that revert rather than reopening it. Anything reinstating a purse must add
+  // the name back here in the same commit as the Rust.
+  for (const name of ['Shot', 'PlayerLedger', 'Podium', 'FeedClock', 'LegacyClaim'])
     { checks++; assert.ok(sizes[name], name + ' must be found in lib.rs'); }
 
   // The discriminator is not decoration: Anchor's `space = 8 + X::SIZE` is what

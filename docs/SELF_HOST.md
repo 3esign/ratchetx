@@ -57,6 +57,8 @@ production. Environment:
 | `KV_REST_API_URL/TOKEN`, `UPSTASH_REDIS_*` | legacy KV fallbacks — not needed on Supabase |
 | `RATCHET_CAPTURE_SECRET`, `RATCHET_LP_BURN_TX`, `CREDIT_PER_TOKEN` | ops extras; safe to omit |
 | `RATCHET_ALLOW_SKIPS`, `RATCHET_DEPLOY_DIRTY` | release-gate escape hatches, both unset everywhere in this repository and both meant to stay that way. `RATCHET_ALLOW_SKIPS=1` accepts a run in which some suites never executed; `RATCHET_DEPLOY_DIRTY=1` accepts publishing a working tree whose bytes exist in no commit. Either one turns a green gate into a claim about less than it looks like. |
+| `RATCHET_MIGRATION_ID` | stamped into the obligations snapshot manifest by `tools/live_snapshot.mjs` so the frozen balances name the migration they belong to. Unset, the manifest records `null` and the run says so — a snapshot that does not know which migration it is for cannot be checked against one later. The value itself is a decision, not a default. |
+| `RATCHET_SUITE_TIMEOUT_MS` | how long one test suite may run before the runner kills it and fails the gate by name (default 120000). A suite that hangs used to hang `npm test`, and `DEPLOY.cmd` waits on that command. Raise it on a slow machine; never raise it to make a hang go away. |
 | `RATCHET_LAYOUT_SERVER`, `RATCHET_MAX_SHARD` | test and ops knobs read by `scripts/`: point the browser suites at a fixture server you already run instead of the one the runner starts, and cap the shard range the equity-feed check walks. |
 
 Then `npm test` — the full suite runs against your instance's handlers with a
