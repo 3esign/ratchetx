@@ -22,9 +22,14 @@ export const ACCOUNT_SIZE = Object.freeze({
   Ruleset: 206,
   PlayerLedger: 285,
   EvidenceSpecV2: 262,
-  TimepinNeedV2: 132,
-  HistoryPageMin: 87,
-  HistoryPageMax: 2_743,
+  // 8 + TimepinNeedV2::LEN. This said 132 - the PRE-INLINE Need, from before
+  // Timepin moved the observation into the account - so the client could not
+  // decode a single real Need. Same stale number, same day, as
+  // foreign_timepin.rs NEED_ACCOUNT_LEN.
+  TimepinNeedV2: 276,
+  // M3: the page is a FIXED size, so there is no Min and no Max. It was
+  // 87..2_743, which is the growing Vec-of-rows form the program no longer has.
+  HistoryPage: 118,
 });
 
 export const INSTRUCTION_DISCRIMINATOR = Object.freeze({
@@ -208,6 +213,7 @@ export function createCoreG2Client({
     i8() { const bytes = this.take(1); return new DataView(bytes.buffer, bytes.byteOffset, 1).getInt8(0); }
     u16() { const b = this.take(2); return new DataView(b.buffer, b.byteOffset, 2).getUint16(0, true); }
     u32() { const b = this.take(4); return new DataView(b.buffer, b.byteOffset, 4).getUint32(0, true); }
+    i32() { const b = this.take(4); return new DataView(b.buffer, b.byteOffset, 4).getInt32(0, true); }
     u64() { const b = this.take(8); return new DataView(b.buffer, b.byteOffset, 8).getBigUint64(0, true); }
     i64() { const b = this.take(8); return new DataView(b.buffer, b.byteOffset, 8).getBigInt64(0, true); }
     u128() {
@@ -431,6 +437,16 @@ export function createCoreG2Client({
       evidenceSpecHash: r.bytes32(), targetTs: r.i64(),
       sourceDeadlineTs: r.i64(), captureDeadlineTs: r.i64(),
       candidateAHash: r.bytes32(), candidateBHash: r.bytes32(),
+      // THE OBSERVATION, INLINE. This decoder stopped at candidateBHash and
+      // called r.done(), which asserts every byte was consumed - so on a real
+      // 276-byte Need it threw. Order mirrors rcx-timepin-v2 TimepinNeedV2
+      // exactly; borsh is positional.
+      obsPrice: r.i64(), obsConf: r.u64(), obsExponent: r.i32(),
+      obsPublishTime: r.i64(), obsPrevPublishTime: r.i64(),
+      obsEmaPrice: r.i64(), obsEmaConf: r.u64(),
+      obsPostedSlot: r.u64(), obsCaptureSlot: r.u64(), obsCaptureTs: r.i64(),
+      obsWorker: r.key(),
+      openRefs: r.u32(), rentPayer: r.key(),
     };
     r.done();
     return value;
@@ -456,27 +472,25 @@ export function createCoreG2Client({
   };
 
   const decodeHistoryPage = data => {
-    const r = new Reader(data, 'HistoryPage');
-    if (r.data.length < ACCOUNT_SIZE.HistoryPageMin ||
-        r.data.length > ACCOUNT_SIZE.HistoryPageMax)
-      throw new RangeError('HistoryPage account size out of range');
+    // M3: a fixed-size commitment, not a container of rows. This used to walk a
+    // Vec of Option<ShotResult> and count the Some tags; there are no rows to
+    // walk. The rows live in the ShotArchived events, and resultsRoot is what
+    // proves the ones a reader has were not altered.
+    const r = new Reader(data, 'HistoryPage', ACCOUNT_SIZE.HistoryPage);
     const value = {
       schema: r.u16(), bump: r.u8(), economyHash: r.bytes32(),
-      player: r.key(), pageIndex: r.u64(), slotCount: r.u32(),
-      terminalCount: 0,
+      player: r.key(), pageIndex: r.u64(),
+      pendingCount: r.u8(), terminalMask: r.u16(), resultsRoot: r.bytes32(),
     };
-    if (value.slotCount > HISTORY_PAGE_CAP)
-      throw new RangeError('HistoryPage has too many slots');
-    for (let index = 0; index < value.slotCount; index++) {
-      const option = r.u8();
-      if (option === 1) {
-        value.terminalCount++;
-        r.take(165);
-      } else if (option !== 0) {
-        throw new TypeError('HistoryPage has an invalid Option tag');
-      }
-    }
     r.done();
+    if (value.pendingCount > HISTORY_PAGE_CAP)
+      throw new RangeError('HistoryPage has too many slots');
+    // No bit may be set above the slots actually appended. JS shifts are 32-bit,
+    // so this is safe at pendingCount === 16 where the Rust had to widen to u32.
+    if ((value.terminalMask >>> value.pendingCount) !== 0)
+      throw new RangeError('HistoryPage has a terminal bit above its slots');
+    value.terminalCount = 0;
+    for (let bit = value.terminalMask; bit; bit &= bit - 1) value.terminalCount++;
     return value;
   };
 

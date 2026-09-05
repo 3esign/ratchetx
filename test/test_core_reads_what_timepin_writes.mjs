@@ -161,7 +161,162 @@ for (const seed of ['need', 'evidence_spec']) {
     `Timepin no longer uses the ${seed} seed, so Core derives the wrong address`);
 }
 
+// --- 4. the BROWSER CLIENT is a reader too, and it was stale in both ---------
+// client-v2.mjs decodes these same accounts and its ACCOUNT_SIZE table said
+// TimepinNeedV2: 132 - the same pre-inline number, in a third file - and
+// HistoryPage 87..2_743, the growing Vec form M3 removed. Its own suite never
+// called either decoder, so it passed before and after the fix. Asked
+// BEHAVIOURALLY here: a decoder is worth more when it is run.
+
+const CORE_STATE = read(
+  '../onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs',
+);
+const client = await import('../onchain/ratchet-core-g2/client/client-v2.mjs');
+
+const rustLen = (source, type) => {
+  const found = source.match(
+    new RegExp(`impl ${type} \\{[\\s\\S]{0,400}?pub const LEN: usize = ([^;]+);`),
+  );
+  assert.ok(found, `${type}::LEN is gone`);
+  checks += 1;
+  return found[1].split('+').reduce((total, term) => {
+    const value = Number(term.trim());
+    assert.ok(Number.isFinite(value), `${type}::LEN is not a sum of literals`);
+    return total + value;
+  }, 0);
+};
+
+eq(client.ACCOUNT_SIZE.TimepinNeedV2, 8 + rustLen(TIMEPIN, 'TimepinNeedV2'),
+  'the client decodes a Need of the wrong size; r.done() asserts every byte is ' +
+  'consumed, so it throws on every real Need');
+eq(client.ACCOUNT_SIZE.EvidenceSpecV2, 8 + rustLen(TIMEPIN, 'EvidenceSpecV2'),
+  'the client decodes an EvidenceSpec of the wrong size');
+eq(client.ACCOUNT_SIZE.HistoryPage, 8 + rustLen(CORE_STATE, 'HistoryPage'),
+  'the client decodes a HistoryPage of the wrong size');
+checks += 1;
+assert.ok(client.ACCOUNT_SIZE.HistoryPageMin === undefined
+  && client.ACCOUNT_SIZE.HistoryPageMax === undefined,
+  'the client still has a Min/Max HistoryPage size. After M3 there is one size, ' +
+  'and a range is how a fixed account quietly starts growing again');
+
+for (const [name, hex] of Object.entries(client.ACCOUNT_DISCRIMINATOR)) {
+  const expected = createHash('sha256')
+    .update(`account:${name}`).digest().subarray(0, 8).toString('hex');
+  eq(hex, expected,
+    `the client's ${name} discriminator is not sha256("account:${name}")[..8]`);
+}
+
+// AND RUN THE DECODERS, on buffers of exactly the length the programs write. A
+// size constant that agrees with Rust while the decoder reads a different field
+// list is the same defect one layer down: both decoders end in r.done(), which
+// asserts every byte was consumed, so this catches a field list that is short or
+// long even when the constant is right.
+const web3 = await import('@solana/web3.js');
+const { webcrypto } = await import('node:crypto');
+const core = client.createCoreG2Client({
+  web3,
+  coreProgramId: new web3.PublicKey('cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN'),
+  timepinProgramId: new web3.PublicKey('C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp'),
+  cryptoImpl: webcrypto,
+});
+
+const blank = (name, size) => {
+  const data = Buffer.alloc(size);
+  Buffer.from(client.ACCOUNT_DISCRIMINATOR[name], 'hex').copy(data, 0);
+  // schema is the first field of both, and both readers require it.
+  data.writeUInt16LE(2, 8);
+  return data;
+};
+
+checks += 1;
+assert.doesNotThrow(
+  () => core.decodeNeed(blank('TimepinNeedV2', client.ACCOUNT_SIZE.TimepinNeedV2)),
+  'decodeNeed cannot read an account of the size Timepin writes. Its field ' +
+  'list and its size constant disagree.');
+
+// A ZERO BUFFER OF THE RIGHT LENGTH PROVES ONLY THE LENGTH. Two same-width
+// fields swapped - obs_price i64 and obs_conf u64 - decode identically from
+// zeros and the test stays green. That is the borsh hazard this whole file is
+// about, so the buffer carries a DISTINCT value per field and every one is
+// asserted at its own offset.
+const needBytes = blank('TimepinNeedV2', client.ACCOUNT_SIZE.TimepinNeedV2);
+let at = 8;
+const put16 = value => { needBytes.writeUInt16LE(value, at); at += 2; };
+const put8 = value => { needBytes.writeUInt8(value, at); at += 1; };
+const put32i = value => { needBytes.writeInt32LE(value, at); at += 4; };
+const put32u = value => { needBytes.writeUInt32LE(value, at); at += 4; };
+const put64 = value => { needBytes.writeBigInt64LE(BigInt(value), at); at += 8; };
+const put64u = value => { needBytes.writeBigUInt64LE(BigInt(value), at); at += 8; };
+const fill = (byte, width) => { needBytes.fill(byte, at, at + width); at += width; };
+
+put16(2);            // schema
+put8(255);           // bump
+put8(2);             // state = FINAL
+fill(0x11, 32);      // evidenceSpecHash
+put64(1_800);        // targetTs
+put64(1_920);        // sourceDeadlineTs
+put64(1_980);        // captureDeadlineTs
+fill(0x22, 32);      // candidateAHash
+fill(0x00, 32);      // candidateBHash
+put64(-101);         // obsPrice   - NEGATIVE, so an i64 read as u64 is obvious
+put64u(202);         // obsConf
+put32i(-8);          // obsExponent - negative for the same reason
+put64(1_801);        // obsPublishTime
+put64(1_799);        // obsPrevPublishTime
+put64(-303);         // obsEmaPrice
+put64u(404);         // obsEmaConf
+put64u(505);         // obsPostedSlot
+put64u(606);         // obsCaptureSlot
+put64(1_802);        // obsCaptureTs
+fill(0x33, 32);      // obsWorker
+put32u(7);           // openRefs
+fill(0x44, 32);      // rentPayer
+checks += 1;
+assert.equal(at, client.ACCOUNT_SIZE.TimepinNeedV2,
+  `the fixture wrote ${at} bytes for a ${client.ACCOUNT_SIZE.TimepinNeedV2}-byte ` +
+  'account, so this test would be asserting about the wrong offsets');
+
+const decoded = core.decodeNeed(needBytes);
+eq([
+  decoded.schema, decoded.bump, decoded.state,
+  decoded.targetTs, decoded.sourceDeadlineTs, decoded.captureDeadlineTs,
+  decoded.obsPrice, decoded.obsConf, decoded.obsExponent,
+  decoded.obsPublishTime, decoded.obsPrevPublishTime,
+  decoded.obsEmaPrice, decoded.obsEmaConf,
+  decoded.obsPostedSlot, decoded.obsCaptureSlot, decoded.obsCaptureTs,
+  decoded.openRefs,
+], [
+  2, 255, 2,
+  1_800n, 1_920n, 1_980n,
+  -101n, 202n, -8,
+  1_801n, 1_799n,
+  -303n, 404n,
+  505n, 606n, 1_802n,
+  7,
+], 'decodeNeed put a value in the wrong field. Borsh is positional: two ' +
+   'same-width fields swapped decode without error and mean different things.');
+eq([...decoded.obsWorker.toBytes().slice(0, 2)], [0x33, 0x33],
+  'obsWorker is not where the program writes it');
+eq([...decoded.rentPayer.toBytes().slice(0, 2)], [0x44, 0x44],
+  'rentPayer is not where the program writes it');
+checks += 1;
+assert.throws(
+  () => core.decodeNeed(blank('TimepinNeedV2', client.ACCOUNT_SIZE.TimepinNeedV2 - 1)),
+  'decodeNeed accepted a Need one byte short, so it is not checking the length ' +
+  'it claims to');
+
+checks += 1;
+assert.doesNotThrow(
+  () => core.decodeHistoryPage(blank('HistoryPage', client.ACCOUNT_SIZE.HistoryPage)),
+  'decodeHistoryPage cannot read a page of the size the program writes');
+checks += 1;
+assert.throws(
+  () => core.decodeHistoryPage(blank('HistoryPage', client.ACCOUNT_SIZE.HistoryPage + 1)),
+  'decodeHistoryPage accepted a page one byte long. After M3 there is exactly ' +
+  'one valid size and a decoder that tolerates others is how a fixed account ' +
+  'starts growing again');
+
 console.log(
   `core reads what timepin writes: ${checks} checks passed (host tier; ` +
-  `${ACCOUNTS.map(a => a.label).join(', ')})`,
+  `${ACCOUNTS.map(a => a.label).join(', ')}, and the browser client)`,
 );
