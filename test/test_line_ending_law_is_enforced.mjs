@@ -24,7 +24,8 @@
 // Evidence tier: host.
 
 import assert from 'node:assert/strict';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { spawnSync } from 'node:child_process';
+import { readFileSync, statSync } from 'node:fs';
 import { dirname, join, relative, extname, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -58,46 +59,28 @@ assert.ok(LF_EXTENSIONS.length >= 8,
 
 // --- the files ---------------------------------------------------------------
 
-// The law is a .gitattributes law, so it governs TRACKED files. Ignored
-// directories are skipped, and the ignore list is READ rather than copied - a
-// hardcoded skip list would either miss a new one or, worse, quietly stop
-// covering a directory somebody added to .gitignore for an unrelated reason.
-// backups/ is the one that matters today: it holds 30-odd .cmd files that are
-// deliberately not tracked and not subject to anything.
-const ignore = readFileSync(join(ROOT, '.gitignore'), 'utf8');
-const IGNORED = ignore
-  .split('\n')
-  .map(line => line.trim())
-  .filter(line => line && !line.startsWith('#') && !line.includes('*'))
-  .map(line => line.replace(/\/$/, ''));
-// Matched by BASENAME at any depth: a nested node_modules is still node_modules,
-// and walking one on this mount takes longer than the whole rest of the tree.
-const ALWAYS_SKIP = ['.git', 'node_modules', 'target', 'dist', '.vercel'];
-const skipped = relativePath => ALWAYS_SKIP.includes(relativePath.split('/').pop())
-  || IGNORED.includes(relativePath);
+// The law governs tracked files. Ask Git for that exact inventory; a filesystem
+// walk can include untracked scratch files and miss tracked ignored files.
+const inventory = spawnSync('git', ['--no-optional-locks', 'ls-files', '--cached', '-z'], {
+  cwd: ROOT,
+  encoding: 'utf8',
+  windowsHide: true,
+  maxBuffer: 8 * 1024 * 1024,
+});
 checks += 1;
-assert.ok(IGNORED.includes('backups') && IGNORED.includes('node_modules')
-  && IGNORED.includes('onchain/core-passport-benchmark/mpl-core'),
-  'the .gitignore reader stopped finding directories it must skip; without ' +
-  'them this test reports on files git does not track, including a vendored ' +
-  `third-party crate. Read ${IGNORED.length} ignore paths.`);
-
-const walk = (dir, out = []) => {
-  for (const entry of readdirSync(dir)) {
-    const path = join(dir, entry);
-    if (skipped(relative(ROOT, path).split(sep).join('/'))) continue;
-    let info;
-    try { info = statSync(path); } catch { continue; }
-    if (info.isDirectory()) walk(path, out);
-    else if (info.isFile()) out.push(path);
-  }
-  return out;
-};
-const files = walk(ROOT);
+assert.ifError(inventory.error);
+checks += 1;
+assert.equal(inventory.status, 0,
+  'Git could not enumerate tracked files: ' + (inventory.stderr || inventory.signal || 'unknown error'));
+const trackedPaths = inventory.stdout.split('\0').filter(Boolean);
+const files = trackedPaths.map(path => join(ROOT, path));
 checks += 1;
 assert.ok(files.length > 200,
-  `only ${files.length} files walked; the walker is broken and this test is ` +
-  'passing by not looking');
+  'only ' + files.length + ' tracked files found; this test is passing by not looking');
+checks += 1;
+for (const path of files) {
+  assert.ok(statSync(path).isFile(), 'tracked path is not a regular file: ' + path);
+}
 
 // --- 1. every CRLF file is CRLF on EVERY line, not most of them --------------
 // Mixed endings are the dangerous state and the one a careless repair leaves
@@ -130,7 +113,7 @@ assert.deepEqual(crlfViolations, [],
   'that is how they got this way.\n');
 
 // --- 2. the LF direction: a ratchet, and a hard line where it matters -------
-// 109 LF-mandated files currently contain CRLF. That is pre-existing h69 damage
+// The existing allowance is 109 LF-mandated files with CRLF: pre-existing h69 damage
 // - the exact thing the comment at .gitattributes:2 was written about, a
 // 5,328-line no-op diff burying a real change - and normalising all of them now
 // would produce the very diff the law exists to prevent, on the day of a source
@@ -142,9 +125,9 @@ assert.deepEqual(crlfViolations, [],
 // delete is worth less than a weak one they keep. The hard line below is where
 // the strength is.
 
+const lfFiles = files.filter(path => LF_EXTENSIONS.includes(extname(path)));
 const lfViolations = [];
-for (const path of files) {
-  if (!LF_EXTENSIONS.includes(extname(path))) continue;
+for (const path of lfFiles) {
   const bytes = readFileSync(path);
   let crlf = 0;
   for (let i = 1; i < bytes.length; i += 1) {
@@ -163,11 +146,19 @@ assert.ok(lfViolations.length <= KNOWN_LF_VIOLATIONS,
   `be buried in a whole-file diff.\n\n${lfViolations.join('\n')}\n\n` +
   'To repair: rewrite \\r\\n as \\n in place. Then LOWER the number in this ' +
   'file, so the ratchet only ever tightens.');
+// A clean checkout follows eol=lf and may have zero violations. Coverage must
+// count inspected files, not require pre-existing line-ending damage.
 checks += 1;
-assert.ok(lfViolations.length >= KNOWN_LF_VIOLATIONS - 20,
-  `only ${lfViolations.length} violations found against a known ${KNOWN_LF_VIOLATIONS}. ` +
-  'Either somebody did a large normalisation pass - in which case lower the ' +
-  'number here and say so - or this test stopped looking at most of the tree.');
+assert.ok(lfFiles.length > 200,
+  'only ' + lfFiles.length + ' LF-mandated tracked files inspected; coverage is incomplete');
+checks += 1;
+for (const entry of [
+  'onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs',
+  'onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs',
+]) {
+  assert.ok(lfFiles.includes(join(ROOT, entry)),
+    'live program entry point is missing from LF coverage: ' + entry);
+}
 
 // THE HARD LINE. The two crates that are actually being built and frozen carry
 // ZERO violations today, and that is worth keeping as an absolute rather than a
