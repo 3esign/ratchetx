@@ -29,6 +29,31 @@ use std::{ffi::OsStr, path::PathBuf, str::FromStr};
 
 const SCHEMA: u16 = 2;
 const NOW: i64 = 1_800_000_000;
+
+// THE SPEC THIS HARNESS REGISTERS, IN ONE PLACE. Added 2026-09-05 by the lead.
+// Every number below used to be an unnamed literal repeated across the file, and
+// that is why the same broken game was written down in four places and survived
+// long enough to stop the whole suite at test one. SPEC_LAG was 120 against a
+// grid of 60: one print settles two consecutive targets, which rcx-timepin-v2
+// refuses outright at lib.rs:603 (BadPostTargetLag, 6009). The rule is
+// lag < grid; grid - 1 is the largest lag that satisfies it, so it is DERIVED
+// here rather than typed, and it cannot drift from the grid again.
+const SPEC_ADAPTER: u8 = 1; // strict bracket - the pre-gap below is load-bearing
+const SPEC_GRID: u32 = 60;
+const SPEC_LEAD: u32 = 30;
+const SPEC_AHEAD: u32 = 3_600;
+const SPEC_PRE_GAP: u32 = 120;
+const SPEC_LAG: u32 = SPEC_GRID - 1;
+const SPEC_GRACE: u32 = 60;
+const REVEAL_WINDOW: u32 = 120;
+// Timepin sets these when it opens a Need: source_deadline = target + lag, and
+// capture_deadline = source_deadline + grace. Derived, so the fixtures below and
+// the clocks the tests set move together with the lag.
+const SOURCE_DEADLINE_OFFSET: i64 = SPEC_LAG as i64;
+const CAPTURE_DEADLINE_OFFSET: i64 = SOURCE_DEADLINE_OFFSET + SPEC_GRACE as i64;
+// The exact length of a TimepinNeedV2 account as rcx-timepin-v2 writes it today.
+// One name, so the branch-B change is one line here instead of five.
+const NEED_LEN: usize = 132;
 const RCX_UNIT: u64 = 1_000_000;
 const RCX_SUPPLY: u64 = 936_699_884_132_132;
 const LEGACY_CREDITS: u64 = 100;
@@ -41,7 +66,14 @@ const ECONOMY_LEN: usize = 415;
 const RULESET_LEN: usize = 206;
 const LEDGER_LEN: usize = 285;
 const SHOT_LEN: usize = 780;
-const HISTORY_BASE_LEN: usize = 87;
+// 118, not 87, and never + 1. After M3 a HistoryPage is allocated once at
+// HistoryPage::LEN + 8 = 110 + 8 and is never resized: it carries a
+// pending_count, a terminal_mask and a rolling results_root instead of the rows,
+// and the rows live in the emitted ShotArchived events. The four assertions that
+// added 1 (and SHOT_RESULT_LEN on top) were describing the account that used to
+// grow. RELOAD_HISTORY_BASE_LEN below is a DIFFERENT account that M3 did not
+// touch and correctly stays 87.
+const HISTORY_BASE_LEN: usize = 118;
 const SHOT_RESULT_LEN: usize = 165;
 const WORK_BASE_LEN: usize = 87;
 const WORK_RECORD_LEN: usize = 106;
@@ -444,9 +476,9 @@ fn receiver_config_data() -> Vec<u8> {
 }
 
 fn score_day(exit_target: i64) -> i64 {
-    // Final Timepin policy freezes capture_deadline = target + 180 and the
-    // economy freezes a 120-second reveal window.
-    (exit_target + 180 + 120).div_euclid(86_400)
+    // capture_deadline = target + lag + grace, then the economy's reveal window.
+    // Derived rather than frozen: the day a shot scores in moves with the lag.
+    (exit_target + CAPTURE_DEADLINE_OFFSET + REVEAL_WINDOW as i64).div_euclid(86_400)
 }
 
 fn utc_day(timestamp: i64) -> i64 {
@@ -559,18 +591,18 @@ fn encode_vec32(values: &[[u8; 32]]) -> Vec<u8> {
 fn evidence_policy_canonical() -> Vec<u8> {
     let mut out = Vec::with_capacity(134);
     out.extend_from_slice(&SCHEMA.to_le_bytes());
-    out.push(1);
+    out.push(SPEC_ADAPTER);
     out.extend_from_slice(receiver_program().as_ref());
     out.extend_from_slice(push_program().as_ref());
     out.extend_from_slice(&0u16.to_le_bytes());
     out.extend_from_slice(&FEED);
     out.push(1);
-    out.extend_from_slice(&60u32.to_le_bytes());
-    out.extend_from_slice(&30u32.to_le_bytes());
-    out.extend_from_slice(&3_600u32.to_le_bytes());
-    out.extend_from_slice(&120u32.to_le_bytes());
-    out.extend_from_slice(&120u32.to_le_bytes());
-    out.extend_from_slice(&60u32.to_le_bytes());
+    out.extend_from_slice(&SPEC_GRID.to_le_bytes());
+    out.extend_from_slice(&SPEC_LEAD.to_le_bytes());
+    out.extend_from_slice(&SPEC_AHEAD.to_le_bytes());
+    out.extend_from_slice(&SPEC_PRE_GAP.to_le_bytes());
+    out.extend_from_slice(&SPEC_LAG.to_le_bytes());
+    out.extend_from_slice(&SPEC_GRACE.to_le_bytes());
     out.extend_from_slice(&5u16.to_le_bytes());
     out.extend_from_slice(&(-12i8).to_le_bytes());
     out.extend_from_slice(&2i8.to_le_bytes());
@@ -959,7 +991,7 @@ impl World {
         economy_args.extend_from_slice(&1_000u64.to_le_bytes());
         economy_args.extend_from_slice(&8u16.to_le_bytes());
         economy_args.extend_from_slice(&5_000u64.to_le_bytes());
-        economy_args.extend_from_slice(&120u32.to_le_bytes());
+        economy_args.extend_from_slice(&REVEAL_WINDOW.to_le_bytes());
         economy_args.extend_from_slice(&3_600u32.to_le_bytes());
         assert_eq!(economy_args.len(), 372);
 
@@ -1250,11 +1282,11 @@ impl World {
         data.push(state);
         data.extend_from_slice(&spec_hash);
         data.extend_from_slice(&target.to_le_bytes());
-        data.extend_from_slice(&(target + 120).to_le_bytes());
-        data.extend_from_slice(&(target + 180).to_le_bytes());
+        data.extend_from_slice(&(target + SOURCE_DEADLINE_OFFSET).to_le_bytes());
+        data.extend_from_slice(&(target + CAPTURE_DEADLINE_OFFSET).to_le_bytes());
         data.extend_from_slice(&candidate_a);
         data.extend_from_slice(&[0; 32]);
-        assert_eq!(data.len(), 132);
+        assert_eq!(data.len(), NEED_LEN);
         data
     }
 
@@ -1319,7 +1351,7 @@ impl World {
         )?;
         let stored = self.svm.get_account(&need).expect("Timepin-produced Need");
         assert_eq!(stored.owner, timepin_program());
-        assert_eq!(stored.data.len(), 132);
+        assert_eq!(stored.data.len(), NEED_LEN);
         assert_eq!(
             &stored.data[..8],
             &discriminator("account", "TimepinNeedV2")
@@ -1327,8 +1359,8 @@ impl World {
         assert_eq!(stored.data[11], 0);
         assert_eq!(read_hash(&stored.data, 12), spec_hash);
         assert_eq!(read_i64(&stored.data, 44), target);
-        assert_eq!(read_i64(&stored.data, 52), target + 120);
-        assert_eq!(read_i64(&stored.data, 60), target + 180);
+        assert_eq!(read_i64(&stored.data, 52), target + SOURCE_DEADLINE_OFFSET);
+        assert_eq!(read_i64(&stored.data, 60), target + CAPTURE_DEADLINE_OFFSET);
         Ok(need)
     }
 
@@ -1339,7 +1371,7 @@ impl World {
         target: i64,
     ) -> Result<[u8; 32], String> {
         let need = need_pda(&spec_hash, target).0;
-        self.set_clock(target + 180);
+        self.set_clock(target + CAPTURE_DEADLINE_OFFSET);
         self.send(
             self.timepin_instruction(
                 "expire",
@@ -1355,7 +1387,7 @@ impl World {
         )?;
         let expired = self.svm.get_account(&need).expect("expired Timepin Need");
         assert_eq!(expired.owner, timepin_program());
-        assert_eq!(expired.data.len(), 132);
+        assert_eq!(expired.data.len(), NEED_LEN);
         assert_eq!(expired.data[11], 4);
         assert_eq!(read_hash(&expired.data, 68), [0; 32]);
         assert_eq!(read_hash(&expired.data, 100), [0; 32]);
@@ -1429,7 +1461,7 @@ impl World {
             .get_account(&candidate)
             .expect("captured Candidate");
         assert_eq!(captured_need.owner, timepin_program());
-        assert_eq!(captured_need.data.len(), 132);
+        assert_eq!(captured_need.data.len(), NEED_LEN);
         assert_eq!(captured_need.data[11], 1);
         assert_eq!(read_hash(&captured_need.data, 68), message_hash);
         assert_eq!(captured_candidate.owner, timepin_program());
@@ -1443,7 +1475,7 @@ impl World {
         assert_eq!(read_i64(&captured_candidate.data, 63), target);
         assert_eq!(read_i64(&captured_candidate.data, 111), target);
 
-        self.set_clock(target + 180);
+        self.set_clock(target + CAPTURE_DEADLINE_OFFSET);
         self.send(
             self.timepin_instruction(
                 "finalize",
@@ -2542,7 +2574,7 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
     assert_eq!(read_i64(&sealed.data, 254), exit_target);
     assert_eq!(read_i64(&sealed.data, 262), day);
     let pending_history = world.svm.get_account(&history_key).unwrap();
-    assert_eq!(pending_history.data.len(), HISTORY_BASE_LEN + 1);
+    assert_eq!(pending_history.data.len(), HISTORY_BASE_LEN);
     assert_eq!(read_u32(&pending_history.data, 83), 1);
     assert_eq!(pending_history.data[87], 0);
 
@@ -2639,7 +2671,7 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
     assert_closed(&world, shot_key);
 
     let history = world.svm.get_account(&history_key).unwrap();
-    assert_eq!(history.data.len(), HISTORY_BASE_LEN + 1 + SHOT_RESULT_LEN);
+    assert_eq!(history.data.len(), HISTORY_BASE_LEN);
     assert_eq!(read_u32(&history.data, 83), 1);
     assert_eq!(history.data[87], 1);
     let result = 88;
@@ -2837,7 +2869,7 @@ fn equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe
     );
 
     let history = world.svm.get_account(&history_key).unwrap();
-    assert_eq!(history.data.len(), HISTORY_BASE_LEN + 1 + SHOT_RESULT_LEN);
+    assert_eq!(history.data.len(), HISTORY_BASE_LEN);
     assert_eq!(history.data[87], 1);
     let result = 88;
     assert_eq!(&history.data[result + 32..result + 64], &commit);
@@ -3336,7 +3368,7 @@ fn delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionle
     let delegated_history = world.svm.get_account(&history_key).unwrap();
     assert_eq!(
         delegated_history.data.len(),
-        HISTORY_BASE_LEN + 1 + SHOT_RESULT_LEN
+        HISTORY_BASE_LEN
     );
     let first_result = 88;
     assert_eq!(
@@ -3492,7 +3524,7 @@ fn observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless() {
         .capture_and_finalize_timepin(&worker, kernel.spec_hash, entry_target, 10_000)
         .unwrap();
     let sealed_ts = world.svm.get_sysvar::<Clock>().unix_timestamp;
-    assert_eq!(sealed_ts, entry_target + 180);
+    assert_eq!(sealed_ts, entry_target + CAPTURE_DEADLINE_OFFSET);
     let exit_target = sealed_ts + 300;
     let day = score_day(exit_target);
     world
@@ -3552,7 +3584,7 @@ fn observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless() {
         .is_none());
 
     let history = world.svm.get_account(&history_key).unwrap();
-    assert_eq!(history.data.len(), HISTORY_BASE_LEN + 1 + SHOT_RESULT_LEN);
+    assert_eq!(history.data.len(), HISTORY_BASE_LEN);
     assert_eq!(history.data[87], 1);
     let result = 88;
     assert_eq!(
