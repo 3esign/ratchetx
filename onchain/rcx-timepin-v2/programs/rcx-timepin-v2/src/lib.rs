@@ -493,6 +493,29 @@ pub fn validate_spec(args: &EvidenceSpecArgs) -> Result<()> {
             TimepinV2Error::BadPreTargetGap
         );
     }
+    // A print is admissible for target T iff T <= publish_time <= T + lag, so it
+    // serves two consecutive targets T and T+grid iff T+grid <= publish_time,
+    // i.e. iff lag >= grid. Therefore lag < grid is NECESSARY AND SUFFICIENT for
+    // every print to belong to at most one target. Without this line a spec with
+    // grid 60 and lag 120 registers, and in it a shot on 12:00:00 and a shot on
+    // 12:01:00 can resolve at the SAME price -- not a theft path, but it silently
+    // collapses two rounds of the game into one, permanently, for that economy.
+    //
+    // Proved exhaustively over every lag for grids 30, 60 and 300 in
+    // lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment.
+    // No sample can establish this and no sample can refute it, which is why it
+    // is enforced here rather than measured.
+    //
+    // It also settles the parameter: admissibility [T, T+lag] GROWS with lag, so
+    // coverage is monotonically non-decreasing in it, and uniqueness caps it at
+    // grid-1. lag = grid - 1 is therefore optimal for EVERY feed without knowing
+    // anything about that feed's cadence. A smaller lag stays legitimate as a
+    // quality-versus-liveness preference; a larger one is not a preference, it is
+    // a broken game.
+    require!(
+        args.max_post_target_lag_seconds < args.target_grid_seconds,
+        TimepinV2Error::BadPostTargetLag
+    );
     require!(
         args.max_post_target_lag_seconds > 0 && args.max_post_target_lag_seconds <= MAX_GAP_SECS,
         TimepinV2Error::BadPostTargetLag

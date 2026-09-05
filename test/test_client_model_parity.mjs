@@ -108,7 +108,9 @@ const fullSpec = adapter => ({
   requiredVerification: T.VERIFICATION_FULL,
   targetGridSeconds: 60, minOpenLeadSeconds: 10, maxTargetAheadSeconds: 3600,
   maxPreTargetGapSeconds: adapter === MINCAP ? 0 : 5,
-  maxPostTargetLagSeconds: 60, captureGraceSeconds: 60, maxFutureSkewSeconds: 30,
+  // grid - 1: the largest lag that keeps a print unique to one target, which is
+  // also the optimum, since admissibility [T, T+lag] grows with lag.
+  maxPostTargetLagSeconds: 59, captureGraceSeconds: 60, maxFutureSkewSeconds: 30,
   maxConfidenceBps: 100, minExponent: -12, maxExponent: -2,
   receiverProgramdataSlot: 1n, wormholeProgramdataSlot: 1n,
   receiverConfigHash: Buffer.alloc(32, 3), wormholeProgram: Buffer.alloc(32, 4),

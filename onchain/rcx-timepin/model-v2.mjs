@@ -314,6 +314,13 @@ export function validateEvidenceSpec(spec) {
       if (spec.maxPreTargetGapSeconds !== 0) return fail('PRE_GAP_MUST_BE_ZERO');
     } else if (spec.maxPreTargetGapSeconds === 0) return fail('ZERO_PRE_GAP');
     if (spec.maxPostTargetLagSeconds === 0) return fail('ZERO_POST_LAG');
+    // lag < grid is necessary and sufficient for a print to belong to at most one
+    // target: admissibility is [T, T+lag], so a print serves both T and T+grid iff
+    // lag >= grid. Mirrors the require! in lib.rs::validate_spec. Without it a
+    // grid-60 lag-120 spec registers and two consecutive rounds can settle at the
+    // same price, permanently, for that economy.
+    if (spec.maxPostTargetLagSeconds >= spec.targetGridSeconds)
+      return fail('POST_LAG_NOT_BELOW_GRID');
     if (spec.captureGraceSeconds === 0) return fail('ZERO_CAPTURE_GRACE');
     if (!Number.isInteger(spec.minExponent) || !Number.isInteger(spec.maxExponent)
       || spec.minExponent < -18 || spec.maxExponent > 18 || spec.minExponent > spec.maxExponent)

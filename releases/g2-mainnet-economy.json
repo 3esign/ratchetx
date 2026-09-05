@@ -106,7 +106,7 @@
     "targetGridSeconds": 60,
     "minOpenLeadSeconds": 30,
     "maxTargetAheadSeconds": 90000,
-    "maxPreTargetGapSeconds": 1,
+    "maxPreTargetGapSeconds": 0,
     "challengeWindowSeconds": 900,
     "maxFutureSkewSeconds": 30,
     "minExponent": -12,
@@ -123,9 +123,9 @@
       "sponsoredAccount": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
       "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
       "maxPostTargetLagSeconds": {
-        "tag": "M",
-        "proposed": 30,
-        "measured": "first print +2..3 s over 300 msgs, 25 min, 2026-09-05"
+        "tag": "D",
+        "proposed": 59,
+        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
       }
     },
     {
@@ -133,9 +133,9 @@
       "sponsoredAccount": "APgzQGGdv2qCgBkX6aHVkrGePtBVDDg68GiqaM7rmtf5",
       "feedId": "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
       "maxPostTargetLagSeconds": {
-        "tag": "M",
-        "proposed": 30,
-        "measured": "first print +2..3 s over 300 msgs"
+        "tag": "D",
+        "proposed": 59,
+        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
       }
     },
     {
@@ -143,9 +143,9 @@
       "sponsoredAccount": "7odryi4WfoMFHtv2eubdMgP1pqQMmdiXSK1N2tqZ2nRH",
       "feedId": "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
       "maxPostTargetLagSeconds": {
-        "tag": "M",
-        "proposed": 120,
-        "measured": "pushes every 52-54 s, first print +2..51 s over 31 msgs"
+        "tag": "D",
+        "proposed": 59,
+        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
       }
     },
     {
@@ -153,9 +153,9 @@
       "sponsoredAccount": "3nMpgBXnjBSDYupQQEVR7DZM65zkJCdKy1Up7nkqp99w",
       "feedId": "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419",
       "maxPostTargetLagSeconds": {
-        "tag": "M",
-        "proposed": 120,
-        "measured": "~45 s cadence in Sol's 555 s sample (13 states) — confirm with 24 h run"
+        "tag": "D",
+        "proposed": 59,
+        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
       }
     },
     {
@@ -163,9 +163,9 @@
       "sponsoredAccount": "4KL8nVtrXmLjbbHtrDz5YCHNqmii62oHfr9bsUtx1bgi",
       "feedId": "7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9",
       "maxPostTargetLagSeconds": {
-        "tag": "M",
-        "proposed": 120,
-        "measured": "~45 s cadence (12 states / 555 s) — confirm"
+        "tag": "D",
+        "proposed": 59,
+        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
       }
     },
     {
@@ -173,9 +173,9 @@
       "sponsoredAccount": "EitcZS5LtbR4EyNhCSy56vvUHPhsifSfWFG5gwSkjNpV",
       "feedId": "0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996",
       "maxPostTargetLagSeconds": {
-        "tag": "M",
-        "proposed": 120,
-        "measured": "~45 s cadence (13 states / 555 s) — confirm"
+        "tag": "D",
+        "proposed": 59,
+        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
       }
     },
     {
@@ -183,9 +183,9 @@
       "sponsoredAccount": "9Sn9FVu6WpufA8yZFSRuxYyFgpBrhc5PpTgB3mq2DcsG",
       "feedId": "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc",
       "maxPostTargetLagSeconds": {
-        "tag": "M",
-        "proposed": 120,
-        "measured": "~45 s cadence (12 states / 555 s) — confirm"
+        "tag": "D",
+        "proposed": 59,
+        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
       }
     }
   ],

@@ -1655,24 +1655,6 @@ mod tests {
         }
     }
 
-    #[test]
-    fn the_spec_does_not_yet_enforce_it_and_that_is_the_gap() {
-        // Documents the hole rather than the fix. It is DESIGNED TO FAIL the day
-        // the `lag < grid` invariant lands in validate_spec, and that failure is
-        // the signal to delete this test -- never to weaken the rule.
-        //
-        // This is not hypothetical: releases/g2-mainnet-economy.json proposes
-        // grid 60 with lag 120 for ETH, BONK, PUMP, JUP and WIF -- exactly the
-        // pair below -- so five of seven feeds would today register a spec in
-        // which one print settles two consecutive targets.
-        let mut args = spec().as_args();
-        args.target_grid_seconds = 60;
-        args.max_post_target_lag_seconds = 120; // twice the grid
-        assert!(
-            crate::validate_spec(&args).is_ok(),
-            "if this now fails, the invariant landed - remove this test"
-        );
-    }
 
     fn candidate() -> CandidateV2 {
         CandidateV2 {
