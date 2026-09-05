@@ -1,16 +1,17 @@
 #!/usr/bin/env node
-// Read-only B1 artifact check. No builds, installation, vector writes or SVM execution.
+// Read-only B1 receipt and artifact check. No builds, installation, vector writes or SVM execution.
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { isDeepStrictEqual } from 'node:util';
 import { pathToFileURL } from 'node:url';
-import { ROOT, PROGRAMS, TOOLCHAIN, FORBIDDEN_ID, sourceStamp, assertUnchanged,
-  assertSourceIdentities, artifactEnvironment } from './g2-build-artifacts.mjs';
+import { ROOT, PROGRAMS, TOOLCHAIN, FORBIDDEN_ID, REQUIRED_SVM_TARGETS, sourceStamp, assertUnchanged,
+  assertSourceIdentities, artifactEnvironment, inspectSbfTestResult } from './g2-build-artifacts.mjs';
 
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
-const SCOPE = 'B1 artifact-only; runtime, vectors and mainnet acceptance are not assessed';
+const SCOPE = 'B1 recorded exact-SBF execution evidence and artifact checks; no fresh SVM execution or mainnet acceptance';
 
 function readRegular(file, label) {
   const entry = fs.lstatSync(file);
@@ -82,11 +83,111 @@ function assertVerifierTuple(program, artifact, file, output, cacheRoot, explici
   }
 }
 
+// A verification retry appends stages to the previous receipt. Only the latest
+// Timepin/Core inventory cohort can certify runtime coverage; old failures stay
+// as history, and old successes cannot fill holes in the current attempt.
+export function assertRecordedSvmEvidence(receipt) {
+  const requireEvidence = (condition, message) => {
+    if (!condition) throw new Error('recorded SVM evidence: ' + message);
+  };
+  const stages = receipt.stages;
+  requireEvidence(Array.isArray(stages) && stages.length > 0, 'stages are missing');
+  const start = stages.findLastIndex(stage => stage?.name === 'timepin SVM target inventory');
+  requireEvidence(start >= 0, 'latest Timepin target inventory is missing');
+  const cohort = stages.slice(start);
+  for (const [offset, stage] of cohort.entries()) {
+    requireEvidence(stage && typeof stage.name === 'string' && typeof stage.command === 'string'
+      && Array.isArray(stage.args) && stage.args.every(arg => typeof arg === 'string')
+      && stage.exit === 0 && stage.signal === null && !stage.diagnosticFailure && !stage.error,
+    'current cohort stage ' + (start + offset) + ' is failed or incomplete');
+  }
+  const recordedCwd = (program, value) => {
+    requireEvidence(typeof value === 'string' && !value.includes('\0'), program.name + ' recorded cwd is missing or invalid');
+    const normalized = value.replaceAll('\\', '/');
+    const windows = /^[A-Za-z]:\//.test(normalized) || /^\/\/[^/? .]/.test(normalized);
+    const parser = windows ? path.win32 : path.posix;
+    const canonical = parser.normalize(value).replaceAll('\\', '/');
+    const suffix = '/' + program.workspace + '/svm-tests';
+    requireEvidence(parser.isAbsolute(value) && (windows || !value.includes('\\'))
+      && normalized === canonical && normalized.split('/').every(part => part !== '.' && part !== '..')
+      && normalized.endsWith(suffix), program.name + ' recorded cwd must be an absolute canonical svm-tests path without traversal');
+    return { path: normalized, root: normalized.slice(0, -suffix.length) };
+  };
+  const inventoryArgs = ['metadata', '--locked', '--no-deps', '--format-version', '1'];
+  const inventoryCwds = [];
+  const inventoryIndexes = PROGRAMS.map(program => {
+    const matches = cohort.flatMap((stage, index) => stage.name === program.name + ' SVM target inventory' ? [index] : []);
+    requireEvidence(matches.length === 1, program.name + ' must have exactly one current target inventory');
+    const index = matches[0], inventory = cohort[index];
+    requireEvidence(inventory.command === 'cargo' && isDeepStrictEqual(inventory.args, inventoryArgs)
+      && inventory.execution === undefined, program.name + ' target inventory command is invalid');
+    inventoryCwds.push(recordedCwd(program, inventory.cwd));
+    return index;
+  });
+  requireEvidence(inventoryCwds.every(cwd => cwd.root === inventoryCwds[0].root),
+    'current program inventories must share the same recorded workspace root');
+  requireEvidence(inventoryIndexes[0] === 0 && inventoryIndexes[1] > inventoryIndexes[0],
+    'current inventories must run Timepin then Core');
+  requireEvidence(cohort.filter(stage => / SVM target inventory$/.test(stage.name)).length === PROGRAMS.length,
+    'current cohort has an unknown target inventory');
+  const checked = [];
+  for (const [programIndex, program] of PROGRAMS.entries()) {
+    const from = inventoryIndexes[programIndex] + 1;
+    const until = inventoryIndexes[programIndex + 1] ?? cohort.length;
+    let discovered = null;
+    const seen = new Set();
+    for (let offset = from; offset < until; offset += 1) {
+      const stage = cohort[offset], execution = stage.execution;
+      if (execution === undefined && !stage.name.includes(' exact-SBF ')) continue;
+      requireEvidence(execution?.schema === 1 && execution.program === program.name
+        && execution.programId === program.id && typeof execution.target === 'string'
+        && /^[a-zA-Z0-9_-]+$/.test(execution.target), program.name + ' execution identity is invalid');
+      const target = execution.target;
+      const expectedArgs = ['test', '--locked', '--test', target, '--', '--format', 'pretty', '--show-output', '--test-threads', '1'];
+      requireEvidence(stage.name === program.name + ' exact-SBF ' + target && stage.command === 'cargo'
+        && isDeepStrictEqual(stage.args, expectedArgs), program.name + '/' + target + ' test command is invalid');
+      requireEvidence(recordedCwd(program, stage.cwd).path === inventoryCwds[programIndex].path,
+        program.name + '/' + target + ' execution cwd does not match its inventory cwd');
+      requireEvidence(isDeepStrictEqual(execution.requiredTargets, REQUIRED_SVM_TARGETS[program.name]),
+        program.name + '/' + target + ' required target declaration is invalid');
+      const declared = execution.discoveredTargets;
+      requireEvidence(Array.isArray(declared) && declared.length > 0
+        && declared.every(name => typeof name === 'string' && /^[a-zA-Z0-9_-]+$/.test(name))
+        && new Set(declared).size === declared.length && declared.includes(target)
+        && REQUIRED_SVM_TARGETS[program.name].every(name => declared.includes(name)),
+      program.name + '/' + target + ' discovered targets are incomplete or invalid');
+      if (discovered === null) discovered = declared;
+      requireEvidence(isDeepStrictEqual(discovered, declared), program.name + ' discovered targets disagree across executions');
+      requireEvidence(!seen.has(target), program.name + '/' + target + ' has duplicate current executions');
+      seen.add(target);
+      requireEvidence(execution.accepted === true && execution.processError === null
+        && typeof execution.stdout === 'string' && typeof execution.stderr === 'string',
+      program.name + '/' + target + ' execution was not accepted');
+      requireEvidence(isDeepStrictEqual(execution.sourceHashes, receipt.sourceHashes),
+        program.name + '/' + target + ' source binding does not match the receipt');
+      // Compare original provenance paths, never paths remapped to another host's cache.
+      requireEvidence(isDeepStrictEqual(execution.artifactBindings, receipt.artifacts),
+        program.name + '/' + target + ' artifact binding does not match the original receipt pair');
+      const parsed = inspectSbfTestResult({ status: stage.exit, signal: stage.signal,
+        stdout: execution.stdout, stderr: execution.stderr });
+      requireEvidence(parsed.accepted, program.name + '/' + target + ' recorded logs fail inspection: ' + parsed.problems.join('; '));
+      for (const [field, value] of Object.entries(parsed)) {
+        requireEvidence(isDeepStrictEqual(execution[field], value),
+          program.name + '/' + target + ' recorded ' + field + ' disagrees with reparsed logs');
+      }
+      checked.push({ program: program.name, target, stageIndex: start + offset, passed: parsed.counts.passed });
+    }
+    requireEvidence(discovered !== null && discovered.every(target => seen.has(target))
+      && seen.size === discovered.length, program.name + ' current execution coverage is incomplete');
+  }
+  return checked;
+}
+
 export function checkG2Artifacts({ root = ROOT, cacheRoot, spawn = spawnSync } = {}) {
   const explicitCache = cacheRoot !== undefined;
   cacheRoot ??= path.join(os.tmpdir(), 'ratchetx-onchain-sbf');
   const receiptPath = path.join(root, 'docs/receipts/g2-build-artifacts.json');
-  const report = { schema: 1, gate: 'B1', scope: SCOPE, runtimeChecked: false, verdict: 'FAIL',
+  const report = { schema: 1, gate: 'B1', scope: SCOPE, runtimeEvidenceChecked: false, runtimeExecuted: false, verdict: 'FAIL',
     receiptPath, verifiers: [], buildHost: null, buildHostStatus: 'unrecorded',
     verificationHost: { platform: process.platform, architecture: process.arch,
       osType: os.type(), osRelease: os.release(), osVersion: os.version(),
@@ -109,8 +210,8 @@ export function checkG2Artifacts({ root = ROOT, cacheRoot, spawn = spawnSync } =
       report.buildHost = structuredClone(receipt.buildHost);
       report.buildHostStatus = 'recorded';
     }
-    if (receipt.schema !== 1 || receipt.buildStatus !== 'BUILT' || !['BUILT', 'FAIL', 'PASS'].includes(receipt.status)) {
-      throw new Error('B1 requires schema 1, buildStatus BUILT and a completed BUILT, FAIL or PASS receipt');
+    if (receipt.schema !== 1 || receipt.buildStatus !== 'BUILT' || receipt.status !== 'PASS' || receipt.failure != null) {
+      throw new Error('B1 requires schema 1, buildStatus BUILT and a completed PASS receipt with no current failure');
     }
     if (Object.entries(TOOLCHAIN).some(([key, value]) => receipt.toolchain?.[key] !== value)) {
       throw new Error('build receipt does not pin cargo-build-sbf 4.3.0, platform-tools v1.56 and SBPFv3');
@@ -130,6 +231,8 @@ export function checkG2Artifacts({ root = ROOT, cacheRoot, spawn = spawnSync } =
     const files = Object.fromEntries(PROGRAMS.map(program =>
       [program.name, readArtifact(program, receipt.artifacts[program.name], cacheRoot, explicitCache)]));
     report.resolvedArtifactPaths = files;
+    report.recordedExecutions = assertRecordedSvmEvidence(receipt);
+    report.runtimeEvidenceChecked = true;
     const localArtifacts = Object.fromEntries(PROGRAMS.map(program => [program.name,
       { ...receipt.artifacts[program.name], path: files[program.name] }]));
     const verifier = path.join(root, 'tools/verify-artifact.mjs');
@@ -169,7 +272,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const args = process.argv.slice(2);
   const report = args.length === 0 ? checkG2Artifacts()
     : args.length === 2 && args[0] === '--cache-root' ? checkG2Artifacts({ cacheRoot: path.resolve(args[1]) })
-    : { schema: 1, gate: 'B1', scope: SCOPE, runtimeChecked: false, verdict: 'FAIL',
+    : { schema: 1, gate: 'B1', scope: SCOPE, runtimeEvidenceChecked: false, runtimeExecuted: false, verdict: 'FAIL',
       failure: 'usage: node tools/check-g2-artifacts.mjs [--cache-root <local-directory>]' };
   console.log(JSON.stringify(report, null, 2));
   process.exitCode = report.verdict === 'PASS' ? 0 : 1;

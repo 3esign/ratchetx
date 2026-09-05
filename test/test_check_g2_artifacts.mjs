@@ -8,7 +8,7 @@ import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { PublicKey } from '@solana/web3.js';
 import { checkG2Artifacts } from '../tools/check-g2-artifacts.mjs';
-import { ROOT, PROGRAMS, TOOLCHAIN, FORBIDDEN_ID, sourceStamp } from '../tools/g2-build-artifacts.mjs';
+import { ROOT, PROGRAMS, TOOLCHAIN, FORBIDDEN_ID, REQUIRED_SVM_TARGETS, inspectSbfTestResult, sourceStamp } from '../tools/g2-build-artifacts.mjs';
 
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 
@@ -41,8 +41,26 @@ function fixture(t) {
     fs.writeFileSync(file, bytes);
     artifacts[program.name] = { programId: program.id, path: file, sha256: hash, size: bytes.length };
   }
-  const receipt = { schema: 1, status: 'BUILT', buildStatus: 'BUILT', toolchain: { ...TOOLCHAIN },
-    sourceHashes: sourceStamp(root), artifacts };
+  const receipt = { schema: 1, status: 'PASS', buildStatus: 'BUILT', toolchain: { ...TOOLCHAIN },
+    sourceHashes: sourceStamp(root), artifacts, stages: [] };
+  // Synthetic recorded evidence tests the validator, not these non-executable ELFs.
+  for (const program of PROGRAMS) {
+    const targets = [...REQUIRED_SVM_TARGETS[program.name]];
+    const cwd = path.join(root, program.workspace, 'svm-tests');
+    receipt.stages.push({ name: program.name + ' SVM target inventory', command: 'cargo',
+      args: ['metadata', '--locked', '--no-deps', '--format-version', '1'], cwd, exit: 0, signal: null });
+    for (const target of targets) {
+      const stdout = 'running 1 test\ntest synthetic_fixture_only ... ok\n'
+        + 'test result: ok. 1 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n';
+      const execution = { schema: 1, program: program.name, programId: program.id, target,
+        requiredTargets: [...targets], discoveredTargets: [...targets],
+        sourceHashes: structuredClone(receipt.sourceHashes), artifactBindings: structuredClone(artifacts),
+        ...inspectSbfTestResult({ status: 0, signal: null, stdout, stderr: '' }) };
+      receipt.stages.push({ name: program.name + ' exact-SBF ' + target, command: 'cargo',
+        args: ['test', '--locked', '--test', target, '--', '--format', 'pretty', '--show-output', '--test-threads', '1'],
+        cwd, exit: 0, signal: null, execution });
+    }
+  }
   const save = () => write('docs/receipts/g2-build-artifacts.json', JSON.stringify(receipt, null, 2) + '\n');
   save();
   const calls = [];
@@ -83,14 +101,17 @@ function snapshot(root) {
   return files;
 }
 
-test('valid BUILT receipt crosses the real verifier without changing any fixture files', t => {
+test('complete PASS receipt crosses the real verifier without changing any fixture files', t => {
   const f = fixture(t), before = snapshot(f.root);
   const report = checkG2Artifacts(f);
   assert.equal(report.verdict, 'PASS', report.failure);
   assert.equal(report.gate, 'B1');
-  assert.equal(report.runtimeChecked, false);
-  assert.match(report.scope, /artifact-only.*not assessed/);
-  assert.equal(report.receiptStatus, 'BUILT');
+  assert.equal(report.runtimeEvidenceChecked, true);
+  assert.equal(report.runtimeExecuted, false);
+  assert.equal('runtimeChecked' in report, false, 'receipt checks must not be mislabeled fresh execution');
+  assert.match(report.scope, /recorded/i);
+  assert.match(report.scope, /mainnet/i);
+  assert.equal(report.receiptStatus, 'PASS');
   assert.equal(report.receiptSha256, sha256(fs.readFileSync(f.receiptPath)));
   assert.deepEqual(report.artifacts, f.receipt.artifacts);
   assert.equal(f.calls.length, 2);
@@ -98,19 +119,82 @@ test('valid BUILT receipt crosses the real verifier without changing any fixture
   assert.deepEqual(snapshot(f.root), before);
 });
 
-test('completed runtime FAIL or PASS receipts still yield only a B1 artifact verdict', t => {
-  for (const status of ['FAIL', 'PASS']) {
+test('FAIL, RUNNING and build-only BUILT cannot certify completed runtime', t => {
+  for (const status of ['FAIL', 'RUNNING', 'BUILT']) {
     const f = fixture(t);
     f.receipt.status = status;
-    f.receipt.failure = status === 'FAIL' ? 'recorded required SVM failure' : undefined;
+    if (status === 'FAIL') f.receipt.failure = 'recorded required SVM failure';
     f.save();
-    const before = snapshot(f.root);
-    const report = checkG2Artifacts(f);
-    assert.equal(report.verdict, 'PASS', report.failure);
+    const before = snapshot(f.root), report = checkG2Artifacts(f);
+    assert.equal(report.verdict, 'FAIL', status);
     assert.equal(report.receiptStatus, status);
-    assert.equal(report.runtimeChecked, false);
+    assert.equal(report.runtimeEvidenceChecked, false);
+    assert.equal(report.runtimeExecuted, false);
+    assert.equal(f.calls.length, 0);
+    assert.match(report.failure, /PASS/);
     assert.deepEqual(snapshot(f.root), before);
   }
+});
+
+test('status PASS cannot hide missing, mismatched or altered recorded execution', t => {
+  const mutations = [
+    r => { delete r.stages; },
+    r => { r.stages.pop(); },
+    r => { r.stages[0].exit = 1; },
+    r => { r.stages[1].args.push('filter_out_everything'); },
+    r => { r.stages[0].cwd = path.join('onchain', 'wrong-program', 'svm-tests'); },
+    r => { r.stages[1].cwd = path.join(path.dirname(r.stages[1].cwd), 'wrong-tests'); },
+    r => { r.stages[1].execution.programId = PROGRAMS[1].id; },
+    r => { r.stages[1].execution.accepted = false; },
+    r => { r.stages[1].execution.counts.passed += 1; },
+    r => { r.stages[1].execution.stdoutSha256 = '0'.repeat(64); },
+    r => { r.stages[1].execution.stdout += 'running 0 tests\n'; },
+    r => { r.stages[1].execution.sourceHashes.extra = 'unbound source'; },
+    r => { r.stages[1].execution.artifactBindings.core.sha256 = '0'.repeat(64); },
+    r => { r.stages[1].execution.discoveredTargets.push('missing_extra_target'); },
+    r => { r.stages[1].execution.requiredTargets = []; },
+    r => { r.stages[1].execution.processError = 'late failure'; },
+  ];
+  for (const mutate of mutations) {
+    const f = fixture(t);
+    mutate(f.receipt); f.save();
+    const before = snapshot(f.root), report = checkG2Artifacts(f);
+    assert.equal(report.verdict, 'FAIL', mutate.toString());
+    assert.equal(report.runtimeExecuted, false);
+    assert.equal(f.calls.length, 0, 'incomplete runtime evidence is refused before verifier execution');
+    assert.deepEqual(snapshot(f.root), before);
+  }
+});
+
+test('the latest complete execution cohort wins; old successes cannot fill a new failed attempt', t => {
+  const f = fixture(t), passing = structuredClone(f.receipt.stages);
+  const oldFailure = structuredClone(passing);
+  oldFailure[1].exit = 101;
+  oldFailure[1].execution.accepted = false;
+  f.receipt.stages = [...oldFailure, ...passing]; f.save();
+  assert.equal(checkG2Artifacts(f).verdict, 'PASS', 'historical failures remain as history after a complete passing retry');
+  for (const suffix of [[structuredClone(passing[0])], structuredClone(oldFailure)]) {
+    f.receipt.stages = [...passing, ...suffix]; f.save();
+    const report = checkG2Artifacts(f);
+    assert.equal(report.verdict, 'FAIL', 'an earlier pass cannot repair an incomplete or failed latest cohort');
+  }
+});
+
+test('CLI refuses the failed primary receipt without falling back to a passing historical copy', t => {
+  const f = fixture(t);
+  f.write('docs/receipts/g2-build-only-20260905.json', JSON.stringify(f.receipt));
+  f.receipt.status = 'FAIL'; f.receipt.failure = 'required SVM target exited 101'; f.save();
+  const before = snapshot(f.root);
+  const result = spawnSync(process.execPath, [path.join(f.root, 'tools/check-g2-artifacts.mjs')], {
+    cwd: f.root, env: f.childEnv(process.env), encoding: 'utf8', windowsHide: true, timeout: 30000,
+  });
+  assert.equal(result.status, 1, result.stdout + result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.verdict, 'FAIL');
+  assert.equal(report.receiptStatus, 'FAIL');
+  assert.equal(report.runtimeExecuted, false);
+  assert.match(report.failure, /PASS/);
+  assert.deepEqual(snapshot(f.root), before);
 });
 
 test('incomplete receipts and wrong toolchain pins fail before invoking the verifier', t => {
@@ -249,6 +333,12 @@ function provenance(f, flavor) {
   for (const program of PROGRAMS) {
     const artifact = f.receipt.artifacts[program.name];
     artifact.path = parser.join(base, artifact.sha256, program.filename);
+  }
+  // This fixture describes a wholly foreign original receipt, including its execution binding and cwd.
+  for (const stage of f.receipt.stages) {
+    const program = PROGRAMS.find(p => stage.name.startsWith(p.name + ' '));
+    stage.cwd = parser.join(flavor === 'win32' ? 'C:\\Build\\workspace' : '/builder/workspace', program.workspace, 'svm-tests');
+    if (stage.execution) stage.execution.artifactBindings = structuredClone(f.receipt.artifacts);
   }
   f.save();
 }

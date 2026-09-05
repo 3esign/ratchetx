@@ -1,6 +1,6 @@
 # G2 build and verification handoff
 
-B1 checks the built pair; it does not certify SVM behavior, live Pyth data, devnet transactions or release permission.
+B1 requires a completed PASS receipt, checks its recorded exact-SBF execution evidence, and verifies the immutable artifact pair. It runs no fresh SVM tests and does not certify live Pyth data, devnet transactions or release permission.
 
 ## Verify the shared Windows pair from Windows or Linux
 
@@ -17,7 +17,11 @@ The explicit local directory must contain both exact files in this layout:
 
 These public binaries are available in the shared filesystem; they are intentionally excluded from Git. A fresh checkout must obtain the reviewed binary pair through that handoff or a build artifact download. Never obtain or copy keypair files for B1 verification.
 
-The checker preserves native paths in the original receipt and reports resolved local paths separately. It records the current verificationHost. Historical missing buildHost remains null/unrecorded; future build receipts record it. An artifact-only PASS can accompany receiptStatus FAIL from later SVM execution. runtimeChecked remains false. Both byte hashes, IDs, flags, source/lock snapshot and strict content-addressed paths remain required.
+The checker preserves native paths in the original receipt and reports resolved local paths separately. It records the current verificationHost. Historical missing buildHost remains null/unrecorded; future build receipts record it. The canonical receipt must have status PASS and buildStatus BUILT; FAIL, RUNNING and build-only BUILT are rejected. The checker validates the latest complete Timepin/Core SVM attempt, every required and discovered target, recorded commands and working directories, source/artifact bindings, and reparsed named-test results and log hashes. Older failures can remain as history after a complete passing retry. Older successes cannot fill a later incomplete or failed attempt. runtimeEvidenceChecked reports successful receipt validation; runtimeExecuted stays false. Both byte hashes, IDs, flags, source/lock snapshot and strict content-addressed paths remain required.
+
+The existing historical primary receipt remains FAIL and this command is expected to reject it. Do not replace its recorded result with the status of a scratch proposal. A successful rerun against the accepted source and exact pair must produce the new acceptance receipt.
+
+Future receipts distinguish buildSbfVersionProbe, whose raw version banner names the builder default, from platformToolsSelection, whose stage indexes identify the explicit installation and build commands. The builder default can be v1.57 while those commands select v1.56; platformCompilers records the selected executables and their hashes. Historical command output is retained unchanged.
 
 ## Reproduce a Linux candidate in two clean containers
 
