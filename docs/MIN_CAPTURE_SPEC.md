@@ -134,6 +134,35 @@ The measured numbers then land *inside* a bound the program already guarantees: 
 against a 60 s grid is comfortable; the slow five at 51–52 s against a 60 s grid fit, but only just —
 which is itself an argument for a larger grid on those feeds rather than a larger lag.
 
+### 1.4 The lag is derived, not measured — so nothing waits on a clock
+
+The admissible set for target `T` is `[T, T + lag]`, so it **grows** with lag: every print admissible
+at a smaller lag is admissible at a larger one. Coverage is monotonically non-decreasing in lag, and
+uniqueness (§1.3) caps lag at `grid - 1`. Therefore:
+
+> **`lag = grid - 1` maximises coverage subject to uniqueness, for every feed, without knowing
+> anything about that feed's cadence.**
+
+Proved in `lag_is_derived_not_measured_grid_minus_one_is_optimal` — monotone, strictly improving at
+each step, and capped exactly where uniqueness breaks.
+
+**What this removes.** `max_post_target_lag_seconds` is not a number anyone has to measure per feed.
+It follows from the grid. The only real choice left is the **grid**, and that is a decision about
+what game you want — a one-minute round, a five-minute round — not a fact about Pyth's scheduler.
+
+**A smaller lag remains a legitimate choice, and it is the only reason not to take `grid - 1`
+automatically:** a shorter window means the settling print is *closer to the target*, at the cost of
+voiding when the only available print is far. That is a quality-versus-liveness preference and it is
+Semir's to make, per feed if he wants. What it is *not* is a fact to be discovered by sampling.
+
+**And liveness measures itself, on chain, after launch.** A target with no admissible print VOIDs and
+refunds in full. VOID is the correct outcome when no evidence exists — not a fault to be tuned away
+in advance. The void rate is public on-chain state, so the game reports its own liveness in the only
+units that matter, from real play, rather than from our sampling of a feed we do not control.
+
+The 24-hour run stays valuable as corroboration and as the honest answer to "how alive is it" — it
+just stops being a dependency. **Nothing on the road to mainnet waits for it.**
+
 **This is the shape to look for elsewhere.** Before measuring a parameter, ask what relation between
 parameters the program could simply refuse to accept. Candidates nobody has checked yet:
 `capture_grace` versus `lag`, `max_target_ahead` versus `grid` (how many targets may be open at
