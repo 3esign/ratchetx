@@ -27,6 +27,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 export const CRATES = [
   {
@@ -94,7 +95,7 @@ function parseTestSummary(out) {
 }
 
 function generate() {
-  const cargo = spawnSync('cargo', ['--version'], { encoding: 'utf8' });
+  const cargo = spawnSync('cargo', ['--version'], { encoding: 'utf8', windowsHide: true });
   if (cargo.status !== 0) {
     console.error('[FAIL] no cargo on PATH. This tool WRITES evidence; it cannot invent it.');
     console.error('       Run it where a toolchain exists and commit the receipt it writes.');
@@ -108,8 +109,8 @@ function generate() {
       ? path.resolve(dir, '..', '..')
       : c.workspace;
     const files = hashCrate(dir);
-    const chk = spawnSync('cargo', ['check', '--lib'], { cwd: ws, encoding: 'utf8', timeout: 900000 });
-    const tst = spawnSync('cargo', ['test', '--lib'], { cwd: ws, encoding: 'utf8', timeout: 900000 });
+    const chk = spawnSync('cargo', ['check', '--lib'], { cwd: ws, encoding: 'utf8', timeout: 900000, windowsHide: true });
+    const tst = spawnSync('cargo', ['test', '--lib'], { cwd: ws, encoding: 'utf8', timeout: 900000, windowsHide: true });
     const out = (tst.stdout || '') + (tst.stderr || '');
     const receipt = {
       receiptVersion: 1,
@@ -149,16 +150,18 @@ export function verifyCrate(c, readFile = f => fs.readFileSync(f)) {
   return { ok: true, receipt };
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   if (process.argv.includes('--verify')) {
     let bad = 0;
     for (const c of CRATES) {
       const v = verifyCrate(c);
       if (!v.ok) { console.log(`[STALE] ${c.name}: ${v.reason}`); bad++; continue; }
       const t = v.receipt.test || {};
-      console.log(`[FRESH] ${c.name}: check exit ${v.receipt.check?.exit}, `
-        + `tests ${t.passed} passed / ${t.failed} failed, ${v.receipt.generatedAt}`);
-      if (v.receipt.check?.exit !== 0 || t.failed) bad++;
+      const passed = v.receipt.check?.exit === 0 && t.exit === 0
+        && Number.isSafeInteger(t.passed) && t.passed > 0 && t.failed === 0;
+      console.log(`[${passed ? 'FRESH' : 'FAIL'}] ${c.name}: check exit ${v.receipt.check?.exit}, `
+        + `test exit ${t.exit}, tests ${t.passed} passed / ${t.failed} failed, ${v.receipt.generatedAt}`);
+      if (!passed) bad++;
     }
     process.exit(bad ? 1 : 0);
   }

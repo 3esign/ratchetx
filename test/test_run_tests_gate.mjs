@@ -61,7 +61,14 @@ test('skips fail the gate unless a human accepts the gap', () => {
 test('DEPLOY.cmd never accepts the gap on the release path', () => {
   // Readable on any platform; this is a text assertion, not a Windows one.
   const deploy = fs.readFileSync(new URL('../DEPLOY.cmd', import.meta.url), 'utf8');
-  assert.ok(/npm test/.test(deploy), 'DEPLOY.cmd must still run the full release gate');
+  const { scripts } = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
+  assert.match(deploy, /^call npm run test:release(?:[ \t]+>>[^\r\n]*)?\r?\nif errorlevel 1 goto :testfail$/m,
+    'DEPLOY.cmd must run the complete release gate and stop if it fails');
+  assert.equal(scripts['test:release'], 'npm test && npm run test:private-restore',
+    'the release gate must require CI checks before the mandatory private restore');
+  assert.match(scripts['test:private-restore'],
+    /^node --test --test-reporter=tap test\/private\/test_supabase_final_snapshot_restore\.mjs$/,
+    'private restore must execute the actual historical-backup test');
   assert.ok(!/RATCHET_ALLOW_SKIPS/.test(deploy),
     'DEPLOY.cmd must never set RATCHET_ALLOW_SKIPS: a release may not ship on suites that did not run');
 });
