@@ -242,6 +242,37 @@ for (const [modelName, coreName] of [
     + 'what runs on chain. When they disagree the model stays green and the transaction fails.');
 }
 
+// --- 9. the manifest must be registrable by BOTH programs -------------------
+// test_client_model_parity.mjs already validates releases/g2-mainnet-economy.json
+// against the model's validateEvidenceSpec, and says in its own message that "a
+// spec that cannot register is an economy that cannot exist". It is green. But
+// the model mirrors the TIMEPIN crate, and registering an economy needs CORE to
+// accept the same spec. Measured 2026-09-05: the manifest is adapter 2 with
+// maxPreTargetGapSeconds 0 - exactly the pair Core refused with BadEvidenceSpec
+// (6037) on a real RegisterRuleset. One validator's approval is not the answer.
+const manifest = JSON.parse(
+  fs.readFileSync(new URL('../releases/g2-mainnet-economy.json', import.meta.url), 'utf8'));
+const tmpl = manifest.evidenceSpecTemplate || {};
+const proposed = (v) => (v && typeof v === 'object' && 'proposed' in v ? v.proposed : v);
+const manifestAdapter = proposed(tmpl.adapter);
+const manifestPreGap = proposed(tmpl.maxPreTargetGapSeconds);
+if (manifestAdapter !== undefined && shape) {
+  const adapterConst = new RegExp(`pub const (ADAPTER_[A-Z0-9_]+)\\s*:\\s*u8\\s*=\\s*${manifestAdapter}\\s*;`)
+    .exec(foreign);
+  ok(adapterConst,
+    `releases/g2-mainnet-economy.json asks for adapter ${manifestAdapter} and foreign_timepin.rs declares no `
+    + 'constant with that value. Core cannot name the adapter the manifest selects.');
+  ok(shapeBody.includes(adapterConst[1]) || /spec\.adapter/.test(shapeBody) === false,
+    `the manifest selects ${adapterConst[1]} (= ${manifestAdapter}) but Core's validate_spec_shape never `
+    + `mentions it. Approving this manifest changes a status field and nothing else: RegisterRuleset fails `
+    + `with BadEvidenceSpec before an economy exists.`);
+  if (manifestAdapter === 2) {
+    eq(manifestPreGap, 0,
+      'the manifest selects the MIN-CAPTURE adapter, and rcx-timepin-v2 requires '
+      + 'max_pre_target_gap_seconds == 0 for it. The manifest says ' + manifestPreGap + '.');
+  }
+}
+
 if (drift.length) console.log('  DRIFT: ' + drift.join(' | '));
 console.log(`PASS  foreign timepin ABI: ${checks} checks - every account length, the field order of the `
   + 'Need view, the three seeds, all three discriminators and the two spec validators are compared ACROSS the two crates. The lengths '
