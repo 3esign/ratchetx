@@ -19,7 +19,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { derive, OUT } from '../tools/derive-account-lists.mjs';
-import { CORE_INSTRUCTION, TIMEPIN_INSTRUCTION }
+import { CORE_INSTRUCTION, TIMEPIN_INSTRUCTION, INSTRUCTION_ACCOUNTS }
   from '../onchain/ratchet-core-g2/client/client-v2.mjs';
 
 let checks = 0;
@@ -73,6 +73,17 @@ for (const [crate, ixs] of Object.entries(committed)) {
     }
   }
 }
+
+// THE CLIENT CARRIES ITS OWN COPY, so the copy is checked too. client-v2.mjs
+// inlines the table rather than importing the JSON, because it must stay one
+// file a browser can load - and an inlined copy is a copy, which is the thing
+// this whole file exists to distrust. Without this the generated file and the
+// shipped client could disagree and every other check here would still pass.
+checks += 1;
+assert.deepEqual(INSTRUCTION_ACCOUNTS, committed,
+  'client-v2.mjs has an inlined account table that differs from ' + OUT + '. The client is what ' +
+  'actually builds transactions, so the client is what would be wrong. Regenerate with ' +
+  'node tools/derive-account-lists.mjs --write and re-inline it.');
 
 console.log(`ok - account lists: ${checks} checks across ` +
   Object.entries(committed).map(([c, i]) => `${c} ${Object.keys(i).length}`).join(', ') +
