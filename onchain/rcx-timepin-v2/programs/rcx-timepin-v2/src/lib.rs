@@ -528,6 +528,32 @@ pub fn validate_spec(args: &EvidenceSpecArgs) -> Result<()> {
         args.max_future_skew_seconds <= MAX_FUTURE_SKEW_SECS,
         TimepinV2Error::BadFutureSkew
     );
+    // CAN THE PRICE BE KNOWN BEFORE THE BET IS PLACED? Decided by arithmetic, at
+    // registration, with no measurement.
+    //
+    // A Need for target T can be opened as early as Solana clock C = T - lead.
+    // A print is admissible for T under MIN-CAPTURE iff publish_time >= T, and
+    // this program's own declared tolerance for an oracle timestamp running ahead
+    // of the Solana clock is max_future_skew_seconds -- it accepts publish_time up
+    // to clock + skew. So at the moment the Need opens, the newest print the
+    // program would ever accept carries publish_time up to C + skew, and that
+    // print is ALREADY ADMISSIBLE for T iff C + skew >= C + lead, i.e. iff
+    // skew >= lead.
+    //
+    // Therefore min_open_lead_seconds > max_future_skew_seconds is NECESSARY AND
+    // SUFFICIENT for no acceptable print for T to exist when the Need for T is
+    // opened. Below that line the settling price can be read off the sponsored
+    // account BEFORE the shot is committed, which is the one thing forward-only
+    // entry exists to prevent. Nothing else in the program closes it: the only
+    // slot bound on a candidate is posted_slot > registered_slot, which ties the
+    // print to the SPEC's registration and never to the NEED's opening.
+    //
+    // Proved exhaustively in lifecycle.rs::
+    // lead_above_skew_is_exactly_the_condition_for_an_unknowable_price.
+    require!(
+        u32::from(args.max_future_skew_seconds) < args.min_open_lead_seconds,
+        TimepinV2Error::BadOpenLead
+    );
     require!(
         args.min_exponent >= MIN_EXPONENT
             && args.max_exponent <= MAX_EXPONENT
@@ -875,7 +901,9 @@ mod tests {
             min_open_lead_seconds: 30,
             max_target_ahead_seconds: 604_800,
             max_pre_target_gap_seconds: 900,
-            max_post_target_lag_seconds: 900,
+            // grid - 1 (grid is 600 here). Was 900, which is above the grid and is
+            // now refused at registration.
+            max_post_target_lag_seconds: 599,
             capture_grace_seconds: 120,
             max_future_skew_seconds: 5,
             min_exponent: -12,

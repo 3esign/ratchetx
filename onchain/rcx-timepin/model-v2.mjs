@@ -305,6 +305,14 @@ export function validateEvidenceSpec(spec) {
     bounded(spec.maxConfidenceBps, 10_000, 'maxConfidenceBps');
     if (spec.targetGridSeconds === 0) return fail('ZERO_GRID');
     if (spec.minOpenLeadSeconds < 5) return fail('LEAD_TOO_SHORT');
+    // Can the price be known before the bet is placed? A Need for target T opens
+    // as early as clock C = T - lead; the program accepts publish_time up to
+    // clock + maxFutureSkew; so at open the newest acceptable print is already
+    // admissible for T (publish_time >= T) iff skew >= lead. lead > skew is
+    // necessary and sufficient for the settling price to be unknowable at the
+    // moment the shot is committed. Mirrors the require! in lib.rs::validate_spec.
+    if (spec.maxFutureSkewSeconds >= spec.minOpenLeadSeconds)
+      return fail('LEAD_DOES_NOT_CLEAR_SKEW');
     if (spec.maxTargetAheadSeconds < spec.minOpenLeadSeconds) return fail('AHEAD_BEFORE_LEAD');
     // Under MIN-CAPTURE `prev_publish_time` is not part of the predicate, so a
     // non-zero pre-gap would be a dead number sitting inside canonical_policy_bytes

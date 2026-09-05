@@ -1586,7 +1586,9 @@ mod tests {
             min_open_lead_seconds: 30,
             max_target_ahead_seconds: 3_600,
             max_pre_target_gap_seconds: 120,
-            max_post_target_lag_seconds: 120,
+            // grid - 1. Was 120 against a grid of 60, which validate_spec now
+            // refuses: at twice the grid, one print settles two consecutive targets.
+            max_post_target_lag_seconds: 59,
             capture_grace_seconds: 60,
             max_future_skew_seconds: 5,
             min_exponent: -12,
@@ -1640,6 +1642,53 @@ mod tests {
     fn serves_two_targets(lag: i64, grid: i64) -> bool {
         let t = 1_800i64;
         (t..=t + lag).any(|p| p >= t + grid && p <= t + grid + lag)
+    }
+
+    /// The second structural property, same shape as the first and found by
+    /// asking the lead's question: what relation between parameters could the
+    /// program simply REFUSE, instead of us measuring around it?
+    ///
+    /// A Need for target T opens no earlier than Solana clock C = T - lead. A
+    /// print is admissible for T iff publish_time >= T, and the program's own
+    /// declared tolerance for an oracle clock running ahead of Solana's is
+    /// `max_future_skew_seconds`. So at open time the newest print the program
+    /// would accept carries publish_time up to C + skew, and it is already
+    /// admissible for T iff skew >= lead.
+    fn admissible_print_can_exist_at_open(lead: i64, skew: i64) -> bool {
+        let c = 1_000_000i64;
+        let target = c + lead;
+        // every publish_time the program would accept as not-in-the-future at C
+        (c - 600..=c + skew).any(|p| p >= target)
+    }
+
+    #[test]
+    fn lead_above_skew_is_exactly_the_condition_for_an_unknowable_price() {
+        // Necessary and sufficient. Below the line the settling price can be read
+        // off the sponsored account BEFORE the shot is committed, which is the
+        // one thing forward-only entry exists to prevent.
+        for skew in [0i64, 1, 5, 30, 60, 300] {
+            for lead in 1..=skew {
+                assert!(
+                    admissible_print_can_exist_at_open(lead, skew),
+                    "lead {lead} skew {skew}: expected the price to be knowable at open"
+                );
+            }
+            assert!(
+                !admissible_print_can_exist_at_open(skew + 1, skew),
+                "skew {skew}: lead = skew + 1 must make it unknowable"
+            );
+            assert!(!admissible_print_can_exist_at_open(skew + 600, skew));
+        }
+    }
+
+    #[test]
+    fn the_spec_refuses_a_lead_that_does_not_clear_the_skew() {
+        let mut args = spec().as_args();
+        args.max_future_skew_seconds = 30;
+        args.min_open_lead_seconds = 30; // equal is NOT enough - this is the boundary
+        assert!(crate::validate_spec(&args).is_err());
+        args.min_open_lead_seconds = 31;
+        assert!(crate::validate_spec(&args).is_ok());
     }
 
     #[test]

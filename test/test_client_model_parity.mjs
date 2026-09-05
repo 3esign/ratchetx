@@ -106,7 +106,9 @@ const fullSpec = adapter => ({
   pushOracleProgram: T.OFFICIAL_PYTH_PUSH_ORACLE_PROGRAM,
   feedId: Buffer.alloc(32, 7), shardId: 0,
   requiredVerification: T.VERIFICATION_FULL,
-  targetGridSeconds: 60, minOpenLeadSeconds: 10, maxTargetAheadSeconds: 3600,
+  // lead must strictly clear the skew below, or the settling price is knowable
+  // at the moment the shot is committed.
+  targetGridSeconds: 60, minOpenLeadSeconds: 31, maxTargetAheadSeconds: 3600,
   maxPreTargetGapSeconds: adapter === MINCAP ? 0 : 5,
   // grid - 1: the largest lag that keeps a print unique to one target, which is
   // also the optimum, since admissibility [T, T+lag] grows with lag.
