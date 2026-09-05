@@ -17,9 +17,18 @@ export const RULESET_POLICY_CANONICAL_LEN = 99;
 export const SHOT_RESULT_LEN = 165;
 export const GAME_RESULT_FACTS_LEN = 82;
 export const HISTORY_PAGE_CAP = 16;
-export const HISTORY_PAGE_BASE_LEN = 79;
-export const HISTORY_PAGE_MAX_LEN =
-  HISTORY_PAGE_BASE_LEN + HISTORY_PAGE_CAP * (1 + SHOT_RESULT_LEN);
+// M3: the page is a FIXED-SIZE COMMITMENT, not a container of rows.
+// schema 2 + bump 1 + economyHash 32 + player 32 + pageIndex 8 +
+// pendingCount 1 + terminalMask 2 + resultsRoot 32 = 110.
+// BASE and MAX are kept as aliases so callers do not all change at once, and
+// their being EQUAL is the statement: a page whose base and max differ is a
+// page that grows.
+export const HISTORY_PAGE_LEN = 2 + 1 + 32 + 32 + 8 + 1 + 2 + 32;
+export const HISTORY_PAGE_BASE_LEN = HISTORY_PAGE_LEN;
+export const HISTORY_PAGE_MAX_LEN = HISTORY_PAGE_LEN;
+// What the page cost BEFORE M3, kept so the saving is arithmetic in one place
+// rather than a number repeated in prose: 79 + 16 * (1 + 165) = 2,735.
+export const HISTORY_PAGE_PRE_M3_MAX_LEN = 79 + HISTORY_PAGE_CAP * (1 + SHOT_RESULT_LEN);
 export const WORK_KINDS_PER_SHOT = 3;
 export const WORK_PAGE_CAP = HISTORY_PAGE_CAP * WORK_KINDS_PER_SHOT;
 export const WORK_RECORD_LEN = 106;
@@ -205,6 +214,12 @@ const LEGACY_LEAF_HASH_DOMAIN =
 const LEGACY_NODE_HASH_DOMAIN =
   Buffer.from('rcx-core:legacy-node:g2\0', 'utf8');
 const RESOLUTION_HASH_DOMAIN = Buffer.from('rcx-core:result:g2\0', 'utf8');
+// M3. Two domains, so a row hash can never be replayed as a chain hash.
+// These must match state.rs HISTORY_ROW_DOMAIN / HISTORY_CHAIN_DOMAIN exactly:
+// the whole point of the root is that an off-chain reader recomputes it.
+const HISTORY_ROW_DOMAIN = Buffer.from('rcx-core:history-row:g2\0', 'utf8');
+const HISTORY_CHAIN_DOMAIN =
+  Buffer.from('rcx-core:history-chain:g2\0', 'utf8');
 const TERMINAL_HASH_DOMAIN = Buffer.from('rcx-core:terminal:g2\0', 'utf8');
 const GAME_RESULT_HASH_DOMAIN =
   Buffer.from('rcx-core:game-result:g2\0', 'utf8');
@@ -387,6 +402,14 @@ export const deriveShotPda = (programId, economyHashValue, player, nonce) =>
     Buffer.from('shot'), bytes32(economyHashValue, 'economyHash'),
     bytes32(player, 'player'), u64(nonce, 'nonce'),
   ]);
+// Bits set in a 16-bit mask. Number of terminal rows folded into the root.
+export const popcount16 = mask => {
+  let value = numberUint(mask, 16, 'terminalMask');
+  let count = 0;
+  while (value) { value &= value - 1; count += 1; }
+  return count;
+};
+
 export const historyPageIndex = nonce =>
   uint(nonce, 64, 'nonce') / BigInt(HISTORY_PAGE_CAP);
 export const historyPageSlot = nonce =>
@@ -1486,11 +1509,53 @@ export function completionResultHash({
   ]));
 }
 
-export const historyPageSerializedLen = slots => {
-  if (!Array.isArray(slots) || slots.length > HISTORY_PAGE_CAP)
+// Borsh encoding of ShotResult, in the field order state.rs declares:
+// rulesetHash 32, proofMaterial 32, state 1, voidReason 1, stake 8, sealedTs 8,
+// entryTargetTs 8, exitTargetTs 8, side 1, pBps 2, delegate 32,
+// gameResultHash 32 = 165. Borsh has no padding and no length prefix for fixed
+// arrays, so this is the exact byte string the program hashes.
+export function encodeShotResult(result) {
+  validateCompactResultShape(result);
+  const encoded = Buffer.concat([
+    bytes32(result.rulesetHash, 'result.rulesetHash'),
+    bytes32(result.proofMaterial, 'result.proofMaterial'),
+    u8(STATE_CODE[result.state], 'result.state'),
+    u8(voidCode(result.voidReason), 'result.voidReason'),
+    u64(result.stake, 'result.stake'),
+    i64(result.sealedTs, 'result.sealedTs'),
+    i64(result.entryTargetTs, 'result.entryTargetTs'),
+    i64(result.exitTargetTs, 'result.exitTargetTs'),
+    u8(result.side, 'result.side'),
+    u16(result.pBps, 'result.pBps'),
+    bytes32(result.delegate, 'result.delegate'),
+    bytes32(result.gameResultHash, 'result.gameResultHash'),
+  ]);
+  if (encoded.length !== SHOT_RESULT_LEN) fail('INVALID_TERMINAL_SHAPE');
+  return encoded;
+}
+
+// One row's leaf. The nonce is bound in so a row cannot be moved to another
+// slot or another page and still verify.
+export const historyRowHash = (nonce, result) => sha256(Buffer.concat([
+  HISTORY_ROW_DOMAIN, u64(nonce, 'nonce'), encodeShotResult(result),
+]));
+
+// The fold. Order is TERMINALISATION order, not nonce order - slots are
+// appended in nonce order but terminalised out of order, so a nonce-ordered
+// replay does not reproduce the root.
+export const historyChainFold = (root, rowHash) => sha256(Buffer.concat([
+  HISTORY_CHAIN_DOMAIN, bytes32(root, 'resultsRoot'),
+  bytes32(rowHash, 'rowHash'),
+]));
+
+// Fixed size, whatever the page contains. The argument is still validated so a
+// caller passing an impossible page still fails here.
+export const historyPageSerializedLen = page => {
+  const pending = numberUint(page.pendingCount, 8, 'page.pendingCount');
+  const mask = numberUint(page.terminalMask, 16, 'page.terminalMask');
+  if (pending > HISTORY_PAGE_CAP || (mask >>> pending) !== 0)
     fail('INVALID_HISTORY_PAGE');
-  return HISTORY_PAGE_BASE_LEN + slots.length +
-    slots.filter(Boolean).length * SHOT_RESULT_LEN;
+  return HISTORY_PAGE_LEN;
 };
 
 export function podiumAllocation(gross) {
@@ -2627,13 +2692,25 @@ export class RatchetCoreG2Model {
     return clone(page);
   }
 
+  // M3: the page no longer stores rows, so this reads the row from the archive
+  // - which is where the program puts it too, in the ShotArchived event - and
+  // then CHECKS IT AGAINST THE PAGE. That is strictly stronger than the old
+  // version: it used to return whatever the page held, trusting the same
+  // structure it was reading from. Now the page has to agree.
   historyResult(economyHashValue, player, nonce) {
     const page = this.historyPage(
       economyHashValue, player, historyPageIndex(nonce),
     );
-    const result = page.slots[historyPageSlot(nonce)];
-    if (!result) fail('HISTORY_RESULT_NOT_TERMINAL');
-    return clone(result);
+    const slot = historyPageSlot(nonce);
+    if (!(page.terminalMask & (1 << slot))) fail('HISTORY_RESULT_NOT_TERMINAL');
+    const shotKey = deriveShotPda(
+      this.#programId, economyHashValue, player, nonce,
+    ).key;
+    const archive = this.#state.closedShots.get(keyHex(shotKey));
+    if (!archive) fail('HISTORY_RESULT_NOT_TERMINAL');
+    if (!same(archive.historyRowHash, historyRowHash(nonce, archive.result)))
+      fail('WRONG_HISTORY_ROW_HASH');
+    return clone(archive.result);
   }
 
   reloadHistoryPage(economyHashValue, player, pageIndex) {
@@ -2804,23 +2881,30 @@ export class RatchetCoreG2Model {
   _validateHistoryPage(page) {
     if (page.schema !== CORE_G2_SCHEMA ||
         bytes32(page.economyHash, 'page.economyHash').equals(ZERO32) ||
-        bytes32(page.player, 'page.player').equals(ZERO_PUBKEY) ||
-        !Array.isArray(page.slots) || page.slots.length > HISTORY_PAGE_CAP)
+        bytes32(page.player, 'page.player').equals(ZERO_PUBKEY))
       fail('INVALID_HISTORY_PAGE');
+    const pending = numberUint(page.pendingCount, 8, 'page.pendingCount');
+    const mask = numberUint(page.terminalMask, 16, 'page.terminalMask');
+    // No bit above the slots actually appended. Mirrors state.rs
+    // validate_contents; the Rust widens the shift to u32 because u16 >> 16 is
+    // an overflow shift there, and JS shifts are 32-bit so this is already safe.
+    if (pending > HISTORY_PAGE_CAP || (mask >>> pending) !== 0)
+      fail('INVALID_HISTORY_PAGE');
+    bytes32(page.resultsRoot, 'page.resultsRoot');
+    // An empty page has the zero root, and a page with any terminal row does
+    // not: the fold is over a non-empty domain, so it cannot land back on zero
+    // by construction rather than by luck.
+    if ((mask === 0) !== bytes32(page.resultsRoot, 'page.resultsRoot')
+      .equals(ZERO32)) fail('INVALID_HISTORY_PAGE');
     const pda = deriveHistoryPagePda(
       this.#programId, page.economyHash, page.player, page.pageIndex,
     );
     if (!same(page.key, pda.key) || page.bump !== pda.bump)
       fail('WRONG_HISTORY_PAGE_PDA');
-    for (const result of page.slots) {
-      if (result) {
-        validateCompactResultShape(result);
-        if (bytes32(
-          result.gameResultHash, 'result.gameResultHash',
-        ).equals(ZERO32)) fail('INVALID_HISTORY_PAGE');
-      }
-    }
-    historyPageSerializedLen(page.slots);
+    // The row-shape checks that used to run here, over rows committed long ago,
+    // now run in _archiveTerminal on the row about to be folded - strictly
+    // earlier, and on the only row that can still be wrong.
+    historyPageSerializedLen(page);
     return true;
   }
 
@@ -2839,7 +2923,12 @@ export class RatchetCoreG2Model {
         economyHash: bytes32(economyHashValue, 'economyHash'),
         player: bytes32(player, 'player'),
         pageIndex: uint(pageIndex, 64, 'pageIndex'),
-        slots: [],
+        // M3: no rows. pendingCount replaces slots.length, terminalMask
+        // replaces slots[i] !== null, resultsRoot is the commitment over the
+        // rows themselves - which now live in closedShots, not here.
+        pendingCount: 0,
+        terminalMask: 0,
+        resultsRoot: Buffer.from(ZERO32),
       };
       state.historyPages.set(id, page);
       if (state._cow) state._cow.historyPages.add(id);
@@ -2904,9 +2993,9 @@ export class RatchetCoreG2Model {
     const page = this._getHistoryPage(
       state, economyHashValue, player, pageIndex, true,
     );
-    if (page.slots.length >= HISTORY_PAGE_CAP) fail('HISTORY_PAGE_FULL');
-    if (slot !== page.slots.length) fail('HISTORY_APPEND_OUT_OF_ORDER');
-    page.slots.push(null);
+    if (page.pendingCount >= HISTORY_PAGE_CAP) fail('HISTORY_PAGE_FULL');
+    if (slot !== page.pendingCount) fail('HISTORY_APPEND_OUT_OF_ORDER');
+    page.pendingCount += 1;
     this._validateHistoryPage(page);
     return { page, slot };
   }
@@ -3038,9 +3127,19 @@ export class RatchetCoreG2Model {
     );
     if (!page) fail('HISTORY_PAGE_NOT_FOUND');
     const slot = historyPageSlot(shot.nonce);
-    if (slot >= page.slots.length) fail('HISTORY_SLOT_MISSING');
-    if (page.slots[slot]) fail('HISTORY_SLOT_ALREADY_TERMINAL');
-    page.slots[slot] = result;
+    if (slot >= page.pendingCount) fail('HISTORY_SLOT_MISSING');
+    const bit = 1 << slot;
+    if (page.terminalMask & bit) fail('HISTORY_SLOT_ALREADY_TERMINAL');
+    // Shape is checked BEFORE the fold, not after on a row read back. A bad row
+    // is never committed in the first place.
+    validateCompactResultShape(result);
+    if (bytes32(result.gameResultHash, 'result.gameResultHash')
+      .equals(ZERO32)) fail('INVALID_HISTORY_PAGE');
+    const rowHash = historyRowHash(shot.nonce, result);
+    page.resultsRoot = historyChainFold(page.resultsRoot, rowHash);
+    page.terminalMask |= bit;
+    // 1-based, and it is the FOLD order an off-chain reader must replay.
+    const sequence = popcount16(page.terminalMask);
     this._validateHistoryPage(page);
 
     const terminalSlot = uint(completedSlot, 64, 'completedSlot');
@@ -3084,8 +3183,13 @@ export class RatchetCoreG2Model {
     }
 
     const actor = nonzero32(terminalActor, 'terminalActor');
-    const historyRentGrowth = BigInt(SHOT_RESULT_LEN) *
-      state.rentLamportsPerByte;
+    // M3: the page is a fixed size, so archiving grows nothing. This was
+    // SHOT_RESULT_LEN * rentLamportsPerByte - 165 bytes of permanent rent per
+    // shot - and it is the entire saving M3 is argued on. It stays as a named
+    // zero rather than disappearing, so the archive record keeps its shape and
+    // anything reading historyRentGrowthLamports sees the change instead of a
+    // missing field.
+    const historyRentGrowth = 0n;
     const available = uint(
       shot.transientRentLamports, 64, 'transientRentLamports',
     );
@@ -3111,6 +3215,11 @@ export class RatchetCoreG2Model {
       transientTerminalHash: Buffer.from(shot.terminalHash),
       historyPage: Buffer.from(page.key),
       historySlot: slot,
+      // What the on-chain ShotArchived event carries. The row itself is in
+      // `result` above: this is what proves it was not altered.
+      historySequence: sequence,
+      historyRowHash: rowHash,
+      historyResultsRoot: Buffer.from(page.resultsRoot),
       historyRentGrowthLamports: historyRentGrowth,
       actorTopupLamports: actorTopup,
       rentRefund: Buffer.from(shot.rentRefund),
@@ -3272,7 +3381,10 @@ export class RatchetCoreG2Model {
         state, shot.economyHash, shot.player,
         historyPageIndex(shot.nonce), false,
       );
-      if (!page || page.slots[historyPageSlot(shot.nonce)] !== null)
+      // An OPEN shot must have an appended slot that is NOT terminal.
+      const openSlot = historyPageSlot(shot.nonce);
+      if (!page || openSlot >= page.pendingCount ||
+          (page.terminalMask & (1 << openSlot)))
         fail('OPEN_SHOT_HISTORY_INVARIANT');
       addOpen(shot);
     }
@@ -3301,10 +3413,15 @@ export class RatchetCoreG2Model {
         state, archive.economyHash, archive.player,
         historyPageIndex(archive.nonce), false,
       );
-      if (!page || !same(
-        page.slots[historyPageSlot(archive.nonce)].gameResultHash,
-        archive.result.gameResultHash,
-      )) fail('CLOSED_SHOT_HISTORY_INVARIANT');
+      // The page no longer holds the row, so this checks the two things it CAN
+      // still prove: the slot is marked terminal, and the row the archive holds
+      // hashes to the leaf that was folded. The old check compared a stored row
+      // to itself; this one binds the archive to the commitment.
+      const closedSlot = historyPageSlot(archive.nonce);
+      if (!page || !(page.terminalMask & (1 << closedSlot)) ||
+          !same(archive.historyRowHash,
+            historyRowHash(archive.nonce, archive.result)))
+        fail('CLOSED_SHOT_HISTORY_INVARIANT');
       const ledgerKey = deriveLedgerPda(
         this.#programId, archive.economyHash, archive.player,
       ).key;
@@ -3354,18 +3471,44 @@ export class RatchetCoreG2Model {
     for (const page of state.historyPages.values()) {
       if (!same(page.economyHash, economy.hash)) continue;
       this._validateHistoryPage(page);
-      page.slots.forEach((result, slot) => {
+      // Every appended slot is either an open shot or a closed one - same
+      // invariant as before, read off the mask instead of off a row.
+      const folded = [];
+      for (let slot = 0; slot < page.pendingCount; slot += 1) {
         const nonce = page.pageIndex * BigInt(HISTORY_PAGE_CAP) + BigInt(slot);
         const shotKey = deriveShotPda(
           this.#programId, page.economyHash, page.player, nonce,
         ).key;
-        if (result === null) {
+        if (!(page.terminalMask & (1 << slot))) {
           if (!state.shots.has(keyHex(shotKey)))
             fail('ORPHAN_PENDING_HISTORY_SLOT');
-        } else if (!state.closedShots.has(keyHex(shotKey))) {
-          fail('ORPHAN_TERMINAL_HISTORY_SLOT');
+          continue;
         }
+        const archive = state.closedShots.get(keyHex(shotKey));
+        if (!archive) fail('ORPHAN_TERMINAL_HISTORY_SLOT');
+        folded.push(archive);
+      }
+      // AND THE CHECK M3 MADE POSSIBLE, which has no pre-M3 equivalent: replay
+      // the fold from the archived rows and land on the stored root. The old
+      // page held the rows, so "the page agrees with the page" was all it could
+      // say. This says the rows a reader has are exactly the rows that were
+      // committed, in the order they were committed - and it is the same
+      // computation an off-chain reader performs against the on-chain account.
+      if (folded.length !== popcount16(page.terminalMask))
+        fail('HISTORY_ROOT_INVARIANT');
+      folded.sort((a, b) => a.historySequence - b.historySequence);
+      let replay = Buffer.from(ZERO32);
+      folded.forEach((archive, index) => {
+        // The sequence is DENSE and 1-based. A gap is how an omitted row would
+        // hide: the root alone cannot reveal one, the sequence can.
+        if (archive.historySequence !== index + 1)
+          fail('HISTORY_SEQUENCE_INVARIANT');
+        const rowHash = historyRowHash(archive.nonce, archive.result);
+        if (!same(rowHash, archive.historyRowHash))
+          fail('HISTORY_ROW_INVARIANT');
+        replay = historyChainFold(replay, rowHash);
       });
+      if (!same(replay, page.resultsRoot)) fail('HISTORY_ROOT_INVARIANT');
     }
     for (const page of state.reloadHistoryPages.values()) {
       if (!same(page.economyHash, economy.hash)) continue;

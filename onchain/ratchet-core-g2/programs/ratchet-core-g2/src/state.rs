@@ -2893,9 +2893,24 @@ mod tests {
         assert_eq!(Shot::LEN, 772);
         assert_eq!(ShotResult::LEN, 165);
         assert_eq!(GameResultFacts::LEN, 82);
-        assert_eq!(HistoryPage::BASE_LEN, 79);
-        assert_eq!(HistoryPage::MAX_LEN, 2_735);
-        assert_eq!(HistoryPage::max_serialized_len(), 2_735);
+        // M3: the page is a FIXED 110 bytes. BASE_LEN and MAX_LEN are kept as
+        // aliases of LEN so callers do not all have to change at once, and
+        // pinning all three to the SAME number is the ABI statement - a page
+        // whose base and max ever differ again is a page that grows.
+        assert_eq!(HistoryPage::LEN, 110);
+        assert_eq!(HistoryPage::BASE_LEN, HistoryPage::LEN);
+        assert_eq!(HistoryPage::MAX_LEN, HistoryPage::LEN);
+        assert_eq!(HistoryPage::max_serialized_len(), HistoryPage::LEN);
+        // ...and the length does not move with the contents, which is the whole
+        // change. serialized_len_for still validates its arguments; it just no
+        // longer computes a size from them.
+        assert_eq!(HistoryPage::serialized_len_for(0, 0).unwrap(), HistoryPage::LEN);
+        assert_eq!(
+            HistoryPage::serialized_len_for(HISTORY_PAGE_CAP, HISTORY_PAGE_CAP).unwrap(),
+            HistoryPage::LEN
+        );
+        assert!(HistoryPage::serialized_len_for(HISTORY_PAGE_CAP + 1, 0).is_err());
+        assert!(HistoryPage::serialized_len_for(1, 2).is_err());
         assert_eq!(WorkRecord::LEN, 106);
         assert_eq!(WorkPage::BASE_LEN, 79);
         assert_eq!(WorkPage::MAX_LEN, 5_167);

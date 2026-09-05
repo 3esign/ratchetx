@@ -12,8 +12,14 @@ import {
   SHOT_RESULT_LEN,
   GAME_RESULT_FACTS_LEN,
   HISTORY_PAGE_CAP,
+  HISTORY_PAGE_LEN,
   HISTORY_PAGE_BASE_LEN,
   HISTORY_PAGE_MAX_LEN,
+  HISTORY_PAGE_PRE_M3_MAX_LEN,
+  historyRowHash,
+  historyChainFold,
+  encodeShotResult,
+  popcount16,
   RELOAD_HISTORY_PAGE_CAP,
   RELOAD_RECORD_LEN,
   RELOAD_HISTORY_PAGE_BASE_LEN,
@@ -448,12 +454,29 @@ eq(makeRulesetAccount(programId, observedRuleset, economySpec).data.length,
 eq(SHOT_RESULT_LEN, 165, 'compact terminal ShotResult exact bytes');
 eq(GAME_RESULT_FACTS_LEN, 82, 'transient GameResultFacts exact bytes');
 eq(HISTORY_PAGE_CAP, 16, 'HistoryPage has sixteen nonce slots');
-eq(HISTORY_PAGE_BASE_LEN, 79, 'HistoryPage fixed account prefix');
-eq(HISTORY_PAGE_MAX_LEN, 2_735, 'HistoryPage maximum account bytes');
-eq(historyPageSerializedLen(Array(16).fill(null)), 95,
-  'sixteen None reservations cost only option tags');
-eq(historyPageSerializedLen(Array(16).fill({ terminal: true })),
-  HISTORY_PAGE_MAX_LEN, 'sixteen compact results reach exact max length');
+// M3. The page is a fixed-size commitment; base and max are the SAME number,
+// and their being equal is the ABI statement - a page whose base and max differ
+// again is a page that grows.
+eq(HISTORY_PAGE_LEN, 110, 'HistoryPage fixed account bytes');
+eq(HISTORY_PAGE_LEN, 2 + 1 + 32 + 32 + 8 + 1 + 2 + 32,
+  'HistoryPage bytes follow from its fields, not from a literal');
+eq(HISTORY_PAGE_BASE_LEN, HISTORY_PAGE_LEN, 'BASE_LEN is an alias of LEN');
+eq(HISTORY_PAGE_MAX_LEN, HISTORY_PAGE_LEN, 'MAX_LEN is an alias of LEN');
+eq(HISTORY_PAGE_PRE_M3_MAX_LEN, 2_735, 'the page cost 2,735 bytes before M3');
+eq(HISTORY_PAGE_PRE_M3_MAX_LEN - HISTORY_PAGE_LEN, 2_625,
+  'M3 removes 2,625 bytes of permanent rent per page');
+// The length does not move with the contents. That is the whole change.
+eq(historyPageSerializedLen({ pendingCount: 0, terminalMask: 0 }),
+  HISTORY_PAGE_LEN, 'an empty page is 110 bytes');
+eq(historyPageSerializedLen({ pendingCount: 16, terminalMask: 0xffff }),
+  HISTORY_PAGE_LEN, 'a full, fully terminal page is the same 110 bytes');
+throwsCode(() => historyPageSerializedLen({ pendingCount: 17, terminalMask: 0 }),
+  'INVALID_HISTORY_PAGE');
+throwsCode(() => historyPageSerializedLen({ pendingCount: 1, terminalMask: 0b10 }),
+  'INVALID_HISTORY_PAGE');
+eq(popcount16(0), 0, 'no terminal rows');
+eq(popcount16(0b1010_0000_0000_0001), 3, 'three terminal rows: bits 0, 13 and 15');
+eq(popcount16(0xffff), 16, 'a fully terminal page');
 const reloadFixtureRecord = {
   day: 1n,
   dayFinalHash: pk('reload-day-final'),
@@ -990,8 +1013,11 @@ eq(observedShot.exitTargetTs, observedExitTarget,
   'observed exit aligned from now plus horizon');
 eq(observedShot.entryPrice, 10_000n, 'entry read from raw Candidate');
 eq(observedShot.xpBase, sealXp(20n, 5n), 'seal XP parity');
-eq(model.historyPage(economyHashValue, reloadPlayer, 0n).slots,
-  [null], 'seal reserves one compact history slot');
+const sealedPage = model.historyPage(economyHashValue, reloadPlayer, 0n);
+eq(sealedPage.pendingCount, 1, 'seal reserves one history slot');
+eq(sealedPage.terminalMask, 0, 'a reserved slot is not terminal');
+eq(sealedPage.resultsRoot, Buffer.alloc(32),
+  'a page with no terminal rows has the zero root');
 model.reserveWork({
   shot: observedShot.key, workKind: WORK_KIND.RESOLVE_SHOT, expectedIndex: 0,
 });
@@ -1083,13 +1109,20 @@ eq(revealed.facts.entryTimepinResultHash,
   ).terminal.resultHash, 'entry Timepin terminal hash is retained transiently');
 eq(revealed.cleanupRewardLamports, economySpec.cleanupBondLamports,
   'terminal actor earns the immutable cleanup bond');
-eq(revealed.historyRentGrowthLamports, 838_200n,
-  '165-byte history growth uses the measured 5,080 lamports per byte');
+// M3 IN LAMPORTS, on the ordinary reveal path. Before M3 archiving grew the
+// page by ShotResult::LEN and that growth was permanent rent: 165 * 5,080 =
+// 838_200n per shot, taken out of the transient Shot rent and refunded only as
+// the 3_161_800n remainder. The page is a fixed size now, so the growth is
+// zero and the WHOLE 4_000_000n transient rent goes back.
+eq(revealed.historyRentGrowthLamports, 0n,
+  'archiving grows the page by nothing - was 838_200n before M3');
 eq(revealed.actorTopupLamports, 0n,
-  'transient Shot rent covers history growth before actor top-up');
-eq(revealed.rentRefundLamports, 3_161_800n,
-  'immutable rent refund receives all transient rent remainder');
-eq(model.lamportAccounting(reloadPlayer).rentRefund, 3_161_800n,
+  'there is no growth for the terminal actor to fund');
+eq(revealed.rentRefundLamports, 4_000_000n,
+  'the whole transient rent is refunded - was 3_161_800n before M3');
+eq(revealed.rentRefundLamports - 3_161_800n, 838_200n,
+  'and the difference is exactly the per-shot rent M3 stops locking up');
+eq(model.lamportAccounting(reloadPlayer).rentRefund, 4_000_000n,
   'refund accounting is keyed by immutable rent_refund');
 eq(model.lamportAccounting(reloadPlayer).cleanupReward,
   economySpec.cleanupBondLamports,
@@ -1179,10 +1212,13 @@ for (let nonce = 0n; nonce < 3n; nonce += 1n) {
     transientRentLamports: nonce === 2n ? 0n : 4_000_000n,
   }));
 }
-eq(outOfOrderModel.historyPage(
+const reservedPage = outOfOrderModel.historyPage(
   economyHashValue, outOfOrderPlayer, 0n,
-).slots, [null, null, null],
-  'sequential seals append three None history reservations');
+);
+eq(reservedPage.pendingCount, 3, 'sequential seals append three reservations');
+eq(reservedPage.terminalMask, 0, 'none of the three is terminal yet');
+eq(historyPageSerializedLen(reservedPage), HISTORY_PAGE_LEN,
+  'three reservations cost nothing: the page is a fixed size');
 const outOfOrderExit = voidFact(
   ctx, observedExitTarget, TIMEPIN_STATE.EXPIRED,
 );
@@ -1196,19 +1232,35 @@ const outOfOrderThird = outOfOrderModel.voidActiveShot({
 let outOfOrderPage = outOfOrderModel.historyPage(
   economyHashValue, outOfOrderPlayer, 0n,
 );
-eq(outOfOrderPage.slots[0], null,
-  'earlier reserved history slot can remain pending');
-eq(outOfOrderPage.slots[1], null,
-  'second reserved history slot can remain pending');
-eq(outOfOrderPage.slots[2].gameResultHash,
-  outOfOrderThird.result.gameResultHash,
-  'later terminal result inserts into its implicit nonce slot');
-eq(historyPageSerializedLen(outOfOrderPage.slots), 247,
-  'one of three terminal slots charges one compact result');
-eq(outOfOrderThird.actorTopupLamports, 838_200n,
-  'terminal actor tops up history growth when transient rent is zero');
+// SLOT 2 TERMINALISES FIRST. Slots are appended in nonce order and
+// terminalised out of order, which is why the fold order is a sequence.
+eq(outOfOrderPage.terminalMask, 0b100,
+  'only the third slot is terminal, and it terminalised first');
+eq(outOfOrderPage.pendingCount, 3, 'terminalising appends nothing');
+eq(outOfOrderThird.historySlot, 2, 'the row lands in its implicit nonce slot');
+eq(outOfOrderThird.historySequence, 1,
+  'it is the FIRST row folded, whatever its slot');
+eq(outOfOrderThird.historyRowHash,
+  historyRowHash(outOfOrderThird.nonce, outOfOrderThird.result),
+  'the archived row hashes to the leaf that was folded');
+eq(outOfOrderPage.resultsRoot,
+  historyChainFold(Buffer.alloc(32), outOfOrderThird.historyRowHash),
+  'the root is the fold of the one row committed so far');
+neq(outOfOrderPage.resultsRoot, Buffer.alloc(32),
+  'a page with a terminal row does not have the zero root');
+eq(encodeShotResult(outOfOrderThird.result).length, SHOT_RESULT_LEN,
+  'the hashed row is exactly the 165 borsh bytes the program hashes');
+eq(historyPageSerializedLen(outOfOrderPage), HISTORY_PAGE_LEN,
+  'a terminal row does not grow the page - THIS IS M3');
+// M3 IN LAMPORTS. This used to be 838_200n of top-up (165 bytes at 5,080
+// lamports each) charged to whoever terminalised a shot whose transient rent
+// was spent. There is no growth to fund now, so there is nothing to top up.
+eq(outOfOrderThird.historyRentGrowthLamports, 0n,
+  'archiving grows the page by nothing');
+eq(outOfOrderThird.actorTopupLamports, 0n,
+  'the terminal actor funds no history growth - was 838_200n before M3');
 eq(outOfOrderThird.rentRefundLamports, 0n,
-  'zero transient rent leaves no close refund');
+  'zero transient rent still leaves no close refund');
 eq(outOfOrderModel.lamportAccounting(
   pk('out-of-order-actor-2'),
 ).cleanupReward, economySpec.cleanupBondLamports,
@@ -1225,10 +1277,27 @@ for (const [index, currentSlot] of [[0, 603n], [1, 604n]]) {
 outOfOrderPage = outOfOrderModel.historyPage(
   economyHashValue, outOfOrderPlayer, 0n,
 );
-eq(outOfOrderPage.slots.filter(Boolean).length, 3,
-  'out-of-order terminalization eventually materializes every slot');
-eq(historyPageSerializedLen(outOfOrderPage.slots), 577,
-  'three terminal slots use three option tags plus three compact results');
+eq(popcount16(outOfOrderPage.terminalMask), 3,
+  'out-of-order terminalization eventually marks every slot');
+eq(outOfOrderPage.terminalMask, 0b111, 'all three slots are terminal');
+eq(historyPageSerializedLen(outOfOrderPage), HISTORY_PAGE_LEN,
+  'three terminal rows still cost 110 bytes - was 577 before M3');
+// The root is order-dependent: 2, then 0, then 1. Fold them in NONCE order and
+// you get a different value, which is exactly why the archive records a
+// sequence instead of leaving a reader to guess.
+const outOfOrderRows = [2n, 0n, 1n].map(nonce => historyRowHash(
+  nonce,
+  outOfOrderModel.historyResult(economyHashValue, outOfOrderPlayer, nonce),
+));
+eq(outOfOrderRows.reduce((root, row) => historyChainFold(root, row),
+  Buffer.alloc(32)), outOfOrderPage.resultsRoot,
+  'replaying the fold in terminalisation order reproduces the stored root');
+neq([0n, 1n, 2n].map(nonce => historyRowHash(
+  nonce,
+  outOfOrderModel.historyResult(economyHashValue, outOfOrderPlayer, nonce),
+)).reduce((root, row) => historyChainFold(root, row), Buffer.alloc(32)),
+  outOfOrderPage.resultsRoot,
+  'nonce order is NOT fold order, and the root proves it');
 ok(outOfOrderModel.audit(),
   'out-of-order compact history remains fully auditable');
 
