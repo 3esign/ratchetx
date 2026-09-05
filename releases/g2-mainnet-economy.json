@@ -104,7 +104,7 @@
     "shardId": 0,
     "requiredVerification": 1,
     "targetGridSeconds": 60,
-    "minOpenLeadSeconds": 30,
+    "minOpenLeadSeconds": 60,
     "maxTargetAheadSeconds": 90000,
     "maxPreTargetGapSeconds": 0,
     "challengeWindowSeconds": 900,
@@ -115,7 +115,8 @@
     "generationPins": {
       "tag": "derived",
       "from": "finalized readback of rec2 ProgramData slot, receiver config, wormhole program + ProgramData slot; two RPCs must agree"
-    }
+    },
+    "minOpenLeadSecondsNote": "DERIVED FLOOR + OWNER CHOICE. Floor: must be strictly greater than maxFutureSkewSeconds (30), or an admissible print for the target can already exist when the Need opens and the settling price is knowable before the shot is committed. Enforced by lib.rs::validate_spec; proved in lifecycle.rs::lead_above_skew_is_exactly_the_condition_for_an_unknowable_price. The floor is arithmetic; the VALUE is taste. Was 30, which equalled the skew and could not register. Set to one full grid (60) so a player commits at least a whole round ahead, with 29 s of margin over the floor. The bare minimum that registers is 31. Both are one line and neither needs a proof - this is the owner's call."
   },
   "feeds": [
     {
