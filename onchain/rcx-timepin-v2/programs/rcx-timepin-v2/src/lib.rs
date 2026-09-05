@@ -476,6 +476,28 @@ pub fn validate_spec(args: &EvidenceSpecArgs) -> Result<()> {
             && args.max_target_ahead_seconds <= MAX_TARGET_AHEAD_SECS,
         TimepinV2Error::BadTargetAhead
     );
+    // IS THERE ALWAYS A TARGET TO SHOOT AT? Arithmetic, at registration.
+    //
+    // Targets are the multiples of the grid, and at clock C a target is openable
+    // iff C + lead <= T <= C + ahead. That window holds ahead - lead + 1
+    // consecutive seconds, and a run of consecutive integers contains a multiple
+    // of the grid iff it is at least `grid` long. So ahead - lead + 1 >= grid is
+    // necessary and sufficient for SOME target to be openable at EVERY clock.
+    //
+    // The bound above permits ahead == lead, a one-second window that is openable
+    // one second in every `grid` - a game that is simply shut for the other 59.
+    // Not slow and not unlucky: dead, permanently, for that economy.
+    //
+    // Proved in lifecycle.rs::
+    // the_open_window_must_span_a_whole_grid_or_the_game_stops_for_part_of_it.
+    require!(
+        args
+            .max_target_ahead_seconds
+            .checked_sub(args.min_open_lead_seconds)
+            .ok_or(TimepinV2Error::TimestampOverflow)?
+            >= args.target_grid_seconds - 1,
+        TimepinV2Error::BadTargetAhead
+    );
     // The two adapters pin this same field in OPPOSITE directions, so each is
     // refused carrying the other's value. Under MIN-CAPTURE prev_publish_time is
     // not part of the predicate, so a non-zero bound would be a dead number living

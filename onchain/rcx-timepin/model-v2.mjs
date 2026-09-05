@@ -314,6 +314,12 @@ export function validateEvidenceSpec(spec) {
     if (spec.maxFutureSkewSeconds >= spec.minOpenLeadSeconds)
       return fail('LEAD_DOES_NOT_CLEAR_SKEW');
     if (spec.maxTargetAheadSeconds < spec.minOpenLeadSeconds) return fail('AHEAD_BEFORE_LEAD');
+    // Targets are the multiples of the grid, so the open window [C+lead, C+ahead]
+    // contains one at EVERY clock iff it spans a whole grid of seconds. Otherwise
+    // there are clocks at which no target is openable and the game is simply shut.
+    // Mirrors the require! in lib.rs::validate_spec.
+    if (spec.maxTargetAheadSeconds - spec.minOpenLeadSeconds < spec.targetGridSeconds - 1)
+      return fail('OPEN_WINDOW_NARROWER_THAN_GRID');
     // Under MIN-CAPTURE `prev_publish_time` is not part of the predicate, so a
     // non-zero pre-gap would be a dead number sitting inside canonical_policy_bytes
     // and every spec hash, misleading every later reader. The field cannot be

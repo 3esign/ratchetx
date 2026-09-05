@@ -1661,6 +1661,58 @@ mod tests {
         (c - 600..=c + skew).any(|p| p >= target)
     }
 
+    /// Third structural property. Targets are the multiples of `grid`, and at
+    /// clock C a target is openable iff C + lead <= T <= C + ahead. That window
+    /// holds `ahead - lead + 1` consecutive seconds, and a run of consecutive
+    /// integers is guaranteed to contain a multiple of `grid` iff it is at least
+    /// `grid` long. So:
+    ///
+    ///   ahead - lead + 1 >= grid   <=>   SOME target is openable at EVERY clock.
+    ///
+    /// Below that line there are clock values at which the game cannot be played
+    /// at all - not slow, not unlucky: no target is openable until the clock
+    /// walks far enough forward. validate_spec only required ahead >= lead, which
+    /// permits ahead == lead: a one-second window, openable one second in every
+    /// `grid`. Permanent, for that economy.
+    fn some_target_is_openable(lead: i64, ahead: i64, grid: i64, clock: i64) -> bool {
+        ((clock + lead)..=(clock + ahead)).any(|t| t.rem_euclid(grid) == 0)
+    }
+
+    fn openable_at_every_clock(lead: i64, ahead: i64, grid: i64) -> bool {
+        (0..grid).all(|c| some_target_is_openable(lead, ahead, grid, 1_000_000 + c))
+    }
+
+    #[test]
+    fn the_open_window_must_span_a_whole_grid_or_the_game_stops_for_part_of_it() {
+        for grid in [30i64, 60, 300] {
+            for lead in [5i64, 30, 31, 61] {
+                // one short of a full grid: there is always a clock with no target
+                assert!(
+                    !openable_at_every_clock(lead, lead + grid - 2, grid),
+                    "grid {grid} lead {lead}: a window of grid-1 seconds should have a dead clock"
+                );
+                // exactly a full grid of seconds: always at least one target
+                assert!(
+                    openable_at_every_clock(lead, lead + grid - 1, grid),
+                    "grid {grid} lead {lead}: a window of grid seconds should always open"
+                );
+                assert!(openable_at_every_clock(lead, lead + grid * 4, grid));
+            }
+            // the degenerate case validate_spec used to permit outright
+            assert!(!openable_at_every_clock(30, 30, grid), "ahead == lead must be dead");
+        }
+    }
+
+    #[test]
+    fn the_spec_refuses_an_open_window_narrower_than_the_grid() {
+        let mut args = spec().as_args();   // grid 60
+        args.min_open_lead_seconds = 31;
+        args.max_target_ahead_seconds = 31 + 58; // one short of a full grid
+        assert!(crate::validate_spec(&args).is_err());
+        args.max_target_ahead_seconds = 31 + 59; // exactly a grid
+        assert!(crate::validate_spec(&args).is_ok());
+    }
+
     #[test]
     fn lead_above_skew_is_exactly_the_condition_for_an_unknowable_price() {
         // Necessary and sufficient. Below the line the settling price can be read
