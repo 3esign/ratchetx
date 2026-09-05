@@ -87,8 +87,12 @@ export function checkG2Artifacts({ root = ROOT, cacheRoot, spawn = spawnSync } =
   cacheRoot ??= path.join(os.tmpdir(), 'ratchetx-onchain-sbf');
   const receiptPath = path.join(root, 'docs/receipts/g2-build-artifacts.json');
   const report = { schema: 1, gate: 'B1', scope: SCOPE, runtimeChecked: false, verdict: 'FAIL',
-    receiptPath, verifiers: [] };
+    receiptPath, verifiers: [], buildHost: null, buildHostStatus: 'unrecorded',
+    verificationHost: { platform: process.platform, architecture: process.arch,
+      osType: os.type(), osRelease: os.release(), osVersion: os.version(),
+      nodeVersion: process.version, nodeExecutable: process.execPath, workspace: null } };
   try {
+    report.verificationHost.workspace = fs.realpathSync(root);
     if (typeof cacheRoot !== 'string' || !path.isAbsolute(cacheRoot)
       || cacheRoot.split(path.sep).some(part => part === '.' || part === '..')) {
       throw new Error('cacheRoot must be an absolute local directory without traversal');
@@ -101,6 +105,10 @@ export function checkG2Artifacts({ root = ROOT, cacheRoot, spawn = spawnSync } =
     const receipt = JSON.parse(receiptBytes.toString('utf8'));
     report.receiptSha256 = sha256(receiptBytes);
     report.receiptStatus = receipt.status;
+    if (receipt.buildHost != null) {
+      report.buildHost = structuredClone(receipt.buildHost);
+      report.buildHostStatus = 'recorded';
+    }
     if (receipt.schema !== 1 || receipt.buildStatus !== 'BUILT' || !['BUILT', 'FAIL', 'PASS'].includes(receipt.status)) {
       throw new Error('B1 requires schema 1, buildStatus BUILT and a completed BUILT, FAIL or PASS receipt');
     }

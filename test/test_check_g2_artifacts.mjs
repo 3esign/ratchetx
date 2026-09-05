@@ -397,3 +397,45 @@ test('CLI accepts an explicit relative cache and preserves foreign receipt paths
   }
   assert.deepEqual(snapshot(f.root), before);
 });
+
+test('recorded builder identity is retained independently of the actual verification host', t => {
+  const f = fixture(t);
+  const builder = { platform: process.platform === 'win32' ? 'linux' : 'win32', architecture: 'fixture-architecture',
+    osType: 'fixture-builder-os', osRelease: 'fixture-release', osVersion: 'fixture-version',
+    nodeVersion: 'fixture-node', nodeExecutable: 'fixture-node-path', workspace: 'fixture-builder-workspace' };
+  f.receipt.buildHost = builder;
+  f.receipt.verificationHost = { platform: 'old-verification-host', workspace: 'old-verification-workspace' };
+  f.save();
+  const before = snapshot(f.root), report = checkG2Artifacts(f);
+  assert.equal(report.verdict, 'PASS', report.failure);
+  assert.equal(report.buildHostStatus, 'recorded');
+  assert.deepEqual(report.buildHost, builder);
+  assert.deepEqual(report.verificationHost, {
+    platform: process.platform, architecture: process.arch,
+    osType: os.type(), osRelease: os.release(), osVersion: os.version(),
+    nodeVersion: process.version, nodeExecutable: process.execPath,
+    workspace: fs.realpathSync(f.root),
+  });
+  assert.notDeepEqual(report.verificationHost, builder);
+  assert.notDeepEqual(report.verificationHost, f.receipt.verificationHost);
+  assert.deepEqual(snapshot(f.root), before);
+});
+
+test('legacy builder provenance remains explicitly unrecorded even with foreign artifact paths', t => {
+  for (const missing of ['absent', 'null']) {
+    const f = fixture(t), cacheRoot = sharedCache(f);
+    provenance(f, process.platform === 'win32' ? 'posix' : 'win32');
+    if (missing === 'null') f.receipt.buildHost = null;
+    f.receipt.verificationHost = { platform: 'earlier-verifier-is-not-the-builder' };
+    f.save();
+    const before = snapshot(f.root), report = checkG2Artifacts({ ...f, cacheRoot });
+    assert.equal(report.verdict, 'PASS', report.failure);
+    assert.equal(report.buildHost, null);
+    assert.equal(report.buildHostStatus, 'unrecorded');
+    assert.equal(report.verificationHost.platform, process.platform);
+    assert.equal(report.verificationHost.architecture, process.arch);
+    assert.equal(report.verificationHost.workspace, fs.realpathSync(f.root));
+    assert.deepEqual(report.artifacts, f.receipt.artifacts);
+    assert.deepEqual(snapshot(f.root), before);
+  }
+});
