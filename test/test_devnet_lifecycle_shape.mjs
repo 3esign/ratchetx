@@ -235,8 +235,16 @@ check(() => {
 check(() => {
   assert.throws(() => build({ policy: { ...DEFAULT_POLICY, targetGridSeconds: 0 } }),
     /SPEC REJECTED LOCALLY/, 'a zero grid is refused');
-  assert.throws(() => build({ policy: { ...DEFAULT_POLICY, adapter: 2 } }),
+  // 2 became a REAL adapter on 2026-09-05 (MIN-CAPTURE) and is now the one this
+  // script rehearses, so it is no longer an example of an unknown one. 3 is the
+  // ghost the room called "adapter 3" for an hour before the numbering was
+  // settled in code, and it has never existed.
+  assert.throws(() => build({ policy: { ...DEFAULT_POLICY, adapter: 3 } }),
     /SPEC REJECTED LOCALLY/, 'a non-registered adapter is refused');
+  assert.throws(() => build({ policy: { ...DEFAULT_POLICY, maxPostTargetLagSeconds: 60 } }),
+    /SPEC REJECTED LOCALLY/, 'a lag at or above the grid is refused');
+  assert.throws(() => build({ policy: { ...DEFAULT_POLICY, minOpenLeadSeconds: 30 } }),
+    /SPEC REJECTED LOCALLY/, 'a lead that only equals the skew is refused');
   assert.throws(() => build({ policy: { ...DEFAULT_POLICY, maxFutureSkewSeconds: 301 } }),
     /SPEC REJECTED LOCALLY/, 'skew above MAX_FUTURE_SKEW_SECS is refused');
 }, 'spec failures are named before the send');

@@ -58,7 +58,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import {
-  TIMEPIN_SCHEMA_V2, ADAPTER_PYTH_PUSH_V2, VERIFICATION_FULL,
+  TIMEPIN_SCHEMA_V2, ADAPTER_PYTH_MIN_CAPTURE_V2, VERIFICATION_FULL,
   OFFICIAL_PYTH_RECEIVER_PROGRAM, OFFICIAL_PYTH_PUSH_ORACLE_PROGRAM,
   BPF_UPGRADEABLE_LOADER_PROGRAM,
   deriveReceiverConfigPda, deriveEvidenceSpecPda, deriveNeedPda,
@@ -86,17 +86,25 @@ export const SOL_USD_FEED_ID =
 // day 1.3 lands, and an EvidenceSpec PDA has no edit and no close instruction.
 export const DEFAULT_POLICY = Object.freeze({
   schema: TIMEPIN_SCHEMA_V2,
-  adapter: ADAPTER_PYTH_PUSH_V2,
+  adapter: ADAPTER_PYTH_MIN_CAPTURE_V2,
   receiverProgram: OFFICIAL_PYTH_RECEIVER_PROGRAM,
   pushOracleProgram: OFFICIAL_PYTH_PUSH_ORACLE_PROGRAM,
   shardId: 0,
   feedId: Buffer.from(SOL_USD_FEED_ID, 'hex'),
   requiredVerification: VERIFICATION_FULL,
   targetGridSeconds: 60,
-  minOpenLeadSeconds: 30,
+  // Must strictly clear maxFutureSkewSeconds below, or an admissible print for
+  // the target can already exist when the Need is opened and the settling price
+  // is knowable before the shot is committed. 31 is the minimum that clears 30.
+  minOpenLeadSeconds: 31,
   maxTargetAheadSeconds: 3600,
-  maxPreTargetGapSeconds: 120,
-  maxPostTargetLagSeconds: 120,
+  // Zero under MIN-CAPTURE: prev_publish_time is not in the predicate, so any
+  // other value is a dead number inside every spec hash and validate_spec
+  // refuses it. Was 120, which was correct under the strict-bracket adapter.
+  maxPreTargetGapSeconds: 0,
+  // grid - 1. Was 120 against a grid of 60 - at or above the grid, one print
+  // settles two consecutive targets, and validate_spec now refuses it.
+  maxPostTargetLagSeconds: 59,
   captureGraceSeconds: 60,
   maxFutureSkewSeconds: 30,
   minExponent: -12,
