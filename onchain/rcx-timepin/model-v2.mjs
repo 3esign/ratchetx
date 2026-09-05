@@ -1114,6 +1114,22 @@ export function captureNeed(
   if (!first.ok) return { ...first, need, candidate: null, workPage, changed: false };
   if (sameBytes(need.candidateAHash, checked.messageHash))
     return { ok: false, code: 'DUPLICATE_MUST_USE_FIRST_CAPTURE', need, candidate: null, workPage, changed: false };
+  if (spec.adapter === ADAPTER_PYTH_MIN_CAPTURE_V2) {
+    const oldPub = asBig(firstCandidate.publishTime);
+    const newPub = asBig(checked.message.publishTime);
+    if (newPub < oldPub) {
+      const next = cloneNeed(need);
+      next.candidateAHash = Buffer.from(checked.messageHash);
+      return {
+        ok: true, code: 'REPLACED', need: next, candidate,
+        messageHash: checked.messageHash, workPage, changed: true,
+      };
+    }
+    if (newPub > oldPub) {
+      return { ok: false, code: 'NOT_BETTER_THAN_CURRENT', need, candidate: null, workPage, changed: false };
+    }
+  }
+
   const next = cloneNeed(need);
   next.state = 'Ambiguous';
   [next.candidateAHash, next.candidateBHash] = Buffer.compare(need.candidateAHash, checked.messageHash) < 0
