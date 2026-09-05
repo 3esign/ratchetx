@@ -601,7 +601,14 @@ pub struct EvidenceSpecV2View {
 fn validate_spec_shape(spec: &EvidenceSpecV2View) -> Result<()> {
     require!(
         spec.schema == TIMEPIN_SCHEMA_V2
-            && spec.adapter == 1
+            // BOTH ADAPTERS, because this file already settles BOTH at :391.
+            // It used to read `spec.adapter == 1`, which refused every
+            // MIN-CAPTURE spec at registration and made the MIN-CAPTURE branch
+            // of validate_record_against_spec UNREACHABLE - a gatekeeper contradicting
+            // its own predicate two hundred lines below, and a comment at :394
+            // asserting a pin this line forbade.
+            && (spec.adapter == ADAPTER_PYTH_PUSH_V2
+                || spec.adapter == ADAPTER_PYTH_MIN_CAPTURE_V2)
             && spec.receiver_program != Pubkey::default()
             && spec.push_oracle_program != Pubkey::default()
             && spec.feed_id != [0; 32]
@@ -609,7 +616,27 @@ fn validate_spec_shape(spec: &EvidenceSpecV2View) -> Result<()> {
             && spec.target_grid_seconds > 0
             && spec.min_open_lead_seconds > 0
             && spec.max_target_ahead_seconds >= spec.min_open_lead_seconds
-            && spec.max_pre_target_gap_seconds > 0
+            // THE PRE-GAP IS PINNED IN OPPOSITE DIRECTIONS BY THE TWO
+            // ADAPTERS, and this must mirror rcx-timepin-v2 lib.rs:573-583
+            // exactly. Under MIN-CAPTURE prev_publish_time is not part of the
+            // predicate, so a non-zero bound would be a dead number inside
+            // canonical_policy_bytes and therefore inside every spec hash,
+            // misleading every later reader; the field cannot be dropped
+            // because it is hashed, so it is pinned to zero instead. Under the
+            // strict bracket it is load-bearing and must be positive.
+            //
+            // Timepin refuses each adapter carrying the other's value. So did
+            // Core's predicate. Only Core's REGISTRATION check did not, and it
+            // pinned the strict-bracket direction unconditionally.
+            // Written as a plain boolean rather than an `if` block: this is the
+            // inside of a require! macro, and a block-like expression as the
+            // right operand of && is the kind of thing that is either fine or a
+            // parse error depending on context. There is no compiler on this
+            // machine, so the form with no syntax risk wins.
+            && ((spec.adapter == ADAPTER_PYTH_MIN_CAPTURE_V2
+                && spec.max_pre_target_gap_seconds == 0)
+                || (spec.adapter != ADAPTER_PYTH_MIN_CAPTURE_V2
+                    && spec.max_pre_target_gap_seconds > 0))
             && spec.max_post_target_lag_seconds > 0
             && spec.capture_grace_seconds > 0
             && spec.min_exponent <= spec.max_exponent
@@ -862,6 +889,60 @@ mod tests {
         );
         assert_eq!(record.message_hash, need.candidate_a_hash);
         assert_eq!(record.feed_id, spec.feed_id);
+    }
+
+    /// THE GATE MUST ADMIT EVERY SPEC THE PREDICATE BELOW IT CAN SETTLE.
+    ///
+    /// validate_spec_shape used to require `adapter == 1` and
+    /// `max_pre_target_gap_seconds > 0`, both unconditionally.
+    /// validate_record_against_spec has branched on ADAPTER_PYTH_MIN_CAPTURE_V2
+    /// since MIN-CAPTURE landed, and
+    /// its own comment says the pre-gap "is pinned to zero at registration". So
+    /// the file forbade at registration exactly what it promised at settlement,
+    /// and the MIN-CAPTURE branch was unreachable: every adapter-2 spec died at
+    /// register_ruleset with BadEvidenceSpec, which is the spec the mainnet
+    /// manifest carries.
+    ///
+    /// This test is the pair of that branch. It asserts the gate accepts BOTH
+    /// adapters with their OWN pre-gap direction, and refuses each carrying the
+    /// other's - mirroring rcx-timepin-v2 lib.rs:573-583, which refuses the same
+    /// four combinations. If Core and Timepin ever disagree about which specs are
+    /// registrable, one program accepts an economy the other cannot serve.
+    #[test]
+    fn the_registration_gate_admits_both_adapters_and_crosses_neither() {
+        // Adapter 1, strict bracket: the pre-gap is load-bearing and positive.
+        let mut push = spec();
+        push.adapter = ADAPTER_PYTH_PUSH_V2;
+        push.max_pre_target_gap_seconds = 120;
+        assert!(validate_spec_shape(&push).is_ok());
+
+        // Adapter 2, MIN-CAPTURE: the pre-gap is pinned to zero. THIS IS THE CASE
+        // THAT COULD NOT REGISTER, and it is the one the manifest uses.
+        let mut min_capture = spec();
+        min_capture.adapter = ADAPTER_PYTH_MIN_CAPTURE_V2;
+        min_capture.max_pre_target_gap_seconds = 0;
+        assert!(validate_spec_shape(&min_capture).is_ok());
+
+        // Each adapter carrying the other's value is refused, both directions.
+        let mut crossed = min_capture;
+        crossed.max_pre_target_gap_seconds = 120;
+        assert!(validate_spec_shape(&crossed).is_err());
+
+        let mut starved = push;
+        starved.max_pre_target_gap_seconds = 0;
+        assert!(validate_spec_shape(&starved).is_err());
+
+        // And no third adapter is admitted by widening: the gate names two.
+        let mut unknown = spec();
+        unknown.adapter = 3;
+        unknown.max_pre_target_gap_seconds = 0;
+        assert!(validate_spec_shape(&unknown).is_err());
+        unknown.max_pre_target_gap_seconds = 120;
+        assert!(validate_spec_shape(&unknown).is_err());
+
+        // The two adapters are distinct numbers. If they ever collide the branch
+        // in validate_record_against_spec silently becomes unconditional.
+        assert_ne!(ADAPTER_PYTH_PUSH_V2, ADAPTER_PYTH_MIN_CAPTURE_V2);
     }
 
     #[test]
