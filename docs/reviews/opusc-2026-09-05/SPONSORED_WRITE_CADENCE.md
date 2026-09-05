@@ -92,3 +92,56 @@ keeps the data; it is append-only, so a kill leaves a valid file.
   `releases/g2-mainnet-economy.json`, and it is right to.
 - The tie question at day scale, on all seven feeds, not 19.6 minutes on one.
 - The drift rate measured over hours rather than inferred from a 20-minute slope.
+
+---
+
+# Addendum, ~12:20Z — one walk instead of seven
+
+**Evidence tier:** `mainnet`, read-only, keyless. Same method.
+
+The 24 h collection looked infeasible at ~292,000 `getTransaction` calls (41,760 signatures per
+feed per day × 7 feeds, of which only ~35 % are writes). It is not, and the reason is that we were
+walking the wrong address.
+
+## The sponsor has one fee payer, and it signs nothing but pushes
+
+`9F6ApEtzkHVdZXzsury6BYmyEh4pahDBxuhNLaGC6saC`
+
+| Measurement | Result |
+| --- | --- |
+| Fee payer of sampled SOL writes | **25 of 25** are that address |
+| Its own signature list | **1000 transactions in 998 s = 1.00 tx/s** |
+| Failed transactions on the payer | **0 %** (vs 7.4 % `err` on the price account's list — those were readers) |
+| Feeds per push transaction | **one** (4/4 sampled, 1150 bytes each — no batching today) |
+| Of 30 sampled payer transactions | 12 carried one of our seven feeds, 18 carried other Pyth feeds |
+
+So the payer signs the pushes for every feed it sponsors, and nothing else. Walking it:
+
+```
+per-account   ~41,760 signatures/day/feed × 7 feeds ≈ 292,000 getTransaction, 65 % of them readers
+per-payer     ~86,400 transactions/day, ALL SEVEN FEEDS, one pass, zero reader waste
+```
+
+**~3.4× cheaper, one walk instead of seven, and no failed transactions to filter.** At 10 req/s that
+is under three hours for a full day of history — an evening, not a day.
+
+## The assumption that would have made it wrong
+
+A payer walk is complete **only if that payer is the only one posting those feeds**. If the sponsor
+rotates payers, the walk silently misses writes — which is precisely the blind spot the ledger
+method exists to remove, smuggled back in as an optimisation, and it would produce a cadence table
+with invented gaps and no way to tell.
+
+So it is a checked precondition, not a comment. `verifyPayerCoverage()` samples the *price
+account's* own writes (separating them from the 55-65 % readers by whether the account is writable
+in that transaction) and `walkPayer()` **refuses to start** unless every sampled write came from one
+payer, naming the others if not. Measured today: single payer, 25/25.
+
+```
+node onchain/rcx-timepin-v2/scripts/ledger-cadence.mjs check-payer --symbol SOL
+node onchain/rcx-timepin-v2/scripts/ledger-cadence.mjs walk-payer --hours 24 --delay-ms 100
+node onchain/rcx-timepin-v2/scripts/cadence-sampler.mjs summarize --in docs/reviews/cadence/payer-*.ndjson
+```
+
+The payer is **discovered**, not hardcoded: `walkPayer` derives it from the price account's own
+writes at start-up, so a sponsor that changes address is detected rather than followed blindly.

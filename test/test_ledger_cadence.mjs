@@ -20,7 +20,8 @@ import { readFileSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
-  findFeedId, decodePriceFeedMessage, extractWrites, toPrintRow, walk,
+  findFeedId, decodePriceFeedMessage, extractWrites, extractWritesMulti,
+  toPrintRow, walk, walkPayer, verifyPayerCoverage,
 } from '../onchain/rcx-timepin-v2/scripts/ledger-cadence.mjs';
 import { summarize } from '../onchain/rcx-timepin-v2/scripts/cadence-sampler.mjs';
 
@@ -193,6 +194,115 @@ const fakeRpc = ({ pages, rateLimitOnce = false }) => {
     const s = summarize(lines.map(l => JSON.stringify(l)));
     assert.ok(s.feeds.SOL.observations >= 3, 'the shared reducer reads the walked file too');
   }, 'the walked file is a valid, reducible NDJSON measurement');
+}
+
+// --- the payer walk, and the check that keeps it honest -------------------------
+
+const BTC_FEED_ID = 'e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43';
+
+// A synthetic second message, so a transaction carrying two feeds exists to test
+// against. Measured 2026-09-05: real push transactions carry exactly ONE feed
+// (4 of 4 sampled, 1150 bytes each). This fixture is for the day that changes —
+// silently dropping a second message would be a blind spot.
+const btcMessage = (publish, price = 6543210000000n) => {
+  const b = Buffer.alloc(32 + 68);
+  Buffer.from(BTC_FEED_ID, 'hex').copy(b, 0);
+  b.writeBigInt64BE(price, 32);
+  b.writeBigUInt64BE(9999999n, 40);
+  b.writeInt32BE(-8, 48);
+  b.writeBigInt64BE(BigInt(publish), 52);
+  b.writeBigInt64BE(BigInt(publish - 1), 60);
+  b.writeBigInt64BE(price, 68);
+  b.writeBigUInt64BE(9999999n, 76);
+  return b;
+};
+
+const FEED_TABLE = [
+  { symbol: 'SOL', feedId: SOL_FEED_ID.toString('hex') },
+  { symbol: 'BTC', feedId: BTC_FEED_ID },
+];
+
+check(() => {
+  const one = extractWritesMulti(FIXTURE, FEED_TABLE, { blockTime: FIXTURE_BLOCK_TIME });
+  assert.equal(one.length, 1, 'a single-feed transaction yields one row');
+  assert.equal(one[0].symbol, 'SOL', 'and it is attributed to the right feed');
+
+  const two = Buffer.concat([FIXTURE, btcMessage(1788608447)]);
+  const both = extractWritesMulti(two, FEED_TABLE, { blockTime: FIXTURE_BLOCK_TIME });
+  assert.equal(both.length, 2, 'a two-feed transaction yields two rows, not one');
+  assert.deepEqual(both.map(r => r.symbol).sort(), ['BTC', 'SOL']);
+  assert.equal(both.find(r => r.symbol === 'BTC').price, 6543210000000n);
+  assert.equal(both.find(r => r.symbol === 'SOL').publishTime, 1788608447n);
+
+  const stale = Buffer.concat([FIXTURE, btcMessage(1788608447 - 9999)]);
+  const kept = extractWritesMulti(stale, FEED_TABLE, { blockTime: FIXTURE_BLOCK_TIME });
+  assert.deepEqual(kept.map(r => r.symbol), ['SOL'],
+    'a second message that fails the blockTime guard is dropped, the first is kept');
+}, 'extractWritesMulti finds every feed in one transaction');
+
+// A fake RPC whose price-account writes are paid by a named set of payers.
+const payerRpc = (payerSequence, address) => async (_url, init) => {
+  const req = JSON.parse(init.body);
+  if (req.method === 'getSignaturesForAddress') {
+    return { json: async () => ({
+      result: payerSequence.map((_, i) => ({ signature: `P${i}`, blockTime: 1788608000 + i, slot: 1 + i })),
+    }) };
+  }
+  const idx = Number(req.params[0].slice(1));
+  const payer = payerSequence[idx];
+  // `null` marks a READ-ONLY transaction: it mentions the account without
+  // writing it, which is 55-65 % of a price account's signature list.
+  const writable = payer !== null;
+  return { json: async () => ({ result: {
+    slot: 1 + idx, blockTime: 1788608000 + idx,
+    transaction: { message: { accountKeys: [
+      { pubkey: writable ? payer : 'READER1111111111111111111111111111111111111', signer: true, writable: true },
+      { pubkey: address, signer: false, writable },
+    ] } },
+    meta: { err: null },
+  } }) };
+};
+
+{
+  const ADDR = '7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE';
+  const SPONSOR = '9F6ApEtzkHVdZXzsury6BYmyEh4pahDBxuhNLaGC6saC';
+
+  const single = await verifyPayerCoverage({
+    address: ADDR, samples: 5, delayMs: 0,
+    fetchImpl: payerRpc([SPONSOR, null, SPONSOR, null, SPONSOR, null, SPONSOR, SPONSOR], ADDR),
+  });
+  check(() => {
+    assert.equal(single.writes, 5, 'only the writable transactions are counted');
+    assert.ok(single.scanned > single.writes, 'the read-only ones were seen and skipped');
+    assert.equal(single.dominant, SPONSOR);
+    assert.equal(single.coverage, 1);
+    assert.equal(single.single, true, 'one payer for every write');
+  }, 'verifyPayerCoverage separates writes from readers');
+
+  const mixed = await verifyPayerCoverage({
+    address: ADDR, samples: 4, delayMs: 0,
+    fetchImpl: payerRpc([SPONSOR, 'OTHERPAYER11111111111111111111111111111111', SPONSOR, SPONSOR], ADDR),
+  });
+  check(() => {
+    assert.equal(mixed.single, false, 'two payers is not a single payer');
+    assert.equal(mixed.dominant, SPONSOR, 'the dominant one is still named');
+    assert.ok(mixed.coverage < 1, 'and the coverage is honestly below 1');
+    assert.equal(Object.keys(mixed.payers).length, 2);
+  }, 'verifyPayerCoverage catches a rotated payer');
+
+  await assert.rejects(
+    () => walkPayer({
+      feeds: FEED_TABLE, hours: 0.001, delayMs: 0, log: () => {},
+      out: join(tmpdir(), `rcx-payer-refuse-${process.pid}.ndjson`),
+      fetchImpl: payerRpc([SPONSOR, 'OTHERPAYER11111111111111111111111111111111', SPONSOR, SPONSOR], ADDR),
+      samples: 4,
+    }),
+    /REFUSING the payer walk/,
+    'a payer walk refuses to start when the writes come from more than one payer');
+  // The refusal is the reason the optimisation is safe: without it, a rotated
+  // payer would produce a cadence table with invented gaps and no way to tell —
+  // the blind spot the ledger method removes, smuggled back in as a speedup.
+  checks += 1;
 }
 
 console.log(`ledger cadence: ${checks} checks passed (host tier; fixture bytes are mainnet)`);
