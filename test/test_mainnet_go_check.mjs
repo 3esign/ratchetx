@@ -29,16 +29,22 @@ const runIn = cwd => spawnSync(process.execPath, [GATE], { cwd, encoding: 'utf8'
 // "  R3  GO       the reveal deadline ..." -> the id, for any row that says GO.
 const goRows = out => [...out.matchAll(/^\s{2}(\w+)\s+GO\s/gm)].map(m => m[1]);
 
-test('against an empty tree the gate claims nothing', t => {
-  const empty = fs.mkdtempSync(path.join(os.tmpdir(), 'ratchetx-gate-'));
-  t.after(() => { try { fs.rmSync(empty, { recursive: true, force: true }); } catch {} });
-  const r = runIn(empty);
-  assert.ok(r.stdout.includes('MAINNET GATE'), 'the gate ran');
+test('a tree it can enter but not read yields no GO at all', t => {
+  const bare = fs.mkdtempSync(path.join(os.tmpdir(), 'ratchetx-gate-'));
+  t.after(() => { try { fs.rmSync(bare, { recursive: true, force: true }); } catch {} });
+  // Enough for the gate to accept the directory as a repository root, and
+  // nothing else: no lib.rs, no state.rs, no manifest, no README. Every check
+  // then faces a file it cannot read, which is the exact condition that used to
+  // produce GO for R3, M2, M3 and X1.
+  fs.writeFileSync(path.join(bare, 'package.json'), '{"name":"bare"}');
+  fs.writeFileSync(path.join(bare, 'AGENT_ONBOARD.md'), '# bare');
+  const r = runIn(bare);
+  assert.ok(r.stdout.includes('MAINNET GATE'), 'it accepted the directory and ran its checks');
   assert.deepEqual(goRows(r.stdout), [],
     'a check that cannot read its input must not report GO. These rows said GO about files that '
     + 'do not exist: ' + (goRows(r.stdout).join(', ') || '(none)')
-    + '. Fix: give the negative checks the same treatment the positive ones already have -- if the '
-    + 'file is unreadable the check is NO-GO "file unreadable", never ok. Four call sites.');
+    + '. The positive checks never had this bug: a pattern cannot be FOUND in a file that is not '
+    + 'there. Only the checks phrased as "this pattern is gone" can answer "gone" by not looking.');
   assert.notEqual(r.status, 0, 'and it exits non-zero');
 });
 
