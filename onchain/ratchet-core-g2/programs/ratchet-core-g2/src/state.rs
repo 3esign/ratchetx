@@ -3431,6 +3431,18 @@ mod tests {
         assert!(page.commit_terminal(&bad_key, &bad_shot).is_err());
         assert_eq!(page.terminal_count(), 2);
         assert!(page.validate_contents().is_ok());
+
+        // REGRESSION, and it is the whole reason validate_contents widens to u32:
+        // a FULL page must still terminalise. pending_count is HISTORY_PAGE_CAP
+        // here, and `u16 >> 16` is an overflow shift that the workspace's
+        // overflow-checks = true turns into a panic - which would have bricked
+        // every full page forever, silently, on the very first one.
+        let (last_key, last_shot) = terminal_shot(ShotState::Revealed, player, 47);
+        let (slot_47, seq_47, _row_47) = page.commit_terminal(&last_key, &last_shot).unwrap();
+        assert_eq!((slot_47, seq_47), (15, 3));
+        assert_ne!(page.terminal_mask & (1 << 15), 0);
+        assert!(page.validate_contents().is_ok());
+        assert_eq!(serialized_len(&page), HistoryPage::LEN);
     }
 
     #[test]

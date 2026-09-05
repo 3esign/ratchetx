@@ -1,9 +1,16 @@
-// M3's load-bearing claim, made enforceable instead of asserted in prose.
+// M3's load-bearing claim - FLIPPED, because M3 has landed (e016ca8).
 //
-// docs/reviews/opusc-2026-09-05/M3_THE_PAGES.md says the commitment-hash form is
-// available for HistoryPage BECAUSE nothing on chain ever reads a stored row. A
-// proposal that rests on a property of the source should fail the moment that
-// property stops holding, not the moment somebody re-reads the source.
+// Until e016ca8 this file pinned an OBSERVED property: nothing on chain ever
+// read a stored HistoryPage row, which is why the commitment form was available
+// at all. That property is no longer observed, it is ENFORCED BY THE TYPE -
+// there are no stored rows to read. So the checks invert: what used to assert
+// "exactly one read, and it is a self-check" now asserts ZERO, and asserts that
+// the storage it read is gone.
+//
+// This is deliberate and it is the honest direction. A structural test that
+// still passed after the shape it describes was replaced would be worse than no
+// test: it would report GREEN on a premise that had quietly become vacuous.
+// docs/reviews/opusc-2026-09-05/M3_THE_PAGES.md is the document these pin.
 //
 // This is a STRUCTURAL test in the shape of MIN_CAPTURE_SPEC section 7: it reads
 // Rust as text and pins facts about its shape. That makes it fragile in one
@@ -70,31 +77,65 @@ check(() => {
   }
 }, 'every HistoryPage account binding is mut, so no instruction takes it to read');
 
-// --- 2. exactly one read of a stored row, and it is the self-check ------------
+// --- 2. there is no stored row left to read, and none is read ----------------
 
 check(() => {
   const hits = [...lib.matchAll(/\.slots\[/g)].map(m => lib.slice(0, m.index).split('\n').length);
-  assert.deepEqual(hits.length, 1,
-    `expected exactly ONE '.slots[' in the program (the read-back inside ` +
-    `archive_terminal_shot); found ${hits.length} at lines ${hits.join(', ')}. A second one is a ` +
-    `read of stored history and M3's premise is gone. ${DELIBERATE}`);
+  assert.deepEqual(hits.length, 0,
+    `expected ZERO '.slots[' in the program after M3; found ${hits.length} at lines ` +
+    `${hits.join(', ')}. HistoryPage has no rows to index, so this cannot compile - and if it ` +
+    `does, the Vec came back. ${DELIBERATE}`);
 
-  // And it must be inside archive_terminal_shot, reading back what that same
-  // function inserted - not a lookup of some other shot's row.
+  assert.ok(!/pub\s+slots\s*:\s*Vec<Option<ShotResult>>/.test(state),
+    'HistoryPage.slots is back. The whole of M3 is the removal of that field; if it returned, ' +
+    `the page grows again and every rent figure in M3_THE_PAGES.md is wrong. ${DELIBERATE}`);
+
+  // What replaced it. Not a rename: a rolling commitment plus the two facts an
+  // off-chain reader needs to detect omission.
+  for (const field of [/pub\s+pending_count\s*:\s*u8/,
+                       /pub\s+terminal_mask\s*:\s*u16/,
+                       /pub\s+results_root\s*:\s*\[u8;\s*32\]/]) {
+    assert.match(state, field,
+      `HistoryPage lost a field M3 depends on (${field}). ${DELIBERATE}`);
+  }
+  for (const dom of ['HISTORY_ROW_DOMAIN', 'HISTORY_CHAIN_DOMAIN']) {
+    assert.match(state, new RegExp(`${dom}: &\\[u8\\] = b"rcx-core:history-`),
+      `${dom} is gone. Two domains is what stops a row hash being replayed as a chain hash. ` +
+      DELIBERATE);
+  }
+}, 'no stored rows remain, and the commitment fields that replaced them are present');
+
+// --- 2b. the ordering M3 bought: verify BEFORE commit ------------------------
+
+check(() => {
   const fnAt = lib.indexOf('fn archive_terminal_shot');
   assert.ok(fnAt >= 0, `archive_terminal_shot is gone. ${DELIBERATE}`);
-  const fnLine = lib.slice(0, fnAt).split('\n').length;
-  assert.ok(hits[0] > fnLine && hits[0] < fnLine + 40,
-    `the single '.slots[' read is at line ${hits[0]}, outside archive_terminal_shot ` +
-    `(line ${fnLine}). ${DELIBERATE}`);
+  // Bound the body at the function's own closing brace, not a character count.
+  // A fixed window is how a test ends up asserting about the NEXT function -
+  // which is exactly what a 2,400-char window did on the first run of this file.
+  const close = lib.indexOf('\n}\n', fnAt);
+  assert.ok(close > fnAt, `cannot find the end of archive_terminal_shot. ${DELIBERATE}`);
+  const body = lib.slice(fnAt, close);
+  const verifyAt = body.indexOf('verify_game_result(');
+  const commitAt = body.indexOf('commit_terminal(');
+  assert.ok(verifyAt >= 0, `verify_game_result no longer runs in archive_terminal_shot. ${DELIBERATE}`);
+  assert.ok(commitAt >= 0, `commit_terminal is not called. ${DELIBERATE}`);
+  assert.ok(verifyAt < commitAt,
+    'verify_game_result must run BEFORE commit_terminal. It used to run after, on the row read ' +
+    'back, so a bad row was written and then rejected by the same instruction. That ordering is ' +
+    `the one thing M3 made strictly better rather than merely smaller. ${DELIBERATE}`);
 
-  const body = lib.slice(fnAt, fnAt + 2400);
-  const insertAt = body.indexOf('insert_terminal');
-  const readAt = body.indexOf('.slots[');
-  assert.ok(insertAt >= 0 && insertAt < readAt,
-    'the read must follow the insert in the same function - that is what makes it a self-check ' +
-    `on the row just written rather than a lookup. ${DELIBERATE}`);
-}, 'the one row read is a self-check on the row just inserted');
+  // The row is committed once and only once per call: two commit_terminal calls
+  // in one function would fold two roots for one shot.
+  const calls = [...body.matchAll(/commit_terminal\(/g)].length;
+  assert.equal(calls, 1, `commit_terminal is called ${calls} times here; expected 1. ${DELIBERATE}`);
+
+  // Rent funding is gone with the growth. A resize here means the page grows
+  // again, which is the defect M3 removed.
+  assert.ok(!/realloc|fund_rent_growth|archive_funding_plan/.test(body),
+    'archive_terminal_shot still carries a resize or a rent-funding block. The page is a fixed ' +
+    `size now; if it grows, M3 did not land. ${DELIBERATE}`);
+}, 'the row is verified before it is committed, once, with no growth');
 
 // --- 3. the WorkPage read that disqualifies IT from the same treatment --------
 
@@ -135,19 +176,54 @@ check(() => {
     assert.ok(m, `${name} is gone. ${DELIBERATE}`);
     return Number(m[1].replace(/_/g, ''));
   };
+
+  // HISTORY_PAGE_CAP SURVIVES M3 and must: nonce/CAP is the page index, which is
+  // a PDA seed, and nonce%CAP is the slot. It stopped being a Vec bound; it did
+  // not stop being the page geometry.
   const cap = number(state, 'HISTORY_PAGE_CAP');
   assert.equal(cap, 16, `HISTORY_PAGE_CAP changed; every per-shot figure in M3 moves. ${DELIBERATE}`);
+  assert.ok(cap <= 16,
+    `HISTORY_PAGE_CAP is ${cap}, but terminal_mask is a u16: a cap above 16 cannot be represented ` +
+    `and the mask would silently drop slots. ${DELIBERATE}`);
 
-  // ShotResult::LEN = 32+32+1+1+8+8+8+8+1+2+32+32 = 165, and the page is
-  // BASE_LEN + cap*(1 + LEN) = 79 + 16*166 = 2735 bytes.
+  // ShotResult::LEN still matters - it sizes the buffer commit_terminal hashes,
+  // and it is what the OLD page cost was built from.
   const lenLine = state.match(/impl ShotResult \{[\s\S]{0,200}?LEN: usize = ([^;]+);/);
   assert.ok(lenLine, `ShotResult::LEN is gone. ${DELIBERATE}`);
   const shotResultLen = lenLine[1].split('+').reduce((a, t) => a + Number(t.trim()), 0);
   assert.equal(shotResultLen, 165, `ShotResult::LEN is now ${shotResultLen}, not 165. ${DELIBERATE}`);
 
-  const base = 2 + 1 + 32 + 32 + 8 + 4;
-  assert.equal(base + cap * (1 + shotResultLen), 2735,
-    'the HistoryPage size in M3 (2,735 B) no longer follows from the constants. ' + DELIBERATE);
-}, 'the HistoryPage size M3 quotes still follows from the constants');
+  // THE NEW NUMBER, derived the same way the old one was: schema 2, bump 1,
+  // economy_hash 32, player 32, page_index 8, pending_count 1, terminal_mask 2,
+  // results_root 32.
+  const pageLen = state.match(/impl HistoryPage \{[\s\S]{0,400}?LEN: usize = ([^;]+);/);
+  assert.ok(pageLen, `HistoryPage::LEN is gone. ${DELIBERATE}`);
+  const declared = pageLen[1].split('+').reduce((a, t) => a + Number(t.trim()), 0);
+  assert.equal(declared, 2 + 1 + 32 + 32 + 8 + 1 + 2 + 32,
+    `HistoryPage::LEN sums to ${declared}; M3 quotes 110 data bytes. ${DELIBERATE}`);
+  assert.equal(declared, 110, `HistoryPage::LEN is ${declared}, not 110. ${DELIBERATE}`);
+  assert.equal(declared + 8, 118,
+    'M3 quotes 118 bytes for the account including the 8-byte discriminator. ' + DELIBERATE);
 
-console.log(`history page is write-only: ${checks} checks passed (host tier; structural)`);
+  // AND THE SAVING M3 IS ARGUED ON, stated as arithmetic rather than as prose:
+  // the old form was BASE_LEN + cap*(1 + ShotResult::LEN) = 79 + 16*166 = 2,735.
+  const oldForm = (2 + 1 + 32 + 32 + 8 + 4) + cap * (1 + shotResultLen);
+  assert.equal(oldForm, 2735, 'the pre-M3 page size no longer follows from the constants. ' + DELIBERATE);
+  assert.ok(oldForm - declared > 2600,
+    `M3 claims it removes ~2.6 KB per page; the constants now say ${oldForm - declared} B. ` +
+    DELIBERATE);
+
+  // The size must not depend on the contents any more. serialized_len_for still
+  // takes its two arguments - callers pass them and they are still validated -
+  // but it must not compute a length from them.
+  const fnAt = state.indexOf('pub fn serialized_len_for');
+  assert.ok(fnAt >= 0, `serialized_len_for is gone. ${DELIBERATE}`);
+  const body = state.slice(fnAt, fnAt + 700);
+  assert.ok(!/checked_add|slot_count \*|terminal_count \*/.test(body),
+    'serialized_len_for computes a length from its arguments again. The page is fixed; a length ' +
+    `that moves with the contents means the account grows. ${DELIBERATE}`);
+  assert.match(body, /Ok\(Self::LEN\)/,
+    `serialized_len_for must return the constant. ${DELIBERATE}`);
+}, 'the fixed page size and the saving M3 quotes both follow from the constants');
+
+console.log(`history page stores no rows: ${checks} checks passed (host tier; structural)`);
