@@ -1,0 +1,1526 @@
+{
+  "ratchet-core-g2": {
+    "register_economy": {
+      "context": "RegisterEconomy",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "timepin_program",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "register_ruleset": {
+      "context": "RegisterRuleset",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "open_ledger": {
+      "context": "OpenLedger",
+      "accounts": [
+        {
+          "name": "player",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "open_history_page": {
+      "context": "OpenHistoryPage",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "player",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "open_reload_page": {
+      "context": "OpenReloadPage",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "player",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "reload_history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "open_work_page": {
+      "context": "OpenWorkPage",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "player",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "open_work_manifest": {
+      "context": "OpenWorkManifest",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "work_manifest",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "reserve_work": {
+      "context": "ReserveWork",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "reload_rcx": {
+      "context": "ReloadRcx",
+      "accounts": [
+        {
+          "name": "player",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "day_final",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "reload_history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "mint",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_token",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "token_program",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "memo_program",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "finalize_day": {
+      "context": "FinalizeDay",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "day_final",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "claim_legacy": {
+      "context": "ClaimLegacy",
+      "accounts": [
+        {
+          "name": "player",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "grant_delegate": {
+      "context": "GrantDelegate",
+      "accounts": [
+        {
+          "name": "player",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "delegate",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "delegate_grant",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "revoke_delegate": {
+      "context": "RevokeDelegate",
+      "accounts": [
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "delegate_grant",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player",
+          "mut": false,
+          "signer": true
+        }
+      ]
+    },
+    "seal_forward": {
+      "context": "SealForward",
+      "accounts": [
+        {
+          "name": "player",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "entry_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "exit_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "seal_forward_delegated": {
+      "context": "SealForwardDelegated",
+      "accounts": [
+        {
+          "name": "delegate",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "delegate_grant",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "entry_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "exit_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "seal_observed": {
+      "context": "SealObserved",
+      "accounts": [
+        {
+          "name": "player",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "entry_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "entry_candidate",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "exit_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "seal_observed_delegated": {
+      "context": "SealObservedDelegated",
+      "accounts": [
+        {
+          "name": "delegate",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "delegate_grant",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "entry_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "entry_candidate",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "exit_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "activate_entry": {
+      "context": "ActivateEntry",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "entry_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "entry_candidate",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "void_pending_entry": {
+      "context": "VoidPendingEntry",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rent_refund",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "entry_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "settle_final": {
+      "context": "SettleFinal",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "exit_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "exit_candidate",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "finalize_resolved_void": {
+      "context": "FinalizeResolvedVoid",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rent_refund",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "void_active_shot": {
+      "context": "VoidActiveShot",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rent_refund",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "exit_need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "reveal": {
+      "context": "RevealShot",
+      "accounts": [
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "rent_refund",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "reveal_delegated": {
+      "context": "RevealDelegatedShot",
+      "accounts": [
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "delegate",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "rent_refund",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "close_player_day": {
+      "context": "ClosePlayerDay",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": false,
+          "signer": true
+        },
+        {
+          "name": "rent_payer",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        }
+      ]
+    },
+    "forfeit": {
+      "context": "ForfeitShot",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ruleset",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "shot",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "player_day",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rank_shard",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "history_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rent_refund",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    }
+  },
+  "rcx-timepin-v2": {
+    "register_evidence_spec": {
+      "context": "RegisterEvidenceSpec",
+      "accounts": [
+        {
+          "name": "payer",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "evidence_spec",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "receiver_program",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "receiver_program_data",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "receiver_config",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "wormhole_program",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "wormhole_program_data",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "open_need": {
+      "context": "OpenNeed",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "open_work_manifest": {
+      "context": "OpenWorkManifest",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "work_manifest",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "open_work_page": {
+      "context": "OpenWorkPage",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "reserve_work": {
+      "context": "ReserveWork",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "need",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "capture_first": {
+      "context": "CaptureFirst",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "candidate",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "receiver_program",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "receiver_program_data",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "receiver_config",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "wormhole_program",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "wormhole_program_data",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "price_update",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "capture_conflict": {
+      "context": "CaptureConflict",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "candidate_a",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "candidate_b",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "receiver_program",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "receiver_program_data",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "receiver_config",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "wormhole_program",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "wormhole_program_data",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "price_update",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "finalize": {
+      "context": "FinalizeNeed",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "candidate",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        }
+      ]
+    },
+    "expire": {
+      "context": "ExpireNeed",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "evidence_spec",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "work_page",
+          "mut": true,
+          "signer": false
+        }
+      ]
+    }
+  }
+}
