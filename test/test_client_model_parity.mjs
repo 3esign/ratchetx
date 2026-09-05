@@ -20,7 +20,7 @@
 // and ratchet-core-g2/model.mjs (the Core model, mirroring
 // foreign_timepin.rs::validate_record_against_spec). Until this file existed,
 // nothing compared them, and nothing tested the predicate at all at any level —
-// which is how a rule measured at 0/25 on the real feed reached the build queue.
+// which is how a rule that settles 11 % of real targets reached the build queue.
 //
 // What this file can and cannot prove, stated so nobody over-quotes it:
 //   * JS <-> JS parity on the same candidate bytes: PROVEN here.
@@ -66,7 +66,7 @@ test('MIN-CAPTURE accepts publish_time == T and rejects T-1', () => {
 
 test('MIN-CAPTURE accepts a print later than T — that is the whole point', () => {
   // Under the strict bracket this print is inadmissible, and that is why the
-  // bracket measured 0/25 against a pusher posting on its own ~5 s schedule.
+  // bracket settles 11.1 % of targets against a pusher whose phase sweeps.
   const late = cand(TARGET + 4n, TARGET + 3n);
   assert.equal(code(T.validateDecisionFields(spec(MINCAP), need, late)), 'OK');
   assert.equal(code(T.validateDecisionFields(spec(BRACKET), need, late)), 'NOT_CROSSING');

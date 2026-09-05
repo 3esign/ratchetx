@@ -1845,7 +1845,7 @@ mod tests {
     //
     // Until these existed there was NO host or SBF test that called
     // validate_decision_fields negatively at any level. That is not a gap in
-    // coverage, it is the reason a rule which matched 0 of 25 real targets
+    // coverage, it is the reason a rule that settles 11 % of real targets
     // reached the build queue unchallenged: nothing ever asked it to refuse.
     //
     // Each case mirrors one already green in test/test_client_model_parity.mjs,
@@ -1894,10 +1894,11 @@ mod tests {
 
     #[test]
     fn min_capture_accepts_a_print_later_than_the_target_and_the_bracket_does_not() {
-        // This is the measured 0-of-25 failure turned into an assertion. The
-        // sponsored pusher posts on its own ~5 s schedule at a drifting phase,
-        // so the print that actually lands is almost never the one that
-        // brackets the target second.
+        // The measured failure, turned into an assertion. Over 442 targets the
+        // bracket settles 11.1 % on SOL/BTC and 0-1.6 % on the slow feeds, while
+        // MIN-CAPTURE settles 100.0 % on every one: the sponsored pusher posts on
+        // its own schedule at a phase that sweeps, so the print that actually
+        // lands is usually not the one that brackets the target second.
         let late = at(1_804, 1_803);
         validate_decision_fields(&min_capture_spec(), &need(NEED_OPEN), &late).unwrap();
         assert_err(
@@ -1958,5 +1959,36 @@ mod tests {
             validate_decision_fields(&spec(), &need(NEED_OPEN), &at(1_801, 1_800)),
             "DoesNotBracketTarget",
         );
+    }
+
+    #[test]
+    fn publish_before_target_stays_at_the_tail_of_the_error_enum() {
+        // Anchor assigns error codes by DECLARATION ORDER, so a new variant is
+        // only safe at the end. Moving PublishBeforeTarget up next to its
+        // relatives -- which is exactly what a tidy-minded reader would do,
+        // because it reads badly where it is -- silently renumbers every variant
+        // below it and breaks every client, vector and test that maps a number.
+        //
+        // That rule was a comment. A comment is a hope. This is the same rule as
+        // an assertion: the new variant must sit after every variant that existed
+        // before it, and the ones clients already map must keep their order.
+        use TimepinLifecycleError::*;
+        let tail = PublishBeforeTarget as u32;
+        for (name, code) in [
+            ("DoesNotBracketTarget", DoesNotBracketTarget as u32),
+            ("PreTargetGapTooLarge", PreTargetGapTooLarge as u32),
+            ("PostTargetLagTooLarge", PostTargetLagTooLarge as u32),
+            ("ImmutableAccountMismatch", ImmutableAccountMismatch as u32),
+        ] {
+            assert!(
+                code < tail,
+                "{name} is {code} and PublishBeforeTarget is {tail}: the new variant \
+                 was moved out of the tail and every code below it has shifted"
+            );
+        }
+        // And the three the predicate itself returns must stay in their original
+        // relative order, which is what pins them for anyone decoding a receipt.
+        assert!((DoesNotBracketTarget as u32) < (PreTargetGapTooLarge as u32));
+        assert!((PreTargetGapTooLarge as u32) < (PostTargetLagTooLarge as u32));
     }
 }

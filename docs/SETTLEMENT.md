@@ -110,9 +110,19 @@ prev_publish_time < T <= publish_time
 This is the rule with no chooser at all: it identifies exactly one signed message
 per target. It is not a worse rule — it is a rule for a source we do not have. It
 needs a feed that delivers *every* aggregate, and the sponsored account is not one:
-the pusher posts on its own schedule, measured at ~5 s for SOL and BTC and ~51–53 s
-for ETH, BONK, PUMP, JUP and WIF, at a drifting phase. Against the real feed the
-bracket matched **0 of 25** minute-aligned targets.
+the pusher posts on its own schedule at a phase that sweeps. Measured over 63
+minutes and **442 targets** at grid 60
+(`docs/reviews/cadence/cadence-2026-09-05.ndjson`): the bracket settles **11.1 %**
+on SOL/BTC (15.4 % at grid 300) and **0–1.6 %** on ETH, BONK, PUMP, JUP and WIF,
+while MIN-CAPTURE settles **100.0 % on every feed**. First-print lag p99 is **4 s**
+for SOL and BTC and **51–52 s** for the other five, which is why
+`max_post_target_lag_seconds` has to be per feed.
+
+The bracket is therefore *not* zero, and an earlier 0-of-25 figure quoted across
+this project was one unlucky 25-minute window rather than the rule — SOL visited
+all five phase values inside a single hour. The verdict is unchanged: 11 % is not
+a game, and a phase that *moves* is the worst possible thing to pin into a
+write-once ruleset. But the reason is now the true one.
 
 Such a source does exist in one sense — Pythnet's accumulator ring carries every
 aggregate and is readable by anyone with no key — but its leaves cannot be brought

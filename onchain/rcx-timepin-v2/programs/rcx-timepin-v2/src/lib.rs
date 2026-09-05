@@ -23,9 +23,13 @@ pub const SCHEMA_SEED: [u8; 2] = SCHEMA_VERSION.to_le_bytes();
 // Adapter 1: the strict bracket `prev_publish_time < T <= publish_time`.
 // EXPERIMENTAL from 2026-09-05 and NOT for a mainnet-class registration. It is
 // honest only against a source that delivers every aggregate; the sponsored
-// PriceUpdateV2 account is not one. Measured against the real feed it bracketed
-// 0 of 25 minute-aligned targets, because the pusher posts on its own schedule
-// (~5 s SOL/BTC, ~52 s ETH/BONK/PUMP/JUP/WIF) at a drifting phase.
+// PriceUpdateV2 account is not one. Measured over 63 minutes and 442 targets at
+// grid 60 (docs/reviews/cadence/cadence-2026-09-05.ndjson): the bracket settles
+// 11.1 % of targets on SOL/BTC and 0-1.6 % on the five slow feeds, against
+// 100.0 % for MIN-CAPTURE on every feed. It is not zero -- the publish phase
+// SWEEPS, and SOL visited all five phase values inside that hour -- which is
+// also why pinning the phase into a write-once ruleset would be worse than
+// useless: you would be pinning a number that moves.
 pub const ADAPTER_PYTH_PUSH_V2: u8 = 1;
 // Adapter 2: MIN-CAPTURE. The admissible print for target T is the one with the
 // smallest publish_time such that publish_time >= T. See docs/MIN_CAPTURE_SPEC.md.
