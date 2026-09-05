@@ -468,14 +468,27 @@ check('B1', 'the built artifacts are NEWER THAN THE SOURCE and carry the right i
     return { ok: r.status === 0 && verdict && verdict.verdict === 'PASS', verdict, raw: r };
   };
 
-  const configured = process.env.G2_ARTIFACT_CACHE;
-  let result = configured
-    ? attempt(['--cache-root', configured], `G2_ARTIFACT_CACHE=${configured}`)
-    : { ok: false, verdict: null };
-  if (!result.ok) {
-    const fallback = attempt([], "the tool's default cache");
-    if (fallback.ok) result = fallback;
-    else if (!configured) result = fallback;
+  // The candidates, in order, and there are exactly three: the environment, the
+  // root NAMED IN A TRACKED FILE, and the tool's own default. No searching.
+  // releases/g2-artifact-cache.json exists so this row carries no magic path and
+  // so moving the cache is one reviewed line rather than an edit to the gate.
+  const candidates = [];
+  if (process.env.G2_ARTIFACT_CACHE) {
+    candidates.push([['--cache-root', process.env.G2_ARTIFACT_CACHE], `G2_ARTIFACT_CACHE=${process.env.G2_ARTIFACT_CACHE}`]);
+  }
+  const pointer = read('releases/g2-artifact-cache.json');
+  if (pointer) {
+    try {
+      const named = JSON.parse(pointer).cacheRoot;
+      if (named) candidates.push([['--cache-root', named], `releases/g2-artifact-cache.json -> ${named}`]);
+    } catch { /* a malformed pointer is simply not a candidate; the row still reports what it tried */ }
+  }
+  candidates.push([[], "the tool's default cache"]);
+
+  let result = { ok: false, verdict: null };
+  for (const [args, label] of candidates) {
+    result = attempt(args, label);
+    if (result.ok) break;
   }
 
   if (result.ok) {

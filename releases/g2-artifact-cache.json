@@ -1,0 +1,10 @@
+{
+  "schema": 1,
+  "cacheRoot": "_to_delete/public-build-handoff",
+  "why": "The build receipt records the paths of the machine that produced the artifacts (a Windows temp directory). check-g2-artifacts.mjs refuses to resolve a foreign provenance path implicitly and demands an explicit local cache root - correctly, because resolving someone else's absolute path against this filesystem is how a gate ends up verifying the wrong bytes. This file is where that root is named, so the gate carries no magic path and moving the cache is one reviewed line.",
+  "expected": {
+    "timepin": { "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1", "size": 375944 },
+    "core": { "sha256": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d", "size": 1014408 }
+  },
+  "known": "The current root sits under _to_delete/, which is a quarantine name and a poor home for the bytes a release deploys from. Moving it is a one-line change here plus a check-deploy-input allowlist entry; it has not been done because B3 refuses untracked files in the deployment surface and the move should land with that entry, not before it."
+}
