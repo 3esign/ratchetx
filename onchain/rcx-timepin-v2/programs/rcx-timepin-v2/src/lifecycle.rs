@@ -1839,4 +1839,124 @@ mod tests {
         assert_ne!(ambiguous_hash, expired_hash);
         assert!(terminal_result_hash(subject, &need(NEED_OPEN)).is_err());
     }
+
+    // ------------------------------------------------------------------
+    // MIN_CAPTURE_SPEC.md section 7 -- the settlement predicate, negatively.
+    //
+    // Until these existed there was NO host or SBF test that called
+    // validate_decision_fields negatively at any level. That is not a gap in
+    // coverage, it is the reason a rule which matched 0 of 25 real targets
+    // reached the build queue unchallenged: nothing ever asked it to refuse.
+    //
+    // Each case mirrors one already green in test/test_client_model_parity.mjs,
+    // so the JS model and the program are asserted rung for rung on the same
+    // ladder. If the two ever disagree, one of the two suites goes red.
+    // ------------------------------------------------------------------
+
+    fn assert_err(result: Result<()>, expected: &str) {
+        let message = result
+            .expect_err("expected this candidate to be refused")
+            .to_string();
+        assert!(
+            message.contains(expected),
+            "expected error containing {expected}, got {message}"
+        );
+    }
+
+    /// A spec on the mainnet-class adapter. The pre-gap is pinned to zero
+    /// because validate_spec refuses adapter 2 with any other value.
+    fn min_capture_spec() -> EvidenceSpecV2 {
+        let mut value = spec();
+        value.adapter = ADAPTER_PYTH_MIN_CAPTURE_V2;
+        value.max_pre_target_gap_seconds = 0;
+        value
+    }
+
+    /// A candidate whose publish/prev pair is set explicitly. `need(NEED_OPEN)`
+    /// targets 1_800, so these are all relative to that second.
+    fn at(publish_time: i64, prev_publish_time: i64) -> CandidateV2 {
+        let mut value = candidate();
+        value.publish_time = publish_time;
+        value.prev_publish_time = prev_publish_time;
+        value
+    }
+
+    #[test]
+    fn min_capture_accepts_the_target_second_and_refuses_the_one_before() {
+        let spec = min_capture_spec();
+        let need = need(NEED_OPEN);
+        validate_decision_fields(&spec, &need, &at(1_800, 1_799)).unwrap();
+        assert_err(
+            validate_decision_fields(&spec, &need, &at(1_799, 1_798)),
+            "PublishBeforeTarget",
+        );
+    }
+
+    #[test]
+    fn min_capture_accepts_a_print_later_than_the_target_and_the_bracket_does_not() {
+        // This is the measured 0-of-25 failure turned into an assertion. The
+        // sponsored pusher posts on its own ~5 s schedule at a drifting phase,
+        // so the print that actually lands is almost never the one that
+        // brackets the target second.
+        let late = at(1_804, 1_803);
+        validate_decision_fields(&min_capture_spec(), &need(NEED_OPEN), &late).unwrap();
+        assert_err(
+            validate_decision_fields(&spec(), &need(NEED_OPEN), &late),
+            "DoesNotBracketTarget",
+        );
+    }
+
+    #[test]
+    fn the_two_adapters_disagree_on_an_intra_second_repeat_deliberately() {
+        // pub == prev == T. On a full-aggregate source these repeats carry
+        // genuinely different prices, conf and ema -- measured 20 of 98 keys
+        // with up to three distinct signed messages. The strict `<` on the left
+        // is the only thing excluding them, which is why the two predicates
+        // must never be "unified" into one. MIN-CAPTURE is safe from the tie
+        // only because the sponsored PDA holds one message at a time.
+        let repeat = at(1_800, 1_800);
+        validate_decision_fields(&min_capture_spec(), &need(NEED_OPEN), &repeat).unwrap();
+        assert_err(
+            validate_decision_fields(&spec(), &need(NEED_OPEN), &repeat),
+            "DoesNotBracketTarget",
+        );
+    }
+
+    #[test]
+    fn the_post_target_lag_bound_is_what_keeps_min_capture_finite() {
+        let spec = min_capture_spec();
+        let need = need(NEED_OPEN);
+        let edge = need.target_ts + i64::from(spec.max_post_target_lag_seconds);
+        // source_deadline_ts is 1_920 and the lag bound is 120, so the lag edge
+        // sits exactly on the deadline; one second past it must fail on the lag.
+        validate_decision_fields(&spec, &need, &at(edge, edge - 1)).unwrap();
+        assert_err(
+            validate_decision_fields(&spec, &need, &at(edge + 1, edge)),
+            "PostTargetLagTooLarge",
+        );
+    }
+
+    #[test]
+    fn the_pre_target_gap_is_live_under_the_bracket_and_inert_under_min_capture() {
+        // A print whose predecessor is far behind the target. The bracket
+        // refuses it on the gap; MIN-CAPTURE has no opinion, because
+        // prev_publish_time is not part of its predicate at all.
+        let mut bracket = spec();
+        bracket.max_pre_target_gap_seconds = 5;
+        let stale = at(1_800, 1_700);
+        assert_err(
+            validate_decision_fields(&bracket, &need(NEED_OPEN), &stale),
+            "PreTargetGapTooLarge",
+        );
+        validate_decision_fields(&min_capture_spec(), &need(NEED_OPEN), &stale).unwrap();
+    }
+
+    #[test]
+    fn the_bracket_still_refuses_a_predecessor_at_or_after_the_target() {
+        // Guards the branch I moved: adapter 1 must behave exactly as before.
+        assert_err(
+            validate_decision_fields(&spec(), &need(NEED_OPEN), &at(1_801, 1_800)),
+            "DoesNotBracketTarget",
+        );
+    }
 }
