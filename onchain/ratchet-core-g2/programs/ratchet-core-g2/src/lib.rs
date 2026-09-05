@@ -2316,8 +2316,32 @@ pub mod ratchet_core_g2 {
     /// and it is a count the program already maintained before M2 touched it.
     pub fn close_player_day(ctx: Context<ClosePlayerDay>) -> Result<()> {
         let player_day = &ctx.accounts.player_day;
+        // S3: `terminal == accepted` HOLDS MID-DAY, and that was the whole bug.
+        //
+        // Until 2026-09-05 this was the only guard. It is true of any player who
+        // has simply finished the shots they have taken so far, at any hour of a
+        // day that is still accepting more. Closing deletes the account; the next
+        // shot recreates it at zero. A player who earned 100 and then 20 stays
+        // ranked at 100, and rank is podium money. Closing is permissionless by
+        // design - the right design - so one crank call from anybody does it, to
+        // somebody else's score. Found by an independent read-only audit
+        // (Codex/Astra) against e249dbc, in a row I had marked GO myself: I asked
+        // whether lamports could leave the account, and they can. That was the
+        // wrong question on its own.
+        //
+        // THE DAY MUST BE OVER, and "over" is provable rather than approximate.
+        // At every seal path the program requires
+        // `score_day == utc_day(reveal_deadline_ts)` with a deadline that is
+        // strictly in the future, so a shot's score_day is never earlier than the
+        // day it was sealed on. Therefore once the current UTC day is PAST this
+        // account's day, no future shot can ever be accepted into it - and with
+        // `terminal == accepted` also holding, nothing that exists still needs it.
+        // Those two together are what "no longer referenced" actually means.
+        let now_day = utc_day(Clock::get()?.unix_timestamp);
         require!(
-            player_day.accepted > 0 && player_day.terminal == player_day.accepted,
+            player_day.accepted > 0
+                && player_day.terminal == player_day.accepted
+                && now_day > player_day.day,
             CoreG2Error::PlayerDayStillReferenced
         );
         Ok(())
