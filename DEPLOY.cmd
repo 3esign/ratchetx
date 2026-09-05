@@ -36,11 +36,15 @@ echo    Link existing? N  -  Project name: TYPE THE NAME YOU WANT
 echo    ONLY lowercase letters, numbers, hyphens - e.g. ratchet-game
 echo    (that becomes name.vercel.app)  -  directory: Enter  -  modify? N
 echo.
+REM Recheck after tests: tests can create files in the upload directory.
+node scripts/check-release-safety.mjs >> deploy_check.txt 2>&1
+if errorlevel 1 goto :testfail
 call npx --yes vercel deploy --prod --yes > "%TEMP%\rx_vercel.txt" 2>&1
+set "RATCHET_DEPLOY_EXIT=%ERRORLEVEL%"
 type "%TEMP%\rx_vercel.txt"
 type "%TEMP%\rx_vercel.txt" >> deploy_check.txt
 echo.
-if errorlevel 1 goto :vercelfail
+if not "%RATCHET_DEPLOY_EXIT%"=="0" goto :vercelfail
 echo  ============================================================
 echo  SUCCESS - your site is live at the URL printed above.
 echo  VERIFYING the live API against lib/release.js...

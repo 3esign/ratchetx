@@ -35,5 +35,29 @@ skills/ratchetx/scripts/*
 !skills/ratchetx/scripts/session-play.mjs
 *keypair*.json
 *.keys/
+id.json
 deploy_check.txt
+stock_cadence_report*.txt
 mcp/
+
+# Root scratch and private export boundary (folder uploads include untracked files).
+fix*.js
+add-xp.js
+claim.js
+*.tmp.mjs
+*.patch
+*.sh
+*_report.txt
+*_REPORT.txt
+equity_gate_check.txt
+replacement.txt
+merkle_excluded.json
+_to_delete/
+supabase/.temp/
+# Additional local-only files observed in the same root inventory.
+/approx
+/update_ref.js
+/kv_dump.json
+/merkle_balances.json
+/devnet_*.txt
+/wip/

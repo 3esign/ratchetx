@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import { inspectDeployInput, isNeverReadPath } from './check-deploy-input.mjs';
 
 let failed = false;
 const fail = message => { failed = true; console.error(`[FAIL] ${message}`); };
@@ -18,6 +19,14 @@ const listed = spawnSync('git', ['ls-files', '-z'], { encoding:'buffer' });
 if (listed.status !== 0) fail('could not enumerate tracked release files');
 const files = listed.status === 0
   ? listed.stdout.toString('utf8').split('\0').filter(Boolean) : [];
+let deploymentFiles = [];
+try {
+  const deployment = inspectDeployInput();
+  deploymentFiles = deployment.files;
+  for (const error of deployment.errors) fail(error);
+  if (!deployment.errors.length) ok(`${deployment.files.length} deployment input files pass the public surface boundary`);
+} catch { fail('deployment input could not be enumerated; upload is blocked'); }
+const scanFiles = [...new Set([...files, ...deploymentFiles])];
 const forbiddenNames = /(^|\/)(phases_extracted\d*\.txt|plan_dump\.txt|rotate\d*\.js|run_sql\.js|test-pyth\.mjs|patch\.py|[^/]+\.bak)$/i;
 const secretPatterns = [
   ['database URL with embedded password', /postgres(?:ql)?:\/\/[^\s:'"]+:[^\s@'"]+@/i],
@@ -25,17 +34,18 @@ const secretPatterns = [
   ['literal Solana secret-key array', /(?:secretKey|privateKey)\s*[:=]\s*\[\s*\d+(?:\s*,\s*\d+){31,}/i],
   ['literal service-role JWT', /(?:SUPABASE_SERVICE_ROLE_KEY|serviceRoleKey)\s*[:=]\s*['"]eyJ[A-Za-z0-9_-]{20,}/i],
 ];
-for (const file of files) {
+for (const file of scanFiles) {
   const posix = file.replace(/\\/g, '/');
+  if (isNeverReadPath(posix)) { fail(`private path must not be tracked or uploaded: ${posix}`); continue; }
   if (forbiddenNames.test(posix)) fail(`forbidden local artifact is tracked: ${posix}`);
   let bytes;
   try { bytes = fs.readFileSync(file); } catch { continue; }
   if (bytes.length > 2_000_000 || bytes.includes(0)) continue;
   const text = bytes.toString('utf8');
   for (const [label, pattern] of secretPatterns)
-    if (pattern.test(text)) fail(`${label} found in tracked file ${posix}`);
+    if (pattern.test(text)) fail(`${label} found in release file ${posix}`);
 }
-if (!failed) ok(`${files.length} tracked files contain no blocked credential/artifact patterns`);
+if (!failed) ok(`${scanFiles.length} tracked/deployment files contain no blocked credential/artifact patterns`);
 
 // Ratchet's oracle architecture is intentionally keyless: runtime prices,
 // settlement and the paid proof bundle consume Pyth PriceUpdateV2 accounts
