@@ -3718,7 +3718,37 @@ module.exports = async (req, res) => playerWrites.run(async () => {
   } catch (e) {
     if (['WRITE_CONFLICT','WRITE_LEASE_EXPIRED','CREDIT_QUEUE_CONFLICT'].includes(e.code))
       return res.status(409).json({ok:false,code:e.code,reason:'player state changed; read state before retrying'});
-    return res.status(500).json({ ok:false, reason: String(e.message || e) });
+
+    // A STORE OUTAGE IS NOT A BUG IN THIS CODE, AND MUST NOT ANSWER LIKE ONE.
+    //
+    // Observed live on 2026-09-05: every game action returned
+    //     500 {"ok":false,"reason":"fetch failed"}
+    // while /api/proof, from the same build, answered normally. The deployment
+    // was fine; the store was unreachable. But 500 says "this code is broken",
+    // which sends whoever is debugging to the wrong place -- and it is what
+    // monitoring, retry logic and CDNs all read it as.
+    //
+    // 503 says "a dependency is down, come back", which is the truth, and it is
+    // the answer a client should retry on. The distinction is kept rather than
+    // collapsed: a genuine bug still returns 500, because turning every failure
+    // into 503 would hide real ones.
+    //
+    // 429 gets its own message. An Upstash free tier has a request ceiling, and
+    // "we are over the limit" is a different problem for the operator than "the
+    // network is down" -- one is fixed by waiting or upgrading, the other is
+    // not fixed by either.
+    const raw = String(e && (e.message || e));
+    const quota = /\b429\b|too many requests|quota|rate.?limit|max request|limit (exceeded|exhausted)/i.test(raw);
+    const unreachable = quota || /fetch failed|ECONNREFUSED|ECONNRESET|ETIMEDOUT|ENOTFOUND|EAI_AGAIN|socket hang up|network|getaddrinfo|\b50[0234]\b/i.test(raw);
+    if (unreachable) {
+      console.error('store unavailable:', raw);
+      return res.status(503).json({ ok:false, code: quota ? 'STORE_LIMIT' : 'STORE_UNAVAILABLE',
+        reason: quota
+          ? 'the game store is over its request limit; your wallet, credits and sealed shots are safe and nothing has been lost'
+          : 'the game store is unreachable; your wallet, credits and sealed shots are safe and nothing has been lost',
+        retry: true });
+    }
+    return res.status(500).json({ ok:false, reason: raw });
   } finally {
     for (const x of heldPlayerLocks.reverse()) {
       try { await releaseLease(x.key, x.token); } catch {}
@@ -3728,3 +3758,4 @@ module.exports = async (req, res) => playerWrites.run(async () => {
 module.exports.champWindowSum = champWindowSum;   // pure, for the test harness
 module.exports.refreshLivePodium = refreshLivePodium;
 module.exports.parseMirrorSeal = parseMirrorSeal;
+

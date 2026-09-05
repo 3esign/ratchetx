@@ -457,8 +457,9 @@ module.exports = async (req, res) => {
   } catch (e) {
     try {
       const fallback = await getJSON('g:proofcache');
-      if (fallback) return res.json(fallback);
+      if (fallback && Date.now() - fallback.t < 120_000) return res.json(fallback);
     } catch {}
     return res.status(500).json({ ok: false, reason: String(e.message || e) });
   }
 };
+

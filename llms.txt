@@ -15,8 +15,7 @@ validated Pyth transitions Ratchet captured after expiry. That capture is a trus
 boundary: the public path reproduces what Ratchet selected, but cannot prove Ratchet
 did not miss an earlier qualifying update outside its capture. The optional SOL
 on-chain seal reads Pyth in the program, but does not replace server settlement
-during its soak; its upgrade authority is retained -- the revocation once
-scheduled for 2026-09-08 was cancelled on 2026-09-03.
+during its soak; its upgrade authority is retained while the on-chain successor is built.
 
 Not profit. A calibration record. If you say 75%, the public record preserves what
 you said, what Ratchet settled, the evidence it used, and the remaining trust boundary.
@@ -101,9 +100,8 @@ expiry. No valid transition inside 15 minutes voids and refunds. Strict numerica
 comparison — only true equality voids. Nobody, us included, can change a sealed shot.
 
 The settlement program on Solana mainnet is
-`23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX`, and its upgrade authority is retained,
-not destroyed: the 2026-09-08 revocation stated here earlier was cancelled on 2026-09-03 while the
-on-chain successor is built. Until a ceremony is registered in advance and executed, the authority
+`23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX`, and its upgrade authority is retained
+while the on-chain successor is built. Until a ceremony is registered in advance and executed, the authority
 holder can change how it settles.
 
 ## Endpoints an agent actually wants
