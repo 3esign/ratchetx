@@ -17,6 +17,7 @@
 // exists, so it is kept as thin as it can be made.
 import fs from 'node:fs';
 import { webcrypto } from 'node:crypto';
+import { pathToFileURL } from 'node:url';
 import { assertSendable } from './cluster.mjs';
 import { decideAll } from './decide.mjs';
 import { planAction, NOT_YET_PLANNED } from './plan.mjs';
@@ -84,7 +85,30 @@ export async function readState() {
     + 'crank that cannot see anything look identical from outside.');
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+// WHETHER THIS FILE IS THE ONE THAT WAS RUN.
+//
+// It used to be `import.meta.url === \`file://${process.argv[1]}\``. On POSIX
+// that is accidentally right: argv[1] is /home/.../crank.mjs and gluing file://
+// in front of it yields the same string node put in import.meta.url. On Windows
+// argv[1] is D:\Work\...\crank.mjs, the glue yields file://D:\Work\...,
+// import.meta.url is file:///D:/Work/..., and the two never match.
+//
+// The consequence is not an error. The consequence is that the crank RUNS,
+// prints nothing, and EXITS 0 - a command that reports success for doing
+// nothing at all. On this project's own history that is the most expensive
+// failure shape there is: it is indistinguishable from a healthy quiet chain,
+// which is the exact reason readState above refuses to return an empty list.
+//
+// pathToFileURL is the conversion node itself uses. The converter is a
+// parameter so the predicate can be proved on BOTH platforms' path shapes from
+// either platform - see test/test_crank_entrypoint.mjs, which pins the old
+// expression as failing on a Windows path.
+export function isCliEntrypoint(moduleUrl, argv1, toFileUrl = pathToFileURL) {
+  if (typeof argv1 !== 'string' || argv1 === '') return false;
+  try { return moduleUrl === toFileUrl(argv1).href; } catch { return false; }
+}
+
+if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   const web3 = await import('@solana/web3.js');
   await main({ web3, connectionFactory: url => new web3.Connection(url, 'confirmed') })
     .catch(e => { console.error(String(e.message || e)); process.exit(1); });
