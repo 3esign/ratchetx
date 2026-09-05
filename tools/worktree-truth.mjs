@@ -47,6 +47,7 @@ const DEFAULT_PATHS = [
   'onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs',
   'onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs',
   'onchain/ratchet-core-g2/model.mjs',
+  'onchain/ratchet-core-g2/client/client-v2.mjs',
   'releases/g2-mainnet-economy.json',
   'BUILD_G2.cmd',
 ];

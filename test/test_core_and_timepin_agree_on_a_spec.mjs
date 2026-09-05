@@ -166,10 +166,90 @@ for (const [label, source] of [['Core', corePredicate], ['Timepin', timepinPredi
     'that predicate, and the pre-gap is pinned to zero precisely because it is not.');
 }
 
-// --- 5. the off-chain mirror agrees with both -------------------------------
+// --- 5. the off-chain mirrors agree with both -------------------------------
 
 has(MODEL, /adapter !== 1 && adapter !== 2/,
   'model.mjs no longer accepts exactly the two adapters the programs accept');
+
+// --- 6. the BROWSER CLIENT, exercised rather than read ----------------------
+// This one is JavaScript, so it can be asked the question directly instead of
+// having its source pattern-matched - and a guard that is RUN is worth more
+// than a guard that is grepped. It had the same two defects as Core's gate:
+// `adapter !== 1`, and `!preGap` which rejects the zero MIN-CAPTURE requires.
+// Measured before the fix: the manifest's own spec threw 'EvidenceSpec oracle
+// identity mismatch'. The client players load could not read the economy the
+// programs are being frozen for.
+
+const { createHash, webcrypto } = await import('node:crypto');
+const web3 = await import('@solana/web3.js');
+const { PublicKey } = web3;
+const client = await import('../onchain/ratchet-core-g2/client/client-v2.mjs');
+
+const digest = label => createHash('sha256').update(label).digest();
+const core = client.createCoreG2Client({
+  web3,
+  coreProgramId: new PublicKey('cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN'),
+  timepinProgramId: new PublicKey('C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp'),
+  cryptoImpl: webcrypto,
+});
+
+checks += 1;
+assert.equal(client.ADAPTER_PYTH_PUSH_V2, CORE_PUSH,
+  'the client\'s strict-bracket adapter disagrees with the programs');
+checks += 1;
+assert.equal(client.ADAPTER_PYTH_MIN_CAPTURE_V2, CORE_MIN,
+  'the client\'s MIN-CAPTURE adapter disagrees with the programs');
+
+const specArgs = (adapter, preGap) => ({
+  schema: 2,
+  adapter,
+  receiverProgram: new PublicKey(client.PYTH_RECEIVER_PROGRAM).toBuffer(),
+  pushOracleProgram: new PublicKey(client.PYTH_PUSH_ORACLE_PROGRAM).toBuffer(),
+  shardId: 0,
+  feedId: digest('feed'),
+  requiredVerification: 1,
+  targetGridSeconds: 60,
+  minOpenLeadSeconds: 30,
+  maxTargetAheadSeconds: 7_200,
+  maxPreTargetGapSeconds: preGap,
+  maxPostTargetLagSeconds: 59,
+  captureGraceSeconds: 10,
+  maxFutureSkewSeconds: 5,
+  minExponent: -12,
+  maxExponent: 2,
+  maxConfidenceBps: 1_000,
+  receiverProgramdataSlot: 5n,
+  receiverConfigHash: digest('receiver'),
+  wormholeProgram: new PublicKey(digest('wormhole')).toBuffer(),
+  wormholeProgramdataSlot: 6n,
+  registeredSlot: 9n,
+});
+const accepts = (adapter, preGap) => {
+  try {
+    core.validateEvidenceSpecShape(specArgs(adapter, preGap), 9n);
+    return true;
+  } catch { return false; }
+};
+
+checks += 1;
+assert.ok(accepts(CORE_MIN, 0),
+  'THE CLIENT REFUSES THE MANIFEST\'S OWN SPEC. adapter 2 with a zero pre-gap ' +
+  'is what releases/g2-mainnet-economy.json carries and what Timepin and Core ' +
+  'both require; a client that cannot read it cannot play the game.');
+checks += 1;
+assert.ok(accepts(CORE_PUSH, 120),
+  'the client refuses a valid strict-bracket spec');
+checks += 1;
+assert.ok(!accepts(CORE_MIN, 120),
+  'the client accepts MIN-CAPTURE carrying a non-zero pre-gap, which both ' +
+  'programs refuse - a dead number inside every spec hash');
+checks += 1;
+assert.ok(!accepts(CORE_PUSH, 0),
+  'the client accepts the strict bracket with no pre-gap bound, which both ' +
+  'programs refuse - there the bound is load-bearing');
+checks += 1;
+assert.ok(!accepts(3, 0) && !accepts(3, 120),
+  'the client admits a third adapter neither program knows');
 
 console.log(
   `core and timepin agree on a spec: ${checks} checks passed ` +

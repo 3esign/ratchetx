@@ -2,6 +2,14 @@ const UTF8 = new TextEncoder();
 
 export const CORE_SCHEMA_VERSION = 2;
 export const TIMEPIN_SCHEMA_VERSION = 2;
+// Adapter 1 = strict bracket (prev < T <= publish; the pre-gap is load-bearing
+// and positive). Adapter 2 = MIN-CAPTURE, the mainnet-class rule: the earliest
+// print at or after T, where prev_publish_time is not part of the predicate and
+// the pre-gap is therefore pinned to ZERO. Same numbers as rcx-timepin-v2
+// lib.rs and ratchet-core-g2/foreign_timepin.rs, pinned across all four mirrors
+// by test/test_core_and_timepin_agree_on_a_spec.mjs.
+export const ADAPTER_PYTH_PUSH_V2 = 1;
+export const ADAPTER_PYTH_MIN_CAPTURE_V2 = 2;
 export const FORWARD_ENTRY_MODE = 2;
 export const HISTORY_PAGE_CAP = 16;
 export const RANK_SHARD_COUNT = 16;
@@ -498,14 +506,27 @@ export function createCoreG2Client({
       args.wormholeProgramdataSlot, U64_MAX, 'wormholeProgramdataSlot');
     nonzero32(args.feedId, 'feedId');
     nonzero32(args.receiverConfigHash, 'receiverConfigHash');
-    if (schema !== TIMEPIN_SCHEMA_VERSION || adapter !== 1 ||
+    // BOTH ADAPTERS. This read `adapter !== 1`, which refused every MIN-CAPTURE
+    // spec - the rule the mainnet manifest uses - so the browser client could
+    // not read or build the economy the programs are being frozen for. Same
+    // defect, found the same day, as foreign_timepin.rs validate_spec_shape.
+    if (schema !== TIMEPIN_SCHEMA_VERSION ||
+        (adapter !== ADAPTER_PYTH_PUSH_V2 &&
+         adapter !== ADAPTER_PYTH_MIN_CAPTURE_V2) ||
         !pk(args.receiverProgram).equals(pythReceiver) ||
         !pk(args.pushOracleProgram).equals(pythPushOracle) ||
         verification !== 1)
       throw new TypeError('EvidenceSpec oracle identity mismatch');
     if (!grid || grid > 86_400 || lead < 5 || lead > 86_400 ||
         ahead < lead || ahead > 30 * 86_400 ||
-        !preGap || preGap > 7 * 86_400 ||
+        // The pre-gap is pinned in OPPOSITE directions by the two adapters, so
+        // `!preGap` was a SECOND, independent rejection of MIN-CAPTURE: under
+        // that adapter zero is not merely allowed, it is required, because a
+        // non-zero bound would be a dead number inside every spec hash.
+        // Mirrors rcx-timepin-v2 lib.rs:573-583 and foreign_timepin.rs:632.
+        (adapter === ADAPTER_PYTH_MIN_CAPTURE_V2
+          ? preGap !== 0
+          : (!preGap || preGap > 7 * 86_400)) ||
         !postLag || postLag > 7 * 86_400 ||
         !grace || grace > 86_400 || skew > 300 ||
         minExponent < -18 || maxExponent > 18 ||
