@@ -90,8 +90,8 @@ if not "%RX_PUB_EXIT%"=="0" goto :deployfail
 
 echo.
 echo  Verifying the live text ...
-call node -e "fetch('https://ratchetx.xyz/llms.txt').then(r=>r.text()).then(t=>{const bad=t.includes('destroyed on 2026-09-08')||t.includes('scheduled for revocation on 2026-09-08');console.log(bad?'STILL PROMISING 09-08 - NOT FIXED':'LIVE TEXT IS CORRECTED');process.exit(bad?1:0)}).catch(e=>{console.error(e.message);process.exit(1)})"
-call node -e "fetch('https://ratchetx.xyz/llms.txt').then(r=>r.text()).then(t=>{const bad=t.includes('destroyed on 2026-09-08')||t.includes('scheduled for revocation on 2026-09-08');process.exit(bad?1:0)}).catch(()=>process.exit(1))" >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
+call node -e "fetch('https://ratchetx.xyz/llms.txt?cb='+Date.now()).then(r=>r.text()).then(t=>{const bad=t.includes('destroyed on 2026-09-08')||t.includes('scheduled for revocation on 2026-09-08');console.log(bad?'STILL PROMISING 09-08 - NOT FIXED':'LIVE TEXT IS CORRECTED');process.exit(bad?1:0)}).catch(e=>{console.error(e.message);process.exit(1)})"
+call node -e "fetch('https://ratchetx.xyz/llms.txt?cb='+Date.now()).then(r=>r.text()).then(t=>{const bad=t.includes('destroyed on 2026-09-08')||t.includes('scheduled for revocation on 2026-09-08');process.exit(bad?1:0)}).catch(()=>process.exit(1))" >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
 if errorlevel 1 goto :verifyfail
 
 popd
@@ -142,10 +142,25 @@ echo  and it is fixed by logging in - not by forcing.
 echo  ============================================================
 goto :end
 :deployfail
-popd
 echo.
-echo  DEPLOY FAILED but MAIN WAS PUSHED. GitHub carries the
-echo  correction; the site does not yet. Read %REPORT%.
+echo  ============================================================
+echo  THE VERCEL CLI STEP FAILED, AND THAT MAY NOT MATTER.
+echo.
+echo  MAIN WAS PUSHED SUCCESSFULLY. This project's Vercel is wired
+echo  to deploy from a GitHub push on its own - the CLI session on
+echo  this machine has expired before and the site still updated.
+echo  The usual cause of this failure is exactly that expired CLI
+echo  login, not a broken deploy.
+echo.
+echo  So do not re-run anything yet. WAIT ABOUT TWO MINUTES and let
+echo  the check below tell you what actually happened.
+echo  ============================================================
+echo.
+echo  Waiting, then reading the live llms.txt ...
+call node -e "setTimeout(()=>{},1)" >nul 2>&1
+timeout /t 120 /nobreak >nul 2>&1
+call node -e "fetch('https://ratchetx.xyz/llms.txt?cb='+Date.now()).then(r=>r.text()).then(t=>{const bad=t.includes('destroyed on 2026-09-08')||t.includes('scheduled for revocation on 2026-09-08');console.log(bad?'SITE STILL SERVES THE OLD PROMISE - the push landed, the deploy did not':'SITE IS CORRECTED - the push deployed itself, the CLI failure was cosmetic');process.exit(bad?1:0)}).catch(e=>{console.error('could not read the live site: '+e.message);process.exit(1)})"
+popd
 goto :end
 :verifyfail
 popd
