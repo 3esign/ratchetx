@@ -1,0 +1,149 @@
+{
+  "schema": 1,
+  "status": "PINNED_TOOLCHAIN_RECIPE",
+  "scope": "Tooling image only. No program sources, program binaries, keypairs, deployments, or execution evidence.",
+  "target": {
+    "dockerPlatform": "linux/amd64",
+    "nodePlatform": "linux",
+    "nodeArchitecture": "x64",
+    "sbpfArchitecture": "v3",
+    "elfFlags": 3
+  },
+  "baseImage": {
+    "reference": "rust@sha256:8aea3a845c48caac4091a8d0e6494d213061f8f014dc2f5a5f1a88a1a8c9f301",
+    "registryManifestUrl": "https://registry-1.docker.io/v2/library/rust/manifests/sha256:8aea3a845c48caac4091a8d0e6494d213061f8f014dc2f5a5f1a88a1a8c9f301",
+    "upstreamTagObserved": "1.98.0",
+    "upstreamDockerfile": "https://github.com/rust-lang/docker-rust/blob/7e8ce3f02e3f0292a54b9212ccad6204bde54289/stable/trixie/Dockerfile",
+    "registryMetadataObserved": {
+      "os": "linux",
+      "architecture": "amd64",
+      "rustVersion": "1.98.0"
+    }
+  },
+  "nativeRust": {
+    "version": "1.98.0",
+    "source": "digest-pinned official Rust base image",
+    "builderUpstreamToolchainUrl": "https://raw.githubusercontent.com/anza-xyz/cargo-build-sbf/04e19e9016d8ec1e2b8cc23d280877ec0e2cea01/rust-toolchain.toml"
+  },
+  "cargoBuildSbf": {
+    "version": "4.3.0",
+    "url": "https://static.crates.io/crates/cargo-build-sbf/cargo-build-sbf-4.3.0.crate",
+    "sha256": "70a89282c9c5b9ae798de4dc3b50c3bf562673190bdadd868f0e2a1fc3ea04ce",
+    "checksumSource": "https://crates.io/api/v1/crates/cargo-build-sbf/4.3.0",
+    "archiveRoot": "cargo-build-sbf-4.3.0",
+    "sourceCommit": "04e19e9016d8ec1e2b8cc23d280877ec0e2cea01",
+    "bundledLockfile": "cargo-build-sbf-4.3.0/Cargo.lock",
+    "installRoot": "/opt/g2-sbf",
+    "installArguments": [
+      "--path",
+      "/opt/g2-source/cargo-build-sbf-4.3.0",
+      "--locked",
+      "--root",
+      "/opt/g2-sbf",
+      "--target-dir",
+      "/tmp/g2-sbf-target"
+    ]
+  },
+  "node": {
+    "version": "22.20.0",
+    "url": "https://nodejs.org/dist/v22.20.0/node-v22.20.0-linux-x64.tar.xz",
+    "sha256": "00bbd05e306ea68b6e13e17360d0e2f680b493ef95f2fea1c4296ff7437530bc",
+    "checksumSource": "https://nodejs.org/dist/v22.20.0/SHASUMS256.txt",
+    "archiveRoot": "node-v22.20.0-linux-x64",
+    "stripComponents": 1,
+    "installRoot": "/opt/node"
+  },
+  "platformTools": {
+    "version": "v1.56",
+    "url": "https://github.com/anza-xyz/platform-tools/releases/download/v1.56/platform-tools-linux-x86_64.tar.bz2",
+    "sha256": "afdad6e0672942b00d69fc51ebde0d182c9b9ed21e078357fcedb50f921dae2d",
+    "size": 520271243,
+    "checksumSource": "https://api.github.com/repos/anza-xyz/platform-tools/releases/tags/v1.56",
+    "releaseUrl": "https://github.com/anza-xyz/platform-tools/releases/tag/v1.56",
+    "cacheDirectory": "/root/.cache/solana/v1.56/platform-tools",
+    "stripComponents": 0,
+    "installCheckArguments": [
+      "--install-only",
+      "--tools-version",
+      "v1.56"
+    ],
+    "upstreamCompilerRelease": {
+      "rust": "1.89.0",
+      "llvmMajor": 20
+    },
+    "archiveLayoutSource": "https://github.com/anza-xyz/cargo-build-sbf/blob/04e19e9016d8ec1e2b8cc23d280877ec0e2cea01/cargo-build-sbf/src/toolchain.rs",
+    "packagingSource": "https://github.com/anza-xyz/platform-tools/blob/v1.56/build.sh"
+  },
+  "runtime": {
+    "buildContext": "ops/g2-build",
+    "copiedContextFiles": [
+      "toolchain-lock.json"
+    ],
+    "user": "root",
+    "workspace": "/build",
+    "workspaceInputs": "Fresh snapshot of sourceStamp inputs plus the three runner/helper tools and both tooling recipe files; no repository checkout, target directory, program keypair, or prior build cache is mounted.",
+    "snapshotAdditionalFiles": [
+      "tools/g2-build-artifacts.mjs",
+      "tools/verify-artifact.mjs",
+      "tools/g2-reproduce.mjs",
+      "ops/g2-build/Dockerfile",
+      "ops/g2-build/toolchain-lock.json"
+    ],
+    "pathPrefix": [
+      "/opt/g2-sbf/bin",
+      "/opt/node/bin"
+    ],
+    "publicOutputMount": "/output",
+    "temporaryDirectory": "/tmp",
+    "temporaryDirectoryMounted": false,
+    "candidateCache": "/tmp/ratchetx-onchain-sbf",
+    "exportedCandidateCache": "/output/cache",
+    "containerEnvironment": {
+      "G2_REPRO_CONTAINER": "1"
+    },
+    "containerCommand": [
+      "node",
+      "tools/g2-reproduce.mjs",
+      "--build-once-in-container"
+    ],
+    "helper": {
+      "module": "tools/g2-build-artifacts.mjs",
+      "function": "runBuild",
+      "options": {
+        "root": "/build",
+        "buildOnly": true
+      }
+    },
+    "separateAcceptanceGate": "tools/g2-build-artifacts.mjs --ci retains vector binding and exact-SBF checks; the reproduction workflow does not run that gate.",
+    "expectedProgramBuildArguments": [
+      "build-sbf",
+      "--arch",
+      "v3",
+      "--tools-version",
+      "v1.56",
+      "--sbf-out-dir",
+      "<private temporary output>",
+      "--",
+      "--locked"
+    ]
+  },
+  "acceptance": {
+    "requiredEvidence": [
+      "Record the resulting tooling image digest and actual executable versions.",
+      "Reproduce both raw program SHA256 values in independent clean runs using the same tooling image digest and source inputs.",
+      "Preserve strict committed Timepin raw SHA256 and size binding; any change requires explicit regeneration and review.",
+      "Run both exact-artifact SVM matrices and preserve their receipts."
+    ],
+    "hashPolicy": "Different raw artifact hashes remain different candidates. Verifier-normalized hashes never substitute for raw artifact SHA256."
+  },
+  "executionEvidence": {
+    "policy": "Actual execution status, timestamps, image identity, compiler readbacks, source hashes, and artifact results belong in per-run workflow receipts, never in this static recipe.",
+    "workflow": ".github/workflows/g2-reproduce.yml",
+    "reproductionReceipt": "<workflow output>/reproducibility.json",
+    "buildReceipts": [
+      "<workflow output>/run-1/g2-build-artifacts.json",
+      "<workflow output>/run-2/g2-build-artifacts.json"
+    ],
+    "scope": "A raw-byte reproduction MATCH is build-only evidence; SVM, vector acceptance, deployment, and launch authorization are separate."
+  }
+}

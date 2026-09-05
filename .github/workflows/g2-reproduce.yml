@@ -1,0 +1,57 @@
+# Build-only reproducibility evidence. Existing g2-build acceptance stays separate.
+name: g2-reproduce
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/g2-reproducibility]
+    paths:
+      - ops/g2-build/**
+      - tools/g2-reproduce.mjs
+      - tools/g2-build-artifacts.mjs
+      - tools/verify-artifact.mjs
+      - onchain/ratchet-core-g2/**
+      - onchain/rcx-timepin-v2/**
+      - .github/workflows/g2-reproduce.yml
+permissions:
+  contents: read
+jobs:
+  reproduce:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22.20.0
+      - name: Build tooling image from verified distribution bytes
+        run: |
+          docker build --platform linux/amd64 --progress plain \
+            --iidfile "$RUNNER_TEMP/g2-image.id" ops/g2-build
+      - name: Run two fresh containers and compare raw program bytes
+        env:
+          G2_OUTPUT: ${{ runner.temp }}/g2-reproduction
+        run: |
+          node tools/g2-reproduce.mjs \
+            --image "$(cat "$RUNNER_TEMP/g2-image.id")" \
+            --output "$G2_OUTPUT"
+      - name: Preserve public evidence, including failures
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: g2-reproduction-${{ github.sha }}
+          retention-days: 7
+          if-no-files-found: warn
+          path: |
+            ${{ runner.temp }}/g2-image.id
+            ${{ runner.temp }}/g2-reproduction/reproducibility.json
+            ${{ runner.temp }}/g2-reproduction/run-*/g2-build-artifacts.json
+            ${{ runner.temp }}/g2-reproduction/run-*/build_g2_report.txt
+            ${{ runner.temp }}/g2-reproduction/run-*/docker.stdout.txt
+            ${{ runner.temp }}/g2-reproduction/run-*/docker.stderr.txt
+            ${{ runner.temp }}/g2-reproduction/run-*/container.id
+            ${{ runner.temp }}/g2-reproduction/run-*/cache/*/rcx_timepin_v2.so
+            ${{ runner.temp }}/g2-reproduction/run-*/cache/*/ratchet_core_g2.so
+            ops/g2-build/Dockerfile
+            ops/g2-build/toolchain-lock.json
