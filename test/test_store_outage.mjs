@@ -18,6 +18,20 @@ const require = createRequire(import.meta.url);
 process.env.RATCHET_MINT = process.env.RATCHET_MINT || 'FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump';
 delete process.env.RX_MIGRATION_FREEZE;
 
+// Recovery reads display-only token metadata. Supply it locally so the test
+// depends only on its store fixture. Record rejected requests as well as
+// throwing: the runtime catches fetch failures, but the suite must not hide one.
+const metadataUrl = 'https://frontend-api-v3.pump.fun/coins/' + process.env.RATCHET_MINT;
+let metadataFetches = 0, unexpectedNetworkCalls = 0;
+globalThis.fetch = async (url, options = {}) => {
+  if (String(url) !== metadataUrl || (options.method || 'GET') !== 'GET') {
+    unexpectedNetworkCalls++;
+    throw new Error('UNEXPECTED_NETWORK_CALL_IN_STORE_OUTAGE_TEST');
+  }
+  metadataFetches++;
+  return { ok:true, status:200, json:async () => ({ usd_market_cap:123456 }) };
+};
+
 const pricesPath = require.resolve('../lib/prices.js');
 const burnPath = require.resolve('../lib/burn.js');
 const gamePath = require.resolve('../api/game.js');
@@ -100,7 +114,9 @@ for (const msg of ["Cannot read properties of undefined (reading 'x')",
 }
 
 console.error = realErr;
+ok(metadataFetches === 1, 'OFFLINE: recovery consumed the deterministic metadata fixture once');
+ok(unexpectedNetworkCalls === 0, 'OFFLINE: no unexpected network request escaped the fixtures');
 console.log(fails
   ? `\nFAIL  store outage: ${fails} of ${checks} checks failed`
   : `\nPASS  store outage: ${checks} checks — outage and quota answer 503 honestly, a real bug still answers 500`);
-process.exit(fails ? 1 : 0);
+process.exitCode = fails ? 1 : 0;
