@@ -8,10 +8,10 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { PublicKey } from '@solana/web3.js';
-import { ROOT, PROGRAMS, FORBIDDEN_ID, assertToolchain, assertSourceIdentities,
-  sourceStamp, assertUnchanged, pinArtifact, runBuild, resolvePlatformCompilers } from '../tools/g2-build-artifacts.mjs';
+import { ROOT, PROGRAMS, REQUIRED_SVM_TARGETS, FORBIDDEN_ID, assertToolchain, assertSourceIdentities,
+  sourceStamp, assertUnchanged, pinArtifact, runBuild, resolvePlatformCompilers, ensureWindowsRustcAlias, inspectSbfTestResult } from '../tools/g2-build-artifacts.mjs';
 
-function fixture(t) {
+function fixture(t, platform = process.platform) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'ratchetx-g2-test-'));
   const rawDirs = new Set();
   const write = (rel, text) => {
@@ -24,6 +24,9 @@ function fixture(t) {
     write(p.workspace + '/Cargo.lock', 'version = 4\n');
     write(p.workspace + '/programs/' + p.crate + '/Cargo.toml', '[package]\nname = "' + p.crate + '"\n');
     write(p.workspace + '/programs/' + p.crate + '/src/lib.rs', 'declare_id!("' + p.id + '");\n');
+    write(p.workspace + '/svm-tests/Cargo.toml', '[package]\nname = "fixture-svm"\n');
+    write(p.workspace + '/svm-tests/Cargo.lock', 'version = 4\n');
+    for (const target of REQUIRED_SVM_TARGETS[p.name]) write(p.workspace + '/svm-tests/tests/' + target + '.rs', '// synthetic harness source\n');
   }
   const timepinBytes = Buffer.from('synthetic-timepin');
   const reviewedVector = JSON.stringify({ programId: PROGRAMS[0].id, deployableIdentity: true,
@@ -31,7 +34,7 @@ function fixture(t) {
   for (const name of ['register-open-v2.json', 'lifecycle-v2.json']) {
     write(PROGRAMS[0].workspace + '/vectors/' + name, reviewedVector);
   }
-  const compilerSuffix = process.platform === 'win32' ? '.exe' : '';
+  const compilerSuffix = platform === 'win32' ? '.exe' : '';
   const platformDir = '.cache/solana/v1.56/platform-tools';
   write(platformDir + '/rust/bin/rustc' + compilerSuffix, 'fixture rustc; never executed');
   write(platformDir + '/llvm/bin/clang' + compilerSuffix, 'fixture clang; never executed');
@@ -43,9 +46,13 @@ function fixture(t) {
       fs.rmSync(resolved, { recursive: true, force: true });
     }
   });
-  return { root, rawDirs, write, platformHome: root, cacheRoot: path.join(root, 'ratchetx-onchain-sbf') };
+  return { root, rawDirs, write, platform, platformHome: root, cacheRoot: path.join(root, 'ratchetx-onchain-sbf') };
 }
 
+const PASSING_LIBTEST = 'running 2 tests\n'
+  + 'test economic_kernel::commits_state ... ok\n'
+  + 'test rejects_invalid_state ... ok\n\n'
+  + 'test result: ok. 2 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0.01s\n';
 function fakeSpawn(f, calls, hook = () => {}) {
   return (command, args, options) => {
     const call = { command, args, ...options };
@@ -61,6 +68,12 @@ function fakeSpawn(f, calls, hook = () => {}) {
     }
     const overridden = hook(call);
     if (overridden) return overridden;
+    if (command === 'cargo' && args[0] === 'metadata') {
+      const targets = fs.readdirSync(path.join(options.cwd, 'tests')).filter(file => file.endsWith('.rs'))
+        .map(file => ({ name: file.slice(0, -3), kind: ['test'], test: true }));
+      return { status: 0, stdout: JSON.stringify({ packages: [{ manifest_path: path.join(options.cwd, 'Cargo.toml'), targets }] }), stderr: 'warning: fixture metadata diagnostic\n' };
+    }
+    if (command === 'cargo' && args[0] === 'test') return { status: 0, stdout: PASSING_LIBTEST, stderr: '' };
     const output = command === 'cargo-build-sbf' ? 'solana-cargo-build-sbf 4.3.0\nplatform-tools v1.57\n'
       : /^rustc(?:\.exe)?$/.test(path.basename(command)) ? 'rustc 1.89.0-dev (e57530ef2 2026-08-14)\n'
       : /^clang(?:\.exe)?$/.test(path.basename(command)) ? 'clang version 20.1.7-rust-dev\nTarget: fixture-host\n' : '';
@@ -135,9 +148,11 @@ test('the recorded build pins both toolchains and sends only verified immutable 
   const firstPairVerified = calls.indexOf(verifications[1]);
   assert.ok(firstPairVerified < firstRepin, 'vectors change only after both artifact verifications');
   const matrices = calls.filter(c => c.command === 'cargo' && c.args[0] === 'test');
-  assert.equal(matrices.length, 2);
+  assert.equal(matrices.length, 4);
   for (const c of matrices) {
-    assert.deepEqual(c.args, ['test', '--locked', '--', '--nocapture']);
+    const program = PROGRAMS.find(p => c.cwd === path.join(f.root, p.workspace, 'svm-tests'));
+    assert.ok(REQUIRED_SVM_TARGETS[program.name].includes(c.args[3]));
+    assert.deepEqual(c.args, ['test', '--locked', '--test', c.args[3], '--', '--format', 'pretty', '--show-output', '--test-threads', '1']);
     assert.equal(c.env.RATCHET_ALLOW_SKIPS, undefined);
     for (const p of PROGRAMS) {
       assert.equal(c.env[p.env], receipt.artifacts[p.name].path);
@@ -300,7 +315,7 @@ test('reuse consumes the recorded pair without a build or vector rewrite', t => 
   assert.equal(readbacks.length, 4);
   const firstConsumer = calls.findIndex(c => c.args[0]?.endsWith('repin-timepin-vectors.mjs'));
   assert.ok(calls.indexOf(readbacks[1]) < firstConsumer, 'strict readback of both comes before consumers');
-  assert.equal(calls.filter(c => c.command === 'cargo' && c.args[0] === 'test').length, 2);
+  assert.equal(calls.filter(c => c.command === 'cargo' && c.args[0] === 'test').length, 4);
   assert.ok(verified.stages.some(s => s.name === 'JS release gate'));
 });
 
@@ -336,4 +351,218 @@ test('failed vector verification can retry the completed BUILT pair after vector
   const receipt = runBuild({ ...f, verifyArtifacts: true, spawn: fakeSpawn(f, calls), log: () => {} });
   assert.equal(receipt.status, 'PASS');
   assert.ok(!calls.some(c => c.args[0] === 'build-sbf'));
+});
+
+test('Windows rustc alias is an exclusive hardlink and existing identical bytes are reused', t => {
+  const f = fixture(t, 'win32');
+  const first = ensureWindowsRustcAlias({ home: f.root, platform: f.platform });
+  assert.equal(first.method, 'hardlink-created');
+  assert.equal(first.target, first.path + '.exe');
+  assert.equal(fs.statSync(first.path).ino, fs.statSync(first.target).ino);
+  assert.equal(first.sha256, crypto.createHash('sha256').update(fs.readFileSync(first.target)).digest('hex'));
+  assert.equal(first.size, fs.statSync(first.target).size);
+  const reused = ensureWindowsRustcAlias({ home: f.root, platform: f.platform });
+  assert.equal(reused.method, 'existing-hardlink');
+  assert.equal(reused.sha256, first.sha256);
+  fs.unlinkSync(first.path);
+  fs.copyFileSync(first.target, first.path);
+  const copy = ensureWindowsRustcAlias({ home: f.root, platform: f.platform });
+  assert.equal(copy.method, 'existing-identical-file');
+  assert.equal(copy.sha256, first.sha256);
+});
+
+test('Windows alias refuses different bytes and symbolic links without overwriting', t => {
+  for (const kind of ['different-bytes', 'symlink']) {
+    const f = fixture(t, 'win32');
+    const { rustc } = resolvePlatformCompilers({ home: f.root, platform: f.platform });
+    const alias = rustc.slice(0, -4);
+    if (kind === 'different-bytes') fs.writeFileSync(alias, 'unrelated compiler');
+    else fs.symlinkSync(path.dirname(rustc), alias, 'junction');
+    assert.throws(() => ensureWindowsRustcAlias({ home: f.root, platform: f.platform }),
+      kind === 'different-bytes' ? /bytes differ; refusing overwrite/ : /regular non-symlink/);
+    if (kind === 'different-bytes') assert.equal(fs.readFileSync(alias, 'utf8'), 'unrelated compiler');
+    else assert.ok(fs.lstatSync(alias).isSymbolicLink());
+  }
+});
+
+test('non-Windows preparation needs no rustc alias or filesystem changes', t => {
+  const f = fixture(t, 'linux');
+  const home = path.join(f.root, 'absent-home');
+  assert.equal(ensureWindowsRustcAlias({ home, platform: 'linux' }), null);
+  assert.equal(fs.existsSync(home), false);
+});
+
+test('fresh Windows builds install pinned tools before alias preparation and record executable evidence', t => {
+  const f = fixture(t, 'win32');
+  const initial = resolvePlatformCompilers({ home: f.root, platform: f.platform });
+  fs.unlinkSync(initial.rustc);
+  fs.unlinkSync(initial.clang);
+  const calls = [];
+  const spawn = fakeSpawn(f, calls, c => {
+    if (c.command === 'cargo-build-sbf' && c.args[0] === '--install-only') {
+      assert.deepEqual(c.args, ['--install-only', '--tools-version', 'v1.56']);
+      assert.equal(c.windowsHide, true);
+      assert.equal(fs.existsSync(initial.rustc), false);
+      fs.writeFileSync(initial.rustc, 'mock installer rustc');
+      fs.writeFileSync(initial.clang, 'mock installer clang');
+    }
+    if (c.args[0] === 'build-sbf') assert.ok(fs.existsSync(initial.rustc.slice(0, -4)));
+  });
+  const receipt = runBuild({ ...f, buildOnly: true, spawn, log: () => {} });
+  assert.equal(receipt.status, 'BUILT');
+  const installs = calls.filter(c => c.command === 'cargo-build-sbf' && c.args[0] === '--install-only');
+  assert.equal(installs.length, 1);
+  assert.ok(calls.indexOf(installs[0]) < calls.findIndex(c => c.args[0] === 'build-sbf'));
+  const alias = receipt.platformPreparation.rustcAlias;
+  assert.equal(alias.method, 'hardlink-created');
+  assert.match(alias.versionOutput, /^rustc 1\.89\.0-dev/);
+  assert.equal(alias.sha256, receipt.platformCompilers.rustc.sha256);
+  assert.match(receipt.platformCompilers.clang.sha256, /^[0-9a-f]{64}$/);
+  assert.equal(receipt.platformPreparation.version, 'v1.56');
+  assert.equal(receipt.platformPreparation.platform, 'win32');
+});
+
+test('failed pinned-tool installation stops before alias creation or either build', t => {
+  const f = fixture(t, 'win32');
+  const { rustc } = resolvePlatformCompilers({ home: f.root, platform: f.platform });
+  const calls = [];
+  const spawn = fakeSpawn(f, calls, c => c.args[0] === '--install-only'
+    ? { status: 21, stdout: '', stderr: 'controlled install failure' } : undefined);
+  assert.throws(() => runBuild({ ...f, buildOnly: true, spawn, log: () => {} }), /install pinned platform tools: exit 21/);
+  assert.equal(fs.existsSync(rustc.slice(0, -4)), false);
+  assert.ok(!calls.some(c => c.args[0] === 'build-sbf'));
+  const receipt = JSON.parse(fs.readFileSync(path.join(f.root, 'docs/receipts/g2-build-artifacts.json')));
+  assert.equal(receipt.status, 'FAIL');
+  assert.deepEqual(receipt.artifacts, {});
+});
+
+test('an alias without a reported rustc version is rejected before either build', t => {
+  const f = fixture(t, 'win32');
+  const calls = [];
+  const spawn = fakeSpawn(f, calls, c => path.basename(c.command) === 'rustc'
+    ? { status: 0, stdout: 'not a compiler version', stderr: '' } : undefined);
+  assert.throws(() => runBuild({ ...f, buildOnly: true, spawn, log: () => {} }), /alias did not report a compiler version/);
+  assert.ok(!calls.some(c => c.args[0] === 'build-sbf'));
+});
+
+test('artifact reuse never installs tools or repairs a removed Windows alias', t => {
+  const f = fixture(t, 'win32');
+  const built = runBuild({ ...f, buildOnly: true, spawn: fakeSpawn(f, []), log: () => {} });
+  const alias = built.platformPreparation.rustcAlias;
+  fs.unlinkSync(alias.path);
+  fs.writeFileSync(alias.target, 'compiler changed after the completed build');
+  const calls = [];
+  const verified = runBuild({ ...f, verifyArtifacts: true, spawn: fakeSpawn(f, calls), log: () => {} });
+  assert.equal(verified.status, 'PASS');
+  assert.equal(fs.existsSync(alias.path), false);
+  assert.equal(fs.readFileSync(alias.target, 'utf8'), 'compiler changed after the completed build');
+  assert.deepEqual(verified.platformPreparation, built.platformPreparation);
+  assert.ok(!calls.some(c => c.command === 'cargo-build-sbf' || c.args[0] === 'build-sbf'
+    || c.command === alias.path || c.command === alias.target));
+});
+
+test('SBF receipts preserve exact test results, raw streams and source/artifact bindings', t => {
+  const f = fixture(t);
+  f.write(PROGRAMS[0].workspace + '/svm-tests/tests/additional_gate.rs', '// additional required execution\n');
+  const calls = [];
+  const receipt = runBuild({ ...f, ci: true, spawn: fakeSpawn(f, calls), log: () => {} });
+  const executions = receipt.stages.filter(stage => stage.execution);
+  assert.equal(executions.length, 5, 'new targets execute alongside the four mandatory targets');
+  assert.ok(executions.some(stage => stage.execution.target === 'additional_gate'));
+  for (const stage of executions) {
+    const evidence = stage.execution;
+    assert.equal(evidence.accepted, true);
+    assert.equal(evidence.exit, 0);
+    assert.equal(evidence.target, stage.args[3]);
+    assert.deepEqual(evidence.tests, [{ name: 'economic_kernel::commits_state', result: 'passed' },
+      { name: 'rejects_invalid_state', result: 'passed' }]);
+    assert.deepEqual(evidence.counts, { passed: 2, failed: 0, ignored: 0, measured: 0, filteredOut: 0 });
+    assert.equal(evidence.reportedTests, 2);
+    assert.equal(evidence.stdout, PASSING_LIBTEST);
+    assert.equal(evidence.stderr, '');
+    assert.equal(evidence.stdoutSha256, crypto.createHash('sha256').update(evidence.stdout).digest('hex'));
+    assert.equal(evidence.stderrSha256, crypto.createHash('sha256').update(evidence.stderr).digest('hex'));
+    assert.deepEqual(evidence.sourceHashes, sourceStamp(f.root));
+    assert.deepEqual(evidence.artifactBindings, receipt.artifacts);
+    assert.deepEqual(evidence.computeUnits, { status: 'unavailable', measurements: [] });
+    assert.deepEqual(evidence.requiredTargets, REQUIRED_SVM_TARGETS[evidence.program]);
+  }
+  const saved = JSON.parse(fs.readFileSync(path.join(f.root, 'docs/receipts/g2-build-artifacts.json')));
+  assert.deepEqual(saved.stages.filter(stage => stage.execution), executions);
+  assert.match(fs.readFileSync(path.join(f.root, 'build_g2_report.txt'), 'utf8'), /warning: fixture metadata diagnostic/);
+});
+
+test('CU evidence contains only explicitly emitted lines and preserves raw Windows output', () => {
+  const stdout = (PASSING_LIBTEST + '\nTimepin v2 large-account CU: register=123, open=456\nfixture register=999; account bytes=168\n').replace(/\n/g, '\r\n');
+  const stderr = 'diagnostic compute_units=17\n';
+  const evidence = inspectSbfTestResult({ status: 0, stdout, stderr });
+  assert.equal(evidence.accepted, true);
+  assert.equal(evidence.stdout, stdout);
+  assert.equal(evidence.computeUnits.status, 'emitted-log-lines');
+  assert.deepEqual(evidence.computeUnits.measurements.map(item => item.text),
+    ['Timepin v2 large-account CU: register=123, open=456', 'diagnostic compute_units=17']);
+  assert.deepEqual(evidence.computeUnits.measurements.map(item => item.stream), ['stdout', 'stderr']);
+});
+
+test('failed, empty, ignored, filtered and inconsistent SBF executions persist rejected evidence', t => {
+  const cases = [
+    { label: 'failed', status: 101, stdout: PASSING_LIBTEST.replace('commits_state ... ok', 'commits_state ... FAILED')
+      .replace('result: ok. 2 passed; 0 failed', 'result: FAILED. 1 passed; 1 failed') },
+    { label: 'empty output', status: 0, stdout: '' },
+    { label: 'zero tests', status: 0, stdout: 'running 0 tests\ntest result: ok. 0 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 0s\n' },
+    { label: 'ignored', status: 0, stdout: PASSING_LIBTEST.replace('rejects_invalid_state ... ok', 'rejects_invalid_state ... ignored, required artifact missing')
+      .replace('2 passed; 0 failed; 0 ignored', '1 passed; 0 failed; 1 ignored') },
+    { label: 'filtered', status: 0, stdout: PASSING_LIBTEST.replace('0 filtered out', '1 filtered out') },
+    { label: 'inconsistent', status: 0, stdout: PASSING_LIBTEST.replace('test rejects_invalid_state ... ok\n', '') },
+  ];
+  for (const example of cases) {
+    const f = fixture(t), calls = [];
+    const spawn = fakeSpawn(f, calls, c => c.command === 'cargo' && c.args[0] === 'test'
+      ? { status: example.status, stdout: example.stdout, stderr: 'controlled ' + example.label } : undefined);
+    assert.throws(() => runBuild({ ...f, ci: true, spawn, log: () => {} }), /exact-SBF/);
+    const saved = JSON.parse(fs.readFileSync(path.join(f.root, 'docs/receipts/g2-build-artifacts.json')));
+    assert.equal(saved.status, 'FAIL', example.label);
+    const stages = saved.stages.filter(stage => stage.execution);
+    assert.equal(stages.length, 1, example.label);
+    const evidence = stages[0].execution;
+    assert.equal(evidence.accepted, false, example.label);
+    assert.equal(evidence.exit, example.status, example.label);
+    assert.equal(stages[0].exit, example.status, example.label);
+    assert.equal(evidence.stdout, example.stdout);
+    assert.equal(evidence.stderr, 'controlled ' + example.label);
+    assert.ok(evidence.problems.length);
+    assert.deepEqual(evidence.artifactBindings, saved.artifacts);
+    if (example.label === 'ignored') assert.equal(evidence.counts.ignored, 1);
+    assert.equal(calls.filter(c => c.command === 'cargo' && c.args[0] === 'test').length, 1);
+    assert.ok(!saved.stages.some(stage => stage.name === 'JS release gate'));
+  }
+});
+
+test('empty or reduced Cargo target inventories cannot certify a smaller SBF suite', t => {
+  for (const empty of [true, false]) {
+    const f = fixture(t), calls = [];
+    const spawn = fakeSpawn(f, calls, c => {
+      if (c.command === 'cargo' && c.args[0] === 'metadata') {
+        return { status: 0, stdout: JSON.stringify({ packages: [{ manifest_path: path.join(c.cwd, 'Cargo.toml'),
+          targets: empty ? [] : [{ name: 'registration_open', kind: ['test'] }] }] }), stderr: '' };
+      }
+    });
+    assert.throws(() => runBuild({ ...f, ci: true, spawn, log: () => {} }), /targets are empty or invalid|required SVM targets are missing/);
+    assert.ok(!calls.some(c => c.command === 'cargo' && c.args[0] === 'test'));
+    assert.equal(JSON.parse(fs.readFileSync(path.join(f.root, 'docs/receipts/g2-build-artifacts.json'))).status, 'FAIL');
+  }
+});
+
+test('a passing test log cannot certify source drift during SBF execution', t => {
+  const f = fixture(t), calls = [];
+  const spawn = fakeSpawn(f, calls, c => {
+    if (c.command === 'cargo' && c.args[0] === 'test') f.write(PROGRAMS[0].workspace + '/Cargo.lock', 'changed during execution');
+  });
+  assert.throws(() => runBuild({ ...f, ci: true, spawn, log: () => {} }), /source\/lockfile drift/);
+  const saved = JSON.parse(fs.readFileSync(path.join(f.root, 'docs/receipts/g2-build-artifacts.json')));
+  const evidence = saved.stages.find(stage => stage.execution).execution;
+  assert.equal(evidence.exit, 0);
+  assert.equal(evidence.counts.passed, 2);
+  assert.equal(evidence.accepted, false);
+  assert.ok(evidence.problems.some(problem => problem.includes('source/lockfile drift')));
 });

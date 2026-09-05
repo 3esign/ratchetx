@@ -60,7 +60,7 @@ jobs:
           rm -f -- docs/receipts/g2-build-artifacts.json
           node tools/g2-build-artifacts.mjs --ci \
             --timepin-id C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp \
-            --core-id cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN
+            --core-id ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL
       # The helper pins platform-tools v1.56 and copies ONLY verified .so files
       # into this content-addressed cache. Raw output can contain keypairs.
       - name: Preserve candidate bytes and receipt, including a failed run

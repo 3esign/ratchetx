@@ -188,7 +188,7 @@ const client = await import('../onchain/ratchet-core-g2/client/client-v2.mjs');
 const digest = label => createHash('sha256').update(label).digest();
 const core = client.createCoreG2Client({
   web3,
-  coreProgramId: new PublicKey('cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN'),
+  coreProgramId: new PublicKey('ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL'),
   timepinProgramId: new PublicKey('C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp'),
   cryptoImpl: webcrypto,
 });

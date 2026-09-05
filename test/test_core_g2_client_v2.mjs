@@ -33,7 +33,7 @@ import {
 
 const { PublicKey, SystemProgram } = web3;
 const coreProgram = new PublicKey(
-  'cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN');
+  'ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL');
 const timepinProgram = new PublicKey(
   'C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp');
 const client = createCoreG2Client({

@@ -22,7 +22,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { PublicKey } from '@solana/web3.js';
 
-export const CORE_G2_PROGRAM_ID = 'cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN';
+export const CORE_G2_PROGRAM_ID = 'ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL';
 export const CORE_G2_SCHEMA = 2;
 export const SNAPSHOT_FORMAT_VERSION = 2;
 export const SNAPSHOT_DOMAIN = Buffer.from('rcx-core:legacy-snapshot:g2\0', 'ascii');

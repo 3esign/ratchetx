@@ -31,7 +31,7 @@ use foreign_timepin::{
 };
 use state::*;
 
-declare_id!("cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN");
+declare_id!("ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL");
 
 pub const RCX_MINT: Pubkey = pubkey!("FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump");
 pub const RCX_DECIMALS: u8 = 6;

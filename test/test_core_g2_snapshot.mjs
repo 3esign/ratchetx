@@ -66,11 +66,11 @@ const ROWS = [
 ];
 
 const EXPECTED = {
-  snapshot: '451c7e8afca9e7956b24fa84f7d1db2bcf9caf5268f643c86359fb8ae9f83f4c',
-  root: 'cdf349e8e296dd47b1c1b11f567bdedd0b70611459adb81964b653bfa8d66879',
-  leafA: 'c28cd15d2508aa4585af87744d3e8b2636d7436a57167b94177ee1bb335ed344',
-  leafB: '02aaee8043ceaa8b04041e8539695f5aae440094051c0b58f55246f854841af7',
-  leafC: '59f41bdea2bbc5adbad0161944297121dd8526e8bf923b4a8d5157a7eb004466',
+  snapshot: '9949d8cc9b7f2425c5c87a414833ac5a59559f891c15e5f65a7a60ba589e94cf',
+  root: 'c77c5f862a813c96b1ea94f97049d01cb9343cd8078cd728d9e23d035f76190e',
+  leafA: '7b6e378a299c2adf0e6aee2fea20ec98cbd3766450260b6ae3d9568ca7743160',
+  leafB: '3e9d9b02c113b036f78e2b2854a8ca6a3aa8af2838661b7cfd14ede7f10b7025',
+  leafC: '09429b169d7abf09d49d14ee0cd6c74ca311499670a4affda8b8a7ec2e887f7f',
 };
 
 const built = buildLegacySnapshot(ROWS, snapshotOptions());
@@ -107,7 +107,7 @@ const coreState = readFileSync(new URL(
 
 // Fixed bytes and hashes make an accidental format change visible immediately.
 {
-  equal(CORE_G2_PROGRAM_ID, 'cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN',
+  equal(CORE_G2_PROGRAM_ID, 'ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL',
     'builder defaults to the program ID declared by the Rust prototype');
   equal(CORE_G2_SCHEMA, 2, 'leaf schema is the Rust CORE_SCHEMA_VERSION');
   equal(SNAPSHOT_FORMAT_VERSION, 2, 'canonical snapshot format is explicitly versioned');
@@ -123,7 +123,8 @@ const coreState = readFileSync(new URL(
   equal(built.canonicalBytes.length, 284, 'three rows have one exact binary length');
   equal(built.canonicalBytes.subarray(28, 30).toString('hex'), '0200',
     'format version is u16 little-endian');
-  equal(built.canonicalBytes.subarray(30, 62).toString('hex'), '09'.repeat(32),
+  equal(built.canonicalBytes.subarray(30, 62).toString('hex'),
+    '8b3a5756462d1956ea5cc57213b33102fb297208deb3a61e8d18511993cd6317',
     'program ID is raw bytes, not base58 text');
   equal(built.canonicalBytes.subarray(62, 64).toString('hex'), '0200',
     'Core schema is u16 little-endian');
@@ -156,7 +157,7 @@ const coreState = readFileSync(new URL(
 {
   const rustSlices = Buffer.concat([
     Buffer.from('rcx-core:legacy-leaf:g2\0', 'ascii'),
-    Buffer.alloc(32, 9),
+    Buffer.from('8b3a5756462d1956ea5cc57213b33102fb297208deb3a61e8d18511993cd6317', 'hex'),
     le16(2),
     CLUSTER_GENESIS_HASH,
     MIGRATION_ID,

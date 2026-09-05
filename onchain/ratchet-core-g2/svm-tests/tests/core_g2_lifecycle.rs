@@ -113,7 +113,7 @@ const TIMEPIN_SET_DOMAIN: &[u8] = b"rcx-timepin:evidence-set:v2\0";
 const TIMEPIN_EXPIRED_DOMAIN: &[u8] = b"rcx-timepin:expired:v2\0";
 
 fn core_program() -> Pubkey {
-    Pubkey::from_str("cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN").unwrap()
+    Pubkey::from_str("ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL").unwrap()
 }
 
 fn timepin_program() -> Pubkey {

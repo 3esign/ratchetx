@@ -1,13 +1,13 @@
 {
   "schema": 1,
-  "status": "FINAL - READY FOR REGISTRATION",
+  "status": "DRAFT - program identity measured; build, execution and launch authorization still required",
   "author": "Fable 2026-09-05",
   "cluster": {
     "name": "mainnet-beta",
     "genesisHash": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
   },
   "programs": {
-    "core": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+    "core": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
     "timepin": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp"
   },
   "economy": {
@@ -53,7 +53,7 @@
   "rulesetTemplate": {
     "schema": 2,
     "entryMode": 2,
-    "targetGridSeconds": 60,
+    "targetGridSeconds": 300,
     "minOpenLeadSeconds": 60,
     "maxEntryAgeSeconds": 0,
     "bandNumerator": 0,
@@ -103,7 +103,7 @@
     "pushOracleProgram": "pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou",
     "shardId": 0,
     "requiredVerification": 1,
-    "targetGridSeconds": 60,
+    "targetGridSeconds": 300,
     "minOpenLeadSeconds": 60,
     "maxTargetAheadSeconds": 90000,
     "maxPreTargetGapSeconds": 0,
@@ -116,8 +116,8 @@
       "tag": "derived",
       "from": "finalized readback of rec2 ProgramData slot, receiver config, wormhole program + ProgramData slot; two RPCs must agree"
     },
-    "minOpenLeadSecondsNote": "DERIVED FLOOR + OWNER CHOICE. Floor: must be strictly greater than maxFutureSkewSeconds (30), or an admissible print for the target can already exist when the Need opens and the settling price is knowable before the shot is committed. Enforced by lib.rs::validate_spec; proved in lifecycle.rs::lead_above_skew_is_exactly_the_condition_for_an_unknowable_price. The floor is arithmetic; the VALUE is taste. Was 30, which equalled the skew and could not register. Set to one full grid (60) so a player commits at least a whole round ahead, with 29 s of margin over the floor. The bare minimum that registers is 31. Both are one line and neither needs a proof - this is the owner's call.",
-    "targetGridSecondsNote": "OWNER DECISION, AND IT IS NOW THE ONLY PARAMETER THE SLOW FEEDS ARE SENSITIVE TO. The lag is derived (grid - 1 = 59) and is already MAXIMAL - it cannot be raised without letting one print settle two consecutive targets. So the only lever left is this number. Measured, docs/reviews/cadence/cadence-2026-09-05.summary.json, WIDEST OBSERVED publish gap per feed (not p99 - for a write-once parameter the tail is the whole risk): SOL 7 s, BTC 7 s, JUP 53 s, BONK 54 s, PUMP 54 s, ETH 55 s, WIF 58 s. At grid 60 the lag is 59, so WIF has 1 SECOND of margin before a target finds no admissible print and VOIDs. At grid 300 the lag is 299 and the same feed has 241 s of margin. SOL and BTC are comfortable either way. A void is a full refund and is the correct outcome when no evidence exists - it is not a fault - but a one-second margin on five of seven feeds is a game that voids often, permanently, because register_economy cannot be edited. The honest options are: grid 300 for everything; grid 60 for SOL/BTC and 300 for the slow five; or launch SOL/BTC only. This is a question about what the game IS, not about what is true."
+    "minOpenLeadSecondsNote": "DERIVED FLOOR + RECORDED OWNER CHOICE. Lead must be strictly greater than maxFutureSkewSeconds (30), enforced by Timepin validate_spec and its lead_above_skew test. The owner chose 60 seconds for both the ruleset and evidence spec. This is one minute, or one fifth of the selected 300-second target grid. The bare minimum satisfying the floor is 31; 60 is the recorded choice.",
+    "targetGridSecondsNote": "RECORDED OWNER DECISION: all seven feeds on one 300-second grid, as documented in launchScope and commit3b134d2. Each source lag is derived as grid - 1 = 299, preventing one print from settling two consecutive targets. The recorded63-minute cadence sample observed maximum gaps SOL7s, BTC7s, JUP53s, BONK54s, PUMP54s, ETH55s, WIF58s; the tightest sampled margin is therefore241s. These observations do not establish future tail behavior. The earlier60-second proposal and its59-second lag were superseded by the launch decision."
   },
   "feeds": [
     {
@@ -151,8 +151,7 @@
         "proposed": 299,
         "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
-      "enabledAtLaunch": true,
-      "disabledReason": "DISABLED FOR LAUNCH. Pushed roughly every 52 s. With grid 60 the derived lag is 59, leaving SEVEN SECONDS of headroom against a scheduler nobody here controls and which was measured drifting through all five phase values inside one hour. SOL and BTC push every 5 s - twelve times that margin. A feed is added later as its own registered ruleset once the ON-CHAIN VOID RATE from real play shows it carries, which is the only measurement that is ours rather than borrowed. Lead proposal 2026-09-05, tag D: OWNER DECISION."
+      "enabledAtLaunch": true
     },
     {
       "symbol": "BONK",
@@ -163,8 +162,7 @@
         "proposed": 299,
         "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
-      "enabledAtLaunch": true,
-      "disabledReason": "DISABLED FOR LAUNCH. Pushed roughly every 52 s. With grid 60 the derived lag is 59, leaving SEVEN SECONDS of headroom against a scheduler nobody here controls and which was measured drifting through all five phase values inside one hour. SOL and BTC push every 5 s - twelve times that margin. A feed is added later as its own registered ruleset once the ON-CHAIN VOID RATE from real play shows it carries, which is the only measurement that is ours rather than borrowed. Lead proposal 2026-09-05, tag D: OWNER DECISION."
+      "enabledAtLaunch": true
     },
     {
       "symbol": "PUMP",
@@ -175,8 +173,7 @@
         "proposed": 299,
         "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
-      "enabledAtLaunch": true,
-      "disabledReason": "DISABLED FOR LAUNCH. Pushed roughly every 52 s. With grid 60 the derived lag is 59, leaving SEVEN SECONDS of headroom against a scheduler nobody here controls and which was measured drifting through all five phase values inside one hour. SOL and BTC push every 5 s - twelve times that margin. A feed is added later as its own registered ruleset once the ON-CHAIN VOID RATE from real play shows it carries, which is the only measurement that is ours rather than borrowed. Lead proposal 2026-09-05, tag D: OWNER DECISION."
+      "enabledAtLaunch": true
     },
     {
       "symbol": "JUP",
@@ -187,8 +184,7 @@
         "proposed": 299,
         "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
-      "enabledAtLaunch": true,
-      "disabledReason": "DISABLED FOR LAUNCH. Pushed roughly every 52 s. With grid 60 the derived lag is 59, leaving SEVEN SECONDS of headroom against a scheduler nobody here controls and which was measured drifting through all five phase values inside one hour. SOL and BTC push every 5 s - twelve times that margin. A feed is added later as its own registered ruleset once the ON-CHAIN VOID RATE from real play shows it carries, which is the only measurement that is ours rather than borrowed. Lead proposal 2026-09-05, tag D: OWNER DECISION."
+      "enabledAtLaunch": true
     },
     {
       "symbol": "WIF",
@@ -199,8 +195,7 @@
         "proposed": 299,
         "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
-      "enabledAtLaunch": true,
-      "disabledReason": "DISABLED FOR LAUNCH. Pushed roughly every 52 s. With grid 60 the derived lag is 59, leaving SEVEN SECONDS of headroom against a scheduler nobody here controls and which was measured drifting through all five phase values inside one hour. SOL and BTC push every 5 s - twelve times that margin. A feed is added later as its own registered ruleset once the ON-CHAIN VOID RATE from real play shows it carries, which is the only measurement that is ours rather than borrowed. Lead proposal 2026-09-05, tag D: OWNER DECISION."
+      "enabledAtLaunch": true
     }
   ],
   "procedure": [
@@ -222,16 +217,15 @@
       "JUP",
       "WIF"
     ],
-    "targetGridSeconds": 60,
-    "maxPostTargetLagSeconds": 59,
+    "targetGridSeconds": 300,
+    "maxPostTargetLagSeconds": 299,
     "whyOneGridAndNotTwo": "A mixed launch - grid 60 for SOL/BTC and 300 for the slow five - was considered and rejected before he was asked. It buys the extra tokens by creating two economies inside one: at grid 300 a player gets 80% fewer rounds per day and therefore 80% fewer chances at XP, so the slow feeds would be dead weight on a shared daily leaderboard. Nobody had analysed that fairness, and these numbers are written once. One grid is a rule; two grids is an exception with an unexamined consequence.",
     "marginEvidence": "Widest observed gap between consecutive publishes, 63-minute mainnet run, all 7 feeds, 442 targets, zero RPC errors (docs/reviews/cadence/cadence-2026-09-05.summary.json): SOL 7 s, BTC 7 s, JUP 53 s, BONK 54 s, PUMP 54 s, ETH 55 s, WIF 58 s. At grid 300 the lag is 299, so the tightest feed (WIF) has 241 s of margin before a target finds no admissible print. At grid 60 that same feed had 1 s.",
     "knownLimitOfThatEvidence": "63 minutes is not a tail characterisation. It is the reason for choosing the grid with 241 s of margin rather than the one with 1 s, not a claim that the tail is known.",
     "horizonsDivideCleanly": true,
-    "horizonCheck": "horizon_seconds % target_grid_seconds == 0 for all seven horizons (300, 600, 900, 1800, 3600, 21600, 86400) at grid 60.",
+    "horizonCheck": "horizon_seconds % target_grid_seconds == 0 for all seven horizons (300, 600, 900, 1800, 3600, 21600, 86400) at grid 300.",
     "stillRequiredFromOwner": [
-      "core program id (ANV vs cGf, decided by which keypair FILE exists)",
-      "the economic numbers: 700/300 burn-podium split, 17/10 hit payout, maxOpen 5, revealWindowSeconds 3600"
+      "separate explicit authorization before the first mainnet transaction; the earlier economic clauses remain recorded and identity is resolved by public-key derivation"
     ]
   },
   "permanentCosts": {
@@ -243,8 +237,8 @@
     "needRentWhyPermanent": "There is no close_need and there must not be one yet. The field it would be guarded by, open_refs, is written to zero at open_need and never incremented anywhere - the guard open_refs == 0 is 0 == 0. A Need is shared and closing deletes the account that settle_final and the void path both read, so one permissionless close on that vacuous guard would strand every shot on that target permanently. A retention timer cannot substitute: settlement assigns reveal_deadline_ts = max(now + reveal_window, projection), so a shot's life has no upper bound computable from the Need. The real fix is hold_need/release_need with Core calling both, which requires Timepin to decide who may hold - an architectural change for a later generation.",
     "needRentUpperBoundNote": "At grid 300 a fully played day is 86400/300 = 288 targets per feed, so one feed accrues 288 * 2,060,160 = 593,326,080 lamports = 0.593 SOL/day = 216.6 SOL/year, and all seven feeds come to 1,516 SOL/year. That is the FULLY PLAYED upper bound, not an expected cost. For comparison, the earlier grid-60 proposal cost 1,083 SOL/year PER FEED: two feeds at grid 60 would have been 2,166 SOL/year. Choosing grid 300 therefore added five tokens AND cut the permanent rent ceiling by 30% against a two-feed launch.",
     "needsInFlight": {
-      "value": 1500,
-      "derivation": "maxTargetAheadSeconds / targetGridSeconds = 90000 / 60.",
+      "value": 300,
+      "derivation": "maxTargetAheadSeconds / targetGridSeconds = 90000 / 300.",
       "note": "At grid 60 this was 1,500 simultaneous open targets, a number flagged as unjustified when the manifest was first drafted. The grid decision reduced it fivefold without anyone editing it."
     }
   },
@@ -271,6 +265,17 @@
       "alsoKnown": "An earlier named-key derivation reported ANV at the G2 target key and no cGf match among the eleven named keypairs IN THE REPOSITORY. That scan covered the repository only.",
       "neitherIsDeployed": "Astra's 01:27Z review found ANV absent from mainnet and devnet, and cGf with no program account on either. Nothing on chain references either id, so a THIRD option is fully open: generate a fresh keypair and use its id. Cost of that option is zero.",
       "consequenceOfMoving": "Every PDA derived from the program id moves, and with it commitment_hash, game_result_hash, completion_result_hash and reload_route_memo. economy_hash and ruleset_hash do NOT move - neither binds a core program id."
+    },
+    "identityResolution": {
+      "status": "PUBLIC_KEY_DERIVED_FROM_EXISTING_G2_FILE",
+      "resolvedAt": "2026-09-05T19:21:18.157Z",
+      "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+      "file": "D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/ratchet-core-g2/target/deploy/ratchet_core_g2-keypair.json",
+      "method": "solana-keygen pubkey; exit 0; public output only",
+      "receipt": "docs/receipts/program-identity-publics-20260905.json",
+      "receiptCommit": "c62a9d7",
+      "scope": "Resolves which existing file yields the G2 identity. Does not assert durable backup, deployment, transaction approval, or passed release gates.",
+      "historicalRecord": "identityUnresolved and the withdrawn ANV approval clause below/above describe the earlier uncertainty, preserved as history; this measured resolution supersedes their unresolved status."
     }
   }
 }

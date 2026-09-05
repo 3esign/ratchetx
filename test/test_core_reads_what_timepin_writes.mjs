@@ -264,7 +264,7 @@ const web3 = await import('@solana/web3.js');
 const { webcrypto } = await import('node:crypto');
 const core = client.createCoreG2Client({
   web3,
-  coreProgramId: new web3.PublicKey('cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN'),
+  coreProgramId: new web3.PublicKey('ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL'),
   timepinProgramId: new web3.PublicKey('C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp'),
   cryptoImpl: webcrypto,
 });

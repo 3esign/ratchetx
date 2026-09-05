@@ -698,7 +698,7 @@ eq(deriveTimepinEvidenceSpecPda(timepinProgram, evidenceSpecHash),
   ]), 'EvidenceSpec PDA binds exact generation hash');
 
 const fixedGameProgram =
-  new PublicKey('cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN').toBuffer();
+  new PublicKey('ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL').toBuffer();
 const fixedGameEconomy = Buffer.alloc(32, 11);
 const fixedGamePlayer = Buffer.alloc(32, 42);
 const fixedGameSalt = Buffer.alloc(32, 21);
@@ -733,7 +733,7 @@ const fixedGameHash = gameResultHash({
   facts: fixedGameFacts,
 });
 eq(fixedGameHash.toString('hex'),
-  '528f99153825796b1a00a4803d2dec2e55cb2bdce9cfe8c6b1233b42d46a8ae4',
+  'f4c11f1914da94fe8add4c6fbbd02ca8aeda77c8b1aa94d9d8abd035270fff4d',
   'game_result_hash matches the Rust fixed vector');
 eq(compactResultCommit({
   programId: fixedGameProgram,

@@ -17,10 +17,14 @@ export const PROGRAMS = Object.freeze([
   { name: 'timepin', id: 'C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp',
     workspace: 'onchain/rcx-timepin-v2', crate: 'rcx-timepin-v2', filename: 'rcx_timepin_v2.so',
     env: 'RCX_TIMEPIN_V2_SO', hashEnv: 'RCX_TIMEPIN_V2_SHA256' },
-  { name: 'core', id: 'cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN',
+  { name: 'core', id: 'ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL',
     workspace: 'onchain/ratchet-core-g2', crate: 'ratchet-core-g2', filename: 'ratchet_core_g2.so',
     env: 'RATCHET_CORE_G2_SO', hashEnv: 'RATCHET_CORE_G2_SHA256' },
 ]);
+export const REQUIRED_SVM_TARGETS = Object.freeze({
+  timepin: ['conflict_finalize_expire', 'malformed_state', 'registration_open'],
+  core: ['core_g2_lifecycle'],
+});
 const sha256 = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
 
 export function assertToolchain(output) {
@@ -32,7 +36,7 @@ export function assertToolchain(output) {
 
 // cargo-build-sbf 4.3.0 resolves --tools-version through this home-relative
 // cache on all platforms (toolchain.rs::make_platform_tools_path_for_version).
-// Resolve after the first build, which may install the pinned package in CI.
+// The pinned package is installed explicitly before program builds.
 export function resolvePlatformCompilers({ home = os.homedir(), platform = process.platform } = {}) {
   const directory = path.join(home, '.cache', 'solana', TOOLCHAIN.platformTools, 'platform-tools');
   const suffix = platform === 'win32' ? '.exe' : '';
@@ -44,6 +48,36 @@ export function resolvePlatformCompilers({ home = os.homedir(), platform = proce
     }
   }
   return { directory, ...executables };
+}
+
+// The pinned Windows builder probes rust/bin/rustc without the .exe suffix.
+// Add only that alias, exclusively; never replace another file or follow a link.
+export function ensureWindowsRustcAlias({ home = os.homedir(), platform = process.platform } = {}) {
+  if (platform !== 'win32') return null;
+  const { rustc } = resolvePlatformCompilers({ home, platform });
+  const sourceEntry = fs.lstatSync(rustc);
+  if (!sourceEntry.isFile() || sourceEntry.isSymbolicLink()) {
+    throw new Error('Windows rustc.exe must be a regular non-symlink file: ' + rustc);
+  }
+  const alias = rustc.slice(0, -'.exe'.length);
+  const bytes = fs.readFileSync(rustc);
+  let method = 'hardlink-created';
+  try { fs.linkSync(rustc, alias); }
+  catch (error) {
+    if (error.code !== 'EEXIST') throw error;
+    method = 'existing-identical-file';
+  }
+  const entry = fs.lstatSync(alias);
+  if (!entry.isFile() || entry.isSymbolicLink()) {
+    throw new Error('Windows rustc alias must be a regular non-symlink file: ' + alias);
+  }
+  if (!fs.readFileSync(alias).equals(bytes) || !fs.readFileSync(rustc).equals(bytes)) {
+    throw new Error('Windows rustc alias bytes differ; refusing overwrite: ' + alias);
+  }
+  if (method !== 'hardlink-created' && entry.dev === sourceEntry.dev && entry.ino === sourceEntry.ino) {
+    method = 'existing-hardlink';
+  }
+  return { path: alias, target: rustc, method, sha256: sha256(bytes), size: bytes.length };
 }
 
 export function assertSourceIdentities(root, expected = {}) {
@@ -161,8 +195,63 @@ function assertCachedArtifact(program, artifact, cacheRoot) {
   }
 }
 
+// Parse only the explicitly selected pretty libtest output. Missing or internally
+// inconsistent evidence never becomes a passing execution receipt.
+export function inspectSbfTestResult(result) {
+  const stdout = String(result.stdout || ''), stderr = String(result.stderr || '');
+  const tests = [...stdout.matchAll(/^test (\S+) \.\.\. (ok|FAILED|ignored)(?:, [^\r\n]*)?\r?$/gm)]
+    .map(match => ({ name: match[1], result: { ok: 'passed', FAILED: 'failed', ignored: 'ignored' }[match[2]] }));
+  const starts = [...stdout.matchAll(/^running (\d+) tests?\r?$/gm)];
+  const summaries = [...stdout.matchAll(/^test result: (ok|FAILED)\. (\d+) passed; (\d+) failed; (\d+) ignored; (\d+) measured; (\d+) filtered out;[^\r\n]*$/gm)];
+  const summary = summaries.length === 1 ? summaries[0] : null;
+  const counts = summary ? { passed: Number(summary[2]), failed: Number(summary[3]), ignored: Number(summary[4]),
+    measured: Number(summary[5]), filteredOut: Number(summary[6]) } : null;
+  const reportedTests = starts.length === 1 ? Number(starts[0][1]) : null;
+  const problems = [];
+  if (result.error) problems.push('process error: ' + result.error.message);
+  if (result.status !== 0) problems.push('process exit was ' + (result.status ?? 'unavailable'));
+  if (result.signal) problems.push('process signal: ' + result.signal);
+  if (starts.length !== 1 || summaries.length !== 1) problems.push('expected exactly one libtest start and summary');
+  if (!reportedTests || !tests.length) problems.push('required target executed no named tests');
+  if (new Set(tests.map(test => test.name)).size !== tests.length) problems.push('duplicate test names in output');
+  if (counts) {
+    if (summary[1] !== 'ok' || counts.failed) problems.push('required target has failed tests');
+    if (counts.ignored) problems.push('required target has ignored tests');
+    if (counts.measured || counts.filteredOut) problems.push('required target has measured or filtered tests');
+    if (reportedTests !== counts.passed + counts.failed + counts.ignored + counts.measured
+      || tests.length !== reportedTests
+      || ['passed', 'failed', 'ignored'].some(kind => tests.filter(test => test.result === kind).length !== counts[kind])) {
+      problems.push('named test results disagree with libtest counts');
+    }
+  }
+  // Preserve only explicitly emitted CU measurements, never infer fixture costs.
+  const measurements = [['stdout', stdout], ['stderr', stderr]].flatMap(([stream, output]) =>
+    output.split(/\r?\n/).map((line, index) => ({ stream, line: index + 1, text: line }))
+      .filter(item => /\bcompute_units(?:_consumed)?\s*[=:]\s*\d+|\bCU:\s*(?:\d+|[a-z_]+\s*=\s*\d+)|\b[a-z_]+\s*=\s*\d+\s+CU\b/i.test(item.text)));
+  return { accepted: problems.length === 0, problems, exit: result.status ?? null, signal: result.signal ?? null,
+    processError: result.error?.message || null, reportedTests, counts, tests,
+    stdout, stderr, stdoutSha256: sha256(Buffer.from(stdout)), stderrSha256: sha256(Buffer.from(stderr)),
+    computeUnits: { status: measurements.length ? 'emitted-log-lines' : 'unavailable', measurements } };
+}
+
+export function discoverSvmTargets(metadata, cwd, program) {
+  const packages = metadata?.packages;
+  if (!Array.isArray(packages)) throw new Error('Cargo metadata has no packages');
+  const manifest = path.resolve(cwd, 'Cargo.toml');
+  const matches = packages.filter(item => typeof item.manifest_path === 'string' && path.resolve(item.manifest_path) === manifest);
+  if (matches.length !== 1) throw new Error(program.name + ' SVM package is absent or ambiguous in Cargo metadata');
+  const targets = matches[0].targets;
+  if (!Array.isArray(targets)) throw new Error(program.name + ' SVM package has no targets');
+  const names = targets.filter(target => target.kind?.includes('test')).map(target => target.name);
+  if (!names.length || names.some(name => typeof name !== 'string' || !/^[a-zA-Z0-9_-]+$/.test(name))
+    || new Set(names).size !== names.length) throw new Error(program.name + ' SVM test targets are empty or invalid');
+  const missing = REQUIRED_SVM_TARGETS[program.name].filter(name => !names.includes(name));
+  if (missing.length) throw new Error(program.name + ' required SVM targets are missing: ' + missing.join(', '));
+  return names.sort();
+}
+
 export function runBuild({ root = ROOT, expected = {}, ci = false, buildOnly = false, verifyArtifacts = false, spawn = spawnSync, log = console.log,
-  cacheRoot = path.join(os.tmpdir(), 'ratchetx-onchain-sbf'), platformHome = os.homedir() } = {}) {
+  cacheRoot = path.join(os.tmpdir(), 'ratchetx-onchain-sbf'), platformHome = os.homedir(), platform = process.platform } = {}) {
   const receiptPath = path.join(root, 'docs/receipts/g2-build-artifacts.json');
   const reportPath = path.join(root, 'build_g2_report.txt');
   if ([ci, buildOnly, verifyArtifacts].filter(Boolean).length > 1) throw new Error('choose one build mode');
@@ -184,7 +273,7 @@ export function runBuild({ root = ROOT, expected = {}, ci = false, buildOnly = f
   if (!verifyArtifacts) fs.writeFileSync(reportPath, '');
   const save = () => fs.writeFileSync(receiptPath, JSON.stringify(receipt, null, 2) + '\n');
   const emit = message => { log(message); fs.appendFileSync(reportPath, message + '\n'); };
-  const stage = (name, command, args, cwd = root, env = process.env) => {
+  const stage = (name, command, args, cwd = root, env = process.env, execution = null, stdoutOnly = false) => {
     emit('START ' + name);
     const result = spawn(command, args, { cwd, env, encoding: 'utf8', windowsHide: true, maxBuffer: 64 * 1024 * 1024 });
     const output = (result.stdout || '') + (result.stderr || '');
@@ -192,17 +281,29 @@ export function runBuild({ root = ROOT, expected = {}, ci = false, buildOnly = f
     // Match the established verify-onchain.ps1 rule. LLVM can emit this while
     // cargo exits zero; accepting that artifact would turn a diagnostic into GO.
     const stackOverflow = args[0] === 'build-sbf' && /Stack offset of .*exceeded max offset/i.test(output);
+    const evidence = execution ? { schema: 1, ...execution, artifactBindings: structuredClone(receipt.artifacts),
+      sourceHashes: { ...receipt.sourceHashes }, ...inspectSbfTestResult(result) } : null;
+    if (evidence) {
+      // Bind a completed run to the source and immutable bytes that were supplied.
+      try {
+        assertUnchanged(receipt.sourceHashes, sourceStamp(root));
+        for (const program of PROGRAMS) assertCachedArtifact(program, receipt.artifacts[program.name], cacheRoot);
+      } catch (error) { evidence.accepted = false; evidence.problems.push(error.message); }
+    }
+    const diagnosticFailure = stackOverflow ? 'SBF stack-frame overflow'
+      : evidence && !evidence.accepted ? 'SBF execution evidence rejected' : null;
     const entry = { name, command, args, cwd, exit: result.status ?? null, signal: result.signal ?? null,
-      ...(stackOverflow ? { diagnosticFailure: 'SBF stack-frame overflow' } : {}) };
+      ...(diagnosticFailure ? { diagnosticFailure } : {}), ...(evidence ? { execution: evidence } : {}) };
     receipt.stages.push(entry);
     save();
-    if (result.error || result.status !== 0 || stackOverflow) {
+    if (result.error || result.status !== 0 || diagnosticFailure) {
       emit('FAIL ' + name + ' (exit ' + entry.exit + (stackOverflow ? ', SBF stack-frame overflow' : '') + ')');
       throw new Error(name + ': ' + (stackOverflow ? 'SBF stack-frame overflow despite cargo exit ' + entry.exit
+        : evidence && !evidence.accepted ? evidence.problems.join('; ')
         : result.error?.message || 'exit ' + entry.exit + (entry.signal ? ', signal ' + entry.signal : '')) + '; read ' + reportPath);
     }
     emit('PASS ' + name);
-    return output;
+    return stdoutOnly ? String(result.stdout || '') : output;
   };
   save();
   try {
@@ -216,6 +317,15 @@ export function runBuild({ root = ROOT, expected = {}, ci = false, buildOnly = f
       assertToolchain(version);
       receipt.buildSbfVersionOutput = version.trim();
       stage('cargo version', 'cargo', ['--version']);
+      stage('install pinned platform tools', 'cargo-build-sbf', ['--install-only', '--tools-version', TOOLCHAIN.platformTools]);
+      const alias = ensureWindowsRustcAlias({ home: platformHome, platform });
+      receipt.platformPreparation = { platform, version: TOOLCHAIN.platformTools, rustcAlias: alias };
+      if (alias) {
+        const output = stage('Windows rustc alias version', alias.path, ['--version']);
+        if (!/\brustc \d+\.\d+/.test(output)) throw new Error('Windows rustc alias did not report a compiler version');
+        alias.versionOutput = output.trim();
+      }
+      save();
       const runDirectory = fs.mkdtempSync(path.join(os.tmpdir(), 'ratchetx-g2-build-'));
       for (const p of PROGRAMS) {
         const out = path.join(runDirectory, 'raw', p.name);
@@ -224,14 +334,18 @@ export function runBuild({ root = ROOT, expected = {}, ci = false, buildOnly = f
           ['build-sbf', '--arch', TOOLCHAIN.arch, '--tools-version', TOOLCHAIN.platformTools, '--sbf-out-dir', out, '--', '--locked'],
           path.join(root, p.workspace));
         assertUnchanged(receipt.sourceHashes, sourceStamp(root));
-        const compilers = resolvePlatformCompilers({ home: platformHome });
+        const compilers = resolvePlatformCompilers({ home: platformHome, platform });
         const compilerEvidence = { version: TOOLCHAIN.platformTools, directory: compilers.directory };
         for (const name of ['rustc', 'clang']) {
           const output = stage(p.name + ' pinned ' + name + ' version', compilers[name], ['--version']);
           if (!(name === 'rustc' ? /\brustc \d+\.\d+/ : /\bclang version \d+\.\d+/).test(output)) {
             throw new Error('pinned ' + name + ' did not report a compiler version');
           }
-          compilerEvidence[name] = { path: compilers[name], versionOutput: output.trim() };
+          compilerEvidence[name] = { path: compilers[name], versionOutput: output.trim(),
+            sha256: sha256(fs.readFileSync(compilers[name])) };
+        }
+        if (alias && compilerEvidence.rustc.sha256 !== alias.sha256) {
+          throw new Error('Windows rustc changed after alias preparation');
         }
         if (receipt.platformCompilers && JSON.stringify(receipt.platformCompilers) !== JSON.stringify(compilerEvidence)) {
           throw new Error('pinned platform compiler versions changed between program builds');
@@ -272,8 +386,17 @@ export function runBuild({ root = ROOT, expected = {}, ci = false, buildOnly = f
     stage('Timepin vector check', process.execPath,
       [path.join(root, 'tools/repin-timepin-vectors.mjs'), '--check'], root, env);
     for (const p of PROGRAMS) {
-      stage(p.name + ' exact-SBF matrix', 'cargo', ['test', '--locked', '--', '--nocapture'],
-        path.join(root, p.workspace, 'svm-tests'), env);
+      const cwd = path.join(root, p.workspace, 'svm-tests');
+      const metadata = JSON.parse(stage(p.name + ' SVM target inventory', 'cargo',
+        ['metadata', '--locked', '--no-deps', '--format-version', '1'], cwd, env, null, true));
+      const targets = discoverSvmTargets(metadata, cwd, p);
+      for (const target of targets) {
+        assertUnchanged(receipt.sourceHashes, sourceStamp(root));
+        for (const program of PROGRAMS) assertCachedArtifact(program, receipt.artifacts[program.name], cacheRoot);
+        stage(p.name + ' exact-SBF ' + target, 'cargo',
+          ['test', '--locked', '--test', target, '--', '--format', 'pretty', '--show-output', '--test-threads', '1'],
+          cwd, env, { program: p.name, programId: p.id, target, requiredTargets: REQUIRED_SVM_TARGETS[p.name], discoveredTargets: targets });
+      }
     }
     const npmCommand = process.platform === 'win32' ? (process.env.ComSpec || 'cmd.exe') : 'npm';
     const npmArgs = process.platform === 'win32' ? ['/d', '/s', '/c', 'npm test'] : ['test'];

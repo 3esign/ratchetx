@@ -194,7 +194,7 @@ ok([...inStore].every(w => inRoot.has(w)),
 // ---- ACT 6: determinism and binding -------------------------------------
 const ndjson = Buffer.from(rows.map(r => JSON.stringify(r)).join('\n') + '\n');
 const binding = {
-  programId: Buffer.from((b58.default||b58).decode('cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN')),
+  programId: Buffer.from((b58.default||b58).decode('ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL')),
   clusterGenesis: Buffer.from((b58.default||b58).decode(CLUSTER_GENESIS.devnet)),
   migrationId: crypto.createHash('sha256').update('rehearsal').digest(),
   snapshotHash: canonicalSnapshotHash(snap.players),
