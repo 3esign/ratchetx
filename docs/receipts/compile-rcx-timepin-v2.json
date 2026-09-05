@@ -8,8 +8,8 @@
     "src/lifecycle.rs": "056225299add77093d21836ed507e530ccbd83962491b4efdc25c83b4c797ae7"
   },
   "toolchain": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
-  "compiledOn": "OpusB cloud container (staged crate, no repository)",
-  "generatedAt": "2026-09-05T15:23:18.669Z",
+  "compiledOn": "unspecified host",
+  "generatedAt": "2026-09-05T15:49:18.448Z",
   "check": {
     "exit": 0
   },
