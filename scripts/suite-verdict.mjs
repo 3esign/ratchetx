@@ -78,3 +78,22 @@ export function runSuite(file, { execPath, cwd, timeoutMs, spawn, graceMs = 5000
       timedOut ? `\n[runner] killed after ${timeoutMs} ms without finishing\n` : ''));
   });
 }
+
+// What a second opinion on the same suite is worth, and what it is not.
+//
+// On 2026-09-05 a sweep of this tree reported test_client_model_parity.mjs as
+// FAIL; an immediate re-run was 14 of 14 green. Nothing was broken -- another
+// agent was mid-edit while the sweep read that file. Six people editing one
+// checkout makes that the normal case, and twenty minutes can go into debugging
+// a teammate's half-saved file before anyone thinks to run it twice.
+//
+// So the runner re-runs a failing suite once and says which of the two it saw.
+// It does NOT change the verdict: a suite that fails and then passes has not
+// proved it is healthy, it has proved that something moved. This is information,
+// not leniency, and gateExit never sees it.
+export function confirmationNote(first, second) {
+  if (first !== 'fail') return '';
+  if (second === 'fail') return ' (confirmed by an immediate re-run)';
+  return ` (an immediate re-run came back ${String(second).toUpperCase()}`
+    + ' -- the tree may have been mid-edit; the verdict is still FAIL, re-run before debugging it)';
+}

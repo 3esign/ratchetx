@@ -9,7 +9,7 @@ import { readdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
-import { verdictFor, gateExit, runSuite } from './suite-verdict.mjs';
+import { verdictFor, gateExit, runSuite, confirmationNote } from './suite-verdict.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = join(root, 'test');
@@ -159,7 +159,10 @@ for (const f of files) {
     console.log(`HUNG  ${f.padEnd(28)} (killed after ${SUITE_TIMEOUT_MS} ms; it never finished)`);
   } else if (v.status === 'fail') {
     failed++;
-    console.log(`FAIL  ${f}\n${r.out.split('\n').slice(-25).join('\n')}`);
+    // One second opinion, for the reader only -- see confirmationNote.
+    const again = verdictFor(await run(f));
+    console.log(`FAIL  ${f}${confirmationNote(v.status, again.status)}`
+      + `\n${r.out.split('\n').slice(-25).join('\n')}`);
   } else if (v.status === 'empty') {
     failed++;
     console.log(`EMPTY ${f.padEnd(28)} (exited 0 with ${v.cases} case(s) and 0 assertions passed)`);

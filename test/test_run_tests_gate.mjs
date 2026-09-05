@@ -13,7 +13,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawn } from 'node:child_process';
-import { verdictFor, gateExit, tapCount, runSuite } from '../scripts/suite-verdict.mjs';
+import { verdictFor, gateExit, tapCount, runSuite, confirmationNote } from '../scripts/suite-verdict.mjs';
 
 const tap = ({ tests = 1, pass = 1, fail = 0, skipped = 0, todo = 0 }) =>
   `TAP version 13\n1..${tests}\n# tests ${tests}\n# suites 0\n# pass ${pass}\n` +
@@ -134,4 +134,27 @@ test('a child that will not die still does not stall the run', async () => {
   assert.equal(verdictFor(r).status, 'hung');
   assert.ok(/still had not exited/.test(r.out), 'the output says the kill did not take');
   assert.ok(elapsed < 10_000, `the runner returned in ${elapsed} ms instead of waiting on a child that cannot die`);
+});
+
+// A second opinion is information, never leniency. Six agents edit this one
+// checkout, so a sweep that reads a half-saved file reports a red that is not
+// one -- measured 2026-09-05 on test_client_model_parity.mjs, FAIL then 14/14
+// green seconds later. The runner now says which of the two it saw.
+test('a failing suite is re-run once and the reader is told which run to trust', () => {
+  assert.match(confirmationNote('fail', 'fail'), /confirmed by an immediate re-run/);
+  assert.match(confirmationNote('fail', 'pass'), /may have been mid-edit/);
+  assert.match(confirmationNote('fail', 'pass'), /still FAIL/);
+  assert.match(confirmationNote('fail', 'hung'), /HUNG/);
+  // Only a failure earns a second opinion; nothing else is annotated.
+  for (const s of ['pass', 'dark', 'empty', 'hung'])
+    assert.equal(confirmationNote(s, 'pass'), '', s + ' must not be annotated');
+});
+
+test('no note ever changes what the gate returns', () => {
+  // The note is a string printed for a person. gateExit takes counters only, so
+  // there is no path by which a re-run can turn a red gate green -- this pins
+  // that the retry stayed on the reporting side of the line.
+  assert.equal(gateExit({ failed: 1, skipped: 0, allowSkips: false }), 1);
+  assert.equal(gateExit({ failed: 1, skipped: 0, allowSkips: true }), 1);
+  assert.equal(gateExit({ failed: 0, skipped: 0, allowSkips: false }), 0);
 });
