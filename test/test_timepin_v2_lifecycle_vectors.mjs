@@ -1,3 +1,4 @@
+import { assertTimepinVectors } from '../onchain/rcx-timepin-v2/scripts/vector-data.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, realpathSync } from 'node:fs';
@@ -314,21 +315,23 @@ equal(terminalResultHash({ ...terminalNeed, state: 'Expired',
   candidateAHash: Buffer.alloc(32), candidateBHash: Buffer.alloc(32) }).toString('hex'),
 lifecycle.terminalVectors.expiredResultHashHex, 'expired result hash');
 
-equal(register.runtimeEvidence.passed, 3, 'registration/open LiteSVM pass count');
-equal(register.runtimeEvidence.failed, 0, 'registration/open LiteSVM failure count');
-for (const expected of [
-  'wrong Receiver ProgramData link',
-  'wrong Receiver generation slot',
-  'wrong complete Receiver config hash',
-  'Receiver config selects another Wormhole',
-  'wrong Wormhole ProgramData link',
-  'wrong Wormhole generation slot',
-  'posted_slot equals registered_slot',
-  'posted_slot is ahead of Clock.slot',
-]) ok(register.runtimeEvidence.failClosed.includes(expected), `fail-closed vector: ${expected}`);
-equal(lifecycle.runtimeEvidence.postedSlot.equalFails, true, 'equal posted slot fails');
-equal(lifecycle.runtimeEvidence.postedSlot.plusOnePasses, true, 'registered slot + 1 passes');
-equal(lifecycle.runtimeEvidence.postedSlot.aheadOfClockFails, true, 'future posted slot fails');
+// This reader proves deterministic schema/ABI/artifact binding only. Exact-SBF
+// execution is a required, separate g2-build-artifacts gate; absence is not a skip.
+const fixture = JSON.parse(readFileSync(join(root,
+  'onchain/rcx-timepin-v2/vectors/fixture-input.json'), 'utf8'));
+assertTimepinVectors({ register, lifecycle }, { fixture, artifact: register.localSbfEvidence });
+equal(register.executionEvidence.status, 'not-included', 'vectors carry no execution claim');
+equal(register.executionEvidence.requiredGate, 'tools/g2-build-artifacts.mjs --verify-artifacts',
+  'runtime acceptance remains a separate required gate');
+equal(Object.hasOwn(register, 'runtimeEvidence'), false, 'historical execution counts are absent');
+equal(Object.hasOwn(lifecycle, 'runtimeEvidence'), false, 'historical execution claims are absent');
+equal(Object.hasOwn(lifecycle.goldenMessages.a, 'runtimeProven'), false, 'no invented runtime proof');
+equal(register.need.sourceDeadlineTs, register.need.targetTs + fields.maxPostTargetLagSeconds,
+  'source deadline follows current policy');
+equal(register.need.captureDeadlineTs, register.need.sourceDeadlineTs + fields.captureGraceSeconds,
+  'capture deadline follows current policy');
+equal(lifecycle.accounts.WorkManifest.frozenLocatorFields.subjectAccountSize,
+  TIMEPIN_NEED_V2_ACCOUNT_LEN, 'work locator follows current Need allocation');
 deep(register.localSbfEvidence, lifecycle.localSbfEvidence,
   'register and lifecycle vectors use one SBF evidence tuple');
 const sbfEvidence = lifecycle.localSbfEvidence;
@@ -375,4 +378,4 @@ ok(countOccurrences(pinnedSbf, program) >= 1,
 equal(countOccurrences(pinnedSbf, key(HISTORICAL_TIMEPIN_PROGRAM_ID)), 0,
   'pinned SBF does not embed the historical Timepin program id');
 
-console.log(`timepin v2 lifecycle vectors: ${checks} checks passed`);
+console.log(`timepin v2 lifecycle vectors: ${checks} deterministic checks passed; exact-SBF acceptance requires the separate helper gate`);

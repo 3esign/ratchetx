@@ -1,276 +1,115 @@
+#!/usr/bin/env node
+// Both entry points use this adapter; vector-data.mjs is the only data generator.
+import { readFileSync, realpathSync, writeFileSync, mkdirSync } from 'node:fs';
 import { createHash } from 'node:crypto';
-import { readFileSync, realpathSync, writeFileSync } from 'node:fs';
-import { basename, dirname, join, resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { tmpdir } from 'node:os';
+import { dirname, join, resolve, relative, sep } from 'node:path';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { PublicKey } from '@solana/web3.js';
 import {
-  deriveCandidatePda,
-  deriveEvidenceSpecPda,
-  deriveNeedPda,
-  deriveWorkManifestPda,
-  deriveWorkPagePda,
-  hashPriceMessage,
-  terminalResultHash,
-  validateEvidenceSpec,
-} from '../../rcx-timepin/model-v2.mjs';
+  generateTimepinVectors, assertTimepinVectors, validateArtifactTuple, serializeVector,
+  PROGRAM_ID, HISTORICAL_PROGRAM_ID, SBF_FILENAME, VECTOR_FILENAMES,
+} from './vector-data.mjs';
 
-const EXPECTED_PROGRAM_ID = 'C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp';
-const HISTORICAL_PROGRAM_ID = 'US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx';
-const EXPECTED_SBF_FILENAME = 'rcx_timepin_v2.so';
-const EXPECTED_SBPF_VERSION = 3;
-const here = dirname(fileURLToPath(import.meta.url));
-const root = resolve(here, '..');
-const registerPath = join(root, 'vectors', 'register-open-v2.json');
-const lifecyclePath = join(root, 'vectors', 'lifecycle-v2.json');
-const args = process.argv.slice(2);
-let checkOnly = false;
-let sbfArgument;
-for (let index = 0; index < args.length; index += 1) {
-  const argument = args[index];
-  if (argument === '--check') {
-    if (checkOnly) throw new Error('--check may be specified only once');
-    checkOnly = true;
-    continue;
+export const TIMEPIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
+export const REPO_ROOT = resolve(TIMEPIN_ROOT, '..', '..');
+const sha256 = value => createHash('sha256').update(value).digest('hex');
+const stable = value => value.split(sep).join('/');
+export const usage = 'node <generate-vectors.mjs|repin-timepin-vectors.mjs> [--check] [--sbf <immutable.so>] [--out <vectors-dir>] [--fixture <fixture-input.json>]\nWrite requires --sbf (alias --artifact); default output is canonical vectors/. --check never writes and can resolve the pinned tuple from tmpdir(). --to accepts only the canonical Timepin ID; --deployable does not claim deployment or runtime proof.';
+
+export function parseVectorArgs(argv) {
+  const args = {};
+  const booleans = new Set(['check', 'deployable', 'help']);
+  const values = new Set(['sbf', 'artifact', 'out', 'in', 'fixture', 'to']);
+  for (let i = 0; i < argv.length; i += 1) {
+    const flag = argv[i];
+    if (!flag.startsWith('--') || (!booleans.has(flag.slice(2)) && !values.has(flag.slice(2)))) throw new Error('unknown argument: ' + flag);
+    const name = flag.slice(2);
+    if (Object.hasOwn(args, name)) throw new Error('duplicate flag ' + flag);
+    if (booleans.has(name)) args[name] = true;
+    else {
+      const value = argv[++i];
+      if (!value || value.startsWith('--')) throw new Error(flag + ' requires a value');
+      args[name] = value;
+    }
   }
-  if (argument === '--sbf') {
-    if (sbfArgument !== undefined) throw new Error('--sbf may be specified only once');
-    const value = args[index + 1];
-    if (!value || value.startsWith('--')) throw new Error('--sbf requires a path');
-    sbfArgument = value;
-    index += 1;
-    continue;
+  if (args.sbf && args.artifact) throw new Error('--sbf and --artifact are aliases; provide one');
+  if (args.to && args.to !== PROGRAM_ID) throw new Error('--to must equal canonical Timepin program identity ' + PROGRAM_ID);
+  if (args.help && Object.keys(args).length !== 1) throw new Error('--help must be used alone');
+  if (args.in && args.out) throw new Error('--in and --out select one vector directory; provide one');
+  if (args.in && !args.check) throw new Error('--in is a check-only compatibility alias; use --out to write');
+  return args;
+}
+
+export function readVerifiedArtifact(path, { cacheRoot = join(tmpdir(), 'ratchetx-onchain-sbf') } = {}) {
+  const lexicalPath = resolve(path);
+  if (lexicalPath.split(/[\\/]+/).some(part => part.toLowerCase() === 'target')) throw new Error('artifact path contains mutable target directory');
+  const realPath = realpathSync(lexicalPath);
+  const realCache = realpathSync(cacheRoot);
+  const realCacheParent = realpathSync(dirname(resolve(cacheRoot)));
+  if (stable(relative(realCacheParent, realCache)) !== 'ratchetx-onchain-sbf') throw new Error('artifact cache must not traverse an escaping symlink');
+  const bytes = readFileSync(realPath);
+  const sha = sha256(bytes);
+  const expectedRelative = sha + '/' + SBF_FILENAME;
+  if (stable(relative(resolve(cacheRoot), lexicalPath)) !== expectedRelative
+      || stable(relative(realCache, realPath)) !== expectedRelative) throw new Error('artifact must have exact immutable content-addressed cache path');
+  if (bytes.length < 64 || !bytes.subarray(0, 4).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))
+      || bytes[4] !== 2 || bytes[5] !== 1 || bytes.readUInt32LE(48) !== 3) throw new Error('artifact must be a complete ELF64 little-endian SBPFv3 header');
+  if (!bytes.includes(new PublicKey(PROGRAM_ID).toBuffer())) throw new Error('artifact is missing canonical Timepin program ID');
+  if (bytes.includes(new PublicKey(HISTORICAL_PROGRAM_ID).toBuffer())) throw new Error('artifact contains forbidden historical program ID');
+  return validateArtifactTuple({ path: 'ratchetx-onchain-sbf/' + expectedRelative, size: bytes.length, sha256: sha, elfFlags: 3, sbpfVersion: 3 });
+}
+
+export function assertSourceIdentity(root = TIMEPIN_ROOT) {
+  const source = readFileSync(join(root, 'programs/rcx-timepin-v2/src/lib.rs'), 'utf8');
+  const declared = [...source.matchAll(/declare_id!\s*\(\s*"([^"]+)"\s*\)/g)].map(match => match[1]);
+  if (declared.length !== 1 || declared[0] !== PROGRAM_ID) throw new Error('source declare_id does not match canonical Timepin identity');
+  const anchor = readFileSync(join(root, 'Anchor.toml'), 'utf8');
+  const anchored = [...anchor.matchAll(/^\s*rcx_timepin_v2\s*=\s*"([^"]+)"/gm)].map(match => match[1]);
+  if (!anchored.length || anchored.some(id => id !== PROGRAM_ID)) throw new Error('Anchor.toml does not match canonical Timepin identity');
+}
+
+export function runVectorCommand(argv, { timepinRoot = TIMEPIN_ROOT, cwd = process.cwd(), env = process.env,
+  cacheRoot = join(tmpdir(), 'ratchetx-onchain-sbf'), log = console.log } = {}) {
+  const args = parseVectorArgs(argv);
+  if (args.help) { log(usage); return { mode: 'help' }; }
+  assertSourceIdentity(timepinRoot);
+  const vectorDir = args.out || args.in ? resolve(cwd, args.out || args.in) : join(timepinRoot, 'vectors');
+  const fixturePath = args.fixture ? resolve(cwd, args.fixture) : join(timepinRoot, 'vectors/fixture-input.json');
+  const fixture = JSON.parse(readFileSync(fixturePath, 'utf8'));
+  let artifactPath = args.sbf || args.artifact;
+  let originals;
+  if (args.check) {
+    originals = Object.fromEntries(VECTOR_FILENAMES.map(name => [name, readFileSync(join(vectorDir, name), 'utf8')]));
+    const pinned = JSON.parse(originals['register-open-v2.json']).localSbfEvidence;
+    // Exact layout is validated before joining an untrusted JSON path.
+    validateArtifactTuple(pinned);
+    artifactPath ??= env.RCX_TIMEPIN_V2_SO || join(cacheRoot, pinned.sha256, SBF_FILENAME);
+  } else if (!artifactPath) throw new Error('--sbf <immutable-hash-addressed-path> is required for write');
+  artifactPath = resolve(cwd, artifactPath);
+  const artifact = readVerifiedArtifact(artifactPath, { cacheRoot });
+  const output = generateTimepinVectors({ fixture, artifact });
+  const next = {
+    'register-open-v2.json': serializeVector(output.register),
+    'lifecycle-v2.json': serializeVector(output.lifecycle),
+  };
+  if (args.check) {
+    assertTimepinVectors({
+      register: JSON.parse(originals['register-open-v2.json']), lifecycle: JSON.parse(originals['lifecycle-v2.json']),
+    }, { fixture, artifact });
+    for (const name of VECTOR_FILENAMES) if (originals[name] !== next[name]) throw new Error(name + ' formatting is not deterministic; regenerate vectors from source + this artifact');
+  } else {
+    // Finish all generation and validation before either canonical output is touched.
+    mkdirSync(vectorDir, { recursive: true });
+    for (const name of VECTOR_FILENAMES) writeFileSync(join(vectorDir, name), next[name], 'utf8');
   }
-  throw new Error(`unexpected argument: ${argument}`);
-}
-if (sbfArgument === undefined) {
-  throw new Error('--sbf <immutable-hash-addressed-path> is required');
-}
-const sbfPath = realpathSync(resolve(root, sbfArgument));
-const sbfPathComponents = sbfPath.split(/[\\/]+/).filter(Boolean);
-if (sbfPathComponents.some(component => component.toLowerCase() === 'target')) {
-  throw new Error('Timepin artifact path must not contain a mutable target directory');
+  const result = { mode: args.check ? 'check' : 'write', programId: PROGRAM_ID, profile: fixture.profile,
+    vectorDir, artifact, runtimeEvidence: 'not included; the separate exact-SBF helper gate remains required' };
+  log(JSON.stringify(result));
+  return result;
 }
 
-const originalRegister = readFileSync(registerPath, 'utf8');
-const originalLifecycle = readFileSync(lifecyclePath, 'utf8');
-const register = JSON.parse(originalRegister);
-const lifecycle = JSON.parse(originalLifecycle);
-const program = new PublicKey(EXPECTED_PROGRAM_ID);
-const programBytes = program.toBuffer();
-const historicalProgramBytes = new PublicKey(HISTORICAL_PROGRAM_ID).toBuffer();
-const key = value => new PublicKey(value).toBuffer();
-const hex = value => Buffer.from(value, 'hex');
-const address = value => new PublicKey(value).toBase58();
-const countOccurrences = (buffer, needle) => {
-  let count = 0;
-  let offset = 0;
-  while ((offset = buffer.indexOf(needle, offset)) !== -1) {
-    count += 1;
-    offset += 1;
-  }
-  return count;
-};
-
-const source = readFileSync(join(root, 'programs', 'rcx-timepin-v2', 'src', 'lib.rs'), 'utf8');
-const anchor = readFileSync(join(root, 'Anchor.toml'), 'utf8');
-if (!source.includes('declare_id!("' + EXPECTED_PROGRAM_ID + '")')) {
-  throw new Error('source declare_id does not match canonical Timepin identity');
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+  try { runVectorCommand(process.argv.slice(2)); }
+  catch (error) { console.error('Timepin vector generation FAILED: ' + error.message); process.exitCode = 1; }
 }
-if (!anchor.includes('"' + EXPECTED_PROGRAM_ID + '"')) {
-  throw new Error('Anchor.toml does not match canonical Timepin identity');
-}
-
-const fields = register.evidencePolicy.fields;
-const spec = {
-  schema: fields.schema,
-  adapter: fields.adapter,
-  receiverProgram: key(fields.receiverProgram),
-  pushOracleProgram: key(fields.pushOracleProgram),
-  shardId: fields.shardId,
-  feedId: hex(fields.feedIdHex),
-  requiredVerification: fields.requiredVerification,
-  targetGridSeconds: fields.targetGridSeconds,
-  minOpenLeadSeconds: fields.minOpenLeadSeconds,
-  maxTargetAheadSeconds: fields.maxTargetAheadSeconds,
-  maxPreTargetGapSeconds: fields.maxPreTargetGapSeconds,
-  maxPostTargetLagSeconds: fields.maxPostTargetLagSeconds,
-  captureGraceSeconds: fields.captureGraceSeconds,
-  maxFutureSkewSeconds: fields.maxFutureSkewSeconds,
-  minExponent: fields.minExponent,
-  maxExponent: fields.maxExponent,
-  maxConfidenceBps: fields.maxConfidenceBps,
-  receiverProgramdataSlot: BigInt(
-    register.syntheticGenerationFixture.receiverProgramData.generationSlot,
-  ),
-  receiverConfigHash: hex(
-    register.syntheticGenerationFixture.receiverConfig.completeAccountDataSha256,
-  ),
-  wormholeProgram: key(register.syntheticGenerationFixture.wormholeProgram),
-  wormholeProgramdataSlot: BigInt(
-    register.syntheticGenerationFixture.wormholeProgramData.generationSlot,
-  ),
-  registeredSlot: BigInt(register.syntheticGenerationFixture.registrationClockSlot),
-};
-
-// THE VECTORS MUST DESCRIBE A SPEC THE PROGRAM WOULD ACCEPT.
-//
-// This script re-pins the program id but copies the POLICY straight out of the
-// existing vectors, so whatever is in them is what comes back out. On
-// 2026-09-05 what was in them was adapter 1 with grid 60 and lag 120 - the
-// experimental strict-bracket adapter, and a lag at twice the grid, which
-// validate_spec now refuses because one print would settle two consecutive
-// targets. Re-pinning without this check would have locked golden vectors for a
-// spec that cannot register, on the rule we are not shipping, into the one build
-// that Gate 1 allows.
-//
-// Fail here, loudly, before anything is written. The vectors are the reference
-// every later comparison is made against; a wrong one is not caught downstream,
-// it becomes the definition of correct.
-{
-  const verdict = validateEvidenceSpec(spec);
-  if (!verdict.ok) {
-    throw new Error(
-      `REFUSING TO PIN VECTORS: the policy in the source vectors describes a spec the `
-      + `program would reject at registration (${verdict.code}`
-      + `${verdict.detail ? `: ${verdict.detail}` : ''}). `
-      + `adapter=${spec.adapter} grid=${spec.targetGridSeconds} `
-      + `lag=${spec.maxPostTargetLagSeconds} lead=${spec.minOpenLeadSeconds} `
-      + `skew=${spec.maxFutureSkewSeconds} pregap=${spec.maxPreTargetGapSeconds}. `
-      + `Fix the policy in the source vectors first - re-pinning copies it forward.`,
-    );
-  }
-}
-
-const specPda = deriveEvidenceSpecPda(programBytes, spec);
-const target = BigInt(register.need.targetTs);
-const needPda = deriveNeedPda(programBytes, spec, target);
-const firstManifest = deriveWorkManifestPda(programBytes, 1);
-const terminalManifest = deriveWorkManifestPda(programBytes, 2);
-const workPage = deriveWorkPagePda(programBytes, needPda.address);
-const common = lifecycle.goldenMessages.common;
-const feedId = hex(common.feedIdHex);
-const message = name => ({
-  price: BigInt(lifecycle.goldenMessages[name].price),
-  conf: BigInt(lifecycle.goldenMessages[name].conf),
-  exponent: common.exponent,
-  publishTime: BigInt(common.publishTime),
-  prevPublishTime: BigInt(common.prevPublishTime),
-  emaPrice: BigInt(lifecycle.goldenMessages[name].price),
-  emaConf: BigInt(lifecycle.goldenMessages[name].conf),
-});
-const hashA = hashPriceMessage(message('a'), feedId);
-const hashB = hashPriceMessage(message('b'), feedId);
-const candidateA = deriveCandidatePda(programBytes, needPda.address, hashA);
-const candidateB = deriveCandidatePda(programBytes, needPda.address, hashB);
-const [low, high] = Buffer.compare(hashA, hashB) < 0 ? [hashA, hashB] : [hashB, hashA];
-const zero = Buffer.alloc(32);
-const terminalNeed = {
-  address: needPda.address,
-  targetTs: target,
-  state: 'Final',
-  candidateAHash: hashA,
-  candidateBHash: zero,
-};
-const sbf = readFileSync(sbfPath);
-if (sbf.length < 52 || !sbf.subarray(0, 4).equals(Buffer.from([0x7f, 0x45, 0x4c, 0x46]))) {
-  throw new Error('Timepin artifact is missing or not ELF');
-}
-if (sbf[4] !== 2 || sbf[5] !== 1) {
-  throw new Error('Timepin artifact must be a 64-bit little-endian ELF');
-}
-const elfFlags = sbf.readUInt32LE(48);
-if (elfFlags !== EXPECTED_SBPF_VERSION) {
-  throw new Error(`Timepin artifact must be SBPFv${EXPECTED_SBPF_VERSION}; ELF e_flags=${elfFlags}`);
-}
-const canonicalProgramIdOccurrences = countOccurrences(sbf, programBytes);
-const historicalProgramIdOccurrences = countOccurrences(sbf, historicalProgramBytes);
-if (canonicalProgramIdOccurrences < 1) {
-  throw new Error(`Timepin artifact does not embed canonical program id ${EXPECTED_PROGRAM_ID}`);
-}
-if (historicalProgramIdOccurrences !== 0) {
-  throw new Error(`Timepin artifact still embeds historical program id ${HISTORICAL_PROGRAM_ID}`);
-}
-const sbfHash = createHash('sha256').update(sbf).digest('hex');
-if (basename(sbfPath) !== EXPECTED_SBF_FILENAME) {
-  throw new Error(`Timepin artifact filename must be exactly ${EXPECTED_SBF_FILENAME}`);
-}
-if (basename(dirname(sbfPath)).toLowerCase() !== sbfHash) {
-  throw new Error('Timepin artifact parent directory must equal its SHA-256');
-}
-if (basename(dirname(dirname(sbfPath))).toLowerCase() !== 'ratchetx-onchain-sbf') {
-  throw new Error('Timepin artifact must be inside the ratchetx-onchain-sbf cache');
-}
-const vectorSbfPath = `ratchetx-onchain-sbf/${sbfHash}/${EXPECTED_SBF_FILENAME}`;
-const localSbfEvidence = {
-  path: vectorSbfPath,
-  size: sbf.length,
-  sha256: sbfHash,
-  elfFlags,
-  sbpfVersion: EXPECTED_SBPF_VERSION,
-  releaseArtifact: false,
-  rebuiltBySvmTask: false,
-};
-
-register.programId = EXPECTED_PROGRAM_ID;
-register.programIdBytesHex = programBytes.toString('hex');
-register.deployableIdentity = true;
-register.evidenceSpec.pda = address(specPda.address);
-register.evidenceSpec.pdaBump = specPda.bump;
-register.need.pda = address(needPda.address);
-register.need.pdaBump = needPda.bump;
-register.localSbfEvidence = { ...localSbfEvidence };
-
-lifecycle.programId = EXPECTED_PROGRAM_ID;
-lifecycle.deployableIdentity = true;
-lifecycle.fixtureNeed.address = address(needPda.address);
-lifecycle.fixtureNeed.bump = needPda.bump;
-lifecycle.accounts.WorkManifest.firstCapture.pda = address(firstManifest.address);
-lifecycle.accounts.WorkManifest.firstCapture.bump = firstManifest.bump;
-lifecycle.accounts.WorkManifest.terminalize.pda = address(terminalManifest.address);
-lifecycle.accounts.WorkManifest.terminalize.bump = terminalManifest.bump;
-lifecycle.accounts.WorkPage.fixturePda = address(workPage.address);
-lifecycle.accounts.WorkPage.fixtureBump = workPage.bump;
-lifecycle.goldenMessages.a.candidatePda = address(candidateA.address);
-lifecycle.goldenMessages.a.candidateBump = candidateA.bump;
-lifecycle.goldenMessages.b.candidatePda = address(candidateB.address);
-lifecycle.goldenMessages.b.candidateBump = candidateB.bump;
-lifecycle.terminalVectors.finalResultHashHex =
-  terminalResultHash(terminalNeed).toString('hex');
-lifecycle.terminalVectors.ambiguousResultHashHex = terminalResultHash({
-  ...terminalNeed,
-  state: 'Ambiguous',
-  candidateAHash: low,
-  candidateBHash: high,
-}).toString('hex');
-lifecycle.terminalVectors.expiredResultHashHex = terminalResultHash({
-  ...terminalNeed,
-  state: 'Expired',
-  candidateAHash: zero,
-  candidateBHash: zero,
-}).toString('hex');
-lifecycle.localSbfEvidence = { ...localSbfEvidence };
-
-const nextRegister = JSON.stringify(register, null, 2) + '\n';
-const nextLifecycle = JSON.stringify(lifecycle, null, 2) + '\n';
-if (checkOnly) {
-  if (nextRegister !== originalRegister || nextLifecycle !== originalLifecycle) {
-    throw new Error('Timepin vectors are stale; run generate-vectors.mjs');
-  }
-} else {
-  writeFileSync(registerPath, nextRegister, 'utf8');
-  writeFileSync(lifecyclePath, nextLifecycle, 'utf8');
-}
-
-console.log(JSON.stringify({
-  mode: checkOnly ? 'check' : 'write',
-  programId: EXPECTED_PROGRAM_ID,
-  sbfPath: vectorSbfPath,
-  sbfSize: sbf.length,
-  sbfSha256: sbfHash,
-  elfFlags,
-  sbpfVersion: EXPECTED_SBPF_VERSION,
-  canonicalProgramIdOccurrences,
-  historicalProgramIdOccurrences,
-  evidenceSpecPda: register.evidenceSpec.pda,
-  needPda: register.need.pda,
-}));

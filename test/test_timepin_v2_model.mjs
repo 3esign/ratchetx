@@ -88,6 +88,7 @@ function receiverConfigData(wormhole) {
 
 const CONFIG_DATA = receiverConfigData(WORMHOLE);
 
+// Synthetic experimental adapter-1 fixture; this is not a mainnet policy recommendation.
 const POLICY = {
   schema: TIMEPIN_SCHEMA_V2,
   adapter: ADAPTER_PYTH_PUSH_V2,
@@ -100,7 +101,7 @@ const POLICY = {
   minOpenLeadSeconds: 30,
   maxTargetAheadSeconds: 3600,
   maxPreTargetGapSeconds: 120,
-  maxPostTargetLagSeconds: 120,
+  maxPostTargetLagSeconds: 59, // grid - 1: one print cannot serve consecutive targets
   captureGraceSeconds: 60,
   maxFutureSkewSeconds: 5,
   minExponent: -12,
@@ -181,8 +182,8 @@ VECTOR_SPEC.evidencePolicyHash = evidencePolicyHash(VECTOR_SPEC);
   equal(EVIDENCE_SPEC_V2_CANONICAL_LEN, 214, 'full spec canonical length');
   equal(EVIDENCE_SPEC_V2_PAYLOAD_LEN, 254, 'stored spec payload length');
   equal(EVIDENCE_SPEC_V2_ACCOUNT_LEN, 262, 'stored spec account length');
-  equal(TIMEPIN_NEED_V2_PAYLOAD_LEN, 268, 'Need payload length');
-  equal(TIMEPIN_NEED_V2_ACCOUNT_LEN, 276, 'Need account length');
+  equal(TIMEPIN_NEED_V2_PAYLOAD_LEN, 160, 'Need payload length');
+  equal(TIMEPIN_NEED_V2_ACCOUNT_LEN, 168, 'Need account length');
   equal(CANDIDATE_V2_PAYLOAD_LEN, 111, 'Candidate payload length');
   equal(CANDIDATE_V2_ACCOUNT_LEN, 119, 'Candidate account length');
   equal(encodeEvidencePolicy(VECTOR_SPEC).length, 134, 'encoded policy length');
@@ -214,6 +215,10 @@ VECTOR_SPEC.evidencePolicyHash = evidencePolicyHash(VECTOR_SPEC);
 // Registration checks both Loader-v3 links, both pinned slots, the whole config hash and Wormhole.
 {
   equal(validateEvidenceSpec(SPEC_ARGS).code, 'OK', 'valid full spec');
+  equal(validateEvidenceSpec(spec({ maxPostTargetLagSeconds: 60 })).code,
+    'POST_LAG_NOT_BELOW_GRID', 'lag equal to grid is independently rejected');
+  equal(validateEvidenceSpec(spec({ maxPostTargetLagSeconds: 120 })).code,
+    'POST_LAG_NOT_BELOW_GRID', 'historical two-grid lag remains an invalid fixture');
   equal(validateGeneration(SPEC_ARGS, GENERATION, 1000n).code, 'OK', 'valid generation');
   equal(validateGeneration(SPEC_ARGS, generation({
     receiverProgramAccountData: loaderProgramAccountData(Buffer.alloc(32, 99)),
@@ -329,6 +334,11 @@ const context = (slot = 1001n, unixTimestamp = TARGET + 1n, changes = {}) => ({
 
   const need = createNeed(LIVE_SPEC, TARGET, OPENED, PROGRAM_ID);
   equal(encodeTimepinNeedV2(need).length, TIMEPIN_NEED_V2_ACCOUNT_LEN, 'Need exact full size');
+  equal(need.sourceDeadlineTs, TARGET + 59n, 'source deadline uses the valid lag');
+  equal(need.captureDeadlineTs, TARGET + 119n, 'capture deadline adds the grace period');
+  const rentBytes = encodeTimepinNeedV2({ ...need, openRefs: 0, rentPayer: ACTOR_A });
+  equal(rentBytes.readUInt32LE(132), 0, 'rent suffix starts after the 124-byte historical payload');
+  bytes(rentBytes.subarray(136, 168), ACTOR_A, 'rent payer occupies the final 32 bytes');
   equal(validateNeed(LIVE_SPEC, need, PROGRAM_ID).code, 'OK', 'Need authenticates');
   for (const removed of [
     'openedTs', 'openedSlot', 'opener', 'candidateCount', 'nextCaptureOrdinal',
