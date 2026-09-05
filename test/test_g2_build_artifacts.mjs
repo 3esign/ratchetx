@@ -8,7 +8,7 @@ import path from 'node:path';
 import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { PublicKey } from '@solana/web3.js';
-import { ROOT, PROGRAMS, REQUIRED_SVM_TARGETS, FORBIDDEN_ID, assertToolchain, assertSourceIdentities,
+import { ROOT, PROGRAMS, REQUIRED_SVM_TARGETS, FORBIDDEN_ID, assertToolchain, buildSbfVersionProbe, assertSourceIdentities,
   sourceStamp, assertUnchanged, pinArtifact, runBuild, resolvePlatformCompilers, ensureWindowsRustcAlias, inspectSbfTestResult } from '../tools/g2-build-artifacts.mjs';
 
 function fixture(t, platform = process.platform) {
@@ -88,6 +88,18 @@ test('toolchain pin rejects wrong, prerelease and unrelated version strings', ()
   }
 });
 
+test('version probe preserves the observed default without claiming a selected compiler', () => {
+  const output = 'cargo-build-sbf 4.3.0\nplatform-tools v1.57\n';
+  const probe = buildSbfVersionProbe(output);
+  assert.equal(probe.builderVersion, '4.3.0');
+  assert.equal(probe.defaultPlatformToolsVersion, 'v1.57');
+  assert.equal(probe.output, output.trim());
+  assert.deepEqual(probe.args, ['--version']);
+  assert.equal(buildSbfVersionProbe('cargo-build-sbf 4.3.0').defaultPlatformToolsVersion, null,
+    'a missing default is unknown, never backfilled from the selected pin');
+  assert.throws(() => buildSbfVersionProbe('cargo-build-sbf 4.2.0\nplatform-tools v1.56'), /must be exactly/);
+});
+
 test('source identity and workspace lockfile changes refuse the candidate', t => {
   const f = fixture(t);
   assert.doesNotThrow(() => assertSourceIdentities(f.root));
@@ -123,7 +135,24 @@ test('the recorded build pins both toolchains and sends only verified immutable 
   assert.equal(receipt.platformCompilers.rustc.versionOutput, 'rustc 1.89.0-dev (e57530ef2 2026-08-14)');
   assert.match(receipt.platformCompilers.clang.versionOutput, /^clang version 20\.1\.7-rust-dev/);
   assert.ok(receipt.platformCompilers.rustc.path.includes(path.join('v1.56', 'platform-tools')));
-  assert.ok(receipt.buildSbfVersionOutput.includes('v1.57'), 'builder default output is not mistaken for the selected compiler');
+  assert.equal('buildSbfVersionOutput' in receipt, false, 'new receipts do not emit the ambiguous legacy field');
+  assert.equal(receipt.buildSbfVersionProbe.defaultPlatformToolsVersion, 'v1.57');
+  assert.match(receipt.buildSbfVersionProbe.output, /platform-tools v1\.57/);
+  assert.match(receipt.buildSbfVersionProbe.scope, /not the selected build bundle/);
+  assert.equal(receipt.platformToolsSelection.version, 'v1.56');
+  assert.equal(receipt.platformToolsSelection.source, 'explicit --tools-version');
+  const install = receipt.stages[receipt.platformToolsSelection.installStageIndex];
+  assert.equal(install.command, 'cargo-build-sbf');
+  assert.deepEqual(install.args, ['--install-only', '--tools-version', 'v1.56']);
+  assert.equal(install.exit, 0);
+  assert.equal(receipt.platformToolsSelection.buildStageIndexes.length, 2);
+  for (const index of receipt.platformToolsSelection.buildStageIndexes) {
+    const selectedBuild = receipt.stages[index];
+    assert.equal(selectedBuild.command, 'cargo');
+    assert.equal(selectedBuild.args[0], 'build-sbf');
+    assert.equal(selectedBuild.args[selectedBuild.args.indexOf('--tools-version') + 1], 'v1.56');
+    assert.equal(selectedBuild.exit, 0);
+  }
   const builds = calls.filter(c => c.args[0] === 'build-sbf');
   assert.equal(builds.length, 2);
   for (const c of builds) {

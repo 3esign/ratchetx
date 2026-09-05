@@ -34,6 +34,17 @@ export function assertToolchain(output) {
   }
 }
 
+// The 4.3.0 --version banner is compiled before CLI parsing; its platform-tools
+// line is the DEFAULT even when --tools-version is supplied beside --version.
+// Keep that raw observation separate from the actual installation/build argv.
+export function buildSbfVersionProbe(output) {
+  assertToolchain(output);
+  return { command: 'cargo-build-sbf', args: ['--version'], output: output.trim(),
+    builderVersion: TOOLCHAIN.buildSbf,
+    defaultPlatformToolsVersion: /^platform-tools\s+(v\d+(?:\.\d+)+)\s*$/m.exec(output)?.[1] ?? null,
+    scope: 'builder version and compiled-in default; not the selected build bundle' };
+}
+
 // cargo-build-sbf 4.3.0 resolves --tools-version through this home-relative
 // cache on all platforms (toolchain.rs::make_platform_tools_path_for_version).
 // The pinned package is installed explicitly before program builds.
@@ -324,10 +335,11 @@ export function runBuild({ root = ROOT, expected = {}, ci = false, buildOnly = f
       receipt.sourceHashes = sourceStamp(root);
       emit('PASS source identities; behavior readiness is the release lead handoff, not a text check.');
       const version = stage('build-sbf version', 'cargo-build-sbf', ['--version']);
-      assertToolchain(version);
-      receipt.buildSbfVersionOutput = version.trim();
+      receipt.buildSbfVersionProbe = buildSbfVersionProbe(version);
       stage('cargo version', 'cargo', ['--version']);
       stage('install pinned platform tools', 'cargo-build-sbf', ['--install-only', '--tools-version', TOOLCHAIN.platformTools]);
+      receipt.platformToolsSelection = { version: TOOLCHAIN.platformTools, source: 'explicit --tools-version',
+        installStageIndex: receipt.stages.length - 1, buildStageIndexes: [] };
       const alias = ensureWindowsRustcAlias({ home: platformHome, platform });
       receipt.platformPreparation = { platform, version: TOOLCHAIN.platformTools, rustcAlias: alias };
       if (alias) {
@@ -343,6 +355,7 @@ export function runBuild({ root = ROOT, expected = {}, ci = false, buildOnly = f
         stage(p.name + ' SBPFv3 build', 'cargo',
           ['build-sbf', '--arch', TOOLCHAIN.arch, '--tools-version', TOOLCHAIN.platformTools, '--sbf-out-dir', out, '--', '--locked'],
           path.join(root, p.workspace));
+        receipt.platformToolsSelection.buildStageIndexes.push(receipt.stages.length - 1);
         assertUnchanged(receipt.sourceHashes, sourceStamp(root));
         const compilers = resolvePlatformCompilers({ home: platformHome, platform });
         const compilerEvidence = { version: TOOLCHAIN.platformTools, directory: compilers.directory };
