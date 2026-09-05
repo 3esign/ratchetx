@@ -180,3 +180,113 @@ lag edit collapsed two deliberately different policies onto the same spec PDA.
 
 `core_g2_lifecycle.rs` is not my file and I have not changed it. Post a branch and both
 programs are rebuilt and the suite re-run in about five minutes.
+
+---
+
+# Part 3 — Core refuses the mainnet adapter, and the model is a third opinion
+
+Added 16:42Z. Container measurements. **No file in this repository was changed by them.**
+
+## Core structurally refuses every MIN-CAPTURE spec
+
+`foreign_timepin.rs:601` `validate_spec_shape`, called at `:145` from `load_evidence_spec`
+before anything else, required **two** things that adapter 2 cannot satisfy:
+
+- `:604` `spec.adapter == 1` — a hard literal.
+- `:611` `spec.max_pre_target_gap_seconds > 0` — while `rcx-timepin-v2/src/lib.rs:546-557`
+  requires it to be **exactly 0** for adapter 2, with a comment explaining why
+  (`prev_publish_time` is not in the MIN-CAPTURE predicate, so a non-zero bound would be a
+  dead number inside every spec hash).
+
+The two validators were **mutually exclusive**: no spec existed that both would accept.
+Deleting the adapter literal would not have fixed it.
+
+Proved at exact-SBF tier by setting the harness policy to adapter 2 with pre-gap 0.
+`RegisterEvidenceSpec` **succeeded** — Timepin stored a MIN-CAPTURE spec — and then:
+
+    Program log: Instruction: RegisterRuleset
+    Program log: AnchorError thrown in .../foreign_timepin.rs:606.
+      Error Code: BadEvidenceSpec. Error Number: 6037.
+
+So an **economy could not be registered** on the mainnet-class adapter, and Core's own
+MIN-CAPTURE branch at `:391-397` — `require!(record.publish_time >= target_ts,
+PublishBeforeTarget)` — was unreachable code.
+
+Nothing could see it: R1 greps Timepin's `lifecycle.rs` for the string
+`PublishBeforeTarget`; Timepin's host tests do cover its own predicate
+(`lifecycle.rs:2061` `min_capture_spec`); Core's fixture hardcodes `adapter: 1`
+(`:697`); `MIN_CAPTURE` appears **zero** times in Core's `lib.rs` and `state.rs`; and the
+exact-SBF harness builds its policy with a literal `out.push(1)` and never names an
+adapter in 4,008 lines.
+
+### The fix, measured
+
+Four lines, each mirroring something that already exists:
+
+1. `:604` → `(spec.adapter == ADAPTER_PYTH_PUSH_V2 || spec.adapter == ADAPTER_PYTH_MIN_CAPTURE_V2)`
+   (both constants already declared at `:18-19`, unused in that function).
+2. `:611` → `(spec.adapter == ADAPTER_PYTH_MIN_CAPTURE_V2) == (spec.max_pre_target_gap_seconds == 0)`
+   — Timepin's rule restated as one biconditional.
+3. Added `spec.max_post_target_lag_seconds < spec.target_grid_seconds`. **Core never had
+   R2.** A spec Timepin refuses could still be authenticated by Core.
+4. That new line immediately caught Core's own fixture at `:697-707`: grid 60, lag 120.
+   Changed to 59.
+
+Core `cargo test --lib` 28/0. Core SBF `fad031feb9da…`.
+**Exact-SBF with the adapter-2 policy: 10 passed, 6 failed — the same ten and the same six.**
+`settle_final_replay_is_rejected` passing requires an accepted settle, which under adapter 2
+runs through `PublishBeforeTarget`. **Core's implementation of the rule the project is named
+after was executed by a transaction for the first time today.**
+
+This is not a verified adapter. None of the sixteen tests probes MIN-CAPTURE *behaviour* —
+they exercise the path. A test asserting "a print one second before the target is refused"
+does not exist at exact-SBF tier in either program, and is now possible to write.
+
+## Lag 120 against grid 60 is written down in four places
+
+R2 refuses all four: the Timepin unit fixture, the svm-tests policy (`:568-573`), Core's
+`foreign_timepin` need fixture (`:800-801`), and Core's spec fixture (`:707`).
+
+## The model is a third opinion, and it sides with Timepin
+
+`model.mjs:76` declares `TIMEPIN_NEED_ACCOUNT_LEN = 276` and its decoder at `:977`
+enforces it. `test_model_mirrors_source.mjs:132` compares the model to the **Timepin**
+crate. Nothing compared the model to **Core**, and nothing compared Core to Timepin.
+Three declarations, three possible pairwise comparisons, one of them ever written.
+
+Worse, `test/test_core_g2_model.mjs:210-214` states a belief about Core in its own comment:
+
+> "Core reads only the header … a Core decoder written against the header keeps working
+> when the tail grows"
+
+That is false. `decode_exact` requires an equal length **and** `payload.is_empty()`. The
+fixture then pads to 276 — building exactly the account Core cannot read, asserting a
+tolerance Core does not have, and passing.
+
+## Four false-green mechanisms, one shape
+
+| layer | how it fabricates |
+|---|---|
+| Core unit tests | `encode(&NEED_DISCRIMINATOR, &need, NEED_ACCOUNT_LEN)` |
+| exact-SBF harness | `need_data()`, stopping at `candidate_b_hash` |
+| JS model fixture | `Buffer.alloc(108), Buffer.alloc(36)` |
+| (and the gate) | rows that grep one crate for a string |
+
+Each builds the account it is authenticating, to its own constant, and then agrees with
+itself. Three independent test layers, all green, none able to see a defect that stops
+every transaction.
+
+## What is now pinned at host tier
+
+`test/test_foreign_timepin_abi.mjs` — 74 checks, red on this tree, **verified green
+against a scratch copy carrying the fixes**: account lengths against the owning struct's
+`LEN`; the Need view as a positional prefix; all three discriminators derived from the
+struct names; the two spec validators agreeing (adapter set, pre-gap rule, R2 mirror); and
+the model against Core.
+
+## Cost input for the ABI decision
+
+The **widen** branch matches `model.mjs` as it stands — no JS change. **Option three**
+(defer the dead `obs_` fields to 160/168) also moves `model.mjs:76` and the fixture at
+`test_core_g2_model.mjs:205-215`. Blast radius three files rather than two, against
+395 SOL/year and a model that would describe bytes that exist rather than 108 zeros.
