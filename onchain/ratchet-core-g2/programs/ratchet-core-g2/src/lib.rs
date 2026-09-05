@@ -3554,8 +3554,11 @@ fn require_exact_len(account: &AccountInfo<'_>, payload_len: usize) -> Result<()
 }
 
 fn history_account_len(page: &HistoryPage) -> Result<usize> {
-    let terminal_count = page.slots.iter().filter(|slot| slot.is_some()).count();
-    HistoryPage::serialized_len_for(page.slots.len(), terminal_count)?
+    // M3: the page is a fixed 118 bytes now. authenticate_history_account still
+    // compares data_len() against this, which is stronger than it was - it pins a
+    // constant instead of a length that moved with the contents.
+    let _ = page;
+    HistoryPage::LEN
         .checked_add(8)
         .ok_or(error!(CoreG2Error::MathOverflow))
 }
@@ -3727,9 +3730,10 @@ fn reserve_history_slot<'info>(
     let page_index = history_page_index(nonce);
     authenticate_history_account(page, page.key(), &economy_hash, &player, page_index)?;
     page.append_pending(nonce)?;
-    let new_len = history_account_len(page)?;
-    fund_rent_growth(payer, &page.to_account_info(), system_program, new_len)?;
-    page.to_account_info().resize(new_len)?;
+    // M3: nothing to fund and nothing to resize - the account was allocated at its
+    // final size. payer and system_program stay in the signature so the call sites
+    // are untouched by this change; they are simply no longer spent here.
+    let _ = (payer, system_program);
     Ok(())
 }
 
@@ -3766,36 +3770,31 @@ fn archive_terminal_shot<'info>(
         &shot.player,
         page_index,
     )?;
-    let slot = history_page.insert_terminal(&shot_key, shot)?;
+    // M3, and the order is the point: verify_game_result runs BEFORE the row is
+    // committed. It used to run after, on the row read back, so a bad row was
+    // written and then rejected by the same instruction. Now it is never written.
+    // commit_terminal re-derives the same ShotResult internally and applies
+    // validate_compact_result_shape, so a row failing either check never reaches
+    // the root.
     let facts = GameResultFacts::from_terminal_shot(shot);
-    let result = history_page.slots[slot]
-        .as_ref()
-        .ok_or(error!(CoreG2Error::BadShotShape))?;
-    verify_game_result(&shot.economy_hash, &shot.player, shot.nonce, result, &facts)?;
-
-    let new_len = history_account_len(history_page)?;
-    let required = Rent::get()?.minimum_balance(new_len);
-    let current = history_page.to_account_info().lamports();
-    let shot_balance = shot.to_account_info().lamports();
-    let (from_shot, actor_top_up) =
-        archive_funding_plan(required, current, shot_balance, shot.cleanup_bond_lamports)?;
-    if from_shot > 0 {
-        shot.sub_lamports(from_shot)?;
-        history_page.add_lamports(from_shot)?;
-    }
-    if actor_top_up > 0 {
-        anchor_lang::system_program::transfer(
-            CpiContext::new(
-                system_program.key(),
-                anchor_lang::system_program::Transfer {
-                    from: actor.to_account_info(),
-                    to: history_page.to_account_info(),
-                },
-            ),
-            actor_top_up,
-        )?;
-    }
-    history_page.to_account_info().resize(new_len)?;
+    let result = ShotResult::from_terminal_shot(&shot_key, shot)?;
+    verify_game_result(&shot.economy_hash, &shot.player, shot.nonce, &result, &facts)?;
+    let (slot, sequence, row_hash) = history_page.commit_terminal(&shot_key, shot)?;
+    emit!(ShotArchived {
+        economy_hash: shot.economy_hash,
+        player: shot.player,
+        nonce: shot.nonce,
+        page_index,
+        slot: slot as u8,
+        sequence,
+        row_hash,
+        results_root: history_page.results_root,
+        result,
+    });
+    // The rent block is gone with the growth: the account is a fixed size,
+    // allocated once at space = 8 + HistoryPage::BASE_LEN. actor is still paid
+    // its cleanup bond two lines below; only the funding path falls away.
+    let _ = system_program;
     shot.sub_lamports(shot.cleanup_bond_lamports)?;
     actor.add_lamports(shot.cleanup_bond_lamports)?;
     Ok(())
@@ -4868,6 +4867,25 @@ pub struct ShotForfeited {
     pub shot: Pubkey,
     pub actor: Pubkey,
     pub result_hash: [u8; 32],
+}
+
+#[event]
+pub struct ShotArchived {
+    pub economy_hash: [u8; 32],
+    pub player: Pubkey,
+    pub nonce: u64,
+    pub page_index: u64,
+    pub slot: u8,
+    /// 1-based fold order. Slots are APPENDED in nonce order and TERMINALISED
+    /// OUT OF ORDER, so a reader folding by nonce would not reproduce
+    /// `results_root`. Requiring the sequences to be exactly 1..=terminal_count
+    /// with no gap and no repeat is also what makes OMISSION detectable: the
+    /// root proves the rows a reader has were not altered, the dense sequence
+    /// proves the reader has all of them.
+    pub sequence: u8,
+    pub row_hash: [u8; 32],
+    pub results_root: [u8; 32],
+    pub result: ShotResult,
 }
 
 #[error_code]

@@ -24,6 +24,11 @@ pub const RULESET_HASH_DOMAIN: &[u8] = b"rcx-core:ruleset:g2\0";
 pub const RULESET_POLICY_LEAF_DOMAIN: &[u8] = b"rcx-core:ruleset-policy:g2\0";
 pub const RULESET_POLICY_NODE_DOMAIN: &[u8] = b"rcx-core:ruleset-node:g2\0";
 pub const COMMITMENT_DOMAIN: &[u8] = b"rcx-core:commitment:g2\0";
+// HistoryPage keeps a rolling commitment over its terminal rows instead of the
+// rows themselves. Two domains: one for a row, one for the fold, so a row hash
+// can never be replayed as a chain hash.
+pub const HISTORY_ROW_DOMAIN: &[u8] = b"rcx-core:history-row:g2\0";
+pub const HISTORY_CHAIN_DOMAIN: &[u8] = b"rcx-core:history-chain:g2\0";
 pub const LEGACY_LEAF_DOMAIN: &[u8] = b"rcx-core:legacy-leaf:g2\0";
 pub const LEGACY_NODE_DOMAIN: &[u8] = b"rcx-core:legacy-node:g2\0";
 pub const RESULT_HASH_DOMAIN: &[u8] = b"rcx-core:result:g2\0";
@@ -321,12 +326,24 @@ pub struct HistoryPage {
     pub economy_hash: [u8; 32],
     pub player: Pubkey,
     pub page_index: u64,
-    pub slots: Vec<Option<ShotResult>>,
+    /// Slots appended so far, 0..=HISTORY_PAGE_CAP. Replaces `slots.len()`.
+    pub pending_count: u8,
+    /// Bit i set = slot i has been terminalised. Replaces `slots[i].is_some()`,
+    /// and it is what keeps terminalise-once enforceable while still allowing
+    /// the out-of-order terminalisation this module's own test pins.
+    pub terminal_mask: u16,
+    /// Rolling commitment over the terminal rows, in insertion order. The rows
+    /// themselves live in the emitted ShotArchived events; nothing on chain has
+    /// ever read them (see docs/reviews/opusc-2026-09-05/M3_THE_PAGES.md).
+    pub results_root: [u8; 32],
 }
 
 impl HistoryPage {
-    pub const BASE_LEN: usize = 2 + 1 + 32 + 32 + 8 + 4;
-    pub const MAX_LEN: usize = Self::BASE_LEN + HISTORY_PAGE_CAP * (1 + ShotResult::LEN);
+    // Fixed. No Vec, so no 4-byte length prefix and no growth: the account is
+    // allocated once at this size and never resized.
+    pub const LEN: usize = 2 + 1 + 32 + 32 + 8 + 1 + 2 + 32;
+    pub const BASE_LEN: usize = Self::LEN;
+    pub const MAX_LEN: usize = Self::LEN;
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -396,10 +413,17 @@ pub struct PlayerDay {
     pub accepted: u64,
     pub terminal: u64,
     pub xp: u64,
+    /// Who funded this account, and therefore who gets the rent back when it is
+    /// closed. Requested by Opus B for M2 (room 14:29Z). NOT accompanied by an
+    /// `open_refs` counter: the reference count is already `accepted - terminal`,
+    /// maintained on every path by record_accepted/record_terminal with an
+    /// underflow guard that predates the request. Two copies of one fact is how
+    /// they come to disagree.
+    pub rent_payer: Pubkey,
 }
 
 impl PlayerDay {
-    pub const LEN: usize = 100;
+    pub const LEN: usize = 132;
 }
 
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -1339,15 +1363,15 @@ pub fn history_page_pda(economy_hash: &[u8; 32], player: &Pubkey, page_index: u6
 }
 
 impl HistoryPage {
+    /// The page is a fixed-size commitment now, so its serialised length does not
+    /// depend on how much has happened to it. The arguments are kept, and still
+    /// validated, so callers that pass counts keep failing on impossible ones.
     pub fn serialized_len_for(slot_count: usize, terminal_count: usize) -> Result<usize> {
         require!(
             terminal_count <= slot_count && slot_count <= HISTORY_PAGE_CAP,
             StateError::InvalidHistoryPage
         );
-        Self::BASE_LEN
-            .checked_add(slot_count)
-            .and_then(|value| value.checked_add(terminal_count * ShotResult::LEN))
-            .ok_or(error!(StateError::MathOverflow))
+        Ok(Self::LEN)
     }
 
     pub fn max_serialized_len() -> usize {
@@ -1366,7 +1390,13 @@ impl HistoryPage {
         self.economy_hash = economy_hash;
         self.player = player;
         self.page_index = page_index;
-        self.slots = Vec::new();
+        self.pending_count = 0;
+        self.terminal_mask = 0;
+        self.results_root = [0; 32];
+    }
+
+    pub fn terminal_count(&self) -> u8 {
+        self.terminal_mask.count_ones() as u8
     }
 
     pub fn validate_contents(&self) -> Result<()> {
@@ -1374,37 +1404,48 @@ impl HistoryPage {
             self.schema == CORE_SCHEMA_VERSION
                 && self.economy_hash != [0; 32]
                 && self.player != Pubkey::default()
-                && self.slots.len() <= HISTORY_PAGE_CAP,
+                && (self.pending_count as usize) <= HISTORY_PAGE_CAP
+                // no bit may be set above the slots actually appended: a mask
+                // wider than the page is a corrupt page.
+                // WIDENED TO u32 DELIBERATELY: pending_count reaches
+                // HISTORY_PAGE_CAP == 16, and `u16 >> 16` is an overflow shift.
+                // The workspace sets overflow-checks = true (Cargo.toml:6), so
+                // that shift PANICS - a full page would have aborted every later
+                // append and every terminalisation, permanently. u32 >> 16 is
+                // defined, and pending_count can never reach 32.
+                && (self.terminal_mask as u32) >> (self.pending_count as u32) == 0,
             StateError::InvalidHistoryPage
         );
-        for slot in &self.slots {
-            if let Some(result) = slot {
-                validate_compact_result_shape(result)?;
-                require!(
-                    result.game_result_hash != [0; 32],
-                    StateError::InvalidHistoryPage
-                );
-            }
-        }
+        // The row shape checks that used to run here, over rows committed long
+        // ago, now run in commit_terminal on the row about to be committed -
+        // strictly earlier, and on the only row that can still be wrong.
         Ok(())
     }
 
     pub fn append_pending(&mut self, nonce: u64) -> Result<usize> {
         self.validate_contents()?;
         require!(
-            self.slots.len() < HISTORY_PAGE_CAP,
+            (self.pending_count as usize) < HISTORY_PAGE_CAP,
             StateError::HistoryPageFull
         );
         let slot = history_page_slot(nonce);
         require!(
-            history_page_index(nonce) == self.page_index && slot == self.slots.len(),
+            history_page_index(nonce) == self.page_index
+                && slot == self.pending_count as usize,
             StateError::HistoryAppendOutOfOrder
         );
-        self.slots.push(None);
+        self.pending_count += 1;
         Ok(slot)
     }
 
-    pub fn insert_terminal(&mut self, shot_key: &Pubkey, shot: &Shot) -> Result<usize> {
+    /// Fold one terminal row into the page's commitment. Returns
+    /// (slot, sequence, row_hash); `sequence` is 1-based and is the fold order an
+    /// off-chain reader must use, because slots are APPENDED in nonce order and
+    /// TERMINALISED OUT OF ORDER - a nonce-ordered fold would not reproduce this
+    /// root. The dense 1..=terminal_count sequence is also what makes omission
+    /// detectable: the root proves the rows a reader has were not altered, the
+    /// sequence proves the reader has all of them.
+    pub fn commit_terminal(&mut self, shot_key: &Pubkey, shot: &Shot) -> Result<(usize, u8, [u8; 32])> {
         self.validate_contents()?;
         require!(
             self.economy_hash == shot.economy_hash && self.player == shot.player,
@@ -1415,17 +1456,39 @@ impl HistoryPage {
             StateError::InvalidHistoryPage
         );
         let slot = history_page_slot(shot.nonce);
-        let destination = self
-            .slots
-            .get_mut(slot)
-            .ok_or(error!(StateError::HistorySlotMissing))?;
         require!(
-            destination.is_none(),
+            slot < self.pending_count as usize,
+            StateError::HistorySlotMissing
+        );
+        let bit = 1u16 << slot;
+        require!(
+            self.terminal_mask & bit == 0,
             StateError::HistorySlotAlreadyTerminal
         );
-        *destination = Some(ShotResult::from_terminal_shot(shot_key, shot)?);
+        let result = ShotResult::from_terminal_shot(shot_key, shot)?;
+        validate_compact_result_shape(&result)?;
+        require!(
+            result.game_result_hash != [0; 32],
+            StateError::InvalidHistoryPage
+        );
+        // Not try_to_vec: borsh 1.x removed it, and the compiler said so
+        // (E0599 at this line, lead's source check 14:37Z). AnchorSerialize's
+        // own `serialize` is what the rest of this file already uses.
+        let mut row_bytes: Vec<u8> = Vec::with_capacity(ShotResult::LEN);
+        result
+            .serialize(&mut row_bytes)
+            .map_err(|_| error!(StateError::InvalidHistoryPage))?;
+        let row_hash = hashv(&[
+            HISTORY_ROW_DOMAIN,
+            &shot.nonce.to_le_bytes(),
+            &row_bytes,
+        ])
+        .to_bytes();
+        self.results_root =
+            hashv(&[HISTORY_CHAIN_DOMAIN, &self.results_root, &row_hash]).to_bytes();
+        self.terminal_mask |= bit;
         self.validate_contents()?;
-        Ok(slot)
+        Ok((slot, self.terminal_count(), row_hash))
     }
 }
 
@@ -2845,7 +2908,7 @@ mod tests {
         assert_eq!(ReloadHistoryPage::MAX_LEN, 1_711);
         assert_eq!(ReloadHistoryPage::max_serialized_len(), 1_711);
         assert_eq!(RELOAD_HISTORY_PAGE_CAP, 32);
-        assert_eq!(PlayerDay::LEN, 100);
+        assert_eq!(PlayerDay::LEN, 132);
         assert_eq!(RankEntry::LEN, 40);
         assert_eq!(RankShard::LEN, 180);
         assert_eq!(DayFinal::LEN, 291);
@@ -3323,35 +3386,51 @@ mod tests {
         assert_eq!(page.append_pending(34).unwrap(), 2);
         assert!(page.append_pending(36).is_err());
 
-        let (shot_key_34, shot_34) = terminal_shot(ShotState::Revealed, player, 34);
-        assert_eq!(page.insert_terminal(&shot_key_34, &shot_34).unwrap(), 2);
-        assert_eq!(
-            serialized_len(&page),
-            HistoryPage::serialized_len_for(3, 1).unwrap()
-        );
-        assert!(page.insert_terminal(&shot_key_34, &shot_34).is_err());
+        let empty_root = page.results_root;
+        let len_before = serialized_len(&page);
 
+        // Terminalise slot 2 first: OUT OF ORDER, which is the property this test
+        // is named for and the reason the fold order is a sequence and not a nonce.
+        let (shot_key_34, shot_34) = terminal_shot(ShotState::Revealed, player, 34);
+        let (slot_34, seq_34, row_34) = page.commit_terminal(&shot_key_34, &shot_34).unwrap();
+        assert_eq!((slot_34, seq_34), (2, 1));
+        assert_ne!(row_34, [0; 32]);
+        assert_ne!(page.results_root, empty_root);
+        assert_eq!(page.terminal_count(), 1);
+        // ONCE: the same shot cannot be folded in twice.
+        assert!(page.commit_terminal(&shot_key_34, &shot_34).is_err());
+
+        let root_after_34 = page.results_root;
         let (shot_key_32, shot_32) = terminal_shot(ShotState::Forfeited, player, 32);
-        assert_eq!(page.insert_terminal(&shot_key_32, &shot_32).unwrap(), 0);
-        assert!(page.slots[1].is_none());
-        assert_ne!(page.slots[2].as_ref().unwrap().game_result_hash, [0; 32]);
-        assert_eq!(
-            serialized_len(&page),
-            HistoryPage::serialized_len_for(3, 2).unwrap()
-        );
+        let (slot_32, seq_32, row_32) = page.commit_terminal(&shot_key_32, &shot_32).unwrap();
+        assert_eq!((slot_32, seq_32), (0, 2));
+        assert_ne!(row_32, row_34);
+        assert_ne!(page.results_root, root_after_34);
+        assert_eq!(page.terminal_count(), 2);
+        // Slot 1 was appended and never terminalised: no bit, and no row anywhere.
+        assert_eq!(page.terminal_mask & (1 << 1), 0);
+        assert_ne!(page.terminal_mask & (1 << 2), 0);
 
         for nonce in 35..48 {
             page.append_pending(nonce).unwrap();
         }
-        assert_eq!(page.slots.len(), HISTORY_PAGE_CAP);
-        assert_eq!(
-            serialized_len(&page),
-            HistoryPage::serialized_len_for(16, 2).unwrap()
-        );
+        assert_eq!(page.pending_count as usize, HISTORY_PAGE_CAP);
         assert!(page.append_pending(48).is_err());
 
-        page.slots[2].as_mut().unwrap().state = ShotState::AwaitReveal as u8;
-        assert!(page.validate_contents().is_err());
+        // THE POINT OF THE WHOLE CHANGE, as one assertion: the serialised length
+        // is IDENTICAL after zero, one, two and sixteen operations. It replaces
+        // three serialized_len_for(3,1)/(3,2)/(16,2) assertions that only made
+        // sense while the page grew.
+        assert_eq!(serialized_len(&page), len_before);
+        assert_eq!(serialized_len(&page), HistoryPage::LEN);
+
+        // The tamper case has no on-chain analogue any more: there is no stored
+        // row to corrupt. The property moves EARLIER instead of disappearing -
+        // a non-terminal shot is never folded into the root in the first place.
+        let (bad_key, bad_shot) = terminal_shot(ShotState::AwaitReveal, player, 35);
+        assert!(page.commit_terminal(&bad_key, &bad_shot).is_err());
+        assert_eq!(page.terminal_count(), 2);
+        assert!(page.validate_contents().is_ok());
     }
 
     #[test]
