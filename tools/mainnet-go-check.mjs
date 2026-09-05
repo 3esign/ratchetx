@@ -17,6 +17,32 @@ const MANIFEST = 'releases/g2-mainnet-economy.json';
 
 const results = [];
 const read = f => { try { return fs.readFileSync(f, 'utf8'); } catch { return null; } };
+
+// A check that could not read its input has not verified anything, and the four
+// checks below are phrased as NEGATIVE assertions -- "this pattern is gone" --
+// so an unreadable file used to answer "gone" and print GO. Measured 2026-09-05
+// by running this gate from an empty directory: R3, M2, M3 and X1 all reported
+// GO about source files that were not there. The positive checks never had the
+// bug, because a pattern cannot be FOUND in a file that is not there.
+//
+// mustRead makes the difference explicit: no text, no verdict.
+class Unreadable extends Error {}
+const mustRead = f => {
+  const s = read(f);
+  if (s === null) throw new Unreadable(`cannot read ${f} - no verdict is given rather than a wrong one`);
+  return s;
+};
+
+// Every path in this file is relative to the caller's directory, so running it
+// from the wrong place silently changes what it is looking at. It is a gate; it
+// says so instead.
+for (const anchor of ['package.json', 'AGENT_ONBOARD.md']) {
+  if (read(anchor) === null) {
+    console.error(`[FAIL] run this from the repository root: ${anchor} is not here, so every check `
+      + 'below would be reading a directory that contains none of its inputs.');
+    process.exit(2);
+  }
+}
 const check = (id, what, fn, owner) => {
   let state, detail;
   try { const r = fn(); state = r.ok ? 'GO' : (r.pending ? 'PENDING' : 'NO-GO'); detail = r.detail; }
@@ -37,28 +63,48 @@ check('R2', 'lag < grid is ENFORCED, not merely proved', () => {
 }, 'Opus A');
 
 check('R3', 'the reveal deadline is set at settlement, not at seal', () => {
-  const s = read(C + 'lib.rs') || '';
+  const s = mustRead(C + 'lib.rs');
   const stillAbsolute = /fn fixed_reveal_deadline/.test(s);
   return { ok: !stillAbsolute, pending: stillAbsolute, detail: stillAbsolute ? 'fixed_reveal_deadline still present: player budget has no lower bound' : 'absolute deadline removed' };
 }, 'Opus A');
 
 // ---- the money ------------------------------------------------------------
 check('M1', 'the Need can be closed and its rent returned', () => {
+  // Corrected 2026-09-05 14:15Z after Opus B refuted this row. The first version
+  // tested for the FIELDS open_refs and rent_payer and printed that closing was
+  // possible. The fields landed; the INSTRUCTION that spends them was never
+  // written, and I had posted that fact myself forty-eight minutes earlier.
+  // A check that verifies preparation and reports completion is worse than no
+  // check. What matters is that lamports can actually leave the account.
   const s = (read(R + 'lifecycle.rs') || '') + (read(R + 'lib.rs') || '');
-  const has = /open_refs/.test(s) && /rent_payer/.test(s);
-  return { ok: has, pending: !has, detail: has ? 'open_refs + rent_payer present' : '1,225 SOL/year locked permanently at a 1-minute grid' };
+  const fields = /open_refs/.test(s) && /rent_payer/.test(s);
+  const canReturnLamports = /close\s*=/.test(s) || /try_borrow_mut_lamports/.test(s) || /pub fn close_need/.test(s);
+  if (canReturnLamports) return { ok: true, detail: 'a close path exists and returns lamports' };
+  return { ok: false, pending: true,
+           detail: fields
+             ? 'open_refs + rent_payer are declared but NO close instruction exists - the rent still never comes back (1,225 SOL/year at a 1-minute grid)'
+             : 'no close path and no fields - 1,225 SOL/year locked permanently at a 1-minute grid' };
 }, 'Opus A');
 
 check('M2', 'PlayerDay no longer creates one account per player per day', () => {
-  const s = read(C + 'lib.rs') || '';
+  const s = mustRead(C + 'lib.rs');
   const gone = !/PLAYER_DAY_SEED/.test(s);
   return { ok: gone, pending: !gone, detail: gone ? 'PLAYER_DAY_SEED gone' : '0.527 SOL/year charged to every daily player' };
 }, 'Opus B');
 
 check('M3', 'HistoryPage/WorkPage do not lock rent per sixteen shots', () => {
+  // Corrected 2026-09-05 14:15Z after Opus C showed this row could NEVER go
+  // green. It tested for the disappearance of HISTORY_PAGE_CAP - but that
+  // constant must SURVIVE the fix: it is the paging arithmetic
+  // (history_page_index = nonce / CAP, history_page_slot = nonce % CAP) and
+  // page_index is a PDA seed. The only way to satisfy the old condition was to
+  // delete something the program needs.
+  // The thing whose presence costs 165 bytes a shot, and whose absence IS the
+  // fix, is the stored rows.
   const s = read(C + 'state.rs') || '';
-  const stillPaged = /HISTORY_PAGE_CAP: usize = 16/.test(s);
-  return { ok: !stillPaged, pending: stillPaged, detail: stillPaged ? '0.00323 SOL locked per shot - 11.8 SOL/year at ten shots a day' : 'pages no longer store per-shot rows' };
+  const storesRows = /pub slots:\s*Vec<Option<ShotResult>>/.test(s);
+  return { ok: !storesRows, pending: storesRows,
+           detail: storesRows ? '0.00323 SOL locked per shot - 11.8 SOL/year at ten shots a day' : 'pages no longer store per-shot rows' };
 }, 'Opus C');
 
 // ---- the manifest ---------------------------------------------------------
@@ -145,9 +191,12 @@ check('B3', 'the release safety gate is green', () => {
 // ---- the public record ----------------------------------------------------
 check('X1', 'no surface still promises the 2026-09-08 revocation', () => {
   const files = ['README.md', 'llms.txt', 'docs/AGENT_STATE.json', 'docs/FREEZE.md'];
+  // A file this list names and cannot read is not evidence that the promise is
+  // gone from it. Missing counts against, never for.
   const bad = files.filter(f => {
     const s = read(f);
-    return s && /destroyed on 2026-09-08|scheduled for revocation on 2026-09-08|revoked for good on \*\*2026-09-08/.test(s);
+    if (s === null) return true;
+    return /destroyed on 2026-09-08|scheduled for revocation on 2026-09-08|revoked for good on \*\*2026-09-08/.test(s);
   });
   return { ok: bad.length === 0, detail: bad.length ? 'still promising: ' + bad.join(', ') : 'local copy corrected (live site is a separate check)' };
 }, 'Semir');
