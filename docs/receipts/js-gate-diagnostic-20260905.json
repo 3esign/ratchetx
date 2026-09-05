@@ -1,0 +1,979 @@
+{
+  "schema": 1,
+  "status": "DIAGNOSTIC_COMPLETE_FULL_GATE_FAILED",
+  "releaseAcceptance": false,
+  "sourceHeadInformational": "185d33305fca736039994ee1fae6f092e4592359",
+  "sourceSnapshotAttested": false,
+  "startedAt": "2026-09-05T20:00:24.698121Z",
+  "workingDirectory": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+  "node": "v22.20.0",
+  "environment": {
+    "RCX_TIMEPIN_V2_SO": "C:/Users/treed/AppData/Local/Temp/ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so",
+    "RCX_TIMEPIN_V2_SO_SHA256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+    "RCX_TIMEPIN_V2_SHA256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+    "EXPECT_SBPF": "3",
+    "REQUIRE_CONTENT_ADDRESS": "1",
+    "FORBID_PROGRAM_IDS": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+    "RATCHET_ALLOW_SKIPS": null,
+    "RATCHET_CORE_G2_SO": null
+  },
+  "corePairedArtifact": "Not available; no paired Core artifact or skip flag supplied.",
+  "stages": [
+    {
+      "kind": "launcher-attempt",
+      "command": "fnm exec --using v22.20.0 -- npm test",
+      "startedAt": "2026-09-05T20:00:24.698121Z",
+      "log": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-js-gate-20260905T200024Z\\npm-test.log",
+      "status": "COMPLETE",
+      "exitCode": 1,
+      "finishedAt": "2026-09-05T20:00:24.9354576Z",
+      "logSha256": "6765110108cd9967969332604ef149101add09b6b9825112135024de4fae50e0",
+      "reachedSuiteRunner": false,
+      "npmStarted": false,
+      "suiteCounts": {
+        "skipped": 0,
+        "total": 0,
+        "passed": 0,
+        "failed": 0
+      }
+    },
+    {
+      "kind": "npm-test",
+      "command": "fnm exec --using v22.20.0 -- cmd.exe /d /s /c \"npm test\"",
+      "reasonForWindowsWrapper": "fnm cannot directly spawn the npm.cmd shim; this invokes the same npm test under the selected Node22 environment.",
+      "startedAt": "2026-09-05T20:01:37.7373547Z",
+      "sourceHeadInformational": "185d33305fca736039994ee1fae6f092e4592359",
+      "log": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-js-gate-20260905T200024Z\\npm-test-windows-launch.log",
+      "status": "COMPLETE",
+      "exitCode": 1,
+      "finishedAt": "2026-09-05T20:10:10.9913521Z",
+      "logSha256": "a468404942233ca9eb35c5d006ebe9f3d2a2fb966b9d617af49b7a8d8a490a2c",
+      "reachedSuiteRunner": true,
+      "npmStarted": true,
+      "suiteCounts": {
+        "passed": 156,
+        "failed": 3,
+        "skipped": 0,
+        "total": 159
+      },
+      "suiteOutcomes": [
+        {
+          "suite": "test_account_lists.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_activity_agent_guards.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_activity_agents.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_activity_feed.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_activity_readonly.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_activity_recovery.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_agent_discovery.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_agent_e2e.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_agent_funnel_protocol.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_agent_gauntlet.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_agent_onboarding_page.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_agent_registry.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_agent_registry_fix.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_agent_report.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_agents.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_align.mjs",
+          "status": "PASS",
+          "note": "(36.0 s)"
+        },
+        {
+          "suite": "test_anchor_health.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_arena_brier_ranking.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_balance.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_blink.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_build_ix.mjs",
+          "status": "PASS",
+          "note": "(12.9 s)"
+        },
+        {
+          "suite": "test_calibration.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_canon.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_chain_gap.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_chal_ui.mjs",
+          "status": "PASS",
+          "note": "(14.7 s)"
+        },
+        {
+          "suite": "test_clean_tree_gate.mjs",
+          "status": "PASS",
+          "note": "(11.5 s)"
+        },
+        {
+          "suite": "test_client_covers_every_instruction.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_client_model_parity.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_commit.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_compile_receipt_cli.mjs",
+          "status": "PASS",
+          "note": "(9.4 s)"
+        },
+        {
+          "suite": "test_core_and_timepin_agree_on_a_spec.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_core_client.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_core_g2_client_v2.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_core_g2_cost.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_core_g2_model.mjs",
+          "status": "PASS",
+          "note": "(7.1 s)"
+        },
+        {
+          "suite": "test_core_g2_snapshot.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_core_reads_what_timepin_writes.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_core_vectors.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_crank_decides.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_crank_reads_players.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_critical_paths.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_cutover_rehearsal.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_deploy_input.mjs",
+          "status": "PASS",
+          "note": "(15.1 s)"
+        },
+        {
+          "suite": "test_devnet_2_2_plan.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_devnet_lifecycle_shape.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_equity_prices.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_evidence.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_feedhealth.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_foreign_timepin_abi.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_funnel.mjs",
+          "status": "PASS",
+          "note": "(24.2 s)"
+        },
+        {
+          "suite": "test_g2_build_artifacts.mjs",
+          "status": "PASS",
+          "note": "(19.0 s)"
+        },
+        {
+          "suite": "test_git_commit_paths.mjs",
+          "status": "PASS",
+          "note": "(11.0 s)"
+        },
+        {
+          "suite": "test_guarded_build_gate.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_guarded_commit_sql.mjs",
+          "status": "PASS",
+          "note": "(10.3 s)"
+        },
+        {
+          "suite": "test_guarded_preflight_sql.mjs",
+          "status": "PASS",
+          "note": "(6.9 s)"
+        },
+        {
+          "suite": "test_harness.mjs",
+          "status": "PASS",
+          "note": "(6.7 s)"
+        },
+        {
+          "suite": "test_heartbeat.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_history_page_is_write_only.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_inspector.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_kill_switch.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_kv_atomic.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_kv_ordered.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_kv_shapes.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_ledger.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_ledger_cadence.mjs",
+          "status": "PASS",
+          "note": "(7.7 s)"
+        },
+        {
+          "suite": "test_legacy_chain.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_legacy_root.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_legacy_root_rules.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_line_ending_law_is_enforced.mjs",
+          "status": "PASS",
+          "note": "(9.3 s)"
+        },
+        {
+          "suite": "test_live_snapshot.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_log.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_log_api.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_mainnet_go_check.mjs",
+          "status": "PASS",
+          "note": "(5.5 s)"
+        },
+        {
+          "suite": "test_manifest_lag_is_grid_minus_one.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_mcp.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_mcp_agent_record.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_mcp_http.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_mcp_registry_manifest.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_migration_freeze.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_min_capture_logic.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_mirror_v2.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_mobile_resilience.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_model_mirrors_source.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_next_print_client.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_next_print_model.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_next_print_v2_client.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_no_clip.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_no_scheduled_freeze_promise.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_no_unwritten_fields_in_permanent_accounts.mjs",
+          "status": "FAIL",
+          "note": "(confirmed by an immediate re-run)"
+        },
+        {
+          "suite": "test_notify.mjs",
+          "status": "PASS",
+          "note": "(46.6 s)"
+        },
+        {
+          "suite": "test_observatory.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_onchain_cost.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_onchain_px.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_p6_canary.mjs",
+          "status": "PASS",
+          "note": "(5.5 s)"
+        },
+        {
+          "suite": "test_permanence_release.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_play_session.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_play_session_atomicity.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_play_session_discovery.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_play_session_http.mjs",
+          "status": "PASS",
+          "note": "(14.5 s)"
+        },
+        {
+          "suite": "test_play_session_identity.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_play_session_kv.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_play_session_page.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_player_commit_recovery.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_player_day_rent.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_player_write_fencing.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_program_identity_is_one_fact.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_pure_burn.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_pyth_context.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_pyth_ordering.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_pyth_pagination.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_ranked_remote_protocol.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_read_budget.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_readcost.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_record.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_record_api.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_release_identity.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_restore.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_rollup.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_run_tests_gate.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_salt_parity.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_sample_durability.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_session_play.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_session_play_contract.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_session_play_intent.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_session_play_stocks.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_session_play_typos.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_session_smoke.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_session_smoke_contract.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_settle.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_settlement_claims.mjs",
+          "status": "FAIL",
+          "note": "(an immediate re-run came back PASS -- the tree may have been mid-edit; the verdict is still FAIL, re-run before debugging it)"
+        },
+        {
+          "suite": "test_shot_page.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_site_storage_truth.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_snapshot_fidelity.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_startup_recovery.mjs",
+          "status": "PASS",
+          "note": "(25.9 s)"
+        },
+        {
+          "suite": "test_state_read_budget.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_stock_cadence.mjs",
+          "status": "PASS",
+          "note": "(5.5 s)"
+        },
+        {
+          "suite": "test_store_gate.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_store_outage.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_stream_capture.mjs",
+          "status": "PASS",
+          "note": "(7.6 s)"
+        },
+        {
+          "suite": "test_suite_selection.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_supabase_final_snapshot.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_supabase_final_snapshot_restore.mjs",
+          "status": "PASS",
+          "note": "(9.1 s)"
+        },
+        {
+          "suite": "test_supabase_key_formats.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_supabase_kv.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_supabase_migration.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_supabase_strict_read.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_supply.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_timepin_cadence_policy.mjs",
+          "status": "FAIL",
+          "note": "(confirmed by an immediate re-run)"
+        },
+        {
+          "suite": "test_timepin_v2_lifecycle_vectors.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_timepin_v2_model.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_timepin_vector_generation.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_warden.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_widths.mjs",
+          "status": "PASS",
+          "note": "(21.6 s)"
+        },
+        {
+          "suite": "test_work_market_client.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_work_page_cost_model.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_x402.mjs",
+          "status": "PASS",
+          "note": "(10.9 s)"
+        },
+        {
+          "suite": "test_x402_browser_smoke.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "test_x402_premium.mjs",
+          "status": "PASS",
+          "note": ""
+        },
+        {
+          "suite": "windows/test_deploy_cmd.mjs",
+          "status": "PASS",
+          "note": ""
+        }
+      ],
+      "verdict": "FAIL",
+      "prechecks": {
+        "releaseSafety": "PASSED",
+        "versionAndDigest": "PASSED"
+      },
+      "runnerBypassed": false
+    },
+    {
+      "kind": "targeted-post-run-check",
+      "command": "fnm exec --using v22.20.0 -- node test/test_timepin_cadence_policy.mjs",
+      "startedAt": "2026-09-05T20:12:20.9396860Z",
+      "log": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-js-gate-20260905T200024Z\\test_timepin_cadence_policy.mjs.post-run.log",
+      "status": "COMPLETE",
+      "changesFullRunVerdict": false,
+      "exitCode": 0,
+      "finishedAt": "2026-09-05T20:12:28.5625438Z",
+      "logSha256": "3d83e387a6017b272e8d7457a27b3fe081077283a174921cb43e268562db651f",
+      "outputSummary": [
+        "  manifest is DRAFT: measurement check inert, SHAPE checks live.",
+        "  measurement present: D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\docs\\reviews\\cadence\\payer-2026-09-05.summary.json",
+        "timepin cadence policy: 21 checks passed (host tier)"
+      ],
+      "verdict": "PASS",
+      "hostChecksPassed": 21
+    },
+    {
+      "kind": "targeted-post-run-check",
+      "command": "fnm exec --using v22.20.0 -- node test/test_settlement_claims.mjs",
+      "startedAt": "2026-09-05T20:12:28.5929303Z",
+      "log": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-js-gate-20260905T200024Z\\test_settlement_claims.mjs.post-run.log",
+      "status": "COMPLETE",
+      "changesFullRunVerdict": false,
+      "exitCode": 0,
+      "finishedAt": "2026-09-05T20:13:17.7813821Z",
+      "logSha256": "9f5a632c0b3b4f3d96258d10ac882ae2b08fe5e3d6f756c060c603bb2cd58826",
+      "outputSummary": [
+        "# skipped 0",
+        "# todo 0",
+        "# duration_ms 197.5862"
+      ],
+      "verdict": "PASS",
+      "tap": {
+        "tests": 4,
+        "passed": 4,
+        "failed": 0,
+        "skipped": 0
+      }
+    }
+  ],
+  "interpretation": "Diagnostic only. HEAD is informational and does not attest an unchanged worktree or final release source. Test pass, if observed, is not deployment or launch authorization.",
+  "postRunChanges": [
+    {
+      "path": "releases/g2-mainnet-economy.json",
+      "changedAt": "2026-09-05T20:12:20.9042092Z",
+      "field": "status",
+      "before": "DRAFT - program identity measured; build, execution and launch authorization still required",
+      "after": "DRAFT - NOT APPROVED FOR REGISTRATION; program identity measured; build, execution and launch authorization still required",
+      "beforeSha256": "397da4ea1a7a890b4044f518c75cf815c01c2f8584c2bfbf0de41294808ada6e",
+      "afterSha256": "0ce8872fc9b5ca0c46316c19006bf99950001e81ea4081e2e0eeb11863a7da31",
+      "otherValuesUnchanged": true,
+      "reason": "Authorized wording-only correction after the full gate: cadence policy requires explicit NOT APPROVED text. Recorded economic approval clauses and every other value are preserved."
+    }
+  ],
+  "failureDetails": [
+    {
+      "suite": "test_no_unwritten_fields_in_permanent_accounts.mjs",
+      "classification": "CONFIRMED_PERSISTENT_FAILURE",
+      "reason": "TimepinNeedV2.candidate_b_hash is only ever written as [0;32]; the permanent-account field gate rejects it.",
+      "assertion": "test/test_no_unwritten_fields_in_permanent_accounts.mjs:183",
+      "automaticRerun": "FAIL"
+    },
+    {
+      "suite": "test_settlement_claims.mjs",
+      "classification": "CONCURRENT_FILE_MOVE_RACE",
+      "reason": "The first scan read root/fix_manifest.js after it had been moved into the preservation directory. The runner retained the failed first attempt.",
+      "assertion": "test/test_settlement_claims.mjs:43",
+      "automaticRerun": "PASS",
+      "preservedPath": "_to_delete/root-scratch-2026-09-05/fix_manifest.js",
+      "preservedSha256": "6d029884f38b6ded9b3f5df276c1adc4313060702b8d98b06a831c8f66b1bd14",
+      "context": "Root reported the authorized preservation move retained the stale helper bytes; it was already excluded from deployment."
+    },
+    {
+      "suite": "test_timepin_cadence_policy.mjs",
+      "classification": "CONFIRMED_STATUS_WORDING_FAILURE",
+      "reason": "DRAFT status lacked the explicit NOT APPROVED text required by the cadence policy check.",
+      "assertion": "test/test_timepin_cadence_policy.mjs:473",
+      "automaticRerun": "FAIL",
+      "postRunCorrection": "Only manifest.status changed; full npm result remains FAIL."
+    }
+  ],
+  "finishedAt": "2026-09-05T20:15:05.549Z",
+  "sourceHeadAtFinishInformational": "2074a932dc5784d4b7125b9df7e94081f50230ea",
+  "nodeVerification": {
+    "command": "fnm exec --using v22.20.0 -- node --version",
+    "observed": "v22.20.0"
+  },
+  "fullGateResult": {
+    "command": "fnm exec --using v22.20.0 -- cmd.exe /d /s /c \"npm test\"",
+    "exitCode": 1,
+    "verdict": "FAIL",
+    "suiteCounts": {
+      "passed": 156,
+      "failed": 3,
+      "skipped": 0,
+      "total": 159
+    }
+  },
+  "postRunTargetsDoNotReplaceFullGate": true,
+  "separateSuiteInventoryRun": false,
+  "separateSuiteInventoryReason": "npm test reached the complete suite runner, so no precheck bypass was used.",
+  "knownRunLimitations": [
+    "No pre/post source snapshot attestation. HEAD is informational; the worktree changed during this diagnostic run.",
+    "Core legacy JS vectors changed concurrently; root reported a separate targeted1849-check pass, which this receipt does not count as part of its own evidence.",
+    "No paired Core SBF artifact was supplied. Timepin artifact binding and JS results do not establish paired exact-SBF release acceptance.",
+    "The original full npm result remains156 passed/3 failed/0 skipped despite successful targeted post-run checks."
+  ],
+  "timepinArtifact": {
+    "path": "C:/Users/treed/AppData/Local/Temp/ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so",
+    "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+    "size": 375944,
+    "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+    "evidenceTier": "diagnostic artifact; not release acceptance"
+  }
+}

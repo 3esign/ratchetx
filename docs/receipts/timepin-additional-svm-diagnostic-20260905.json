@@ -1,0 +1,267 @@
+{
+  "schema": "ratchetx.timepin-additional-svm-diagnostic.v1",
+  "startedAt": "2026-09-05T20:00:22.189Z",
+  "purpose": "Actual isolated SVM diagnostic runs against a pinned Timepin SBF. This is not paired Core/Timepin release acceptance or source-to-artifact correspondence proof.",
+  "pairedReleaseAcceptance": false,
+  "artifact": {
+    "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+    "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+    "sizeBytes": 375944,
+    "elfMagic": "7f454c46",
+    "elfFlags": 3
+  },
+  "environment": {
+    "RCX_TIMEPIN_V2_SO": "C:/Users/treed/AppData/Local/Temp/ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so",
+    "RCX_TIMEPIN_V2_SHA256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+    "RCX_TIMEPIN_V2_SO_SHA256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1"
+  },
+  "harnessDirectory": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests",
+  "harnessInputsBefore": {
+    "Cargo.toml": {
+      "sha256": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
+      "sizeBytes": 440
+    },
+    "Cargo.lock": {
+      "sha256": "f424ca13025261cef0ec12f447c0b617a58b4bd4e7f209fd5207a85d08f88e1c",
+      "sizeBytes": 100866
+    },
+    "tests/malformed_state.rs": {
+      "sha256": "9a16afa440a783481f241af072ec4a6ff9c8957d86fcc8300bfcdcc9833a2e0d",
+      "sizeBytes": 25498
+    },
+    "tests/conflict_finalize_expire.rs": {
+      "sha256": "a442ab0075370d0ed2340eea94c1e30c84d88deaf336a61994b39d53fa92e51f",
+      "sizeBytes": 28196
+    }
+  },
+  "execution": {
+    "platform": "win32",
+    "architecture": "x64",
+    "orchestratorNode": "v22.20.0",
+    "executable": "C:/Users/treed/.cargo/bin/cargo.exe",
+    "windowsHide": true,
+    "cargoVersion": {
+      "exitCode": 0,
+      "stdout": "cargo 1.98.0 (797e8a9bc 2026-08-05)\n",
+      "stderr": ""
+    }
+  },
+  "runs": [
+    {
+      "target": "malformed_state",
+      "args": [
+        "test",
+        "--locked",
+        "--test",
+        "malformed_state",
+        "--",
+        "--format",
+        "pretty",
+        "--show-output",
+        "--test-threads=1"
+      ],
+      "startedAt": "2026-09-05T20:00:22.350Z",
+      "finishedAt": "2026-09-05T20:04:02.991Z",
+      "durationMs": 220640,
+      "exitCode": 101,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "\nrunning 5 tests\ntest capture_first_fails_with_truncated_data ... FAILED\ntest open_fails_with_invalid_discriminator ... FAILED\ntest open_fails_with_invalid_need_pda ... FAILED\ntest register_fails_with_invalid_pda ... ok\ntest register_fails_with_trailing_bytes ... ok\n\nsuccesses:\n\nsuccesses:\n    register_fails_with_invalid_pda\n    register_fails_with_trailing_bytes\n\nfailures:\n\n---- capture_first_fails_with_truncated_data stdout ----\n\nthread 'capture_first_fails_with_truncated_data' (29948) panicked at tests\\malformed_state.rs:694:10:\ncalled `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n---- open_fails_with_invalid_discriminator stdout ----\n\nthread 'open_fails_with_invalid_discriminator' (29764) panicked at tests\\malformed_state.rs:676:31:\ncalled `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"\n\n---- open_fails_with_invalid_need_pda stdout ----\n\nthread 'open_fails_with_invalid_need_pda' (29332) panicked at tests\\malformed_state.rs:738:10:\ncalled `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"\n\n\nfailures:\n    capture_first_fails_with_truncated_data\n    open_fails_with_invalid_discriminator\n    open_fails_with_invalid_need_pda\n\ntest result: FAILED. 2 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.06s\n\n",
+      "stderr": "   Compiling rcx-timepin-v2-svm-tests v0.1.0 (D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests)\nwarning: constant `CAPTURE_SLOT` is never used\n  --> tests\\malformed_state.rs:26:7\n   |\n26 | const CAPTURE_SLOT: u64 = 1_100;\n   |       ^^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: constant `LIVE_SNAPSHOT_SLOT` is never used\n  --> tests\\malformed_state.rs:32:7\n   |\n32 | const LIVE_SNAPSHOT_SLOT: u64 = 444_338_968;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_RECEIVER_SLOT` is never used\n  --> tests\\malformed_state.rs:33:7\n   |\n33 | const LIVE_RECEIVER_SLOT: u64 = 417_825_260;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_WORMHOLE_SLOT` is never used\n  --> tests\\malformed_state.rs:34:7\n   |\n34 | const LIVE_WORMHOLE_SLOT: u64 = 417_825_233;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_PRICE_POSTED_SLOT` is never used\n  --> tests\\malformed_state.rs:35:7\n   |\n35 | const LIVE_PRICE_POSTED_SLOT: u64 = 444_338_800;\n   |       ^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_PRICE_PUBLISH_TS` is never used\n  --> tests\\malformed_state.rs:36:7\n   |\n36 | const LIVE_PRICE_PUBLISH_TS: i64 = 1_788_554_471;\n   |       ^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `live_wormhole_id` is never used\n  --> tests\\malformed_state.rs:57:4\n   |\n57 | fn live_wormhole_id() -> Pubkey {\n   |    ^^^^^^^^^^^^^^^^\n\nwarning: function `live_fixture` is never used\n   --> tests\\malformed_state.rs:194:4\n    |\n194 | fn live_fixture(name: &str, expected_len: usize, expected_sha256: &str) -> Vec<u8> {\n    |    ^^^^^^^^^^^^\n\nwarning: method `policy_hash` is never used\n   --> tests\\malformed_state.rs:303:8\n    |\n257 | impl SpecArgs {\n    | ------------- method in this implementation\n...\n303 |     fn policy_hash(&self) -> [u8; 32] {\n    |        ^^^^^^^^^^^\n\nwarning: function `send_instruction` is never used\n   --> tests\\malformed_state.rs:321:4\n    |\n321 | fn send_instruction(\n    |    ^^^^^^^^^^^^^^^^\n\nwarning: methods `set_programdata_slot`, `clone_programdata`, `set_config`, `send`, `put_price`, and `register_and_open` are never used\n   --> tests\\malformed_state.rs:470:8\n    |\n351 | impl World {\n    | ---------- methods in this implementation\n...\n470 |     fn set_programdata_slot(&mut self, program: Pubkey, slot: u64) {\n    |        ^^^^^^^^^^^^^^^^^^^^\n...\n477 |     fn clone_programdata(&mut self, source_program: Pubkey) -> Pubkey {\n    |        ^^^^^^^^^^^^^^^^^\n...\n487 |     fn set_config(&mut self, data: Vec<u8>) {\n    |        ^^^^^^^^^^\n...\n521 |     fn send(&mut self, instruction: Instruction) -> Result<u64, String> {\n    |        ^^^^\n...\n565 |     fn put_price(&mut self, posted_slot: u64) -> [u8; 32] {\n    |        ^^^^^^^^^\n...\n638 |     fn register_and_open(&mut self) -> (SpecArgs, [u8; 32]) {\n    |        ^^^^^^^^^^^^^^^^^\n\nwarning: function `assert_no_spec` is never used\n   --> tests\\malformed_state.rs:648:4\n    |\n648 | fn assert_no_spec(world: &World, args: &SpecArgs) {\n    |    ^^^^^^^^^^^^^^\n\nwarning: `rcx-timepin-v2-svm-tests` (test \"malformed_state\") generated 12 warnings\n    Finished `test` profile [unoptimized] target(s) in 3m 39s\n     Running tests\\malformed_state.rs (target\\debug\\deps\\malformed_state-99794573f2ac68a6.exe)\nerror: test failed, to rerun pass `--test malformed_state`\n",
+      "testSummaries": [
+        {
+          "status": "FAILED",
+          "passed": 2,
+          "failed": 3,
+          "ignored": 0,
+          "measured": 0,
+          "filteredOut": 0
+        }
+      ],
+      "testResults": [
+        {
+          "name": "capture_first_fails_with_truncated_data",
+          "status": "FAILED"
+        },
+        {
+          "name": "open_fails_with_invalid_discriminator",
+          "status": "FAILED"
+        },
+        {
+          "name": "open_fails_with_invalid_need_pda",
+          "status": "FAILED"
+        },
+        {
+          "name": "register_fails_with_invalid_pda",
+          "status": "ok"
+        },
+        {
+          "name": "register_fails_with_trailing_bytes",
+          "status": "ok"
+        }
+      ],
+      "emittedComputeLogLines": [
+        "called `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"",
+        "called `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"",
+        "called `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\""
+      ],
+      "failedTestObservations": [
+        {
+          "testName": "capture_first_fails_with_truncated_data",
+          "programErrorCode": "BadPostTargetLag",
+          "programErrorNumber": 6009,
+          "computeUnitsEmitted": 22500
+        },
+        {
+          "testName": "open_fails_with_invalid_discriminator",
+          "programErrorCode": "BadPostTargetLag",
+          "programErrorNumber": 6009,
+          "computeUnitsEmitted": 22500
+        },
+        {
+          "testName": "open_fails_with_invalid_need_pda",
+          "programErrorCode": "BadPostTargetLag",
+          "programErrorNumber": 6009,
+          "computeUnitsEmitted": 22500
+        }
+      ],
+      "passingTestSpecificRejectionReasonsObserved": false
+    },
+    {
+      "target": "conflict_finalize_expire",
+      "args": [
+        "test",
+        "--locked",
+        "--test",
+        "conflict_finalize_expire",
+        "--",
+        "--format",
+        "pretty",
+        "--show-output",
+        "--test-threads=1"
+      ],
+      "startedAt": "2026-09-05T20:04:03.007Z",
+      "finishedAt": "2026-09-05T20:04:28.143Z",
+      "durationMs": 25137,
+      "exitCode": 101,
+      "signal": null,
+      "spawnError": null,
+      "stdout": "\nrunning 4 tests\ntest conflict_second_message_terminalizes_ambiguous_and_locks_the_need ... FAILED\ntest expire_only_takes_an_open_unanswered_need_after_its_window ... FAILED\ntest finalize_of_an_open_need_without_a_candidate_is_refused ... FAILED\ntest finalize_waits_for_the_capture_window_and_then_finalizes ... FAILED\n\nsuccesses:\n\nsuccesses:\n\nfailures:\n\n---- conflict_second_message_terminalizes_ambiguous_and_locks_the_need stdout ----\n\nthread 'conflict_second_message_terminalizes_ambiguous_and_locks_the_need' (29820) panicked at tests\\conflict_finalize_expire.rs:580:54:\ncalled `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n---- expire_only_takes_an_open_unanswered_need_after_its_window stdout ----\n\nthread 'expire_only_takes_an_open_unanswered_need_after_its_window' (9604) panicked at tests\\conflict_finalize_expire.rs:580:54:\ncalled `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"\n\n---- finalize_of_an_open_need_without_a_candidate_is_refused stdout ----\n\nthread 'finalize_of_an_open_need_without_a_candidate_is_refused' (30252) panicked at tests\\conflict_finalize_expire.rs:580:54:\ncalled `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"\n\n---- finalize_waits_for_the_capture_window_and_then_finalizes stdout ----\n\nthread 'finalize_waits_for_the_capture_window_and_then_finalizes' (29332) panicked at tests\\conflict_finalize_expire.rs:580:54:\ncalled `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"\n\n\nfailures:\n    conflict_second_message_terminalizes_ambiguous_and_locks_the_need\n    expire_only_takes_an_open_unanswered_need_after_its_window\n    finalize_of_an_open_need_without_a_candidate_is_refused\n    finalize_waits_for_the_capture_window_and_then_finalizes\n\ntest result: FAILED. 0 passed; 4 failed; 0 ignored; 0 measured; 0 filtered out; finished in 5.61s\n\n",
+      "stderr": "    Finished `test` profile [unoptimized] target(s) in 18.51s\n     Running tests\\conflict_finalize_expire.rs (target\\debug\\deps\\conflict_finalize_expire-a3e2d9cf9f7ae6b2.exe)\nerror: test failed, to rerun pass `--test conflict_finalize_expire`\n",
+      "testSummaries": [
+        {
+          "status": "FAILED",
+          "passed": 0,
+          "failed": 4,
+          "ignored": 0,
+          "measured": 0,
+          "filteredOut": 0
+        }
+      ],
+      "testResults": [
+        {
+          "name": "conflict_second_message_terminalizes_ambiguous_and_locks_the_need",
+          "status": "FAILED"
+        },
+        {
+          "name": "expire_only_takes_an_open_unanswered_need_after_its_window",
+          "status": "FAILED"
+        },
+        {
+          "name": "finalize_of_an_open_need_without_a_candidate_is_refused",
+          "status": "FAILED"
+        },
+        {
+          "name": "finalize_waits_for_the_capture_window_and_then_finalizes",
+          "status": "FAILED"
+        }
+      ],
+      "emittedComputeLogLines": [
+        "called `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"",
+        "called `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"",
+        "called `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\"",
+        "called `Result::unwrap()` on an `Err` value: \"Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]\\nProgram log: Instruction: RegisterEvidenceSpec\\nProgram 11111111111111111111111111111111 invoke [2]\\nProgram 11111111111111111111111111111111 success\\nProgram log: AnchorError thrown in programs\\\\rcx-timepin-v2\\\\src\\\\lib.rs:618. Error Code: BadPostTargetLag. Error Number: 6009. Error Message: post-target source lag bound is invalid.\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 22500 of 200000 compute units\\nProgram C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp failed: custom program error: 0x1779\\nInstructionError(0, Custom(6009))\\ncompute_units=22500\""
+      ],
+      "failedTestObservations": [
+        {
+          "testName": "conflict_second_message_terminalizes_ambiguous_and_locks_the_need",
+          "programErrorCode": "BadPostTargetLag",
+          "programErrorNumber": 6009,
+          "computeUnitsEmitted": 22500
+        },
+        {
+          "testName": "expire_only_takes_an_open_unanswered_need_after_its_window",
+          "programErrorCode": "BadPostTargetLag",
+          "programErrorNumber": 6009,
+          "computeUnitsEmitted": 22500
+        },
+        {
+          "testName": "finalize_of_an_open_need_without_a_candidate_is_refused",
+          "programErrorCode": "BadPostTargetLag",
+          "programErrorNumber": 6009,
+          "computeUnitsEmitted": 22500
+        },
+        {
+          "testName": "finalize_waits_for_the_capture_window_and_then_finalizes",
+          "programErrorCode": "BadPostTargetLag",
+          "programErrorNumber": 6009,
+          "computeUnitsEmitted": 22500
+        }
+      ],
+      "passingTestSpecificRejectionReasonsObserved": false
+    }
+  ],
+  "finishedAt": "2026-09-05T20:04:28.148Z",
+  "artifactAfter": {
+    "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+    "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+    "sizeBytes": 375944,
+    "elfMagic": "7f454c46",
+    "elfFlags": 3
+  },
+  "harnessInputsAfter": {
+    "Cargo.toml": {
+      "sha256": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
+      "sizeBytes": 440
+    },
+    "Cargo.lock": {
+      "sha256": "f424ca13025261cef0ec12f447c0b617a58b4bd4e7f209fd5207a85d08f88e1c",
+      "sizeBytes": 100866
+    },
+    "tests/malformed_state.rs": {
+      "sha256": "9a16afa440a783481f241af072ec4a6ff9c8957d86fcc8300bfcdcc9833a2e0d",
+      "sizeBytes": 25498
+    },
+    "tests/conflict_finalize_expire.rs": {
+      "sha256": "a442ab0075370d0ed2340eea94c1e30c84d88deaf336a61994b39d53fa92e51f",
+      "sizeBytes": 28196
+    }
+  },
+  "artifactUnchanged": true,
+  "harnessInputsUnchanged": true,
+  "allDiagnosticTargetsPassed": false,
+  "interpretation": {
+    "observed": "All seven failed tests panic during unmodified RegisterEvidenceSpec setup with BadPostTargetLag (6009), before the intended malformed-input or lifecycle assertion.",
+    "fixturePrecondition": {
+      "targetGridSeconds": 60,
+      "maxPostTargetLagSeconds": 120,
+      "requiredRelation": "max_post_target_lag_seconds < target_grid_seconds",
+      "currentSource": "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs:619",
+      "artifactEmittedValidationLine": "programs/rcx-timepin-v2/src/lib.rs:618"
+    },
+    "passingNegativeTestLimitation": "register_fails_with_trailing_bytes and register_fails_with_invalid_pda accept generic InstructionError and do not emit the actual rejection reason on success. They reuse the invalid registration fixture. Their raw pass counts are retained, but this run does not prove rejection due to the intended trailing-byte or PDA mutation.",
+    "malformedRegistrationPrerequisiteLocations": [
+      "tests/malformed_state.rs:676",
+      "tests/malformed_state.rs:694",
+      "tests/malformed_state.rs:738"
+    ],
+    "lifecycleRegistrationPrerequisiteLocation": "tests/conflict_finalize_expire.rs:580",
+    "broadNegativeAssertionLocations": [
+      "tests/malformed_state.rs:665",
+      "tests/malformed_state.rs:723-725"
+    ],
+    "classification": "Diagnostic fixture blockers and insufficiently specific negative-test assertions; no downstream lifecycle acceptance established.",
+    "sourceChangesMade": false,
+    "sourceArtifactCorrespondenceProven": false
+  }
+}

@@ -1,0 +1,259 @@
+{
+  "schema": 1,
+  "status": "BUILT",
+  "evidenceTier": "SBPFv3 artifact pair verified; vectors and exact-SBF not run; no deployment",
+  "startedAt": "2026-09-05T20:04:28.068Z",
+  "mode": "build-only",
+  "toolchain": {
+    "buildSbf": "4.3.0",
+    "platformTools": "v1.56",
+    "arch": "v3"
+  },
+  "sourceHashes": {
+    "onchain/ratchet-core-g2/Anchor.toml": "1963557e61e803deac292c3713f72e6043c5603e32ad440621dbbccabec31af3",
+    "onchain/ratchet-core-g2/Cargo.lock": "07ede8261b7a325913d1cba29703a373ada6e992a2b4860f7c1152200174f982",
+    "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
+    "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
+    "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
+    "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "51319eca20661b47dddfa570af2bf7e3656698a9c3410c6367fce3a0f482178d",
+    "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
+    "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "b28cb3d20537988d1e74b58575a658a1d66d5ced1ae70b08501e0ce369df1a0d",
+    "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
+    "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
+    "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "45a44cbb29c80b802d883784122a8af8e2cafd871d0a9f8373cf6f389ba0d9fa",
+    "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
+    "onchain/rcx-timepin-v2/Cargo.lock": "ead68270e8a089f861814ec66b5cb7db2f61feee83486846e75b29249feb7c0c",
+    "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
+    "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
+    "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
+    "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8",
+    "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append.rs": "1c1ef318e856406767f2b2d1bf4c13a208a7ba147fc25ade293ae5aff6708967",
+    "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append2.rs": "cdd38b3019e3e1eedcdf1b1a2902cafe437d0be9f1a3edc44120e5b500581dfc",
+    "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_new.rs": "e17182a5a8433b31470579dbb055a7bad38bbc12d36021418ffacef39a9a2b49",
+    "onchain/rcx-timepin-v2/svm-tests/Cargo.lock": "f424ca13025261cef0ec12f447c0b617a58b4bd4e7f209fd5207a85d08f88e1c",
+    "onchain/rcx-timepin-v2/svm-tests/Cargo.toml": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
+    "onchain/rcx-timepin-v2/svm-tests/fixtures/mainnet-2026-09-04/provenance.json": "c1764e7fb2c0763e9c39c65c15eb250c520cef57410c9a6bac6ae17c903d987b",
+    "onchain/rcx-timepin-v2/svm-tests/tests/conflict_finalize_expire.rs": "a442ab0075370d0ed2340eea94c1e30c84d88deaf336a61994b39d53fa92e51f",
+    "onchain/rcx-timepin-v2/svm-tests/tests/malformed_state.rs": "9a16afa440a783481f241af072ec4a6ff9c8957d86fcc8300bfcdcc9833a2e0d",
+    "onchain/rcx-timepin-v2/svm-tests/tests/registration_open.rs": "e18459eca7aad35f2cd9bc21b8415bb1d183fb60d34b6f3cce30229599e0d615"
+  },
+  "artifacts": {
+    "timepin": {
+      "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+      "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+      "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+      "size": 375944
+    },
+    "core": {
+      "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+      "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d\\ratchet_core_g2.so",
+      "sha256": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d",
+      "size": 1014408
+    }
+  },
+  "stages": [
+    {
+      "name": "build-sbf version",
+      "command": "cargo-build-sbf",
+      "args": [
+        "--version"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "cargo version",
+      "command": "cargo",
+      "args": [
+        "--version"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "install pinned platform tools",
+      "command": "cargo-build-sbf",
+      "args": [
+        "--install-only",
+        "--tools-version",
+        "v1.56"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "Windows rustc alias version",
+      "command": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\rust\\bin\\rustc",
+      "args": [
+        "--version"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "timepin SBPFv3 build",
+      "command": "cargo",
+      "args": [
+        "build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.56",
+        "--sbf-out-dir",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-g2-build-A03mts\\raw\\timepin",
+        "--",
+        "--locked"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "timepin pinned rustc version",
+      "command": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\rust\\bin\\rustc.exe",
+      "args": [
+        "--version"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "timepin pinned clang version",
+      "command": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\clang.exe",
+      "args": [
+        "--version"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "timepin strict artifact verification",
+      "command": "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+      "args": [
+        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+        "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+        "375944"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "core SBPFv3 build",
+      "command": "cargo",
+      "args": [
+        "build-sbf",
+        "--arch",
+        "v3",
+        "--tools-version",
+        "v1.56",
+        "--sbf-out-dir",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-g2-build-A03mts\\raw\\core",
+        "--",
+        "--locked"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "core pinned rustc version",
+      "command": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\rust\\bin\\rustc.exe",
+      "args": [
+        "--version"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "core pinned clang version",
+      "command": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\clang.exe",
+      "args": [
+        "--version"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "core strict artifact verification",
+      "command": "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+      "args": [
+        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d\\ratchet_core_g2.so",
+        "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d",
+        "1014408"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "timepin built artifact readback",
+      "command": "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+      "args": [
+        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+        "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+        "375944"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    },
+    {
+      "name": "core built artifact readback",
+      "command": "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+      "args": [
+        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d\\ratchet_core_g2.so",
+        "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d",
+        "1014408"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "exit": 0,
+      "signal": null
+    }
+  ],
+  "buildSbfVersionOutput": "cargo-build-sbf 4.3.0\nplatform-tools v1.57",
+  "platformPreparation": {
+    "platform": "win32",
+    "version": "v1.56",
+    "rustcAlias": {
+      "path": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\rust\\bin\\rustc",
+      "target": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\rust\\bin\\rustc.exe",
+      "method": "existing-hardlink",
+      "sha256": "efa04a201332111ee821f075de5c3f880cccca4d64788f2a47a631a7420203db",
+      "size": 110592,
+      "versionOutput": "rustc 1.89.0-dev (e57530ef2 2026-08-14)"
+    }
+  },
+  "platformCompilers": {
+    "version": "v1.56",
+    "directory": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools",
+    "rustc": {
+      "path": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\rust\\bin\\rustc.exe",
+      "versionOutput": "rustc 1.89.0-dev (e57530ef2 2026-08-14)",
+      "sha256": "efa04a201332111ee821f075de5c3f880cccca4d64788f2a47a631a7420203db"
+    },
+    "clang": {
+      "path": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\clang.exe",
+      "versionOutput": "clang version 20.1.7-rust-dev (https://github.com/anza-xyz/llvm-project.git c0bfc71a0f44171b31cf0c0025cc6eecbb40d4b4)\nTarget: x86_64-pc-windows-msvc\nThread model: posix\nInstalledDir: C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin",
+      "sha256": "dafb3ffb5386fa84d254c7f81ad6b3f6298b2cc7fd138a5a6af02bd08b895d6a"
+    }
+  },
+  "buildStatus": "BUILT",
+  "finishedAt": "2026-09-05T20:08:13.017Z"
+}
