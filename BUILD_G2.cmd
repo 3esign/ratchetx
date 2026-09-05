@@ -54,7 +54,23 @@ cd ..\..
 
 echo [3/7] Verifying the Timepin artifact ...
 set EXPECT_SBPF=3
-set REQUIRE_CONTENT_ADDRESS=1
+REM  REQUIRE_CONTENT_ADDRESS is deliberately NOT set on this run, and that is
+REM  not a relaxation - it is the only way this step can execute at all.
+REM  verify-artifact.mjs:85-87 makes that mode DEMAND an expected sha256 and an
+REM  expected size as positional arguments, and this script passes neither. So
+REM  it exited 2 and the run died at 3 of 7 with a message about verification
+REM  while nothing was wrong with the artifact. Reproduced 2026-09-05 by OpusB:
+REM    EXPECT_SBPF=3 REQUIRE_CONTENT_ADDRESS=1 node tools\verify-artifact.mjs <so> <id>
+REM    -> 'release mode requires expected sha256, size, and EXPECT_SBPF', exit 2
+REM  It is a catch-22 by construction: release mode checks an artifact against a
+REM  hash we already know, and on the FIRST build of a new identity there is no
+REM  such hash - producing it is the whole point of Gate 1.
+REM  What still guards this run is what matters on a first build: EXPECT_SBPF=3
+REM  refuses a wrong architecture, FORBID_PROGRAM_IDS refuses an ELF that still
+REM  carries the superseded identity. Record the size and sha256 printed below,
+REM  and use REQUIRE_CONTENT_ADDRESS=1 with them on every LATER verification -
+REM  which is the mode it was written for.
+set REQUIRE_CONTENT_ADDRESS=
 set FORBID_PROGRAM_IDS=US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx
 call node tools\verify-artifact.mjs "%TIMEPIN_SO%" %TIMEPIN_ID% >> "%REPORT%" 2>&1
 if errorlevel 1 goto :verifyfail
@@ -76,10 +92,18 @@ call cargo build-sbf --arch v3 -- --locked >> "..\..\%REPORT%" 2>&1
 if errorlevel 1 goto :buildfail
 set CORE_SO=%CD%\target\deploy\ratchet_core_g2.so
 cd ..\..
+REM  Second half of the same defect Opus B found: the original cleared
+REM  FORBID_PROGRAM_IDS after step 3 but left REQUIRE_CONTENT_ADDRESS set, so the
+REM  Core verification died the same way even once step 3 was fixed by hand.
 set EXPECT_SBPF=3
+set REQUIRE_CONTENT_ADDRESS=
 call node tools\verify-artifact.mjs "%CORE_SO%" %CORE_ID% >> "%REPORT%" 2>&1
 if errorlevel 1 goto :verifyfail
 call node tools\verify-artifact.mjs "%CORE_SO%" %CORE_ID%
+echo   RECORD THE size AND sha256 OF BOTH ARTIFACTS. Every verification after
+echo   this one runs with REQUIRE_CONTENT_ADDRESS=1 and those two numbers as
+echo   arguments - that is what makes a later build reproducible rather than
+echo   merely well-formed.
 
 echo [6/7] Running the exact-SBF matrix against the built artifacts ...
 set RCX_TIMEPIN_V2_SO=%TIMEPIN_SO%
