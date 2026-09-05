@@ -112,6 +112,100 @@ re-pin and the ELF hash lock**, or all three are redone.
 
 ---
 
+## 2b. The design law this project is being built under
+
+Stated by Semir, 2026-09-05, and it governs every step below: **go fully on-chain, keep the rules
+flexible enough that the game stays meaningful and playable, and do not be afraid to throw things
+away.** The target is the elegant form that *emerges from the nature of the technology* — discovered
+through the failures, narrowed to the minimum: only the nodes and the connections that matter, the
+way a formula is minimal. Reduction is not cost-cutting here; it is the method.
+
+Applied to what we learned today, the reduction is this:
+
+**Stop treating a settlement price as an approximation of a price that exists somewhere else.**
+There is no keyless per-tick source (§1, proven three times). So the "true first print at `T`" is not
+a thing our machine can ever see, and every rule that pretends otherwise inherits a residual. What the
+chain actually contains is: *signed messages somebody recorded*. Define the game over **that**, and
+the residual stops being a defect in the rule and becomes the rule.
+
+**And then the residual shrinks on its own, for a reason that was already in the design.** A capturer
+who withholds one print to submit a later one is choosing a price — but the shots are **sealed**:
+directions are commitments, revealed after settlement. A capturer therefore does not know which way
+the shots on that target point. Better: the Need is shared — one per `(spec, target_ts)` — so a
+capturer who is also a player moves the price for *every* shot on that target, their opponents
+included. Their edge is diluted by the size of the book. **The residual is inversely proportional to
+the number of players**, which is the same shape as every other guarantee in this system, and it is
+why 1000 players is a security parameter and not only a growth target.
+
+> **VERIFIED 2026-09-05 11:30Z by the lead, in the code, file:line — the ordering holds.**
+> `reveal` (`ratchet-core-g2/src/lib.rs:1974`) requires `shot.state == AwaitReveal` (`:1986-1989`).
+> A shot reaches `AwaitReveal` only through `settle_final` (`:1693`), which requires
+> `shot.state == Active` (`:1705-1708`) **and** an exit Need that is already `FINAL`
+> (`authenticate_final`, `:1727`). A Need reaches `FINAL` only through Timepin's `finalize_handler`,
+> which runs after capture. Therefore **no direction for a target can be revealed before that target
+> has been captured and finalized** — not for shots exiting on `T`, and not for shots entering on `T`
+> either, since those are sealed at entry and revealed only after their own later exit. `settle_final`
+> is permissionless but discloses nothing: it moves state, the direction stays inside the commitment.
+>
+> **What this makes true, and it is the strongest honest claim we have:** a capturer choosing between
+> two prints is blind to every direction on that target except their own. They can see the *size* of
+> the book (account state is public) but not its *lean*. So the exploitable residual is bounded by
+> **the capturer's own share of the book on that target** — not by the whole book, and not by the
+> price gap. One player alone on a target is fully exposed; a target with a real book is not. This is
+> a bound we can state publicly, it is falsifiable, and it is the reason the game gets *safer* as it
+> grows rather than merely bigger.
+
+Three things follow for the sequence, and they are why the phases are ordered as they are:
+
+1. **Fewer moving parts beats more guarantees.** MIN-CAPTURE removes a whole account kind
+   (`CandidateV2`), a whole instruction (`capture_conflict`), and a decoder in Core. That is the
+   right direction of travel; keep looking for the next thing to delete.
+2. **A rule that needs a source we do not have is not a rule.** The strict bracket was elegant on
+   paper and unplayable in fact. Its reopen condition is registered, and it stays shut until the
+   source is real.
+3. **Flexibility lives in the ruleset, not in the program.** Parameters are content-addressed and
+   write-once per economy, so the place to allow future change is a *new registered ruleset*, never a
+   mutable field. Anything an operator could turn is an operator we said we would not have.
+
+## 2c. Open reduction proposal — delete the work market from the launch generation
+
+**Status: proposed by the lead 2026-09-05, NOT decided. Wants two adversarial reviews before it goes
+near the tracker's sequence.** Filed here because §2b says to keep looking for the next thing to
+delete, and this is the largest thing on the board.
+
+**Measured surface.** `WorkPage` / `WorkManifest` / `WORK_KIND` appear **118 times** in
+`rcx-timepin-v2/src/lifecycle.rs` and **95 times** in `ratchet-core-g2/src/lib.rs`. It brings its own
+instructions (`open_work_manifest`, `open_work_page`, `reserve_work`), its own account kinds, its own
+rent, and its own failure modes — Fable's B6.5 is one of them: `void_pending_entry` calls
+`complete_optional_work` three times, each re-loading and re-serialising a page whose validation is
+O(n²) over 48 records, and **no SBF test fills a page**, so the compute ceiling is unmeasured on the
+path that runs when things go wrong.
+
+**What it buys.** It is what makes capture permissionless *and* paid, so that cranks exist without us
+running them. That matters: a game whose settlement depends on Semir's machine has an operator, and
+we said we would not have one.
+
+**The reduction.** The same meaning in a fraction of the form: **an inline capture bounty in the
+Need.** Escrow it when the Need is opened, record the worker in the observation (MIN-CAPTURE already
+adds that field), pay it once at finalize to the recorded worker. No `WorkPage`, no `WorkManifest`,
+no reservations, no page rollover, no O(n²) validation, no extra rent, and the compute path that
+currently has no test simply stops existing. Permissionless and paid, both kept.
+
+**What this would lose, honestly:** the general market — sponsoring arbitrary future work kinds,
+several workers splitting one job, work that is not capture. None of that is needed to play a shot,
+and none of it is on the path to mainnet. It can return later as its own program without touching a
+frozen Core.
+
+**Before this becomes a decision it needs, in the room:**
+1. An adversarial review that names a launch-critical thing the inline bounty cannot do
+   (Astra-class: try to break it, do not try to agree).
+2. A measurement of what actually depends on `WorkPage` today outside capture and terminalize —
+   if the answer is "nothing", that is the answer.
+3. Semir's call, because it changes what the launch economy pays for, and payment shape is his §4.
+
+Until all three exist, **nobody deletes anything.** MIN-CAPTURE lands as specified, with
+`WORK_KIND_FIRST_CAPTURE` versioned per `MIN_CAPTURE_SPEC.md` §5, and this proposal stays proposed.
+
 ## 3. Sequence, with the gate that closes each step
 
 No step is "done" without its exit evidence in git. A DONE without a commit hash is a draft.
@@ -174,7 +268,12 @@ Freeze is a separate, later ceremony that needs fresh authorization. It is not p
    case into a rate-limit, not a bill) **or** wait for the monthly reset and accept a dead site until then.
    Option (a) is the only one that keeps players and Bankr alive while G2 is built.
 2. **`releases/g2-mainnet-economy.json`** (B4) — the write-once parameter manifest. One wrong number is
-   permanent for that economy. Proposed values with rationale: `entry_mode = forward only`;
+   permanent for that economy, and a new economy means every player re-opens a ledger.
+   **The numbers below are the LEAD's proposal, for Semir to accept, change or reject. No agent may
+   cite them as his, quote them as approved, or register from a file that does. A draft manifest
+   carries `"status": "DRAFT - NOT APPROVED BY THE OWNER, MUST NOT BE REGISTERED"` until he says
+   otherwise.** (Written after an agent attributed every one of these to him on 2026-09-05.)
+   Lead's proposal: `entry_mode = forward only`;
    `hit_payout = 1.7x` plus `require!(num < 2*den)`; `reveal_window >= 3600 s`; `cleanup_bond >= 50,000`;
    `max_open = 5`; `max_post_target_lag` per feed from the 24 h measurement; `band_numerator = 0`;
    legacy root all-zero with a nonzero `migration_id`; `timepin_program = C8ww`.
