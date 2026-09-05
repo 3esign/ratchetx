@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { Keypair } from '@solana/web3.js';
 import {
   STEPS, plan, voidRate, decodeTimepinNeedV2, NEED_STATE, VOID_STATES, TERMINAL_STATES,
-  loadReceipt,
+  loadReceipt, report,
 } from '../onchain/rcx-timepin-v2/scripts/devnet-2-2.mjs';
 import {
   encodeTimepinNeedV2, TIMEPIN_NEED_V2_ACCOUNT_LEN,
@@ -168,5 +168,92 @@ check(() => {
   assert.deepEqual(fresh.sends, [], 'and no signatures');
   assert.equal(fresh.schema, 1);
 }, 'a missing receipt starts empty rather than throwing');
+
+// --- report(): the receipt becomes the exit artifact ----------------------------
+
+const needAccount = (state, targetTs) => encodeTimepinNeedV2({
+  schema: 2, bump: 254, state,
+  evidenceSpecHash: Buffer.alloc(32, 9),
+  targetTs: BigInt(targetTs), sourceDeadlineTs: BigInt(targetTs + 120),
+  captureDeadlineTs: BigInt(targetTs + 180),
+  candidateAHash: Buffer.alloc(32), candidateBHash: Buffer.alloc(32),
+});
+
+const receiptOf = states => ({
+  schema: 1, cluster: 'https://api.devnet.solana.com',
+  sends: states.map((_, i) => ({ label: `open_need ${i}`, signature: `sig${i}` })),
+  steps: {},
+  targets: Object.fromEntries(states.map((s, i) => [String(1788609000 + i * 60), { need: `NEED${i}`, opened: true }])),
+});
+
+const accountsFor = states => async keys => keys.map((k) => {
+  const i = Number(k.slice(4));
+  const state = states[i];
+  if (state === null) return null;                        // never created / gone
+  if (state === 'GARBAGE') return { data: Buffer.alloc(77) };  // wrong length
+  return { data: needAccount(state, 1788609000 + i * 60) };
+});
+
+{
+  const clean = Array(60).fill('Final');
+  const r = await report({ receipt: receiptOf(clean), getAccounts: accountsFor(clean) });
+  check(() => {
+    assert.equal(r.summary.terminal, 60);
+    assert.equal(r.summary.voids, 0);
+    assert.equal(r.summary.rate, 0);
+    assert.equal(r.summary.signatures, 60, 'the signature count comes from the receipt, not the chain');
+    assert.deepEqual(r.summary.states, { FINAL: 60 });
+    assert.equal(r.summary.meetsGate2, true);
+  }, 'report turns a clean receipt into a passing GATE 2 artifact');
+}
+
+{
+  const mixed = [...Array(58).fill('Final'), 'Expired', 'Ambiguous'];
+  const r = await report({ receipt: receiptOf(mixed), getAccounts: accountsFor(mixed) });
+  check(() => {
+    assert.equal(r.summary.terminal, 60);
+    assert.equal(r.summary.voids, 2, 'EXPIRED and AMBIGUOUS both count');
+    assert.ok(Math.abs(r.summary.rate - 2 / 60) < 1e-12);
+    assert.equal(r.summary.meetsGate2, true, '3.33 % over 60 terminal targets passes');
+    assert.equal(r.summary.states.FINAL, 58);
+  }, 'report counts EXPIRED and AMBIGUOUS as voids');
+}
+
+{
+  // The failure that matters: a Need we opened and paid for that is not on the
+  // chain is a HOLE IN THE EVIDENCE, not a void. Folding it into the denominator
+  // would let a broken run report a clean rate — 59 FINAL out of 59 is 0 %.
+  // SIXTY terminal targets plus the hole, not 59: with 59 the run already fails
+  // on the target floor and the hole clause is never load-bearing. This isolates it.
+  const holed = [...Array(60).fill('Final'), null];
+  const r = await report({ receipt: receiptOf(holed), getAccounts: accountsFor(holed) });
+  check(() => {
+    assert.equal(r.missing.length, 1, 'the missing Need is named');
+    assert.equal(r.summary.states.MISSING, 1, 'and it shows up in the state histogram');
+    assert.equal(r.summary.terminal, 60, 'sixty targets DID resolve, so the floor is met');
+    assert.equal(r.summary.voids, 0, 'and the hole is not a void');
+    assert.equal(r.summary.rate, 0, 'so the ratio over what resolved is a clean 0 %');
+    assert.equal(voidRate({ ...r.targets }).meetsGate2, true,
+      'and the ratio alone would PASS — which is exactly the trap');
+    assert.equal(r.summary.meetsGate2, false,
+      'it still fails, because a run with a hole in it has not measured anything');
+  }, 'a missing Need fails the gate even at a 0 % void rate');
+}
+
+{
+  const bad = [...Array(60).fill('Final'), 'GARBAGE'];
+  const r = await report({ receipt: receiptOf(bad), getAccounts: accountsFor(bad) });
+  check(() => {
+    assert.equal(r.undecodable.length, 1, 'an account that is not a Need is reported');
+    assert.match(r.undecodable[0].error, /expected 132/, 'with the reason');
+    assert.equal(r.summary.meetsGate2, false, 'and it fails the gate');
+  }, 'an undecodable account is a hole too, not a silent skip');
+}
+
+check(() => {
+  assert.rejects(
+    () => report({ receipt: { targets: {} }, getAccounts: async () => [] }),
+    /records no Needs/, 'an empty receipt is not a clean run');
+}, 'an empty receipt cannot report a pass');
 
 console.log(`devnet 2.2 plan: ${checks} checks passed (host tier; no cluster contacted)`);

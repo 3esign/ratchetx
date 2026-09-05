@@ -14,6 +14,8 @@
 //            Sends nothing, needs no cluster, needs no keypair. Reviewable now.
 //   run      executes the steps in order against a devnet cluster, writing each
 //            step's signature into a receipt file BEFORE the next step begins.
+//   --report-only  reads an existing receipt, reads every Need back off the
+//            chain, and turns it into the GATE 2 exit artifact. Sends nothing.
 //
 // The receipt is resumable on purpose. 2.2's exit evidence is "a signature per
 // instruction and a measured void rate over >= 60 targets", which at a 60 s grid
@@ -232,6 +234,67 @@ export function voidRate(targets) {
   };
 }
 
+// --- report: a receipt becomes the GATE 2 exit artifact by itself ---------------
+//
+// 2.2's exit evidence is "a signature per instruction and a MEASURED void rate
+// over >= 60 targets". Those are two different artifacts and only the first is
+// produced by running. This turns the receipt into the second, and it is a
+// separate entry point on purpose: the run takes over an hour of wall clock and
+// the reading is worth repeating afterwards without re-sending anything.
+//
+// `getAccounts` is injected so the arithmetic is provable with no cluster.
+
+export async function report({ receipt, getAccounts }) {
+  const keys = Object.entries(receipt.targets ?? {})
+    .filter(([, t]) => t.need)
+    .map(([target, t]) => ({ target, need: t.need }));
+  if (!keys.length) throw new Error('the receipt records no Needs, so there is nothing to measure');
+
+  const infos = await getAccounts(keys.map(k => k.need));
+  const targets = {};
+  const missing = [];
+  const undecodable = [];
+  for (const [i, k] of keys.entries()) {
+    const info = infos[i];
+    if (!info) {
+      // A Need we opened and paid for that is not there is not a void. It is a
+      // hole in the evidence, and folding it into the denominator would let a
+      // broken run report a clean rate.
+      missing.push(k.need);
+      targets[k.target] = { need: k.need, stateName: 'MISSING' };
+      continue;
+    }
+    try {
+      const decoded = decodeTimepinNeedV2(info.data);
+      targets[k.target] = {
+        need: k.need, stateName: decoded.stateName,
+        targetTs: String(decoded.targetTs),
+        captureDeadlineTs: String(decoded.captureDeadlineTs),
+      };
+    } catch (error) {
+      undecodable.push({ need: k.need, error: error.message });
+      targets[k.target] = { need: k.need, stateName: 'UNDECODABLE' };
+    }
+  }
+
+  const rate = voidRate(targets);
+  const states = {};
+  for (const t of Object.values(targets)) states[t.stateName] = (states[t.stateName] ?? 0) + 1;
+
+  const summary = {
+    at: new Date().toISOString(),
+    cluster: receipt.cluster ?? null,
+    signatures: (receipt.sends ?? []).length,
+    states,
+    ...rate,
+    missing: missing.length,
+    undecodable: undecodable.length,
+    // A run with holes in it has not measured anything, whatever the ratio says.
+    meetsGate2: rate.meetsGate2 && missing.length === 0 && undecodable.length === 0,
+  };
+  return { summary, targets, missing, undecodable };
+}
+
 // --- run -----------------------------------------------------------------------
 
 async function run({ targets = 60, grid = DEFAULT_POLICY.targetGridSeconds, out } = {}) {
@@ -340,6 +403,41 @@ async function main() {
   const targets = Number(flag('targets', 60));
   const grid = Number(flag('grid', DEFAULT_POLICY.targetGridSeconds));
   if (process.argv.includes('--plan')) { console.log(plan({ targets, grid })); return; }
+
+  if (process.argv.includes('--report-only')) {
+    const path = receiptPath(flag('out', undefined));
+    if (!existsSync(path)) throw new Error(`no receipt at ${path}; there is nothing to report on`);
+    const receipt = loadReceipt(path);
+    const url = assertCluster(receipt.cluster || process.env.RATCHET_RPC_URL || 'https://api.devnet.solana.com');
+    const connection = new Connection(url, 'confirmed');
+    const { summary, targets: rows, missing, undecodable } =
+      await report({
+        receipt,
+        getAccounts: async keys => {
+          const out = [];
+          // getMultipleAccounts caps at 100 keys per call.
+          for (let i = 0; i < keys.length; i += 100)
+            out.push(...await connection.getMultipleAccountsInfo(
+              keys.slice(i, i + 100).map(k => new PublicKey(k)), 'confirmed'));
+          return out;
+        },
+      });
+    receipt.report = summary;
+    receipt.targets = { ...receipt.targets, ...Object.fromEntries(
+      Object.entries(rows).map(([t, v]) => [t, { ...(receipt.targets[t] ?? {}), ...v }])) };
+    saveReceipt(path, receipt);
+    console.log(JSON.stringify(summary, null, 2));
+    if (missing.length) console.log(`\nMISSING Needs (opened, paid for, not on chain): ${missing.length}`);
+    if (undecodable.length) console.log(`UNDECODABLE Needs: ${undecodable.length}`);
+    console.log(summary.meetsGate2
+      ? `\nGATE 2 void rate: ${(100 * summary.rate).toFixed(2)} % over ${summary.terminal} terminal targets — PASSES.`
+      : `\nGATE 2 NOT met: ${summary.terminal} terminal targets, ${summary.voids} voids` +
+        `${summary.rate === null ? '' : ` (${(100 * summary.rate).toFixed(2)} %)`}` +
+        `${summary.missing ? `, ${summary.missing} MISSING` : ''}` +
+        `${summary.undecodable ? `, ${summary.undecodable} UNDECODABLE` : ''}.`);
+    return;
+  }
+
   await run({ targets, grid, out: flag('out', undefined) });
 }
 

@@ -98,7 +98,7 @@
   },
   "evidenceSpecTemplate": {
     "schema": 2,
-    "adapter": 3,
+    "adapter": 2,
     "receiverProgram": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
     "pushOracleProgram": "pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou",
     "shardId": 0,
