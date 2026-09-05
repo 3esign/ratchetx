@@ -9,6 +9,11 @@ on 2026-09-05 by people reading each other's work, and three of them were the le
 
 Run the gate, never read it: `node tools/mainnet-go-check.mjs`. It answers NO by default.
 
+**The owner set the order on 2026-09-05, and it governs this file:**
+**mainnet ready first, then the site, then live.** The site is not a follow-up to
+the launch; it is part of the mainnet goal and it ships with it. What it is *not*
+is a reason for anyone on B1, B2, L1 or L2 to look away from those rows.
+
 ---
 
 ## Where we are
@@ -63,22 +68,36 @@ oracle print cancelling a round.
 
 ---
 
-## Phase 3 — the site · owner site lead · exit: **a stranger completes a shot in a browser**
+## Phase 3 — the site, rebuilt · owner GeminiForge + Astra 2 · exit: **a stranger completes a shot in a browser and re-verifies it against the chain without us**
+
+**The brief changed on 2026-09-05.** The owner asked for a site rebuilt around what
+the game now is: at least twice as detailed as what we have, careful transaction
+views and links, elegant, serious unserious fun. The full specification is
+`docs/SITE_V2_SPEC.md`, and it is not decoration: the detail already exists on
+chain. `Shot` (`state.rs:225`, LEN 772) carries both prices, both confidences, both
+exponents, both publish times, both message hashes, both Timepin result hashes, the
+resolver, the salt, `resolution_hash` and `terminal_hash`. The old page showed a
+server's opinion of a game. The new one shows the game.
 
 **The site is DOWN right now.** `ratchetx.xyz/api/game?action=state` returns
 `{"ok":false,"reason":"kv 400: ERR max requests limit exceeded. Limit: 500000, Usage: 500000"}`.
-Upstash's request allowance is exhausted, so the legacy game state is unreachable.
+Upstash's request allowance is exhausted. That is a symptom of 3.1's real cause —
+five API calls per minute per tab, and a retry that doubled the burn (`5da54e9`).
 
 | # | task | done when |
 |---|---|---|
-| 3.1 | Restore `/api/game` | 200 with real state, and a quota headroom number written down |
+| 3.1 | Stop the polling, then restore `/api/game` | 200 with real state, reads on demand rather than on a timer, and a written headroom number |
 | 3.2 | The public proof is current | payload age under one hour, not 26 |
 | 3.3 | Point the page at **G2**, not the legacy server | `index.html:921` no longer `const API='/api/game'` for shot flow |
 | 3.4 | Wallet signs the seal in the browser | a devnet signature from a fresh browser profile |
-| 3.5 | The page tells the truth about what is live | no text describing the legacy machine as the game |
+| 3.5 | Every ShotState and VoidReason has a written arm | no default arm anywhere; an unknown value renders as unknown, loudly |
+| 3.6 | The shot screen renders the whole `Shot` account | every field in SITE_V2_SPEC §1, prices as `price × 10^exponent` with `conf` beside them |
+| 3.7 | Save the game | a downloaded file carrying the SITE_V2_SPEC §3 tuple, the cluster it was read from, and the command that checks it |
+| 3.8 | Every hash and address is a cluster-correct link | cluster from the genesis-hash check, never a build-time constant |
+| 3.9 | The page tells the truth about what is live | the server record and the chain record are two blocks with two headings, and only one of them is called verified |
 
-**3.1 is a dependency, not a nicety:** while the quota is exhausted the site cannot serve
-anybody, so nothing downstream of it can be demonstrated.
+**3.3 makes 3.1 permanent** rather than survived: a page reading the chain is not
+spending a server's request allowance at all.
 
 ---
 
