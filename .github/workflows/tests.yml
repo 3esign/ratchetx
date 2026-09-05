@@ -1,7 +1,6 @@
-# Tests on every push. Two agents push to this repository; nobody should have
-# to remember to run the suite by hand. The fixture-server tests (align,
-# chal_ui, funnel, notify, widths) self-skip when nothing listens on
-# 127.0.0.1:8247 — that skip is by design, in CI as everywhere else.
+# Both platforms run the portable suite. Windows also executes the real
+# DEPLOY.cmd exit-code check. Browser fixtures start automatically; any skipped
+# case fails its gate. Both matrix jobs must pass before release.
 name: tests
 on:
   push:
@@ -10,7 +9,11 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
@@ -19,6 +22,10 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Install Playwright browsers (for the browser-driven tests)
+      - name: Install Chromium for Linux browser tests
+        if: runner.os == 'Linux'
         run: npx playwright install --with-deps chromium chromium-headless-shell
+      - name: Install Chrome for Windows browser tests
+        if: runner.os == 'Windows'
+        run: npx playwright install chrome
       - run: npm test

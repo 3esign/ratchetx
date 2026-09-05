@@ -10,9 +10,15 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { verdictFor, gateExit, runSuite, confirmationNote } from './suite-verdict.mjs';
+import { selectSuites, spawnWithTap } from './test-suite-selection.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = join(root, 'test');
+const files = selectSuites(readdirSync(dir),
+  process.platform === 'win32' ? readdirSync(join(dir, 'windows')) : [], process.platform);
+console.log('Test scope (' + process.platform + '): portable suites'
+  + (process.platform === 'win32' ? ' + native Windows deployment suites'
+    : '; native Windows deployment suites run in the required Windows CI job'));
 
 // These drive a real browser (Playwright) against a locally served copy of the
 // site. They used to be skipped unless somebody had already started a server on
@@ -110,14 +116,14 @@ try {
     : `no browser to drive (${text.slice(0, 80)}) — run: npx playwright install chromium`;
 }
 
-const files = readdirSync(dir).filter(f => /^test_.*\.mjs$/.test(f)).sort();
 // No suite gets to run forever. DEPLOY.cmd waits on `npm test`, so one suite
 // blocked on a socket that will never answer used to hang the release gate
 // itself, with no output naming the file. Two minutes is generous for
 // everything here; RATCHET_SUITE_TIMEOUT_MS raises it for a slow machine.
 const SUITE_TIMEOUT_MS = Number(process.env.RATCHET_SUITE_TIMEOUT_MS) || 120_000;
 const run = f => runSuite(join(dir, f), {
-  execPath: process.execPath, cwd: dir, timeoutMs: SUITE_TIMEOUT_MS, spawn,
+  execPath: process.execPath, cwd: dir, timeoutMs: SUITE_TIMEOUT_MS,
+  spawn: (...args) => spawnWithTap(spawn, ...args),
 });
 
 // A suite that exits 0 is not the same as a suite that proved something, and the
@@ -129,8 +135,8 @@ const run = f => runSuite(join(dir, f), {
 // test_deploy_input.mjs kept its DEPLOY.cmd exit-code case dark on every machine
 // that is not Windows -- a release-gate assertion, invisible in CI.
 //
-// node:test already prints its own counters in TAP and this runner already
-// captures the child's output; it just threw it away on success. Read them.
+// Explicit TAP reporting keeps these counters visible across Node versions;
+// relying on the default reporter can hide skips behind a successful exit.
 // The judgement itself lives in scripts/suite-verdict.mjs so it can be tested
 // without running 127 suites -- see test/test_run_tests_gate.mjs.
 
