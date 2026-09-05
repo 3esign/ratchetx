@@ -24,6 +24,7 @@
 // go stale the way a hand-copied constant does.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import crypto from 'node:crypto';
 
 const CORE = new URL('../onchain/ratchet-core-g2/programs/ratchet-core-g2/src/', import.meta.url);
 const TP = new URL('../onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/', import.meta.url);
@@ -133,6 +134,41 @@ for (const seed of ['need', 'evidence_spec', 'candidate']) {
   ok(inCore && inTp, `both crates must derive the ${seed} PDA from b"${seed}" - a seed drift is a silently wrong PDA`);
 }
 
+// --- 6. the discriminators, DERIVED rather than trusted -----------------------
+// Anchor's account discriminator is sha256("account:" + StructName)[0..8]. Core
+// hardcodes all three as byte arrays, so a RENAME in the timepin crate silently
+// invalidates them: Core would keep looking for bytes no account ever carries
+// again and every load would fail with BadTimepinDiscriminator - or, worse, a
+// name reused elsewhere would make it read the wrong account type at the right
+// length. Nothing derives these anywhere. This does.
+const anchorDiscriminator = (name) =>
+  [...crypto.createHash('sha256').update(`account:${name}`).digest().subarray(0, 8)];
+
+for (const [constName, structName] of [
+  ['NEED_DISCRIMINATOR', 'TimepinNeedV2'],
+  ['EVIDENCE_SPEC_DISCRIMINATOR', 'EvidenceSpecV2'],
+  ['CANDIDATE_DISCRIMINATOR', 'CandidateV2'],
+]) {
+  const m = new RegExp(`const ${constName}\\s*:\\s*\\[u8;\\s*8\\]\\s*=\\s*\\[([^\\]]*)\\]`).exec(foreign);
+  ok(m, `foreign_timepin.rs must declare ${constName}`);
+  const have = m[1].split(',').map(x => Number(x.trim())).filter(x => Number.isFinite(x));
+  eq(have.length, 8, `${constName} must be exactly 8 bytes`);
+  // The struct must still be an Anchor account in the timepin crate, or the
+  // derivation below is comparing against a name that no longer means anything.
+  ok(new RegExp(`#\\[account\\][\\s\\S]{0,400}?pub struct ${structName}\\b`).test(tpAll)
+     || new RegExp(`pub struct ${structName}\\b`).test(tpAll),
+     `${structName} must still exist in the timepin crate`);
+  const want = anchorDiscriminator(structName);
+  eq(have.join(','), want.join(','),
+    `${constName} in foreign_timepin.rs is [${have.map(b => '0x' + b.toString(16).padStart(2, '0')).join(', ')}] `
+    + `but Anchor derives sha256("account:${structName}")[0..8] = `
+    + `[${want.map(b => '0x' + b.toString(16).padStart(2, '0')).join(', ')}]. Core is looking for a discriminator `
+    + 'no account carries. Every load of this account type fails with BadTimepinDiscriminator on chain, and no '
+    + 'compile and no host suite in either crate can see it.');
+}
+
 if (drift.length) console.log('  DRIFT: ' + drift.join(' | '));
 console.log(`PASS  foreign timepin ABI: ${checks} checks - every account length, the field order of the `
-  + 'Need view and the three seeds are compared ACROSS the two crates, not copied into a third place');
+  + 'Need view, the three seeds and all three discriminators are compared ACROSS the two crates. The lengths '
+  + 'and seeds are parsed from the source that owns them and the discriminators are DERIVED from the struct '
+  + 'names, so nothing here is a copy that can go stale');
