@@ -244,11 +244,25 @@ check('M3', 'HistoryPage/WorkPage do not lock rent per sixteen shots', () => {
 
 // ---- the manifest ---------------------------------------------------------
 check('P1', 'the economy manifest is approved, not a draft', () => {
-  const s = read(MANIFEST);
-  if (!s) return { ok: false, detail: 'manifest missing' };
-  const j = JSON.parse(s);
-  const draft = JSON.stringify(j).includes('DRAFT');
-  return { ok: !draft, pending: draft, detail: draft ? 'status is DRAFT - NOT APPROVED BY THE OWNER' : 'approved' };
+  // Rewritten 2026-09-05 21:5xZ. The old row searched the WHOLE document for the
+  // six letters DRAFT: JSON.stringify(j).includes('DRAFT'). From 7ca9be5 - the
+  // commit that recorded Semir's signature - it printed
+  //
+  //   "status is DRAFT - NOT APPROVED BY THE OWNER"
+  //
+  // about a manifest whose status field reads "APPROVED BY THE OWNER
+  // 2026-09-05", because that same commit also recorded the status the
+  // signature REPLACED, in prose, in approval.signingStatementContext. I then
+  // reported 4 of 21 blocking for the rest of the day while it was 5. A row is
+  // read by its output, not by its name.
+  //
+  // The test reads status FIELDS by key at any depth, and a manifest with no
+  // status at all FAILS there rather than passing - which the substring row did
+  // not do either. It proves itself red on nine mutations on every run.
+  const r = spawnSync('node', ['test/test_manifest_is_approved.mjs'], { encoding: 'utf8', timeout: 60000 });
+  const tail = ((r.stdout || '') + (r.stderr || '')).trim().split('\n').slice(-2).join(' ').slice(0, 300);
+  return { ok: r.status === 0, pending: r.status !== 0,
+           detail: r.status === 0 ? 'approved, signed, and no status field anywhere says draft' : tail };
 }, 'Semir');
 
 check('P2', 'every feed has lag = grid - 1, asked of every feed by name', () => {
