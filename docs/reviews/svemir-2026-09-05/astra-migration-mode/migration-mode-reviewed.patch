@@ -1,0 +1,1014 @@
+diff --git a/README.md b/README.md
+index b9ab040..3822531 100644
+--- a/README.md
++++ b/README.md
+@@ -1,3 +1,18 @@
++> **Service status:** this release serves migration mode. Gameplay is paused; migration has
++> not happened, nothing is claimable, and no wallet action is needed. Legacy gameplay APIs
++> return 503 before loading their store dependencies. `/api/proof` and `/api/supply` remain
++> available as diagnostic routes but still use KV and public RPC and may be stale or fail.
++> The gameplay and recovery instructions below describe the historical implementation.
++> This source change alone is not a deployment receipt or a mainnet release.
++
++The deployment setting `RATCHETX_SITE_MODE` defaults to migration mode. Keep it
++unset or set to `migration` for this release. Only the exact value `legacy` enables
++the preserved backend and its durable-store build prerequisite; a request cannot
++change this setting. Restoring legacy backend mode does not restore public page
++routing or scheduled jobs: those require a separate, reviewed configuration change.
++The test runner sets `legacy` for historical suites; the migration suite independently
++checks the default mode, including HTTP requests, without inheriting that setting.
++
+ # RatchetX — the machine that cannot lie
+ 
+ Live: **https://ratchetx.xyz** · Token: **$RCX** on
+@@ -100,8 +115,8 @@ program-owned clock; settlement selects the first verified Ratchet checkpoint cr
+ with disjoint settle/void deadlines, commit-reveal and rent cleanup. This needs no Hermes API key or
+ trusted price signer. Eligible SOL chambers expose optional player-paid sealing during the soak
+ period; server settlement remains canonical until checkpoint, settle, reveal and close automation
+-is integrated end to end. Upgrade authority is deliberately retained during soak — and is revoked
+-for good on **2026-09-08**, registered before the fact in [docs/FREEZE.md](docs/FREEZE.md). This program is
++is integrated end to end. The earlier September 8 revocation schedule is withdrawn; no new
++revocation date is committed. Check the ProgramData account for the current authority. This program is
+ not a redeemable floor vault; do not describe the modeled floor as redeemable until a separate
+ funded vault PDA, liabilities proof and no-withdraw path are deployed and independently reviewed.
+ 
+@@ -211,6 +226,5 @@ labeled display-only fallback and can never enable sealing ·
+ `RATCHET_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)
+ 
+ No player-funds key exists in the site or backend; the game cannot custody or move player tokens. The
+-program upgrade authority is retained offline only for the declared soak period — which now has an end
+-date: **revoked on 2026-09-08**, registered in advance in [docs/FREEZE.md](docs/FREEZE.md). Read the
+-code; that is the point.
++program upgrade authority remains a separate on-chain fact. No revocation date is committed;
++verify the ProgramData account rather than relying on a past schedule. Read the code.
+diff --git a/api/agent-entry.js b/api/agent-entry.js
+index a975ae9..d48f237 100644
+--- a/api/agent-entry.js
++++ b/api/agent-entry.js
+@@ -1,4 +1,10 @@
+ 'use strict';
++// Migration guard precedes all legacy imports and side effects.
++const _ratchetMigrationMode = require('../lib/migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  module.exports = _ratchetMigrationMode.respond;
++} else {
++'use strict';
+ // Canonical x402 paid resource for autonomous-agent discovery.
+ //
+ // POST with no PAYMENT-SIGNATURE returns a Bazaar-described x402 v2 quote.
+@@ -54,3 +60,5 @@ module.exports = async function agentEntry(req, res) {
+       retryable: true, detail: String(e && e.message || e).slice(0, 180) });
+   }
+ };
++
++}
+diff --git a/api/blink.js b/api/blink.js
+index a21829b..c1f5e62 100644
+--- a/api/blink.js
++++ b/api/blink.js
+@@ -1,3 +1,8 @@
++// Migration guard precedes all legacy imports and side effects.
++const _ratchetMigrationMode = require('../lib/migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  module.exports = _ratchetMigrationMode.respond;
++} else {
+ const { getJSON } = require('../lib/kv');
+ const { b58decode } = require('../lib/verify');
+ const PUBLIC_ORIGIN = (process.env.PUBLIC_ORIGIN || 'https://ratchetx.xyz').replace(/\/$/, '');
+@@ -101,3 +106,5 @@ module.exports = async function(req, res) {
+ };
+ 
+ module.exports.memoTransaction = memoTransaction;
++
++}
+diff --git a/api/feeds.js b/api/feeds.js
+index 3641824..248461c 100644
+--- a/api/feeds.js
++++ b/api/feeds.js
+@@ -1,3 +1,8 @@
++// Migration guard precedes all legacy imports and side effects.
++const _ratchetMigrationMode = require('../lib/migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  module.exports = _ratchetMigrationMode.respond;
++} else {
+ // ============================================================
+ //  api/feeds.js — THE OBSERVATORY.
+ //
+@@ -325,3 +330,5 @@ ${all ? `<div class="card">
+   res.setHeader('cache-control', 'public, max-age=60');
+   return res.status(200).end(html);
+ };
++
++}
+diff --git a/api/game.js b/api/game.js
+index 251a42e..1d3f6af 100644
+--- a/api/game.js
++++ b/api/game.js
+@@ -1,3 +1,8 @@
++// Migration guard precedes all legacy imports and side effects.
++const _ratchetMigrationMode = require('../lib/migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  module.exports = _ratchetMigrationMode.respond;
++} else {
+ // ============================================================
+ //  api/game.js — the whole backend in one endpoint.
+ //    GET  ?action=state[&wallet=..]   world + your player + ladders
+@@ -3728,3 +3733,5 @@ module.exports = async (req, res) => playerWrites.run(async () => {
+ module.exports.champWindowSum = champWindowSum;   // pure, for the test harness
+ module.exports.refreshLivePodium = refreshLivePodium;
+ module.exports.parseMirrorSeal = parseMirrorSeal;
++
++}
+diff --git a/api/ledger.js b/api/ledger.js
+index 085c13d..494079f 100644
+--- a/api/ledger.js
++++ b/api/ledger.js
+@@ -1,3 +1,8 @@
++// Migration guard precedes all legacy imports and side effects.
++const _ratchetMigrationMode = require('../lib/migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  module.exports = _ratchetMigrationMode.respond;
++} else {
+ // ============================================================
+ //  api/ledger.js — THE COINFLIP LEDGER
+ //
+@@ -181,3 +186,5 @@ module.exports = async (req, res) => {
+     send(500, { ok: false, reason: String((e && e.message) || e).slice(0, 200) });
+   }
+ };
++
++}
+diff --git a/api/log.js b/api/log.js
+index c86111d..1206f42 100644
+--- a/api/log.js
++++ b/api/log.js
+@@ -1,3 +1,8 @@
++// Migration guard precedes all legacy imports and side effects.
++const _ratchetMigrationMode = require('../lib/migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  module.exports = _ratchetMigrationMode.respond;
++} else {
+ // ============================================================
+ //  api/log.js — THE EVENT LOG, one page at a time.
+ //
+@@ -120,3 +125,5 @@ module.exports = async (req, res) => {
+     res.status(500).json({ ok: false, reason: String((e && e.message) || e).slice(0, 200) });
+   }
+ };
++
++}
+diff --git a/api/mcp.js b/api/mcp.js
+index babd1f6..c8f384d 100644
+--- a/api/mcp.js
++++ b/api/mcp.js
+@@ -1,4 +1,10 @@
+ 'use strict';
++// Migration guard precedes all legacy imports and side effects.
++const _ratchetMigrationMode = require('../lib/migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  module.exports = _ratchetMigrationMode.respond;
++} else {
++'use strict';
+ // Streamable HTTP MCP adapter for the FREE demo surface.
+ //
+ // This is deliberately an adapter, not a second game implementation: every
+@@ -434,3 +440,5 @@ module.exports = async function handler(req, res) {
+ module.exports.TOOLS = TOOLS;
+ module.exports.SUPPORTED_PROTOCOLS = SUPPORTED_PROTOCOLS;
+ module.exports.inspectionContract = inspectionContract;
++
++}
+diff --git a/api/proof.js b/api/proof.js
+index e5e7d96..58943ed 100644
+--- a/api/proof.js
++++ b/api/proof.js
+@@ -62,7 +62,7 @@ async function getCoin() {
+ 
+ module.exports = async (req, res) => {
+   try {
+-    const cached = await getJSON('g:proofcache');
++    const cached = await getJSON('g:proofcache:migration-v1');
+     if (cached && Date.now() - cached.t < 25_000) return res.json(cached);
+ 
+     const checks = [];
+@@ -172,7 +172,7 @@ module.exports = async (req, res) => {
+           `${SOLSCAN}/token/${MINT}`);
+         push('freeze', info.freezeAuthority == null ? 'green' : 'red',
+           'Token account-freeze authority revoked',
+-          info.freezeAuthority == null ? 'no RCX account can ever be frozen by anyone — this is the SPL freeze authority on the mint, and it is not the 2026-09-08 program freeze, which is the line below'
++          info.freezeAuthority == null ? 'no RCX account can be frozen using the revoked SPL freeze authority — program upgrade authority is a separate check below'
+                                        : `STILL SET: ${info.freezeAuthority}`,
+           `${SOLSCAN}/token/${MINT}`);
+ 
+@@ -270,8 +270,7 @@ module.exports = async (req, res) => {
+         ? 'program 23k3…ZEEX is executable and owns the SOL FeedClock checked now · a player may seal a SOL shot on-chain without changing game XP · server settlement remains canonical during the soak period · upgrade authority is retained during that period · this program is not the floor vault'
+         : 'program 23k3…ZEEX was deployed from the reproducible v2 binary with first-checkpoint crossing, confidence and disjoint void-deadline rules; the feature stays optional until the configured program, cluster, RPC and clock all verify',
+       'https://solscan.io/account/' + MAINNET_SEAL_V2);
+-    // The freeze promised for 2026-09-08 is a fact on the chain, so it belongs on this
+-    // page as a line that flips by itself rather than as a sentence we update by hand.
++    // Report the authority actually observed on-chain; a schedule is not a revocation.
+     // ProgramData is findProgramAddress([programId], BPFLoaderUpgradeab1e11111111111111111111111);
+     // its layout is u32 enum(3) · u64 slot · Option<Pubkey>, so byte 12 says whether an
+     // authority exists and bytes 13..45 are that key. Compared as raw bytes on purpose —
+@@ -289,11 +288,11 @@ module.exports = async (req, res) => {
+           const link = 'https://solscan.io/account/' + SEAL_PROGRAMDATA;
+           if (raw[12] === 0) {
+             push('progauth', 'green', 'Program upgrade authority revoked — v2 is immutable',
+-              'the deployed bytes of 23k3…ZEEX can never be changed again, by anyone, including us · revocation was announced in writing on 2026-08-25 for 2026-09-08 and this line turned itself green',
++              'the ProgramData account reports no upgrade authority for 23k3…ZEEX · this observation concerns the legacy seal program, not a G2 migration',
+               link);
+           } else if (raw.subarray(13, 45).toString('hex') === DECLARED_AUTHORITY_HEX) {
+-            push('progauth', 'grey', 'Program upgrade authority retained until 2026-09-08',
+-              'AAaU3oyrcmy6GDGxcSUEgg4uUag4pF9jwL2rThB49gks still holds it, which is exactly what docs/FREEZE.md says it should during the soak · this line turns green by itself when the authority is revoked, and stays grey if the promise is not kept',
++            push('progauth', 'grey', 'Program upgrade authority retained',
++              'AAaU3oyrcmy6GDGxcSUEgg4uUag4pF9jwL2rThB49gks still holds it · no revocation date is committed · the authority must actually be revoked on-chain before this check can turn green',
+               link);
+           } else {
+             push('progauth', 'red', 'Program upgrade authority is NOT the declared key',
+@@ -452,11 +451,11 @@ module.exports = async (req, res) => {
+       anchorFreshness: freshness,
+       log: logHead || null, anchors: anchors.slice(0, 8),
+       logRecent: ((await getJSON('g:log:recent')) || []).slice(0, 12) };
+-    await setJSON('g:proofcache', out);
++    await setJSON('g:proofcache:migration-v1', out);
+     return res.json(out);
+   } catch (e) {
+     try {
+-      const fallback = await getJSON('g:proofcache');
++      const fallback = await getJSON('g:proofcache:migration-v1');
+       if (fallback) return res.json(fallback);
+     } catch {}
+     return res.status(500).json({ ok: false, reason: String(e.message || e) });
+diff --git a/api/record.js b/api/record.js
+index e5e157c..016a73c 100644
+--- a/api/record.js
++++ b/api/record.js
+@@ -1,3 +1,8 @@
++// Migration guard precedes all legacy imports and side effects.
++const _ratchetMigrationMode = require('../lib/migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  module.exports = _ratchetMigrationMode.respond;
++} else {
+ // ============================================================
+ //  api/record.js — THE RECORD, as a public dataset.
+ //
+@@ -221,3 +226,5 @@ This one is open, it grows every time somebody plays, and it cannot be back-fill
+   res.setHeader('cache-control', 'public, max-age=60');
+   return res.status(200).end(html);
+ };
++
++}
+diff --git a/api/shot.js b/api/shot.js
+index d5d93aa..3b9e176 100644
+--- a/api/shot.js
++++ b/api/shot.js
+@@ -1,3 +1,8 @@
++// Migration guard precedes all legacy imports and side effects.
++const _ratchetMigrationMode = require('../lib/migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  module.exports = _ratchetMigrationMode.respond;
++} else {
+ // ============================================================
+ //  api/shot.js — one settled shot, as a public, checkable page.
+ //
+@@ -183,3 +188,5 @@ a{color:var(--gold)}
+     return send(500, page('RATCHET', 'Error', '<div class="card"><h1>Something broke.</h1></div>'));
+   }
+ };
++
++}
+diff --git a/api/snapshot.js b/api/snapshot.js
+index 1bfe44e..bb54d93 100644
+--- a/api/snapshot.js
++++ b/api/snapshot.js
+@@ -1,3 +1,8 @@
++// Migration guard precedes all legacy imports and side effects.
++const _ratchetMigrationMode = require('../lib/migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  module.exports = _ratchetMigrationMode.respond;
++} else {
+ // ============================================================
+ //  api/snapshot.js — THE BLACK BOX. The machine's entire soul,
+ //  downloadable by anyone, at any time, for free.
+@@ -191,3 +196,5 @@ module.exports = async (req, res) => {
+     return res.status(500).json({ ok: false, reason: String(e.message || e) });
+   }
+ };
++
++}
+diff --git a/claim.html b/claim.html
+index 48a6756..43a9963 100644
+--- a/claim.html
++++ b/claim.html
+@@ -6,8 +6,8 @@
+   <meta name="robots" content="noindex,nofollow">
+   <meta name="referrer" content="no-referrer">
+   <meta name="theme-color" content="#090b0a">
+-  <title>Claim Legacy Balance — RatchetX</title>
+-  <meta name="description" content="Legacy RatchetX balance claiming. Not open yet — this page will describe the process when the migration runs.">
++  <title>Migration Status — RatchetX</title>
++  <meta name="description" content="RatchetX gameplay is paused for migration preparation. Migration has not happened. Nothing is claimable and no wallet action is needed.">
+   <style>
+     :root{--bg:#090b0a;--card:#101512;--card2:#151c17;--line:#2b352e;--ink:#f0f4ed;--ink2:#bac5bb;--dim:#92a295;--gold:#bfa163;--ice:#a9c7b1;--green:#5f8f72;--red:#c76a61;--mono:ui-monospace,SFMono-Regular,Consolas,monospace;--sans:Inter,system-ui,-apple-system,Segoe UI,sans-serif}
+     *{box-sizing:border-box}[hidden]{display:none!important}body{margin:0;background:radial-gradient(circle at 85% 0,rgba(95,143,114,.08),transparent 30%),var(--bg);color:var(--ink);font-family:var(--sans)}a{color:var(--ice)}.wrap{width:min(920px,calc(100% - 32px));margin:auto}header{display:flex;align-items:center;justify-content:space-between;gap:20px;padding:24px 0;border-bottom:1px solid var(--line)}.brand{color:var(--ink);font:900 15px var(--mono);letter-spacing:.16em;text-decoration:none}.brand b{color:var(--silver)}nav{display:flex;gap:20px}nav a{color:var(--dim);font:700 11px var(--mono);text-decoration:none}main{padding:54px 0 64px}.eyebrow{color:var(--green);font:800 10px var(--mono);letter-spacing:.13em}h1{font-size:clamp(38px,7vw,66px);line-height:1.04;letter-spacing:-.05em;margin:18px 0}h1 span{color:var(--green)}.lead{max-width:720px;font-size:18px;line-height:1.6;color:var(--ink2);margin:0 0 26px}.card{padding:24px;border:1px solid var(--line);border-radius:16px;background:rgba(16,21,18,.9);margin-top:18px}h2{font:900 12px var(--mono);letter-spacing:.1em;color:var(--green);margin:0 0 15px}h3{font-size:16px;margin:0 0 12px}p,li{color:var(--ink2);font-size:14px;line-height:1.65}p{margin:10px 0}.note{font-size:12px;color:var(--dim)}strong{color:var(--ink)}.row{display:flex;gap:12px;align-items:center;flex-wrap:wrap}.row.between{justify-content:space-between}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:16px}button{border:1px solid var(--line);border-radius:10px;padding:12px 15px;background:var(--card2);color:var(--ink);font:800 11px var(--mono);letter-spacing:.035em;cursor:pointer;min-height:43px}button.primary{background:var(--green);border-color:var(--green);color:#07130b}button.danger{color:var(--red);border-color:rgba(199,106,97,.4)}button:hover:not(:disabled){border-color:var(--ice)}button:disabled{opacity:.45;cursor:not-allowed}:focus-visible{outline:2px solid var(--ice);outline-offset:3px}input{width:100%;min-width:0;border:1px solid var(--line);border-radius:9px;background:#070908;color:var(--ink);padding:12px;font:600 14px var(--mono)}label{display:block;font-size:13px;color:var(--ink2)}label>span{display:block;margin-bottom:8px}.fields{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px;margin:20px 0}.fields .note{display:block;margin:6px 0 0}.consent{display:flex;gap:11px;align-items:flex-start;margin:18px 0;font-size:14px;line-height:1.6}.consent input{width:18px;height:18px;flex-shrink:0;margin-top:3px;accent-color:var(--green)}.consent span{margin:0}.wallet{font:600 13px/1.6 var(--mono);overflow-wrap:anywhere;color:var(--ice)}.warning{border-left:3px solid var(--gold);padding:1px 0 1px 14px;margin:18px 0}.warning p{margin:5px 0}.summary{padding:14px;border:1px solid rgba(95,143,114,.3);border-radius:10px;background:rgba(95,143,114,.04);font-size:14px;line-height:1.7}.message{padding:14px;border:1px solid var(--line);border-radius:10px;margin:16px 0 0;color:var(--ink2);font-size:13px;line-height:1.6;overflow-wrap:anywhere}.message.error{border-color:rgba(199,106,97,.45);color:var(--red)}.message.success{border-color:rgba(95,143,114,.4);color:var(--green)}details{margin:16px 0 0}summary{cursor:pointer;color:var(--ink2);font-size:13px}pre{font:11px/1.65 var(--mono);padding:14px;background:#070908;border:1px solid var(--line);border-radius:10px;white-space:pre-wrap;overflow-wrap:anywhere;max-height:360px;overflow:auto}.secret{border-color:rgba(191,161,99,.5)}.secret h2{color:var(--silver)}.secret input{font-size:12px}.secret .actions{margin-top:10px}ol{padding-left:21px}li+li{margin-top:7px}.metrics{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:16px 0}.metric{padding:13px;border:1px solid var(--line);border-radius:10px;background:#070908}.metric span{display:block;font:700 10px var(--mono);color:var(--dim)}.metric b{display:block;font:700 16px var(--mono);margin-top:8px;overflow-wrap:anywhere}.recover{margin-top:18px;border-top:1px solid var(--line);padding-top:18px}footer{border-top:1px solid var(--line);padding:24px 0 40px;color:var(--dim);font:10px/1.7 var(--mono)}@media(max-width:650px){main{padding-top:36px}.card{padding:20px}.fields{grid-template-columns:repeat(2,minmax(0,1fr))}.metrics{grid-template-columns:1fr}.actions button{flex:1}nav{gap:12px}nav a{font-size:10px}.lead{font-size:16px}}@media(max-width:370px){.fields{grid-template-columns:1fr}header{align-items:flex-start;flex-direction:column;gap:14px}}
+@@ -15,21 +15,16 @@
+ </head>
+ <body>
+   <div class="wrap">
+-    <header><a class="logo" href="/"><svg class="cog" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12.5" stroke="#5f8f72" stroke-width="1.4"/><circle cx="16" cy="16" r="7.5" stroke="#5f8f72" stroke-opacity=".45"/><path d="M16 1.5v4M16 26.5v4M1.5 16h4M26.5 16h4M5.7 5.7l2.8 2.8M23.5 23.5l2.8 2.8M26.3 5.7l-2.8 2.8M8.5 23.5l-2.8 2.8" stroke="#5f8f72" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="16" r="2.2" fill="#5f8f72"/><path d="M18.2 10.3l3.7 2.2-3.7 2.2" stroke="#5f8f72" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>RatchetX</span></a><nav aria-label="Main navigation"><a href="/">THE GAME</a><a href="/agents">AGENT DOCS</a></nav></header>
++    <header><a class="logo" href="/"><svg class="cog" viewBox="0 0 32 32" fill="none" aria-hidden="true"><circle cx="16" cy="16" r="12.5" stroke="#5f8f72" stroke-width="1.4"/><circle cx="16" cy="16" r="7.5" stroke="#5f8f72" stroke-opacity=".45"/><path d="M16 1.5v4M16 26.5v4M1.5 16h4M26.5 16h4M5.7 5.7l2.8 2.8M23.5 23.5l2.8 2.8M26.3 5.7l-2.8 2.8M8.5 23.5l-2.8 2.8" stroke="#5f8f72" stroke-width="1.5" stroke-linecap="round"/><circle cx="16" cy="16" r="2.2" fill="#5f8f72"/><path d="M18.2 10.3l3.7 2.2-3.7 2.2" stroke="#5f8f72" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg><span>RatchetX</span></a><nav aria-label="Main navigation"><a href="/api/proof">PROOF</a><a href="/api/supply">SUPPLY</a></nav></header>
+     <main>
+-      <div class="eyebrow">LEGACY BALANCES · SOLANA MAINNET</div>
+-      <h1>Claim V2<br><span>Balances.</span></h1>
+-      <p class="lead">Legacy balances will be claimable here once the migration happens. <strong>It has not happened yet.</strong> Nothing is claimable on this page today, and no wallet action is required from you.</p>
++      <div class="eyebrow">GAMEPLAY PAUSED · MIGRATION PREPARATION</div>
++      <h1>RatchetX<br><span>Migration status.</span></h1>
++      <p class="lead">Gameplay is paused while we prepare the on-chain migration. <strong>It has not happened yet.</strong> Nothing is claimable today, and no wallet action is required from you.</p>
+ 
+       <section class="card" aria-labelledby="claimTitle">
+-        <div class="row between"><h2 id="claimTitle">01 · CHECK & CLAIM</h2></div>
+-        <div class="warning"><p><strong>This page is not live yet.</strong> When the migration runs, your balance at the snapshot will be provable here with a Merkle proof and claimable in one transaction you sign yourself. Until then there is nothing to connect to and nothing to sign.</p><p class="note">If a page anywhere asks you to connect a wallet or approve a transaction to &ldquo;claim RatchetX&rdquo; before the migration is announced on the site and on X, it is not us.</p></div>
+-        <div id="claimStatus" class="message" role="status" hidden></div>
+-        <div class="actions">
+-          <button class="primary" id="connectWallet" type="button" disabled>CONNECT WALLET</button>
+-          <button id="claimBtn" class="primary" type="button" disabled>CLAIM BALANCE</button>
+-        </div>
+-        <p class="wallet" id="walletAddress">Claiming opens after the migration is announced.</p>
++        <div class="row between"><h2 id="claimTitle">CURRENT STATUS</h2></div>
++        <div class="warning"><p><strong>No connection, signature or payment is needed.</strong> Legacy balances must be reconciled against the available snapshots before any migration or distribution is announced. There is no launch date or program-freeze date committed on this page.</p><p class="note">If a page anywhere asks you to connect a wallet or approve a transaction to &ldquo;claim RatchetX&rdquo; before the migration is announced on the site and on X, it is not us.</p></div>
++        <p class="note">The proof and supply pages remain diagnostic views. They depend on legacy storage and public RPC and may be stale or unavailable.</p>
+       </section>
+ 
+     </main>
+diff --git a/docs/AGENT_STATE.json b/docs/AGENT_STATE.json
+index 11ba5ef..3494c45 100644
+--- a/docs/AGENT_STATE.json
++++ b/docs/AGENT_STATE.json
+@@ -29,7 +29,7 @@
+     "solanaAgentRegistry": "1475"
+   },
+   "freezeDates": {
+-    "sealV2": "2026-09-08T00:00:00Z"
++    "sealV2": null
+   },
+   "trustBoundaries": {
+     "canonicalSettlement": "ratchet-server",
+@@ -41,12 +41,22 @@
+   "localRecoveryDeployment": "deployed",
+   "ownerPilotClosure": "Owner reports all grants revoked on 2026-08-30; no further authenticated verification or gameplay attempted.",
+   "productionStatus": {
+-    "core": "healthy",
++    "core": "Last independent observation: /api/game returned 500 after the Upstash 500000-request quota was exhausted. Migration release candidate prepared; deployment readback required.",
+     "premiumProof": "retained PriceUpdateV2 evidence is fully prevalidated; invalid or expired evidence fails before payment",
+     "pythAgentLayer": "atomically ordered shared accepted snapshot on all seven feeds; bounded observed path; agent reads do not trigger new oracle requests",
+     "playerActivity": "80 rows verified: 75 player events plus 5 separately labeled demos; gold agent text, proof links, no demo payouts or player-retention eviction; house Fleet excluded",
+     "agentProtocol": "MCP scorecard executes the canonical REST report handler; omitted path bounds remain frozen across cursors; nextRequest supplies exact continuation arguments; no new wait worker or settlement rule",
+     "rankedEconomy": "Pyth reads consume no RCX; accepted seals stake play credits; VOID refunds; RCX remains the ranked reload rail",
+     "playSessions": "h104 deployed: signed latest-session discovery across devices, explicit owner controls and fail-closed strict JSON reads. 19 focused checks and 19 production readbacks pass; no real wallet/browser end-to-end test performed. Owner reports all pilot grants revoked. Completed pilot shot6cce3cd29ed6: public HIT/stake100/return170 and stated15/Brier0.2945 independently checked; submit200/replay200/idempotent is Bankr-reported, private journal not inspected. Later separate ORACLE_STALE preflight reportedly submitted nothing/debited nothing. Preserve the journal; no more gameplay or transfer/reload authority. This is one owner pilot, not global X support. See RELEASE_H104.md and historical RELEASE_H103.md; prior shot16c371304581 wire replay remains untested."
++  },
++  "freezePolicy": "Earlier September 8 schedule withdrawn; no committed revocation date. Check ProgramData on-chain.",
++  "migrationReleaseCandidate": {
++    "status": "prepared-not-deployed",
++    "baseCommit": "fcaab92694eb894a4771e803b6998ab2a63ef779",
++    "defaultSiteMode": "migration",
++    "claimable": false,
++    "walletActionRequired": false,
++    "diagnostics": "proof and supply still depend on KV and RPC; no freshness or availability guarantee",
++    "legacyState": "Preserve snapshots and unresolved player obligations; this patch neither exports nor changes balances."
+   }
+ }
+diff --git a/lib/check_store_schema.js b/lib/check_store_schema.js
+index 4e9071e..34d3a5d 100644
+--- a/lib/check_store_schema.js
++++ b/lib/check_store_schema.js
+@@ -1,4 +1,11 @@
+ 'use strict';
++const _ratchetMigrationMode = require('./migration_mode.js');
++if (_ratchetMigrationMode.enabled) {
++  // No gameplay store is needed to serve the inert migration surface.
++  module.exports = { check: async () => true };
++  if (require.main === module) console.log('Migration mode: legacy store prerequisite is not applicable');
++} else {
++'use strict';
+ const {serverHeaders}=require('./supabase_auth.js');
+ // Read-only deployment gate, not a migration runner. Never emit credentials or
+ // database response bodies. Only the administrator applies the additive SQL.
+@@ -34,3 +41,5 @@ async function check({env=process.env,fetchImpl=fetch}={}) {
+ module.exports={check};
+ if(require.main===module)check().then(()=>console.log('Durable store prerequisite PASS'))
+   .catch(()=>{console.error('Deployment blocked: verify database configuration and migration 003. No data was changed.');process.exitCode=1;});
++
++}
+diff --git a/lib/migration_mode.js b/lib/migration_mode.js
+new file mode 100644
+index 0000000..8d2d7bf
+--- /dev/null
++++ b/lib/migration_mode.js
+@@ -0,0 +1,22 @@
++'use strict';
++// Default closed during migration. Only the deployment owner can explicitly
++// restore legacy mode; request headers, bodies and query parameters cannot.
++const enabled = process.env.RATCHETX_SITE_MODE !== 'legacy';
++const message = 'RatchetX gameplay is paused for migration. The migration has not happened yet. Nothing is claimable and no wallet action is needed.';
++const body = JSON.stringify({ ok: false, status: 'migration', code: 'MIGRATION_IN_PROGRESS',
++  message, reason: message, claimable: false, walletActionRequired: false });
++function respond(req, res) {
++  res.setHeader('Cache-Control', 'no-store');
++  res.setHeader('CDN-Cache-Control', 'no-store');
++  res.setHeader('Vercel-CDN-Cache-Control', 'no-store');
++  res.setHeader('Content-Type', 'application/json; charset=utf-8');
++  res.setHeader('Access-Control-Allow-Origin', '*');
++  res.setHeader('Access-Control-Allow-Methods', 'GET, HEAD, POST, PUT, PATCH, DELETE, OPTIONS');
++  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Payment, Payment-Signature, MCP-Protocol-Version, MCP-Session-Id, X-Action-Version, X-Blockchain-Ids');
++  res.setHeader('X-Content-Type-Options', 'nosniff');
++  // Preflight does not advertise a live payment, wallet or gameplay operation.
++  if (req.method === 'OPTIONS') { res.statusCode = 204; return res.end(); }
++  res.statusCode = 503;
++  return res.end(req.method === 'HEAD' ? undefined : body);
++}
++module.exports = { enabled, respond };
+diff --git a/llms.txt b/llms.txt
+index bbc97a6..d647104 100644
+--- a/llms.txt
++++ b/llms.txt
+@@ -1,3 +1,15 @@
++# Current service status: migration preparation
++
++Gameplay is paused. Migration has not happened and nothing is claimable. No wallet
++connection, signature, payment or reload is needed. Game, MCP, session, snapshot
++and related legacy API requests return HTTP 503 / MIGRATION_IN_PROGRESS.
++/api/proof and /api/supply remain diagnostic endpoints; they also depend on legacy
++KV data and public RPC, so availability and freshness are not guaranteed.
++The remaining instructions describe the historical API only. Do not execute
++play, authorization, payment or recovery steps while migration mode is active.
++
++---
++
+ # RatchetX
+ 
+ > A prediction arcade on Solana where the question comes from a clock, the answer
+@@ -15,7 +27,8 @@ validated Pyth transitions Ratchet captured after expiry. That capture is a trus
+ boundary: the public path reproduces what Ratchet selected, but cannot prove Ratchet
+ did not miss an earlier qualifying update outside its capture. The optional SOL
+ on-chain seal reads Pyth in the program, but does not replace server settlement
+-during its soak; its upgrade authority is scheduled for revocation on 2026-09-08.
++during its soak. No program-authority revocation date is currently committed;
++check the actual ProgramData account for its current authority.
+ 
+ Not profit. A calibration record. If you say 75%, the public record preserves what
+ you said, what Ratchet settled, the evidence it used, and the remaining trust boundary.
+@@ -100,8 +113,9 @@ expiry. No valid transition inside 15 minutes voids and refunds. Strict numerica
+ comparison — only true equality voids. Nobody, us included, can change a sealed shot.
+ 
+ The settlement program on Solana mainnet is
+-`23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX`, and its upgrade authority is being
+-destroyed on 2026-09-08. After that nobody can change how it settles. Ever.
++`23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX`. This is the legacy seal program,
++not the planned G2 game. No revocation date is committed. Its current authority
++must be checked on-chain; a planned migration does not make it immutable.
+ 
+ ## Endpoints an agent actually wants
+ 
+diff --git a/scripts/run-tests.mjs b/scripts/run-tests.mjs
+index f426ebe..03efdbc 100644
+--- a/scripts/run-tests.mjs
++++ b/scripts/run-tests.mjs
+@@ -110,8 +110,11 @@ try {
+ }
+ 
+ const files = readdirSync(dir).filter(f => /^test_.*\.mjs$/.test(f)).sort();
++// Historical gameplay suites explicitly exercise the preserved legacy code.
++// test_migration_mode.mjs independently tests the default production mode and
++// hostile requests in isolated VM contexts, without inheriting this setting.
+ const run = f => new Promise(res => {
+-  const p = spawn(process.execPath, [join(dir, f)], { cwd: dir, stdio: ['ignore', 'pipe', 'pipe'] });
++  const p = spawn(process.execPath, [join(dir, f)], { cwd: dir, env: { ...process.env, RATCHETX_SITE_MODE: 'legacy' }, stdio: ['ignore', 'pipe', 'pipe'] });
+   let out = '';
+   p.stdout.on('data', d => out += d);
+   p.stderr.on('data', d => out += d);
+diff --git a/test/test_agent_discovery.mjs b/test/test_agent_discovery.mjs
+index df34149..edd2be5 100644
+--- a/test/test_agent_discovery.mjs
++++ b/test/test_agent_discovery.mjs
+@@ -181,8 +181,9 @@ for (const path of [
+ ]) {
+   assert.ok(sitemap.includes(path), `sitemap is missing agent discovery path: ${path}`);
+ }
++// Historical discovery assets remain, but migration mode serves an inert notice.
+ assert.ok(vercel.rewrites.some(route =>
+-  route.source === '/gauntlet' && route.destination === '/gauntlet.html'));
++  route.source === '/gauntlet' && route.destination === '/claim.html'));
+ assert.ok(vercel.rewrites.some(route => route.source === '/api/agent'
+   && route.destination === '/api/game?action=agent-report'));
+ assert.ok(vercel.rewrites.some(route => route.source === '/api/agent-proof-bundle'
+diff --git a/test/test_agent_gauntlet.mjs b/test/test_agent_gauntlet.mjs
+index 619447a..4d94068 100644
+--- a/test/test_agent_gauntlet.mjs
++++ b/test/test_agent_gauntlet.mjs
+@@ -115,8 +115,9 @@ assert.match(game, /progress:progressFromState\(state, gauntletHandle\)/);
+ assert.match(mcp, /out\.gauntlet\s*=\s*progressFromState/);
+ assert.match(llms, /GET \/api\/gauntlet/);
+ assert.match(sitemap, /https:\/\/ratchetx\.xyz\/gauntlet/);
++// Preserve the legacy implementation while routing public play to migration status.
+ assert.ok(vercel.rewrites.some(route =>
+-  route.source === '/gauntlet' && route.destination === '/gauntlet.html'));
++  route.source === '/gauntlet' && route.destination === '/claim.html'));
+ assert.ok(vercel.rewrites.some(route =>
+   route.source === '/api/gauntlet' && route.destination === '/api/game?action=gauntlet'));
+ assert.equal(fs.existsSync(new URL('../api/gauntlet.js', import.meta.url)), false,
+diff --git a/test/test_agent_onboarding_page.mjs b/test/test_agent_onboarding_page.mjs
+index 2cffc2f..eebfc11 100644
+--- a/test/test_agent_onboarding_page.mjs
++++ b/test/test_agent_onboarding_page.mjs
+@@ -40,8 +40,9 @@ assert.match(page, /history\.replaceState\(null,'','\/agents\?id='/);
+ assert.ok(!page.includes('\\\\n'), 'live test output must use real line breaks, not visible \\\\n text');
+ assert.doesNotMatch(page, /innerHTML|private.?key|secret.?key/i);
+ 
++// The historical onboarding source is retained; public onboarding is paused.
+ assert.ok(vercel.rewrites.some(route =>
+-  route.source === '/agents' && route.destination === '/agents.html'));
++  route.source === '/agents' && route.destination === '/claim.html'));
+ assert.match(sitemap, /https:\/\/ratchetx\.xyz\/agents/);
+ assert.match(home, /href="\/agents"/);
+ assert.doesNotMatch(home, /SHIPPED DARK UNTIL A FUNDED MAINNET SMOKE/i);
+diff --git a/test/test_migration_freeze.mjs b/test/test_migration_freeze.mjs
+index 9cdf290..bc28585 100644
+--- a/test/test_migration_freeze.mjs
++++ b/test/test_migration_freeze.mjs
+@@ -175,4 +175,6 @@ delete process.env.RX_MIGRATION_FREEZE;
+ console.log(fails
+   ? `\nFAIL  migration freeze: ${fails} of ${checks} checks failed`
+   : `\nPASS  migration freeze: ${checks} checks — it stops selling, it never stops settling`);
+-process.exit(fails ? 1 : 0);
++// Let asynchronous cleanup and stdout finish. Forced exit after these checks
++// triggered a closing-handle assertion in Node 24.15 on Windows.
++process.exitCode = fails ? 1 : 0;
+diff --git a/test/test_migration_mode.mjs b/test/test_migration_mode.mjs
+new file mode 100644
+index 0000000..8e3e049
+--- /dev/null
++++ b/test/test_migration_mode.mjs
+@@ -0,0 +1,149 @@
++import assert from 'node:assert/strict';
++import { readFileSync, readdirSync } from 'node:fs';
++import { createServer } from 'node:http';
++import { dirname, join } from 'node:path';
++import { fileURLToPath } from 'node:url';
++import vm from 'node:vm';
++import { test } from 'node:test';
++
++const root = join(dirname(fileURLToPath(import.meta.url)), '..');
++const source = name => readFileSync(join(root, name), 'utf8');
++const paused = ['agent-entry', 'blink', 'feeds', 'game', 'ledger', 'log', 'mcp', 'record', 'shot', 'snapshot'];
++const diagnostics = ['proof', 'supply'];
++const pages = ['/', '/index.html', '/agents', '/agents.html', '/gauntlet', '/gauntlet.html', '/observatory', '/observatory.html', '/play-session', '/play-session.html'];
++function loadGuard(env = {}) {
++  const module = { exports: {} };
++  vm.runInNewContext(source('lib/migration_mode.js'), { module, process: { env },
++    require: name => { throw new Error('Migration guard imported ' + name); },
++    fetch: () => { throw new Error('Migration guard requested network'); } });
++  return module.exports;
++}
++function loadRoute(name, guard) {
++  const imports = [];
++  const module = { exports: {} };
++  vm.runInNewContext(source('api/' + name + '.js'), { module,
++    require: name => {
++      imports.push(name);
++      assert.equal(name, '../lib/migration_mode.js', 'Legacy dependency loaded before migration response');
++      return guard;
++    },
++    process: { env: {} },
++    fetch: () => { throw new Error('Legacy route requested network'); },
++    setTimeout: () => { throw new Error('Legacy route scheduled work'); },
++    setInterval: () => { throw new Error('Legacy route scheduled polling'); }
++  }, { filename: 'api/' + name + '.js' });
++  assert.equal(imports.length, 1);
++  assert.equal(typeof module.exports, 'function');
++  return module.exports;
++}
++
++test('migration is the default; only explicit deployment configuration restores legacy', () => {
++  for (const value of [undefined, '', 'migration', 'LEGACY', 'legacy ', 'false', '0']) {
++    assert.equal(loadGuard(value === undefined ? {} : { RATCHETX_SITE_MODE: value }).enabled, true);
++  }
++  assert.equal(loadGuard({ RATCHETX_SITE_MODE: 'legacy' }).enabled, false);
++});
++
++test('every non-diagnostic API loads without any legacy dependency or side effect', () => {
++  const files = readdirSync(join(root, 'api')).filter(f => f.endsWith('.js')).map(f => f.slice(0, -3)).sort();
++  assert.deepEqual(files, [...paused, ...diagnostics].sort(), 'New API requires an explicit migration decision');
++  for (const route of paused) loadRoute(route, loadGuard());
++});
++
++test('explicit legacy configuration reaches the preserved code for all paused APIs', () => {
++  for (const route of paused) {
++    const marker = new Error('legacy reached');
++    const module = { exports: {} };
++    assert.throws(() => vm.runInNewContext(source('api/' + route + '.js'), {
++      module, process: { env: {} },
++      require: name => { if (name === '../lib/migration_mode.js') return loadGuard({ RATCHETX_SITE_MODE: 'legacy' }); throw marker; }
++    }), e => e === marker, route);
++  }
++});
++
++test('real HTTP: hostile query/body/headers cannot bypass 503 or obtain wallet/payment actions', async () => {
++  const handlers = new Map(paused.map(name => ['/api/' + name, loadRoute(name, loadGuard())]));
++  const server = createServer((req, res) => {
++    const handler = handlers.get(new URL(req.url, 'http://localhost').pathname);
++    if (!handler) return res.writeHead(404).end();
++    handler(req, res);
++  });
++  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
++  try {
++    const base = 'http://127.0.0.1:' + server.address().port;
++    for (const route of paused) {
++      for (const method of ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS']) {
++        const response = await fetch(base + '/api/' + route + '?action=claim&mode=legacy&RATCHETX_SITE_MODE=legacy', {
++          method, headers: { 'Content-Type': 'application/json', 'X-Site-Mode': 'legacy', 'X-Payment': 'untrusted', Origin: 'https://example.invalid' },
++          ...(['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) ? { body: JSON.stringify({ mode: 'legacy', action: 'seal', wallet: 'untrusted' }) } : {}),
++          signal: AbortSignal.timeout(5000)
++        });
++        assert.equal(response.status, method === 'OPTIONS' ? 204 : 503, route + ' ' + method);
++        for (const header of ['cache-control', 'cdn-cache-control', 'vercel-cdn-cache-control']) assert.equal(response.headers.get(header), 'no-store');
++        assert.equal(response.headers.get('access-control-allow-origin'), '*');
++        for (const header of ['location', 'www-authenticate', 'x-payment-response', 'payment-required']) assert.equal(response.headers.get(header), null);
++        const text = await response.text();
++        if (method === 'HEAD' || method === 'OPTIONS') { assert.equal(text, ''); continue; }
++        const json = JSON.parse(text);
++        assert.equal(json.ok, false);
++        assert.equal(json.code, 'MIGRATION_IN_PROGRESS');
++        assert.equal(json.claimable, false);
++        assert.equal(json.walletActionRequired, false);
++        assert.match(json.message, /has not happened yet/);
++        for (const field of ['transaction', 'signature', 'payment', 'paymentRequirements', 'session', 'tools']) assert.equal(json[field], undefined);
++      }
++    }
++  } finally {
++    server.closeAllConnections();
++    await new Promise(resolve => server.close(resolve));
++  }
++});
++
++test('migration build check needs no store credentials, imports or network', async () => {
++  const module = { exports: {} }, messages = [];
++  const require = name => { assert.equal(name, './migration_mode.js'); return loadGuard(); };
++  require.main = module;
++  vm.runInNewContext(source('lib/check_store_schema.js'), { module, require, process: { env: {} },
++    console: { log: message => messages.push(message) },
++    fetch: () => { throw new Error('Build requested network'); }
++  });
++  assert.equal(await module.exports.check(), true);
++  assert.equal(messages.length, 1);
++  assert.match(messages[0], /Migration mode/);
++});
++
++test('legacy build still reaches its store prerequisite instead of silently bypassing it', () => {
++  const marker = new Error('legacy prerequisite reached'), module = { exports: {} };
++  assert.throws(() => vm.runInNewContext(source('lib/check_store_schema.js'), {
++    module, process: { env: {} }, require: name => {
++      if (name === './migration_mode.js') return loadGuard({ RATCHETX_SITE_MODE: 'legacy' });
++      throw marker;
++    }
++  }), e => e === marker);
++});
++
++test('public route contract uses the existing inert notice, retains API aliases and disables crons', () => {
++  const config = JSON.parse(source('vercel.json'));
++  for (const page of pages) {
++    assert.equal(config.rewrites.filter(r => r.source === page).length, 1);
++    assert.equal(config.rewrites.find(r => r.source === page).destination, '/claim.html');
++  }
++  for (const alias of ['/api/gauntlet', '/api/agent', '/api/agent-proof-bundle']) {
++    assert.match(config.rewrites.find(r => r.source === alias).destination, /^\/api\/game\?action=/);
++  }
++  assert.deepEqual(config.crons, []);
++  assert.ok(!config.rewrites.some(r => r.source.startsWith('/.well-known')));
++  const notice = source('claim.html');
++  assert.match(notice, /It has not happened yet/);
++  assert.match(notice, /Gameplay is paused/);
++  assert.doesNotMatch(notice, /<script\b|<form\b|<button\b|onclick\s*=/i);
++});
++
++test('diagnostics are retained separately and do not claim a scheduled revocation', () => {
++  for (const name of diagnostics) {
++    assert.doesNotMatch(source('api/' + name + '.js'), /require\(['"]\.\.\/lib\/migration_mode/);
++  }
++  assert.doesNotMatch(source('api/proof.js'), /2026-09-08|'g:proofcache'/);
++  assert.match(source('llms.txt'), /also depend on legacy\s+KV data/);
++  assert.equal(JSON.parse(source('docs/AGENT_STATE.json')).freezeDates.sealV2, null);
++});
+diff --git a/vercel.json b/vercel.json
+index 0d7e13d..51b422b 100644
+--- a/vercel.json
++++ b/vercel.json
+@@ -5,17 +5,45 @@
+     "dub1"
+   ],
+   "rewrites": [
++    {
++      "source": "/",
++      "destination": "/claim.html"
++    },
++    {
++      "source": "/index.html",
++      "destination": "/claim.html"
++    },
+     {
+       "source": "/agents",
+-      "destination": "/agents.html"
++      "destination": "/claim.html"
++    },
++    {
++      "source": "/agents.html",
++      "destination": "/claim.html"
+     },
+     {
+       "source": "/gauntlet",
+-      "destination": "/gauntlet.html"
++      "destination": "/claim.html"
++    },
++    {
++      "source": "/gauntlet.html",
++      "destination": "/claim.html"
+     },
+     {
+       "source": "/observatory",
+-      "destination": "/observatory.html"
++      "destination": "/claim.html"
++    },
++    {
++      "source": "/observatory.html",
++      "destination": "/claim.html"
++    },
++    {
++      "source": "/play-session",
++      "destination": "/claim.html"
++    },
++    {
++      "source": "/play-session.html",
++      "destination": "/claim.html"
+     },
+     {
+       "source": "/api/gauntlet",
+@@ -30,16 +58,7 @@
+       "destination": "/api/game?action=agent-proof-bundle"
+     }
+   ],
+-  "crons": [
+-    {
+-      "path": "/api/game",
+-      "schedule": "5 0 * * *"
+-    },
+-    {
+-      "path": "/api/proof",
+-      "schedule": "20 0 * * *"
+-    }
+-  ],
++  "crons": [],
+   "headers": [
+     {
+       "source": "/(.*)",
+@@ -121,15 +140,27 @@
+     {
+       "source": "/skills/ratchetx/references/owner-session-test.md",
+       "headers": [
+-        { "key": "Access-Control-Allow-Origin", "value": "*" },
+-        { "key": "Content-Type", "value": "text/markdown; charset=utf-8" }
++        {
++          "key": "Access-Control-Allow-Origin",
++          "value": "*"
++        },
++        {
++          "key": "Content-Type",
++          "value": "text/markdown; charset=utf-8"
++        }
+       ]
+     },
+     {
+       "source": "/skills/ratchetx/scripts/session-smoke.mjs",
+       "headers": [
+-        { "key": "Access-Control-Allow-Origin", "value": "*" },
+-        { "key": "Content-Type", "value": "text/javascript; charset=utf-8" }
++        {
++          "key": "Access-Control-Allow-Origin",
++          "value": "*"
++        },
++        {
++          "key": "Content-Type",
++          "value": "text/javascript; charset=utf-8"
++        }
+       ]
+     },
+     {
+@@ -174,6 +205,210 @@
+           "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Action-Version, X-Blockchain-Ids"
+         }
+       ]
++    },
++    {
++      "source": "/",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/index.html",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/agents",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/agents.html",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/gauntlet",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/gauntlet.html",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/observatory",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/observatory.html",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/play-session",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/play-session.html",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/claim.html",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
++    },
++    {
++      "source": "/llms.txt",
++      "headers": [
++        {
++          "key": "Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "CDN-Cache-Control",
++          "value": "no-store"
++        },
++        {
++          "key": "Vercel-CDN-Cache-Control",
++          "value": "no-store"
++        }
++      ]
+     }
+   ]
+ }

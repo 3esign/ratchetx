@@ -1,0 +1,199 @@
+{
+  "at": "2026-09-05T01:27:48.965Z",
+  "scope": "Documented public IDs and named mapping in source/Markdown only. No JSON/key/credential file contents inspected.",
+  "inspected": 134,
+  "rows": [
+    {
+      "path": "onchain/ratchet-core/Anchor.toml",
+      "sha256": "15a2cb31ebbc68d23bfc636d9911d799ec42fdfae0a20c76b2ab673cff79dc98",
+      "matches": [
+        {
+          "line": 10,
+          "text": "ratchet_core = \"6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv\""
+        },
+        {
+          "line": 13,
+          "text": "ratchet_core = \"6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv\""
+        },
+        {
+          "line": 16,
+          "text": "ratchet_core = \"6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv\""
+        }
+      ]
+    },
+    {
+      "path": "onchain/ratchet-core/client/core.mjs",
+      "sha256": "dad4b3f27e3003625db112acc09571719ffae29ef10c4fd03f631d6a8dd61915",
+      "matches": [
+        {
+          "line": 12,
+          "text": "export const PROGRAM_ID = new PublicKey('6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv');"
+        }
+      ]
+    },
+    {
+      "path": "onchain/ratchet-core/client/test-salt.mjs",
+      "sha256": "551c0d78b7e34745d072d8c287b093973214e6a560a4c972a4eba2b2462a218c",
+      "matches": [
+        {
+          "line": 9,
+          "text": "const PROGRAM = '6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv';"
+        }
+      ]
+    },
+    {
+      "path": "onchain/ratchet-core/programs/ratchet-core/src/lib.rs",
+      "sha256": "282e48489838040789bc61c09210ad075fca3fefecbbcc392bb8d77494605260",
+      "matches": [
+        {
+          "line": 28,
+          "text": "declare_id!(\"6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv\");"
+        }
+      ]
+    },
+    {
+      "path": "onchain/ratchet-core/svm-tests/tests/core.rs",
+      "sha256": "cbd9400f3afbd83c30977fb3695b0077359215eb1a5c0e68b46fc9e62b9325fd",
+      "matches": [
+        {
+          "line": 34,
+          "text": "fn program_id() -> Pubkey { Pubkey::from_str(\"6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv\").unwrap() }"
+        }
+      ]
+    },
+    {
+      "path": "onchain/ratchet-core-g2/Anchor.toml",
+      "sha256": "257dcca7ea772b231f4dcd81a6c7388083428460a26f36da21f9f4c70ee6a50a",
+      "matches": [
+        {
+          "line": 9,
+          "text": "ratchet_core_g2 = \"cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN\""
+        }
+      ]
+    },
+    {
+      "path": "onchain/ratchet-core-g2/legacy-snapshot.mjs",
+      "sha256": "85e5497f2cbdb103819d9ebca4cc3e427de2dab9c74633da292d57a2381d8023",
+      "matches": [
+        {
+          "line": 25,
+          "text": "export const CORE_G2_PROGRAM_ID = 'cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN';"
+        }
+      ]
+    },
+    {
+      "path": "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs",
+      "sha256": "369a674bd255de0a8b9649c1eed976d5c9f33d97d370c28d15ec33ba3b3af5e3",
+      "matches": [
+        {
+          "line": 34,
+          "text": "declare_id!(\"cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN\");"
+        }
+      ]
+    },
+    {
+      "path": "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs",
+      "sha256": "f447c9bb524a34932911b684fd083ab66711ee3b6b4c95114082b1b4e72cfa14",
+      "matches": [
+        {
+          "line": 84,
+          "text": "    Pubkey::from_str(\"cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN\").unwrap()"
+        }
+      ]
+    },
+    {
+      "path": "docs/AGENTS_CHANNEL.md",
+      "sha256": "479e3b2f0111c2bc78066f8f1a56d65a2895c38d11494f94b48d94a99f5368f3",
+      "matches": [
+        {
+          "line": 27,
+          "text": "  a program id (`cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN`), SVM tests"
+        }
+      ]
+    },
+    {
+      "path": "docs/CORE.md",
+      "sha256": "e0e9339323b47fd1128202e76754c82924d8d49406a0665ecb331a9e8007c7ac",
+      "matches": [
+        {
+          "line": 12,
+          "text": "Program id: `6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv` (keypair generated"
+        },
+        {
+          "line": 204,
+          "text": "  `6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv`; `DEVNET_EXERCISE.cmd` 6/6"
+        }
+      ]
+    },
+    {
+      "path": "docs/FINISH_PLAN_2026-09-02.md",
+      "sha256": "04f6a841aa2f8eedd5faf5a5402cfd64d411a6ff78ae78fe3fa81a61c2830807",
+      "matches": [
+        {
+          "line": 29,
+          "text": "- `.cmd`: deploy devnet program with `D:\\keys\\ratchet-core-program.json` (key never leaves the machine), airdrop, run `client/crank.mjs --once --dry` then live. [C writes, S runs]"
+        }
+      ]
+    },
+    {
+      "path": "docs/HANDOFF.md",
+      "sha256": "7695c4a5c9dc36f343e96f7ceaf13d9ee560f117ef4f32ac68b768bb2dd8ee65",
+      "matches": [
+        {
+          "line": 67,
+          "text": "    solana program set-upgrade-authority 6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv --final"
+        }
+      ]
+    },
+    {
+      "path": "docs/PERMANENCE_EXECUTION_PLAN.md",
+      "sha256": "8da6b5acf5a5a37549798fe3f6972e859c365ca5eaa6ed9f4bd601b7c32a5e75",
+      "matches": [
+        {
+          "line": 234,
+          "text": "| Core v1 candidate | Candidate program id `6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv` is absent from mainnet. A devnet prototype exists with an upgrade authority retained. The committed `1ba43717...` artifact reproduced the prototype bytes before the findings below. | Prototype evidence only; not safe to call canonical or final. |"
+        }
+      ]
+    },
+    {
+      "path": "docs/PLAY_WITHOUT_US.md",
+      "sha256": "d5894b5d9fc15c83cddc7963f934d56ef6dda1524ff24c067488e0fdf9fb7824",
+      "matches": [
+        {
+          "line": 29,
+          "text": "| mainnet | `6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv` | **not deployed yet** |"
+        }
+      ]
+    },
+    {
+      "path": "docs/reviews/svemir-2026-09-05/FIRST_LAUNCH_ESSENTIAL_HANDOFF.md",
+      "sha256": "8cb8f8498e0c4b65a58f9b2727b5de01fcd9d9c3623f43aa39079aebb2c5ab79",
+      "matches": [
+        {
+          "line": 15,
+          "text": "Canonical identities: Timepin `C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp`; Core `cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN`. US517 is closed. Do not create a second identity to bypass a failed pin."
+        }
+      ]
+    },
+    {
+      "path": "docs/reviews/svemir-2026-09-05/incident-mainnet-truth.md",
+      "sha256": "e74c6b1090dde31f648d7b9382342dd95eea8da32af00a580f5924c9a3474a80",
+      "matches": [
+        {
+          "line": 5,
+          "text": "Canonical Core G2: cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+        }
+      ]
+    },
+    {
+      "path": "docs/WORKER_PLAN.md",
+      "sha256": "f12da12216de859c81e9f4f418a958a5d2a589ca65850440fcd7c15637ac6a5b",
+      "matches": [
+        {
+          "line": 17,
+          "text": "  at `6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv` (slot 491787400)."
+        }
+      ]
+    }
+  ]
+}

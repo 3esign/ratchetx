@@ -1,0 +1,74 @@
+{
+  "schema": 1,
+  "at": "2026-09-05T03:18:46.453Z",
+  "genesis": {
+    "result": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+    "receipt": {
+      "file": "1788578326046-1-getGenesisHash.json",
+      "sha256": "db381ab7a4c7379deb7596f7ed01d5adfe1fc651f9b9ee6c412070acd882131f",
+      "endpoint": "https://solana-rpc.publicnode.com",
+      "method": "getGenesisHash",
+      "at": "2026-09-05T03:18:46.261Z"
+    }
+  },
+  "values": [
+    {
+      "accountDataBytes": 119,
+      "lamports": 1564251,
+      "receipt": {
+        "file": "1788578326262-2-getMinimumBalanceForRentExemption.json",
+        "sha256": "9b6fe535ce80d86fafb452b1ef62b9faf36c310e1008ce1e37dbdcfdb3a404f1",
+        "endpoint": "https://solana-rpc.publicnode.com",
+        "method": "getMinimumBalanceForRentExemption",
+        "at": "2026-09-05T03:18:46.313Z"
+      }
+    },
+    {
+      "accountDataBytes": 132,
+      "lamports": 1646580,
+      "receipt": {
+        "file": "1788578326313-3-getMinimumBalanceForRentExemption.json",
+        "sha256": "e8b7c2f8d7d208b65a8cbc5a6561d5fbec7a88e1117e3dd05acd3627a64deb9f",
+        "endpoint": "https://solana-rpc.publicnode.com",
+        "method": "getMinimumBalanceForRentExemption",
+        "at": "2026-09-05T03:18:46.354Z"
+      }
+    },
+    {
+      "accountDataBytes": 151,
+      "lamports": 1766907,
+      "receipt": {
+        "file": "1788578326354-4-getMinimumBalanceForRentExemption.json",
+        "sha256": "e81a74c98fd48b7e95347d4b81a30f904cdaa57b4b5e67922ab4dea5484f3028",
+        "endpoint": "https://solana-rpc.publicnode.com",
+        "method": "getMinimumBalanceForRentExemption",
+        "at": "2026-09-05T03:18:46.395Z"
+      }
+    },
+    {
+      "accountDataBytes": 259,
+      "lamports": 2450871,
+      "receipt": {
+        "file": "1788578326395-5-getMinimumBalanceForRentExemption.json",
+        "sha256": "2564900a5c8a6430644ca47ea26bb56ce34bea5af36a938be1388834d33957f0",
+        "endpoint": "https://solana-rpc.publicnode.com",
+        "method": "getMinimumBalanceForRentExemption",
+        "at": "2026-09-05T03:18:46.453Z"
+      }
+    }
+  ],
+  "currentNeedAndOneCandidateLamports": 3210831,
+  "proposedNeedAndCandidateWithSubmitterLamports": 3413487,
+  "illustrativeEveryMinuteAllSevenFeeds": {
+    "uniqueNeedsPerDay": 10080,
+    "currentLamports": 32365176480,
+    "proposedLamports": 34407948960
+  },
+  "assumptions": [
+    "Read-only current RPC values; no funds spent.",
+    "Every-minute seven-feed illustration assumes every target actually opened and retained; not current player demand.",
+    "Same Need can serve many shots; count unique feed/spec/target Needs, not players.",
+    "Excluded spec accounts, transactions, Core accounts, work pages, superseded candidates and receiver replay.",
+    "Current Timepin has no close-candidate instruction. Retained winning evidence cannot be called refunded rent."
+  ]
+}

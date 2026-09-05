@@ -1,0 +1,66 @@
+diff --git a/README.md b/README.md
+index b9ab040..9fdc18c 100644
+--- a/README.md
++++ b/README.md
+@@ -100,8 +100,10 @@ program-owned clock; settlement selects the first verified Ratchet checkpoint cr
+ with disjoint settle/void deadlines, commit-reveal and rent cleanup. This needs no Hermes API key or
+ trusted price signer. Eligible SOL chambers expose optional player-paid sealing during the soak
+ period; server settlement remains canonical until checkpoint, settle, reveal and close automation
+-is integrated end to end. Upgrade authority is deliberately retained during soak — and is revoked
+-for good on **2026-09-08**, registered before the fact in [docs/FREEZE.md](docs/FREEZE.md). This program is
++is integrated end to end. Upgrade authority is deliberately retained during soak. **The revocation
++registered for 2026-09-08 in [docs/FREEZE.md](docs/FREEZE.md) was withdrawn on 2026-09-03**: the on-chain
++successor generation is being built and no authority will be revoked until it has earned it; a future
++ceremony will again be registered in advance, in writing, before the fact. This program is
+ not a redeemable floor vault; do not describe the modeled floor as redeemable until a separate
+ funded vault PDA, liabilities proof and no-withdraw path are deployed and independently reviewed.
+ 
+@@ -211,6 +213,6 @@ labeled display-only fallback and can never enable sealing ·
+ `RATCHET_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)
+ 
+ No player-funds key exists in the site or backend; the game cannot custody or move player tokens. The
+-program upgrade authority is retained offline only for the declared soak period — which now has an end
+-date: **revoked on 2026-09-08**, registered in advance in [docs/FREEZE.md](docs/FREEZE.md). Read the
+-code; that is the point.
++program upgrade authority is retained offline while the on-chain successor is built. **The 2026-09-08
++revocation registered in [docs/FREEZE.md](docs/FREEZE.md) was withdrawn on 2026-09-03** and no freeze is
++scheduled; when one is, it will be registered in advance again. Read the code; that is the point.
+diff --git a/docs/AGENT_STATE.json b/docs/AGENT_STATE.json
+index 11ba5ef..caf392a 100644
+--- a/docs/AGENT_STATE.json
++++ b/docs/AGENT_STATE.json
+@@ -29,7 +29,8 @@
+     "solanaAgentRegistry": "1475"
+   },
+   "freezeDates": {
+-    "sealV2": "2026-09-08T00:00:00Z"
++    "sealV2": null,
++    "note": "the 2026-09-08 revocation was withdrawn on 2026-09-03; no freeze is scheduled"
+   },
+   "trustBoundaries": {
+     "canonicalSettlement": "ratchet-server",
+diff --git a/llms.txt b/llms.txt
+index bbc97a6..c30a4af 100644
+--- a/llms.txt
++++ b/llms.txt
+@@ -15,7 +15,7 @@ validated Pyth transitions Ratchet captured after expiry. That capture is a trus
+ boundary: the public path reproduces what Ratchet selected, but cannot prove Ratchet
+ did not miss an earlier qualifying update outside its capture. The optional SOL
+ on-chain seal reads Pyth in the program, but does not replace server settlement
+-during its soak; its upgrade authority is scheduled for revocation on 2026-09-08.
++during its soak; the revocation of its upgrade authority that was registered for 2026-09-08 was withdrawn on 2026-09-03 and no freeze is scheduled.
+ 
+ Not profit. A calibration record. If you say 75%, the public record preserves what
+ you said, what Ratchet settled, the evidence it used, and the remaining trust boundary.
+@@ -100,8 +100,9 @@ expiry. No valid transition inside 15 minutes voids and refunds. Strict numerica
+ comparison — only true equality voids. Nobody, us included, can change a sealed shot.
+ 
+ The settlement program on Solana mainnet is
+-`23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX`, and its upgrade authority is being
+-destroyed on 2026-09-08. After that nobody can change how it settles. Ever.
++`23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX`. Its upgrade authority is retained while the
++on-chain successor generation is built; the revocation registered for 2026-09-08 was withdrawn on
++2026-09-03 and no freeze is scheduled. A future ceremony will be registered in advance, in writing.
+ 
+ ## Endpoints an agent actually wants
+ 

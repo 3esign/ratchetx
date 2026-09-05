@@ -1,0 +1,26 @@
+✔ R1 measured reality: a phase-2 sponsored stream never satisfies the strict bracket on any minute target (17.6936ms)
+✔ R2 liveness floor: under V3 the same stream settles every minute target on the first print after T (+2 s) (10.9766ms)
+✔ L1 the strict-bracket message is the global minimum under key (publish, prev, hash) (12.493ms)
+✔ L2 anyone holding the bracket message can always finish the game at the old rule's answer (4.4045ms)
+✔ P1 order independence: any submission order yields the same winner (1000 random permutations) (24.009ms)
+✔ P2 monotonicity: an adversary can never move the winner LATER than what honest submissions alone produce (31.2227ms)
+✔ P3 withholding is worthless: whatever an adversary withholds, honest submissions still decide, and the adversary's only power is to ADD earlier evidence (7.4297ms)
+✔ C1 Astra 62/67: prompt capture vs omitted first print — with the challenge the earlier print wins regardless of who moved first (0.9423ms)
+✔ C2 no AMBIGUOUS is reachable: equal key means the same message; same-second different aggregates are ordered by prev then hash (uncontrollable, symmetric) (0.9733ms)
+✔ D1 deadline is absolute and never extended by a challenge; finalize/expire only after D (4.3511ms)
+✔ D2 silence: with zero submissions the Need expires exactly once and pays nobody (0.6278ms)
+✔ D3 admissibility negatives: before target, beyond lag, wrong feed, unauthenticated, bad predecessor, wide confidence, non-positive price (0.7445ms)
+✔ D4 exactly one bounty per Need, to the winning submitter, and duplicates never earn (4.8346ms)
+✔ X1 residual for keyed parties is bounded by the first sponsored print lag: they can only choose among aggregates in [T, first sponsored print) (5.8714ms)
+✔ A1 private earlier authentic message can be withheld to improve DOWN payoff despite an honest public capturer (4.7643ms)
+✔ A2 a private lower hash at identical publish/prev times also permits selective disclosure (0.6189ms)
+✔ A3 the price-time span is not the disclosure deadline: private entry evidence can be chosen after a five-minute exit print (0.6715ms)
+✔ A4 identical final price under reordering does not imply an identical bounty recipient (1.2314ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 435.5209

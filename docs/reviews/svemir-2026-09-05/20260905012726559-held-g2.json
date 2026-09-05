@@ -1,0 +1,145 @@
+{
+  "at": "2026-09-05T01:27:26.559Z",
+  "publicKey": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+  "scope": "Already named held G2 target public key from Sol report; public RPC only, no key contents.",
+  "observations": [
+    {
+      "endpoint": "https://api.mainnet-beta.solana.com",
+      "expectedGenesis": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+      "rows": [
+        {
+          "at": "2026-09-05T01:27:24.384Z",
+          "method": "getGenesisHash",
+          "params": [],
+          "result": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
+        },
+        {
+          "at": "2026-09-05T01:27:25.260Z",
+          "method": "getAccountInfo",
+          "params": [
+            "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+            {
+              "commitment": "finalized",
+              "encoding": "base64",
+              "dataSlice": {
+                "offset": 0,
+                "length": 45
+              }
+            }
+          ],
+          "result": {
+            "context": {
+              "apiVersion": "4.2.2",
+              "slot": 444393329
+            },
+            "value": null
+          }
+        },
+        {
+          "at": "2026-09-05T01:27:25.524Z",
+          "method": "getSignaturesForAddress",
+          "params": [
+            "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+            {
+              "commitment": "finalized",
+              "limit": 10
+            }
+          ],
+          "result": []
+        }
+      ]
+    },
+    {
+      "endpoint": "https://solana-rpc.publicnode.com",
+      "expectedGenesis": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+      "rows": [
+        {
+          "at": "2026-09-05T01:27:24.440Z",
+          "method": "getGenesisHash",
+          "params": [],
+          "result": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d"
+        },
+        {
+          "at": "2026-09-05T01:27:24.581Z",
+          "method": "getAccountInfo",
+          "params": [
+            "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+            {
+              "commitment": "finalized",
+              "encoding": "base64",
+              "dataSlice": {
+                "offset": 0,
+                "length": 45
+              }
+            }
+          ],
+          "result": {
+            "context": {
+              "apiVersion": "4.2.2",
+              "slot": 444393327
+            },
+            "value": null
+          }
+        },
+        {
+          "at": "2026-09-05T01:27:24.624Z",
+          "method": "getSignaturesForAddress",
+          "params": [
+            "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+            {
+              "commitment": "finalized",
+              "limit": 10
+            }
+          ],
+          "result": []
+        }
+      ]
+    },
+    {
+      "endpoint": "https://api.devnet.solana.com",
+      "expectedGenesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+      "rows": [
+        {
+          "at": "2026-09-05T01:27:24.441Z",
+          "method": "getGenesisHash",
+          "params": [],
+          "result": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG"
+        },
+        {
+          "at": "2026-09-05T01:27:24.596Z",
+          "method": "getAccountInfo",
+          "params": [
+            "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+            {
+              "commitment": "finalized",
+              "encoding": "base64",
+              "dataSlice": {
+                "offset": 0,
+                "length": 45
+              }
+            }
+          ],
+          "result": {
+            "context": {
+              "apiVersion": "4.3.0-beta.3",
+              "slot": 493301237
+            },
+            "value": null
+          }
+        },
+        {
+          "at": "2026-09-05T01:27:24.632Z",
+          "method": "getSignaturesForAddress",
+          "params": [
+            "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+            {
+              "commitment": "finalized",
+              "limit": 10
+            }
+          ],
+          "result": []
+        }
+      ]
+    }
+  ]
+}

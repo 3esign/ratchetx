@@ -1,0 +1,123 @@
+{
+  "schema": 1,
+  "at": "2026-09-05T02:58:00.330Z",
+  "owner": "Astra",
+  "integrationOwner": "Sol",
+  "source": "one successful finalized mainnet canonical SOL pusher transaction",
+  "files": [
+    {
+      "path": "1788576527065-1-getTransaction.json",
+      "sha256": "2416fa3a82c94b0b0b05876d158de235a7e04ccb23bac134ce81dd79bc700646"
+    },
+    {
+      "path": "1788576589853-1-getSignaturesForAddress.json",
+      "sha256": "e57f2a875672eafc608f8f8eb25bb0b31ec3407147af7038fecf0e85aa899c61"
+    },
+    {
+      "path": "1788576590200-2-getTransaction.json",
+      "sha256": "32a3ed9df42b9ec500257a9f6c72d92d9df45a6c778f02ab7ba6c2be6ab2fb08"
+    },
+    {
+      "path": "1788576590248-3-getTransaction.json",
+      "sha256": "51d0ffa6d14bae232ab5662802fd27b4edc8b9de5de8e0c943691b6f07a94672"
+    },
+    {
+      "path": "1788576590297-4-getTransaction.json",
+      "sha256": "293567636795844147ad755fc208b2d05eecddc0cb7f10b63c211b90a2eba1db"
+    },
+    {
+      "path": "1788576590347-5-getTransaction.json",
+      "sha256": "1305b060ea3bc1604ef5125e43e70d7c82de113a63cf33fa5c3898b16b9f0ac3"
+    },
+    {
+      "path": "1788576590436-6-getTransaction.json",
+      "sha256": "c6798ceb245c71359b55d875704da3ac6e41caa99d0397efccc4fce9a70cf230"
+    },
+    {
+      "path": "1788576758572-1-getMultipleAccounts.json",
+      "sha256": "12df40da18e015eae443b81e225407860e433b46a36307bcad5945e812fded60"
+    },
+    {
+      "path": "1788576758631-2-getMultipleAccounts.json",
+      "sha256": "7ab267f5bd07fe7a443fa5ea37a0d7c90b476895ebc2dd15fe4c6248ff1d9334"
+    },
+    {
+      "path": "20260905024739839-genesis0.json",
+      "sha256": "b302ce77d90e0ff7bd434f2c1e6762c7ef8209be640c39ec2434e5a5538cd421"
+    },
+    {
+      "path": "20260905024739839-genesis1.json",
+      "sha256": "7db94134920b72d23b60617f8104b04ce0ae963e7189f807a273e3d8e8fca254"
+    },
+    {
+      "path": "20260905024739839-probe.json",
+      "sha256": "96b991fbde30c75686a78191bb4f3c9743ffb162bcac3ec45189951ecbdcd0a9"
+    },
+    {
+      "path": "20260905024805813-genesis0.json",
+      "sha256": "b302ce77d90e0ff7bd434f2c1e6762c7ef8209be640c39ec2434e5a5538cd421"
+    },
+    {
+      "path": "20260905024805813-genesis1.json",
+      "sha256": "7db94134920b72d23b60617f8104b04ce0ae963e7189f807a273e3d8e8fca254"
+    },
+    {
+      "path": "20260905024805813-probe.json",
+      "sha256": "4d13d9ef85cac7f3cb3b27fb8a1cd1a1b6760b63e590019a89063f9ba1b64707"
+    },
+    {
+      "path": "20260905024805813-sigs0.json",
+      "sha256": "51f00f003a705012019f9c861d56475320d2f579f17a310c94da5e8770412b2d"
+    },
+    {
+      "path": "20260905024805813-sigs1.json",
+      "sha256": "f9f47532a5792b3667d063364d21e8becfa10d5052d8d0207325e1c9e4b2baf2"
+    },
+    {
+      "path": "3jsTusGSZXNo7J42JHsmXfR7ehW9wQoEwTYNHoBXiJZxAUxmVxKwiSWeRCLts78oWSDow9616xwT2HWxWZM4Qm1Q-description.json",
+      "sha256": "49ce1a67421c569b85d7577d0863cd595f3e4440410b592956c263de7b6b787d"
+    },
+    {
+      "path": "reconstructed-post-update.bin",
+      "sha256": "806f03ccb44c8f27dff6eb2914628b4c3c99187378f2a400793b10aa254c9015"
+    },
+    {
+      "path": "reconstructed-vaa.bin",
+      "sha256": "e9d6e738054d6cf4d68e9fb893444ee72bb68909b98948ff5bf4587e8c001261"
+    },
+    {
+      "path": "replay-proof-accounts-0.json",
+      "sha256": "a34d06bbfa007de4ead288a8d41d0dc6be5dd56811cae054e48b21a746550ddb"
+    },
+    {
+      "path": "replay-proof-accounts-1.json",
+      "sha256": "53187f587ff1e643f4682388b6f848729440a3ea723ea783468f0e6c100e2629"
+    },
+    {
+      "path": "replay-reconstruction.json",
+      "sha256": "6cd59099d85636783d6df768558c48f998fbd871989b6d866b910e0ed2f11d03"
+    },
+    {
+      "path": "replay-transactions.json",
+      "sha256": "d4b793a3d66fea1ebf10e3cbe67afaad60504cdcd2d55ff0b397255a0b680c65"
+    },
+    {
+      "path": "REPLAY_CRYPTO_VERIFICATION.json",
+      "sha256": "a9cc0b87272e728d7d78a5c34632654ea2d652502461095af2bc4a66b36b7797"
+    }
+  ],
+  "sourceSignature": "3jsTusGSZXNo7J42JHsmXfR7ehW9wQoEwTYNHoBXiJZxAUxmVxKwiSWeRCLts78oWSDow9616xwT2HWxWZM4Qm1Q",
+  "sourceSlot": 444408680,
+  "verified": [
+    "raw VAA full coverage from successful history writes",
+    "Keccak160 Merkle membership and corrupted-message negative",
+    "all3 included secp256k1 signatures against canonical guardian set from2 public RPC reads"
+  ],
+  "notVerified": [
+    "deployed Wormhole quorum semantics",
+    "devnet guardian compatibility and actual replay",
+    "proposed challenge adapter",
+    "permanent free archive",
+    "mainnet readiness"
+  ]
+}

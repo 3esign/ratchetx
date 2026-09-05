@@ -1,0 +1,18 @@
+✔ LA1 an adversarial permissionless PDA write changes payoff while an honest first-post capture exists in BOTH histories (9.2074ms)
+✔ LA2 an honest capturer missing several windows can settle on the sixth post, not necessarily the next one (0.6994ms)
+✔ LA3 after all admissible prints are overwritten a functioning late crank cannot capture an in-range message (0.5215ms)
+✔ LC1 first landed capture after T is the first sponsored post after T when any crank lands within the post lifetime (5 s) (47.6767ms)
+✔ LC2 a keyed adversary has NO option: messages never posted to the PDA cannot be captured at all (11.5929ms)
+✔ LC3 a withholding sole capturer can only delay to the NEXT post; any second honest crank landing within 5 s removes even that (5.8179ms)
+✔ LC4 order of landing decides nothing an adversary can choose: 500 random honest landing patterns give the same winner as long as one landing hits each post lifetime (41.108ms)
+✔ LC5 the honest failure mode is a timing accident, not a choice: if every crank lands later than one post lifetime, the winner is the first post that was live at the first landing (16.9538ms)
+✔ LC6 deadlines: no capture after capture_deadline, no finalize before it, expire only when nothing landed (3.3184ms)
+✔ LC7 slow feeds are EASIER, not harder: on a 52 s cadence any crank polling every 10 s with 5 s inclusion catches the first post (12.6251ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1880.1771

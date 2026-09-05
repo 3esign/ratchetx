@@ -1,0 +1,218 @@
+{
+  "at": "2026-09-05T01:56:31.658Z",
+  "pattern10": "gBxS1f6uyyGPuW5MzGBukidSb71jdsCb5fZaoSzULE5",
+  "patternProof": "base58 encoding of exactly 32 bytes 0x0a",
+  "matches": [
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\core-passport-benchmark\\mpl-core\\programs\\mpl-core\\src\\lib.rs",
+      "line": 33,
+      "text": "solana_program::declare_id!(\"CoREENxT6tW1HoK8ypY1SxRMZTcVPm7R94rH4PZNhX7d\");",
+      "sha256": "0871ef1d9a6a95f048c570628f473165f1a86152cb79c77f20fddb9a4187ea21"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\player-passport\\program\\lib.rs",
+      "line": 2,
+      "text": "// Solana Playground rewrites declare_id! to the deployed program address.",
+      "sha256": "5d3781b58600a4c8eaba4432bd658306d9eb6da977cb6ada7cd126a1117a2279"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\player-passport\\program\\lib.rs",
+      "line": 7,
+      "text": "declare_id!(\"11111111111111111111111111111111\");",
+      "sha256": "5d3781b58600a4c8eaba4432bd658306d9eb6da977cb6ada7cd126a1117a2279"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\player-passport\\program\\README.md",
+      "line": 7,
+      "text": "3. Build. Playground will replace the placeholder `declare_id!` with the project program ID.",
+      "sha256": "a9ac94a4124465e10acbb813db4203a788467993638dd8af7d04d93aef3f4f2d"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core\\programs\\ratchet-core\\src\\lib.rs",
+      "line": 28,
+      "text": "declare_id!(\"6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv\");",
+      "sha256": "282e48489838040789bc61c09210ad075fca3fefecbbcc392bb8d77494605260"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-devnet\\programs\\ratchet-core\\src\\lib.rs",
+      "line": 28,
+      "text": "declare_id!(\"CnKAJQAQvJQ7Ht3rZRt4ZaFuZSFL4G6sDZShbmJUdTCx\");",
+      "sha256": "b60481a05b2ffa9241876e4ad72dac4fdc938294d13ecf051563705ebcf0dac5"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\programs\\ratchet-core-g2\\src\\lib.rs",
+      "line": 34,
+      "text": "declare_id!(\"cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN\");",
+      "sha256": "369a674bd255de0a8b9649c1eed976d5c9f33d97d370c28d15ec33ba3b3af5e3"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-next-print\\programs\\ratchet-next-print\\src\\lib.rs",
+      "line": 12,
+      "text": "declare_id!(\"5bBHDFMmXQq6PNyrGVdSiKo3xpDvevbueYXZmp48bX4\");",
+      "sha256": "e5bd8e1fa76a3f4b854c29157b42df7eeaa39c50ac7483667b19bc3c0e1c617f"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-next-print-v2\\programs\\ratchet-next-print-v2\\src\\lib.rs",
+      "line": 15,
+      "text": "declare_id!(\"2TV2zagBZaDXXYjduLrRbiDGGsR8jXNqYAuLDE4j4tyR\");",
+      "sha256": "511b2a8fc79f37caf9ddb053aebd656da7a902953fd48b39b79fc69825c7f410"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-seal-v2\\programs\\ratchet-seal\\src\\lib.rs",
+      "line": 18,
+      "text": "declare_id!(\"23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX\");",
+      "sha256": "7cb5503728a5a93dd3747161c14d0254272f67dce583dae292a6ec6db3e78a5a"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-work-market\\programs\\ratchet-work-market\\src\\lib.rs",
+      "line": 19,
+      "text": "declare_id!(\"EdwrtcJ254e5BDSHbY6oZosdjPBrXLMZc9PzkmR9GBVD\");",
+      "sha256": "46e03d678018594e3d6502acde5978faa165e1062af4b8c661c796ceb4ff051f"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-work-market-v2\\Anchor.toml",
+      "line": 9,
+      "text": "ratchet_work_market_v2 = \"gBxS1f6uyyGPuW5MzGBukidSb71jdsCb5fZaoSzULE5\"",
+      "sha256": "69c8fa50ee2c38401d0194b03392b373d5154022aae246ac142cd505c96d79dd"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-work-market-v2\\programs\\ratchet-work-market-v2\\src\\lib.rs",
+      "line": 17,
+      "text": "declare_id!(\"gBxS1f6uyyGPuW5MzGBukidSb71jdsCb5fZaoSzULE5\");",
+      "sha256": "204f1ccb547f357ad84d8b9a36ff470ae601f99d485fc6e45748a86f82512918"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-work-market-v2\\README.md",
+      "line": 19,
+      "text": "No deploy keypair corresponding to the fixture id in `declare_id!` is tracked",
+      "sha256": "37c2f74aa07754aea7d0f6717dfc76ff2a86541726c775cc0318e4be743ec8b4"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-work-market-v2\\svm-tests\\tests\\work_market_v2.rs",
+      "line": 38,
+      "text": "    Pubkey::from_str(\"gBxS1f6uyyGPuW5MzGBukidSb71jdsCb5fZaoSzULE5\").unwrap()",
+      "sha256": "7735d0b54b45dd61d46fc76e0c24534f2654acfac4b4790c2893b4b6c4d1f1d7"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet_seal_lib.rs",
+      "line": 21,
+      "text": "declare_id!(\"4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2\");",
+      "sha256": "c108928dcfe43bc4896f2a79d375ae225f0ed693ef2287364e1c4a2f83731d5b"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet_seal_lib_v1.rs",
+      "line": 19,
+      "text": "declare_id!(\"4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2\");",
+      "sha256": "aeeaf4c5f06d3164e201e4bc8ed8a249fd87fbaef46ca1d79291e633fde22f1b"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin\\Anchor.toml",
+      "line": 11,
+      "text": "# in Anchor.toml and declare_id! together.",
+      "sha256": "1e3b2548cd5b8f8a5a4ba38d07fbb49d7a7ec7113f5f19b1ddc4db4c55abd98a"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin\\programs\\rcx-timepin\\src\\lib.rs",
+      "line": 15,
+      "text": "declare_id!(\"Fg6PaFpoGXkYsidMpWxTWqkZgYHFwD4GwxV6Wt5VwFQ\");",
+      "sha256": "d0b23fec1eb2222109b8d42e31b0c098413c209c53795aab5d75f771c59ea5cf"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\programs\\rcx-timepin-v2\\src\\lib.rs",
+      "line": 19,
+      "text": "declare_id!(\"C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp\");",
+      "sha256": "5bbcd7ec12a1b29b80fa8ed1a45e737c2393ae51b056763add812950fa5e1800"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\README.md",
+      "line": 112,
+      "text": "`HN1mdp8MrxbxL5VXejZ9ww1SN4S946bc16ZLQK3xUjBP`, does not match `declare_id!`,",
+      "sha256": "cdfa9ca8ad5461c5a9055fc64b90eefc14fed4925bf4747d57214ff6c0dae624"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\scripts\\generate-vectors.mjs",
+      "line": 75,
+      "text": "if (!source.includes('declare_id!(\"' + EXPECTED_PROGRAM_ID + '\")')) {",
+      "sha256": "dc99af82249e24fed81b5f2a950553d9a277f0bd3cd4966c373330ac544c6a61"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\player-passport\\program\\lib.rs",
+      "line": 2,
+      "text": "// Solana Playground rewrites declare_id! to the deployed program address.",
+      "sha256": "5d3781b58600a4c8eaba4432bd658306d9eb6da977cb6ada7cd126a1117a2279"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\player-passport\\program\\lib.rs",
+      "line": 7,
+      "text": "declare_id!(\"11111111111111111111111111111111\");",
+      "sha256": "5d3781b58600a4c8eaba4432bd658306d9eb6da977cb6ada7cd126a1117a2279"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\player-passport\\program\\README.md",
+      "line": 7,
+      "text": "3. Build. Playground will replace the placeholder `declare_id!` with the project program ID.",
+      "sha256": "8ea7643dde131d2ca32829cffc7953d591bee5b699964f5864175bbc7d07dad7"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\ratchet-core\\programs\\ratchet-core\\src\\lib.rs",
+      "line": 28,
+      "text": "declare_id!(\"6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv\");",
+      "sha256": "282e48489838040789bc61c09210ad075fca3fefecbbcc392bb8d77494605260"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\ratchet-core-devnet\\programs\\ratchet-core\\src\\lib.rs",
+      "line": 28,
+      "text": "declare_id!(\"CnKAJQAQvJQ7Ht3rZRt4ZaFuZSFL4G6sDZShbmJUdTCx\");",
+      "sha256": "b60481a05b2ffa9241876e4ad72dac4fdc938294d13ecf051563705ebcf0dac5"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\ratchet-core-g2\\programs\\ratchet-core-g2\\src\\lib.rs",
+      "line": 34,
+      "text": "declare_id!(\"ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL\");",
+      "sha256": "93b3bd51017b04986e08f5ce1ae120c07a8d195ff9ce70028f224fdb9987e2a6"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\ratchet-seal-v2\\programs\\ratchet-seal\\src\\lib.rs",
+      "line": 18,
+      "text": "declare_id!(\"23k3r8AJRdX64iipwNMqPdN2vSgNmw9stGs7cJqmZEEX\");",
+      "sha256": "7cb5503728a5a93dd3747161c14d0254272f67dce583dae292a6ec6db3e78a5a"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\ratchet_seal_lib.rs",
+      "line": 21,
+      "text": "declare_id!(\"4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2\");",
+      "sha256": "4a4d6cffacb93cc93bfe4cb72608dbc01dfabb72b5aed1f377957fdbdf27323c"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\ratchet_seal_lib_v1.rs",
+      "line": 19,
+      "text": "declare_id!(\"4WQ4XTzC29M6YoxgNi9WHhYJWEtYyj6YNFtSB9yCM6E2\");",
+      "sha256": "03e09077bfd3a7bceeac836c623d22edcaa20b72add4333c6bf4e5e90b478d67"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\rcx-timepin\\Anchor.toml",
+      "line": 11,
+      "text": "# in Anchor.toml and declare_id! together.",
+      "sha256": "1e3b2548cd5b8f8a5a4ba38d07fbb49d7a7ec7113f5f19b1ddc4db4c55abd98a"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\rcx-timepin\\programs\\rcx-timepin\\src\\lib.rs",
+      "line": 15,
+      "text": "declare_id!(\"Fg6PaFpoGXkYsidMpWxTWqkZgYHFwD4GwxV6Wt5VwFQ\");",
+      "sha256": "d0b23fec1eb2222109b8d42e31b0c098413c209c53795aab5d75f771c59ea5cf"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\rcx-timepin-v2\\programs\\rcx-timepin-v2\\src\\lib.rs",
+      "line": 19,
+      "text": "declare_id!(\"C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp\");",
+      "sha256": "5bbcd7ec12a1b29b80fa8ed1a45e737c2393ae51b056763add812950fa5e1800"
+    },
+    {
+      "path": "D:\\Work\\Software_Projects\\ratchetx-c8-core-release-candidate\\onchain\\rcx-timepin-v2\\scripts\\generate-vectors.mjs",
+      "line": 75,
+      "text": "if (!source.includes('declare_id!(\"' + EXPECTED_PROGRAM_ID + '\")')) {",
+      "sha256": "dc99af82249e24fed81b5f2a950553d9a277f0bd3cd4966c373330ac544c6a61"
+    }
+  ],
+  "keyCustody": "not inspected; placeholder does not establish inventory-wide absence"
+}

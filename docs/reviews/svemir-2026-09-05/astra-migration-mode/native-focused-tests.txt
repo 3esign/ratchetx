@@ -1,0 +1,16 @@
+✔ migration is the default; only explicit deployment configuration restores legacy (13.9909ms)
+✔ every non-diagnostic API loads without any legacy dependency or side effect (52.5601ms)
+✔ explicit legacy configuration reaches the preserved code for all paused APIs (54.7406ms)
+✔ real HTTP: hostile query/body/headers cannot bypass 503 or obtain wallet/payment actions (346.8675ms)
+✔ migration build check needs no store credentials, imports or network (9.4362ms)
+✔ legacy build still reaches its store prerequisite instead of silently bypassing it (4.8373ms)
+✔ public route contract uses the existing inert notice, retains API aliases and disables crons (193.9873ms)
+✔ diagnostics are retained separately and do not claim a scheduled revocation (308.5828ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1248.2847

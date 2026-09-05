@@ -1,0 +1,65 @@
+{
+  "schema": 1,
+  "at": "2026-09-05T02:23:50.027Z",
+  "owner": "Astra",
+  "integrationOwner": "Sol",
+  "stagingRoot": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905/astra-browser-review-staging",
+  "files": [
+    {
+      "path": "browser-g2-bridge.mjs",
+      "sha256": "30de7b2b4435347731b77225395d683d37ee9b32e6ee6edf314b75726e3bad50"
+    },
+    {
+      "path": "browser-g2-read.mjs",
+      "sha256": "c5a29cb8f3b7fee56477ad63d86441a461a0a81e2560f79d413de007c17a56c9"
+    },
+    {
+      "path": "test-astra-browser.mjs",
+      "sha256": "45b1ee169597d710fa98d28886466a6a58ea9b72adab1fe83a531f5171916d9c"
+    }
+  ],
+  "dependencies": [
+    {
+      "path": "client-v2.mjs",
+      "sha256": "75b43c937a3e613980f5704147e18c803f56d684e5e422efaaae102eea1f4b6b"
+    },
+    {
+      "path": "lifecycle-v2.mjs",
+      "sha256": "0bcef94777bc07d60b4513038d316d1b13c00085028447addb85e5862a26b252"
+    },
+    {
+      "path": "economic-v2.mjs",
+      "sha256": "c83583096c15d3c08f7fa3cc84808ecdb1799171e7f77f82d5f095b9653fe732"
+    }
+  ],
+  "predecessors": {
+    "browser-g2-bridge.mjs": "cb8cb7cbb7c1a992cab3bd85f77bdb7a4205022e3f58c7850023f989d64f6876",
+    "browser-g2-read.mjs": "07f84e2ab314bc4de217bbcd2c3207d46d2a1e3fabfc05648036075dc4fe42db"
+  },
+  "validation": {
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0,
+    "node": "v24.15.0",
+    "receiptFile": "TEST_RECEIPT-20260905022040931.json",
+    "receiptSha256": "73ae294bf65c33d31970c67c32799830d1a8f1005129c13b0fe1b18209dd6b35",
+    "resultFile": "test-results-20260905022040931.txt",
+    "resultSha256": "f22321f3f94e726b6cc4e2581f86f43276f3f88bf9e0fddb8d792a928fc145d8",
+    "scope": "actual installed web3 and offline raw-account/RPC fixtures; no live network, Phantom, send or SBF"
+  },
+  "contract": {
+    "factory": "createBrowserG2Bridge({web3,wallet,rpcUrl,generationManifest,cryptoImpl,fetchImpl?,timeoutMs?})",
+    "wallet": "Prefer direct wallet.publicKey + wallet.signTransaction(tx); explicit wallet.address + wallet.sign(tx,blockhash) adapter remains supported. Return a real web3 transaction or {tx: transaction}.",
+    "result": "signIxs returns frozen {signed: transaction, tx: transaction, blockhash, lastValidBlockHeight, expectedGenesisHash, genesisHash, feePayer}. It never sends/retries/rebuilds.",
+    "rpc": "Strict JSON-RPC2 matching id, result/error exclusive; bounded fetch; exactly one genesis request per check. All pin objects copied and frozen.",
+    "readNeed": "Passes targetTs; read defaults allow terminal states; requireOpen:true is explicit. Raw base64 decoded without global Buffer. Wrong/malformed/absent/network failures remain distinct."
+  },
+  "notes": [
+    "Mandatory genesis, safe-integer expiry checks from RPC before and after wallet; old skipGenesis/currentBlockHeight bypasses have no effect.",
+    "Signed message must equal the locally constructed one. This is not cryptographic verification of every signature; network execution remains separate.",
+    "Injected decoded chain inputs must be validated by their callers. Expected public program/ELF/authority generation checks and final source re-pin remain integration prerequisites.",
+    "Place runtime modules together in a reviewed public module directory with hashes matching their canonical source; current onchain/ is intentionally excluded by Vercel. Do not expose the onchain source tree to serve these files.",
+    "Real-web3 offline fixtures use ANV/C8 IDs; this is not deployed ANV evidence. No Phantom UI, full server-off lifecycle, live send/confirm, or SBF proof.",
+    "Svemir owns the separate send/confirm file; original Svemir bridge/read staging is untouched."
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "verifiedAt": "2026-09-05T03:12:55.829Z",
+  "reviewer": "Astra",
+  "integrationCommit": "fcaab92694eb894a4771e803b6998ab2a63ef779",
+  "files": [
+    {
+      "path": ".vercelignore",
+      "sha256": "bdde70054a61ca3ea6cf20761472dbb39ec70d772167eb02ea93a521de42715b",
+      "exactStagedBytes": true
+    },
+    {
+      "path": "scripts/check-release-safety.mjs",
+      "sha256": "d345d630c9a39e5fa50e7c2c39d799d1b859505c41ca29dc96c51e4f336393c1",
+      "exactStagedBytes": true
+    },
+    {
+      "path": "scripts/check-deploy-input.mjs",
+      "sha256": "67bb564cd9cd3174c4ff5c1a15ea98c8c58b88560d9de69c2dc8c3e33880b695",
+      "exactStagedBytes": true
+    },
+    {
+      "path": "test/test_deploy_input.mjs",
+      "sha256": "fe3a4895192c12c4df76a3b9d599f9a33631dfa83da4bafceff52d5bb4913149",
+      "exactStagedBytes": true
+    },
+    {
+      "path": "DEPLOY.cmd",
+      "sha256": "e1d78f2a89a5522fc5499279577bb2c2ff037a2b29d75ec6282d51b6e95a37a3",
+      "stagedSha256": "727adebd9b4e51deafec6b6f59365b539a4b936782a16939374206d86e362ad3",
+      "equalAfterCRLFNormalization": true
+    }
+  ],
+  "verdict": "Integrated release guard matches reviewed and previously tested implementation; DEPLOY.cmd differs from staging only by line endings.",
+  "tests": "Prior staged native suite 10/10; not rerun because code matches. This receipt is independent hash and commit verification.",
+  "notVerified": [
+    "production deployment",
+    "contents of every future deploy folder",
+    "oracle or mainnet readiness"
+  ]
+}

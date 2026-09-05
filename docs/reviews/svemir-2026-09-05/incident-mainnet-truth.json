@@ -1,0 +1,235 @@
+{
+  "at": "2026-09-04T23:52:29.601Z",
+  "core": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+  "timepin": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+  "expectedGenesis": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+  "scope": "read-only finalized public RPC; no keys/signing/deploy. A successful null account is current absence; RPC errors and unavailable history are not absence.",
+  "observations": [
+    {
+      "endpoint": "https://api.mainnet-beta.solana.com",
+      "rows": [
+        {
+          "method": "getGenesisHash",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\0-1-getGenesisHash.json",
+          "sha256": "c33c489a30699c7a2e66b08bbca7ed7925588fa59bf6bf4d9d7df8399db3642b",
+          "http": 200,
+          "responseSha256": "072c547ad3321ad6379bf249c218bcf112eaa3bd0138f07ace4077db1785a37d",
+          "result": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+          "error": null
+        },
+        {
+          "method": "getAccountInfo",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\0-2-getAccountInfo.json",
+          "sha256": "b53617493035cbd8114b4386db193d3f8c8bfeafb59ba9e0b45bd0fea231110e",
+          "http": 200,
+          "responseSha256": "7f3e83644616a3e5f7e3b876337b7070da6571ba98f3b71b54beeba8a908c9ca",
+          "result": {
+            "context": {
+              "apiVersion": "4.2.2",
+              "slot": 444375202
+            },
+            "value": null
+          },
+          "error": null
+        },
+        {
+          "method": "getProgramAccounts",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\0-3-getProgramAccounts.json",
+          "sha256": "4d7705e6d646ec0127106f581675dd5810e7ede0076398b1961c4eb5a342406b",
+          "http": 200,
+          "responseSha256": "b48c386a45af986c546093d53deed9208418d67992c5457f23f7fc2a97362904",
+          "result": {
+            "context": {
+              "slot": 444375204,
+              "apiVersion": "4.2.1"
+            },
+            "value": []
+          },
+          "error": null,
+          "accountKind": "Economy",
+          "count": 0
+        },
+        {
+          "method": "getProgramAccounts",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\0-4-getProgramAccounts.json",
+          "sha256": "26a7310afebcbe340ebcd0c0345cf92a61c84382660b888c46febcc985a96d0c",
+          "http": 200,
+          "responseSha256": "be5ca949f3bea7d32176c680dff29840f2b0f5d038e21fd4d067616c353df5f7",
+          "result": {
+            "context": {
+              "slot": 444375205,
+              "apiVersion": "4.2.1"
+            },
+            "value": []
+          },
+          "error": null,
+          "accountKind": "Ruleset",
+          "count": 0
+        },
+        {
+          "method": "getAccountInfo",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\0-5-getAccountInfo.json",
+          "sha256": "c05cd81bf1963e75c03d43da78c190d5bedd678bc452fc93af238d8f39aa7a43",
+          "http": 200,
+          "responseSha256": "f24dd0fd83c411a8fd93e4974929577b2ce6ec5b6850950a72b92c45a6b43ddc",
+          "result": {
+            "context": {
+              "apiVersion": "4.2.2",
+              "slot": 444375206
+            },
+            "value": null
+          },
+          "error": null
+        },
+        {
+          "method": "getSignaturesForAddress",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\0-6-getSignaturesForAddress.json",
+          "sha256": "61638b20be2a509acacfa27fbd35d134822fce460a6a8b40ad00b67ef4ce04de",
+          "http": 200,
+          "responseSha256": "ca7986eeaedbf95e47c82b6f285e8239658e815d0abc1c350bb2ca3b2fb36a7a",
+          "result": [
+            {
+              "blockTime": 1788416697,
+              "confirmationStatus": "finalized",
+              "err": null,
+              "memo": null,
+              "signature": "upJGeQWsimqwo31GEvG7m2EeypNxtQBgv5LcApMMThiLFnrv54PmjnJj9hXqSaRUYT66tYGQJmNRSUDp1Kmi9EC",
+              "slot": 443901900,
+              "transactionIndex": 585
+            },
+            {
+              "blockTime": 1788356530,
+              "confirmationStatus": "finalized",
+              "err": null,
+              "memo": null,
+              "signature": "5rJ8ST6jKrNrqzY4tDsct6WGMSyQW2fWhJNANVd52fQPeP1zR5sFemgZ4LjJhqBnHbTgXcNRZCQgVTcfoD3xrkWD",
+              "slot": 443710866,
+              "transactionIndex": 1202
+            },
+            {
+              "blockTime": 1788284299,
+              "confirmationStatus": "finalized",
+              "err": null,
+              "memo": null,
+              "signature": "oMVQUb7fnrGCRs3zMvCrwaURtX8UdipgJDrmxpbrfHtvTgdVhttYHRWWSGecBuyKX9pmKNycWD4VbxgbG2PS9vw",
+              "slot": 443481841,
+              "transactionIndex": 623
+            },
+            {
+              "blockTime": 1788284291,
+              "confirmationStatus": "finalized",
+              "err": null,
+              "memo": null,
+              "signature": "4r9Ltusr8BA6oTvJE4ANgUHFq5ApD7V3wpD7kU5zSUgZNn6gDrxTC7LtceSzSbEpWQRuXGE3JJNG6ZepcsZ2mcUE",
+              "slot": 443481815,
+              "transactionIndex": 20
+            },
+            {
+              "blockTime": 1788284290,
+              "confirmationStatus": "finalized",
+              "err": null,
+              "memo": null,
+              "signature": "4PVTgKjkp5oQKRF72XDWuBxkWYif4kqXyNxVfs2vVC9yRXx73Q42sF6xeQhjf5xWAoYsfnceq3HQhMaXevdPG3kB",
+              "slot": 443481814,
+              "transactionIndex": 1038
+            }
+          ],
+          "error": null
+        }
+      ]
+    },
+    {
+      "endpoint": "https://solana-rpc.publicnode.com",
+      "rows": [
+        {
+          "method": "getGenesisHash",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\1-1-getGenesisHash.json",
+          "sha256": "fd91a93930c468e8fb83a132362a0e121e9b2beb9deb1f5d15c88624be725efb",
+          "http": 200,
+          "responseSha256": "072c547ad3321ad6379bf249c218bcf112eaa3bd0138f07ace4077db1785a37d",
+          "result": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+          "error": null
+        },
+        {
+          "method": "getAccountInfo",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\1-2-getAccountInfo.json",
+          "sha256": "93995510d086ca1bf5d7fd8e78078793dbf93ba121c04240e7fb9a6059412c6b",
+          "http": 200,
+          "responseSha256": "5762ef008eb3fa1eb3d4780f7d19bd1028607dc955bfffe732f825a2668a03c9",
+          "result": {
+            "context": {
+              "apiVersion": "4.2.1",
+              "slot": 444375197
+            },
+            "value": null
+          },
+          "error": null
+        },
+        {
+          "method": "getProgramAccounts",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\1-3-getProgramAccounts.json",
+          "sha256": "69a1bcfdde455562f97249ad10118998c66e6fa58f0b6252344337213f2cd86a",
+          "http": 403,
+          "responseSha256": "b1279900366990f42963d063e8501567dffcfd611c10de63fc8e263cf5d8d36a",
+          "error": {
+            "code": -32602,
+            "message": "Indexed requests require a personal token. Get one at: https://www.allnodes.com/publicnode"
+          }
+        },
+        {
+          "accountKind": "Economy",
+          "error": "RPC response rejected"
+        },
+        {
+          "method": "getProgramAccounts",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\1-4-getProgramAccounts.json",
+          "sha256": "6a6a9fc2b0f365dde9c4bbbd4fbe450eb43b179cff365744dc5acaadee3aee5d",
+          "http": 403,
+          "responseSha256": "b9fb9ba3086592dec4d076ffe4f05a979c559634f1f53a9cbaa7e25f41268d30",
+          "error": {
+            "code": -32602,
+            "message": "Indexed requests require a personal token. Get one at: https://www.allnodes.com/publicnode"
+          }
+        },
+        {
+          "accountKind": "Ruleset",
+          "error": "RPC response rejected"
+        },
+        {
+          "method": "getAccountInfo",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\1-5-getAccountInfo.json",
+          "sha256": "481724f4e1aa1bed241bb3495dfb087873899334d2be5820b24d773de61a9e5c",
+          "http": 200,
+          "responseSha256": "bd1bf8e3603d5925542418a02e06b3972793d65b5f63f08e0df6f4031ef7c14c",
+          "result": {
+            "context": {
+              "apiVersion": "4.2.2",
+              "slot": 444375201
+            },
+            "value": null
+          },
+          "error": null
+        },
+        {
+          "method": "getSignaturesForAddress",
+          "file": "D:\\Svemir\\data\\brain\\scratch\\ratchetx-mainnet-20260905\\incident-mainnet\\1-6-getSignaturesForAddress.json",
+          "sha256": "f97887f11bdf2e4421839ed734dc78df9e012a161d50d585be86382537875efc",
+          "http": 200,
+          "responseSha256": "c3a91b89439776e922f58575a38e9b145c53d05f94243fe3a78730be78d7eeaf",
+          "result": [
+            {
+              "blockTime": 1788416697,
+              "confirmationStatus": "finalized",
+              "err": null,
+              "memo": null,
+              "signature": "upJGeQWsimqwo31GEvG7m2EeypNxtQBgv5LcApMMThiLFnrv54PmjnJj9hXqSaRUYT66tYGQJmNRSUDp1Kmi9EC",
+              "slot": 443901900,
+              "transactionIndex": 585
+            }
+          ],
+          "error": null
+        }
+      ]
+    }
+  ]
+}

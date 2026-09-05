@@ -1,0 +1,235 @@
+ok    test_activity_agent_guards.mjs
+ok    test_activity_agents.mjs
+ok    test_activity_feed.mjs
+ok    test_activity_readonly.mjs
+ok    test_activity_recovery.mjs
+FAIL  test_agent_discovery.mjs
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(vercel.rewrites.some(route =>
+
+    at file:///D:/Work/Software_Projects/ratchetx-astra-migration-review/test/test_agent_discovery.mjs:184:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v24.15.0
+
+ok    test_agent_e2e.mjs
+ok    test_agent_funnel_protocol.mjs
+FAIL  test_agent_gauntlet.mjs
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(vercel.rewrites.some(route =>
+
+    at file:///D:/Work/Software_Projects/ratchetx-astra-migration-review/test/test_agent_gauntlet.mjs:118:8 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v24.15.0
+
+FAIL  test_agent_onboarding_page.mjs
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: The expression evaluated to a falsy value:
+
+  assert.ok(vercel.rewrites.some(route =>
+
+    at file:///D:/Work/Software_Projects/ratchetx-astra-migration-review/test/test_agent_onboarding_page.mjs:43:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v24.15.0
+
+ok    test_agent_registry.mjs
+ok    test_agent_registry_fix.mjs
+ok    test_agent_report.mjs
+ok    test_agents.mjs
+ok    test_align.mjs
+ok    test_anchor_health.mjs
+ok    test_arena_brier_ranking.mjs
+ok    test_balance.mjs
+ok    test_blink.mjs
+ok    test_calibration.mjs
+ok    test_canon.mjs
+ok    test_chain_gap.mjs
+ok    test_chal_ui.mjs
+ok    test_commit.mjs
+ok    test_core_client.mjs
+ok    test_core_vectors.mjs
+ok    test_crank_reads_players.mjs
+ok    test_critical_paths.mjs
+ok    test_deploy_input.mjs
+ok    test_equity_prices.mjs
+ok    test_evidence.mjs
+ok    test_feedhealth.mjs
+ok    test_funnel.mjs
+ok    test_guarded_build_gate.mjs
+ok    test_guarded_commit_sql.mjs
+ok    test_guarded_preflight_sql.mjs
+ok    test_harness.mjs
+ok    test_heartbeat.mjs
+ok    test_inspector.mjs
+FAIL  test_kill_switch.mjs
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: lib/migration_mode.js reads RATCHETX_SITE_MODE, but no document names it — a switch nobody wrote down is a switch nobody can check, and an unset one fails silently
+    at ok (file:///D:/Work/Software_Projects/ratchetx-astra-migration-review/test/test_kill_switch.mjs:31:36)
+    at file:///D:/Work/Software_Projects/ratchetx-astra-migration-review/test/test_kill_switch.mjs:201:3
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v24.15.0
+
+ok    test_kv_atomic.mjs
+ok    test_kv_ordered.mjs
+ok    test_kv_shapes.mjs
+ok    test_ledger.mjs
+ok    test_legacy_chain.mjs
+ok    test_legacy_root.mjs
+ok    test_live_snapshot.mjs
+ok    test_log.mjs
+ok    test_log_api.mjs
+ok    test_mcp.mjs
+ok    test_mcp_agent_record.mjs
+ok    test_mcp_http.mjs
+ok    test_mcp_registry_manifest.mjs
+FAIL  test_migration_freeze.mjs
+PASS  baseline: the machine sells while the freeze is off
+PASS  baseline: the shot is open and holding stake
+PASS  frozen: a shot is refused
+PASS  frozen: refused by NAME, not a generic SHOT_REFUSED — an agent must be able to tell a freeze from a fault, which is exactly what the Bankr RELEASE_MISMATCH failure was
+PASS  frozen: the reason says what is happening
+PASS  frozen: and says open shots are unaffected, so nobody thinks their stake is stuck
+PASS  frozen: a refused seal takes no credits and opens no chamber
+PASS  frozen: a challenge is refused too — takeStake is the ONE chokepoint every stake passes, so no second path stays open
+PASS  frozen: state still reads
+PASS  frozen: the open shot settled rather than sitting there
+PASS  frozen: a correct prediction is still recorded as correct
+PASS  frozen: and it PAYS — 1.7x the stake returned, exactly as if nothing were frozen
+PASS  unset: selling resumes — the switch is off unless it is explicitly on
+PASS  RX_MIGRATION_FREEZE=false does NOT freeze — a string comparison against "1", so no truthy accident can take the game down
+
+PASS  migration freeze: 14 checks — it stops selling, it never stops settling
+Assertion failed: !(handle->flags & UV_HANDLE_CLOSING), file src\win\async.c, line 76
+
+ok    test_migration_mode.mjs
+ok    test_mirror_v2.mjs
+ok    test_mobile_resilience.mjs
+ok    test_no_clip.mjs
+ok    test_notify.mjs
+ok    test_observatory.mjs
+FAIL  test_onchain_cost.mjs
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: CrankPurse must be found in lib.rs
+    at file:///D:/Work/Software_Projects/ratchetx-astra-migration-review/test/test_onchain_cost.mjs:26:24
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: undefined,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v24.15.0
+
+ok    test_onchain_px.mjs
+ok    test_permanence_release.mjs
+ok    test_play_session.mjs
+ok    test_play_session_atomicity.mjs
+ok    test_play_session_discovery.mjs
+ok    test_play_session_http.mjs
+ok    test_play_session_identity.mjs
+ok    test_play_session_kv.mjs
+ok    test_play_session_page.mjs
+ok    test_player_commit_recovery.mjs
+ok    test_player_write_fencing.mjs
+ok    test_pure_burn.mjs
+ok    test_pyth_context.mjs
+ok    test_pyth_ordering.mjs
+ok    test_pyth_pagination.mjs
+ok    test_ranked_remote_protocol.mjs
+ok    test_read_budget.mjs
+ok    test_readcost.mjs
+ok    test_record.mjs
+ok    test_record_api.mjs
+ok    test_release_identity.mjs
+ok    test_restore.mjs
+ok    test_rollup.mjs
+ok    test_salt_parity.mjs
+ok    test_sample_durability.mjs
+ok    test_session_play.mjs
+ok    test_session_play_contract.mjs
+ok    test_session_play_intent.mjs
+ok    test_session_play_stocks.mjs
+ok    test_session_play_typos.mjs
+ok    test_session_smoke.mjs
+ok    test_session_smoke_contract.mjs
+ok    test_settle.mjs
+ok    test_settlement_claims.mjs
+ok    test_shot_page.mjs
+ok    test_startup_recovery.mjs
+ok    test_state_read_budget.mjs
+ok    test_stock_cadence.mjs
+ok    test_store_gate.mjs
+ok    test_stream_capture.mjs
+ok    test_supabase_final_snapshot.mjs
+ok    test_supabase_final_snapshot_restore.mjs
+ok    test_supabase_key_formats.mjs
+ok    test_supabase_kv.mjs
+ok    test_supabase_migration.mjs
+ok    test_supabase_strict_read.mjs
+ok    test_supply.mjs
+ok    test_warden.mjs
+ok    test_widths.mjs
+ok    test_x402.mjs
+ok    test_x402_browser_smoke.mjs
+ok    test_x402_premium.mjs
+
+107 passed · 6 failed · 0 skipped
