@@ -11,6 +11,7 @@ import {
   deriveWorkPagePda,
   hashPriceMessage,
   terminalResultHash,
+  validateEvidenceSpec,
 } from '../../rcx-timepin/model-v2.mjs';
 
 const EXPECTED_PROGRAM_ID = 'C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp';
@@ -110,6 +111,35 @@ const spec = {
   ),
   registeredSlot: BigInt(register.syntheticGenerationFixture.registrationClockSlot),
 };
+
+// THE VECTORS MUST DESCRIBE A SPEC THE PROGRAM WOULD ACCEPT.
+//
+// This script re-pins the program id but copies the POLICY straight out of the
+// existing vectors, so whatever is in them is what comes back out. On
+// 2026-09-05 what was in them was adapter 1 with grid 60 and lag 120 - the
+// experimental strict-bracket adapter, and a lag at twice the grid, which
+// validate_spec now refuses because one print would settle two consecutive
+// targets. Re-pinning without this check would have locked golden vectors for a
+// spec that cannot register, on the rule we are not shipping, into the one build
+// that Gate 1 allows.
+//
+// Fail here, loudly, before anything is written. The vectors are the reference
+// every later comparison is made against; a wrong one is not caught downstream,
+// it becomes the definition of correct.
+{
+  const verdict = validateEvidenceSpec(spec);
+  if (!verdict.ok) {
+    throw new Error(
+      `REFUSING TO PIN VECTORS: the policy in the source vectors describes a spec the `
+      + `program would reject at registration (${verdict.code}`
+      + `${verdict.detail ? `: ${verdict.detail}` : ''}). `
+      + `adapter=${spec.adapter} grid=${spec.targetGridSeconds} `
+      + `lag=${spec.maxPostTargetLagSeconds} lead=${spec.minOpenLeadSeconds} `
+      + `skew=${spec.maxFutureSkewSeconds} pregap=${spec.maxPreTargetGapSeconds}. `
+      + `Fix the policy in the source vectors first - re-pinning copies it forward.`,
+    );
+  }
+}
 
 const specPda = deriveEvidenceSpecPda(programBytes, spec);
 const target = BigInt(register.need.targetTs);
