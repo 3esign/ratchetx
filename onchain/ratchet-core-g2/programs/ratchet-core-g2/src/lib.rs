@@ -5086,4 +5086,47 @@ mod lifecycle_tests {
         );
         assert_eq!(DelegateGrant::LEN, 196);
     }
+
+    // ---- the player's reveal budget ---------------------------------------
+    // From the lead's REVEAL_BUDGET.md. These are pure arithmetic: they prove the
+    // defect and the shape of the fix without touching an instruction, so they
+    // are true before the fix lands and stay true after it, and the second one
+    // fails the day somebody re-introduces an absolute deadline.
+
+    #[test]
+    fn the_players_reveal_budget_has_no_lower_bound_today() {
+        // reveal_deadline is fixed at SEAL as capture_deadline + window. But the
+        // two transactions that must land before a reveal is possible - Timepin
+        // finalize, then Core settle_final - are permissionless and unbounded in
+        // time. Nobody is obliged to run them promptly, so the player's real
+        // budget is deadline - (whenever settle_final actually landed).
+        let target = 1_800i64;
+        let capture_deadline = target + 59 + 60; // lag + grace
+        for window in [120i64, 3_600, 86_400] {
+            let deadline = capture_deadline + window;
+            let budget = |settled_at: i64| deadline - settled_at;
+            // prompt cranks: nearly the whole window
+            assert!(budget(capture_deadline + 5) >= window - 5);
+            // slow cranks take the player's time one second for one second
+            assert_eq!(budget(capture_deadline + 5) - budget(capture_deadline + 65), 60);
+            // and past the window there is nothing left: settle_final succeeds and
+            // the shot can NEVER be revealed - a guaranteed forfeit caused
+            // entirely by somebody else's latency.
+            assert!(budget(capture_deadline + window + 1) < 0);
+        }
+    }
+
+    #[test]
+    fn a_deadline_set_at_settlement_is_latency_independent() {
+        // The fix, in one line of arithmetic. Note what it is NOT: a bigger
+        // window. Any finite ABSOLUTE window has the defect above; a larger
+        // number only makes the day it bites rarer, and reveal_window is written
+        // into an immutable economy, so on the day it bites there is nothing left
+        // to turn.
+        let window = 3_600i64;
+        let budget = |settled_at: i64| (settled_at + window) - settled_at;
+        for settled_at in [1_900i64, 5_000, 100_000, 10_000_000] {
+            assert_eq!(budget(settled_at), window);
+        }
+    }
 }
