@@ -1734,14 +1734,31 @@ pub mod ratchet_core_g2 {
         )?;
         validate_record_against_spec(&exit, &spec, ctx.accounts.shot.exit_target_ts)?;
         require!(exit.feed_id == rules.feed_id, CoreG2Error::WrongFeed);
-        let reveal_deadline_ts = fixed_reveal_deadline(
+        let projected_reveal_deadline_ts = fixed_reveal_deadline(
             ctx.accounts.shot.exit_target_ts,
             exit_need.source_deadline_ts,
             exit_need.capture_deadline_ts,
             ctx.accounts.economy.args.reveal_window_seconds,
         )?;
+        // The deadline the shot was sealed with is a PROJECTION, and the player's
+        // budget cannot rest on it. fixed_reveal_deadline is
+        // capture_deadline_ts + reveal_window_seconds, and capture_deadline_ts
+        // belongs to the exit Need, fixed at seal. Settlement lands whenever a
+        // crank gets to it, so the time a player actually has left is the window
+        // MINUS however late settlement was, and nothing bounded that below:
+        // settle late enough and the player had none.
+        //
+        // So the deadline is SET here, at settlement, not merely checked against
+        // what was written at seal. max() rather than a plain
+        // now + reveal_window: this may only ever give a player more time than
+        // the old rule, never less, so nothing that already reasoned about the
+        // projected value needs re-deriving.
+        //
+        // score_day is deliberately NOT touched. It is derived from the same
+        // projection at all four seal paths, it binds this shot's PlayerDay, and
+        // ranking needs it knowable at seal. The deadline moves; the day does not.
         require!(
-            reveal_deadline_ts == ctx.accounts.shot.reveal_deadline_ts,
+            projected_reveal_deadline_ts == ctx.accounts.shot.reveal_deadline_ts,
             CoreG2Error::BadTimepinDeadline
         );
 
@@ -1776,6 +1793,19 @@ pub mod ratchet_core_g2 {
         ctx.accounts.shot.resolver = ctx.accounts.actor.key();
         ctx.accounts.shot.settled_ts = clock.unix_timestamp;
         ctx.accounts.shot.resolution_slot = clock.slot;
+        // R3: the reveal deadline is SET here, at settlement, not merely checked
+        // against the projection written at seal. See the comment above the
+        // projection check earlier in this instruction. max() so this can only
+        // give a player more time than the old rule, never less; it is written
+        // before resolution_hash below, so the hash covers the value the player
+        // will actually be held to.
+        ctx.accounts.shot.reveal_deadline_ts = core::cmp::max(
+            clock
+                .unix_timestamp
+                .checked_add(i64::from(ctx.accounts.economy.args.reveal_window_seconds))
+                .ok_or(CoreG2Error::TimestampOverflow)?,
+            projected_reveal_deadline_ts,
+        );
         if delta == 0 || (rules.band_numerator > 0 && in_band) {
             let reason = if delta == 0 {
                 VoidReason::Equality as u8
