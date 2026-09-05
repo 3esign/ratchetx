@@ -1990,48 +1990,58 @@ let setBurnTimeout = null;
 let lastFetchedSolAmt = null;
 let lastFetchedWallet = null;
 let lastFetchedTime = 0;
+let quoteVersion = 0, quotePending = null;
+let reloadBusy = false;
 
+function currentSolQuote(){
+  return !!(AUTH && lastBuiltTx && lastFetchedWallet===AUTH.wallet &&
+    lastFetchedSolAmt===solAmt && Date.now()-lastFetchedTime<25000);
+}
+function invalidateSolQuote(){
+  quoteVersion++;
+  if(setBurnTimeout)clearTimeout(setBurnTimeout);
+  setBurnTimeout=null; quotePending=null; lastBuiltTx=null;
+}
 function setBurnSol(v,fromInput){
   const raw=Number(v)||0.1;
   solAmt=Math.max(SOL_MIN,Math.min(SOL_MAX,raw||SOL_MIN));
   document.querySelectorAll("#burnPickSol .stk").forEach(x=>x.classList.toggle("on",Math.abs(Number(x.dataset.b)-solAmt)<0.001));
   const inp=$("burnInSol"); if(inp&&!fromInput&&document.activeElement!==inp)inp.value=solAmt;
-  
   const out=$("burnSplitOutSol");
-  const b=$("oneBurnSol");
-  
-  if(!AUTH){
+  const wallet=AUTH&&AUTH.wallet, amount=solAmt;
+  if(!wallet){
+    invalidateSolQuote();
     if(out)out.textContent="Connect wallet to check swap estimate";
-    if(b&&!PB)b.textContent="🔥🔥 BUY & RELOAD RCX";
-    return;
+    paintBurnBtn(); return;
   }
-  
-  if (solAmt === lastFetchedSolAmt && AUTH.wallet === lastFetchedWallet && lastBuiltTx && (Date.now() - lastFetchedTime < 25000)) {
-    return;
+  if(currentSolQuote() || (quotePending && quotePending.wallet===wallet && quotePending.amount===amount)){
+    paintBurnBtn(); return;
   }
-  
+  invalidateSolQuote();
+  const version=quoteVersion;
+  quotePending={wallet,amount};
   if(out)out.textContent="Calculating swap estimation...";
-  if(b&&!PB)b.textContent=`🔥🔥 BUY & RELOAD RCX ${solAmt} SOL`;
-  
-  if(setBurnTimeout)clearTimeout(setBurnTimeout);
+  paintBurnBtn();
   setBurnTimeout=setTimeout(async()=>{
+    setBurnTimeout=null;
+    const isCurrent=()=>version===quoteVersion && AUTH && AUTH.wallet===wallet && solAmt===amount;
     try{
-      const j=await post({action:"reload_build",wallet:AUTH.wallet,solAmount:solAmt});
+      const j=await post({action:"reload_build",wallet,solAmount:amount});
+      if(!isCurrent())return;
       if(j.ok){
         lastBuiltTx=j;
-        lastFetchedSolAmt=solAmt;
-        lastFetchedWallet=AUTH.wallet;
+        lastFetchedSolAmt=amount;
+        lastFetchedWallet=wallet;
         lastFetchedTime=Date.now();
         const tokensOut=Math.floor(Number(j.tokensOut)/1e6);
         if(out)out.textContent=`Est. ${tokensOut.toLocaleString()} RCX bought · 70% burns · 30% pays podium`;
-        if(b&&!PB)b.textContent=`🔥🔥 BUY & RELOAD RCX ${solAmt} SOL`;
       }else{
-        lastBuiltTx=null;
         if(out)out.textContent=`Error: ${j.reason}`;
       }
     }catch(e){
-      lastBuiltTx=null;
-      if(out)out.textContent="Failed to calculate swap estimation";
+      if(isCurrent() && out)out.textContent="Failed to calculate swap estimation";
+    }finally{
+      if(version===quoteVersion){quotePending=null;paintBurnBtn();}
     }
   },400);
 }
@@ -2041,7 +2051,7 @@ document.querySelectorAll("#burnPickSol .stk").forEach(b=>b.onclick=()=>setBurnS
   inp.oninput=()=>{
     const raw=Number(inp.value)||0;
     if(raw>=SOL_MIN&&raw<=SOL_MAX)setBurnSol(raw,true);
-    else{const out=$("burnSplitOutSol");if(out)out.textContent=raw?"OUT OF RANGE":"—";}};
+    else{invalidateSolQuote();paintBurnBtn();const out=$("burnSplitOutSol");if(out)out.textContent=raw?"OUT OF RANGE":"—";}};
   inp.onblur=()=>setBurnSol(inp.value,false);
   inp.onkeydown=e=>{if(e.key==="Enter")inp.blur();};
 })();
@@ -2062,7 +2072,7 @@ function setBurnRcx(v,fromInput){
     const toBurn=burnAmt-legTotal;
     out.textContent=`${toBurn.toLocaleString()} burns · ${legTotal.toLocaleString()} pays the podium`;
   }
-  if(b&&!PB)b.textContent=`🔥🔥 BURN ${burnAmt.toLocaleString()} RCX`;
+  if(b&&!PB&&!reloadBusy)b.textContent=`🔥🔥 BURN ${burnAmt.toLocaleString()} RCX`;
 }
 document.querySelectorAll("#burnPickRcx .stk").forEach(b=>b.onclick=()=>setBurnRcx(b.dataset.b,false));
 (()=> {
@@ -2096,12 +2106,12 @@ function setPB(o){PB=o;if(o)localStorage.setItem("ratchet_pb",JSON.stringify(o))
 function paintBurnBtn(){
   const bSol=$("oneBurnSol"), bRcx=$("oneBurnRcx");
   if(bSol){
-    bSol.disabled=!!PB;
-    bSol.textContent=PB?"⏳⚡ VERIFYING RELOAD — CREDITS INCOMING…" : `🔥🔥 BUY & RELOAD RCX ${solAmt} SOL`;
+    bSol.disabled=!!PB || reloadBusy || (!!AUTH && !currentSolQuote());
+    bSol.textContent=PB?"⏳⚡ VERIFYING RELOAD — CREDITS INCOMING…" : reloadBusy?"Confirm reload in your wallet…" : `🔥🔥 BUY & RELOAD RCX ${solAmt} SOL`;
   }
   if(bRcx){
-    bRcx.disabled=!!PB;
-    bRcx.textContent=PB?"⏳⚡ VERIFYING RELOAD — CREDITS INCOMING…" : `🔥🔥 BURN ${burnAmt.toLocaleString()} RCX`;
+    bRcx.disabled=!!PB || reloadBusy;
+    bRcx.textContent=PB?"⏳⚡ VERIFYING RELOAD — CREDITS INCOMING…" : reloadBusy?"Confirm reload in your wallet…" : `🔥🔥 BURN ${burnAmt.toLocaleString()} RCX`;
   }
 }
 async function tryPB(){
@@ -2124,13 +2134,17 @@ setInterval(tryPB,6000);
 paintBurnBtn();
 
 $("oneBurnSol").onclick=async()=>{
+  if(PB||reloadBusy)return;
   if(!AUTH){toast("connect your wallet first");return}
   if(!STATE||!STATE.mint){toast("token not armed yet");return}
-  if(!lastBuiltTx){toast("swap estimation still loading, please wait...");return}
-  $("oneBurnSol").disabled=true;
+  if(!currentSolQuote()){setBurnSol(solAmt,false);toast("swap estimation still loading, please wait...");return}
+  const quote=lastBuiltTx, wallet=AUTH.wallet, amount=solAmt;
+  reloadBusy=true; paintBurnBtn();
   try{
     const W3=await loadW3(),prov=window.solana||window.phantom.solana;
-    const bytes=Uint8Array.from(atob(lastBuiltTx.transaction), c=>c.charCodeAt(0));
+    if(!currentSolQuote() || lastBuiltTx!==quote || AUTH.wallet!==wallet || solAmt!==amount)
+      throw new Error("swap changed; review the new estimate and retry");
+    const bytes=Uint8Array.from(atob(quote.transaction), c=>c.charCodeAt(0));
     let tx;
     try {
       tx = W3.VersionedTransaction.deserialize(bytes);
@@ -2138,29 +2152,31 @@ $("oneBurnSol").onclick=async()=>{
       tx = W3.Transaction.from(bytes);
     }
     const {signature}=await prov.signAndSendTransaction(tx);
-    const estTokens=Math.floor(Number(lastBuiltTx.tokensOut)/1e6);
+    const estTokens=Math.floor(Number(quote.tokensOut)/1e6);
     setPB({sig:signature,amt:estTokens,t:Date.now()});
     paintBurnBtn();
     toast("🔥 reload transaction sent · verifying on-chain…");
     setTimeout(tryPB,4000);
   }catch(e){toast("reload failed: "+((e&&e.message)||"cancelled"));}
-  $("oneBurnSol").disabled=false;
+  finally{reloadBusy=false;paintBurnBtn();}
 };
 
 $("oneBurnRcx").onclick=async()=>{
+  if(PB||reloadBusy)return;
   if(!AUTH){toast("connect your wallet first");return}
   if(!STATE||!STATE.mint){toast("token not armed yet");return}
-  $("oneBurnRcx").disabled=true;
+  const wallet=AUTH.wallet, amount=burnAmt, state=STATE;
+  reloadBusy=true; paintBurnBtn();
   try{
     const W3=await loadW3(),prov=window.solana||window.phantom.solana;
-    const TOKEN=new W3.PublicKey(STATE.tokenProgram||"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
+    const TOKEN=new W3.PublicKey(state.tokenProgram||"TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA");
     const ATAP=new W3.PublicKey("ATokenGPvbdGVxr1b2hvZbsiqW5xWH25efTNsLJA8knL");
-    const owner=new W3.PublicKey(AUTH.wallet),mint=new W3.PublicKey(STATE.mint);
+    const owner=new W3.PublicKey(wallet),mint=new W3.PublicKey(state.mint);
     const ata=W3.PublicKey.findProgramAddressSync([owner.toBytes(),TOKEN.toBytes(),mint.toBytes()],ATAP)[0];
-    const podium=(STATE.champ&&STATE.champ.podium)||[];
-    const cutPct=(STATE.champ&&STATE.champ.pct)||0;
+    const podium=(state.champ&&state.champ.podium)||[];
+    const cutPct=(state.champ&&state.champ.pct)||0;
     const legs=podium.map(c=>{
-      const amt=Math.floor(burnAmt*cutPct*c.pct);
+      const amt=Math.floor(amount*cutPct*c.pct);
       let to=c.ata, make=false;
       if(!to&&c.owner){
         try{ to=W3.PublicKey.findProgramAddressSync(
@@ -2169,10 +2185,10 @@ $("oneBurnRcx").onclick=async()=>{
       }
       return {ata:to,owner:c.owner,amt,make};
     }).filter(l=>l.amt>=1&&l.ata);
-    const selfTotal=legs.filter(l=>l.owner===AUTH.wallet).reduce((a,l)=>a+l.amt,0);
-    const otherTotal=legs.filter(l=>l.owner!==AUTH.wallet).reduce((a,l)=>a+l.amt,0);
+    const selfTotal=legs.filter(l=>l.owner===wallet).reduce((a,l)=>a+l.amt,0);
+    const otherTotal=legs.filter(l=>l.owner!==wallet).reduce((a,l)=>a+l.amt,0);
     const legTotal=selfTotal+otherTotal;
-    const burnPart=burnAmt-legTotal;
+    const burnPart=amount-legTotal;
     const raw=BigInt(burnPart)*1000000n; // pump.fun mints use 6 decimals
     const data=new Uint8Array(9);data[0]=8; // SPL Token "Burn"
     let v=raw;for(let i=1;i<9;i++){data[i]=Number(v&255n);v>>=8n;}
@@ -2203,13 +2219,15 @@ $("oneBurnRcx").onclick=async()=>{
         {pubkey:new W3.PublicKey(l.ata),isSigner:false,isWritable:true},
         {pubkey:owner,isSigner:true,isWritable:false}],data:td}));
     }
+    if(!AUTH || AUTH.wallet!==wallet || burnAmt!==amount || !STATE || STATE.mint!==state.mint)
+      throw new Error("reload changed; review the amount and wallet, then retry");
     const {signature}=await prov.signAndSendTransaction(tx);
-    setPB({sig:signature,amt:burnAmt,t:Date.now()});
+    setPB({sig:signature,amt:amount,t:Date.now()});
     paintBurnBtn();
     toast("🔥 sent - "+burnPart.toLocaleString()+" burning"+(otherTotal?", "+otherTotal.toLocaleString()+" to other champions":"")+(selfTotal?", "+selfTotal.toLocaleString()+" stays with you":"")+" · verifying on-chain.");
     setTimeout(tryPB,4000);
   }catch(e){toast("burn failed: "+((e&&e.message)||"cancelled")+" - the manual fallback below always works");}
-  $("oneBurnRcx").disabled=false;
+  finally{reloadBusy=false;paintBurnBtn();}
 };
 $("burngo").onclick=async()=>{
   const sg=$("burnsig").value.trim();if(!sg){toast("paste the signature first");return}
