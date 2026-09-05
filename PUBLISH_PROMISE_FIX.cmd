@@ -61,6 +61,17 @@ echo [2/6] Cherry-picking the documentation fix %FIXCOMMIT% ...
 call git cherry-pick %FIXCOMMIT% >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
 if errorlevel 1 goto :pickfail
 
+echo [2b/6] Aligning the skill version fields with THIS tree's SKILL.md ...
+REM  d7c9162 was made on a branch whose SKILL.md had already moved, so it carries
+REM  a skill version bump as well as the promise fix. On main that makes
+REM  check-versions.mjs fail correctly - the state file would claim a skill
+REM  version this tree does not have. Measured by Gemini 1 at 12:42Z: expected
+REM  1.6.3, got 1.6.4. This step carries the promise fix and nothing else.
+call node tools\align-agent-state-versions.mjs
+call node tools\align-agent-state-versions.mjs >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
+call git add docs/AGENT_STATE.json >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
+call git commit --amend --no-edit >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
+
 echo [3/6] Showing exactly what will be published ...
 call git show --stat HEAD
 call git show --stat HEAD >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
