@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { createHash, webcrypto } from 'node:crypto';
 import * as web3 from '@solana/web3.js';
 
@@ -25,6 +26,7 @@ import {
 } from '../onchain/ratchet-core-g2/model.mjs';
 import {
   ACCOUNT_DISCRIMINATOR,
+  ACCOUNT_SIZE,
   INSTRUCTION_DISCRIMINATOR,
   PYTH_PUSH_ORACLE_PROGRAM,
   PYTH_RECEIVER_PROGRAM,
@@ -275,6 +277,116 @@ assert.deepEqual(flags(openHistoryIx), [
 ]);
 
 const nonce = 17n;
+
+// Derive the fixture's order and byte offsets independently from the actual Rust
+// Borsh struct. A client field transpose, omitted field, or wrong integer width
+// must fail even if somebody writes a matching JavaScript fixture by mistake.
+{
+  const rust = readFileSync(new URL(
+    '../onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs',
+    import.meta.url), 'utf8');
+  const body = rust.match(/pub struct Shot \{([\s\S]*?)\n\}/)?.[1];
+  assert.ok(body, 'Rust Shot struct is present');
+  const fields = [...body.matchAll(/pub (\w+):\s*([^,]+),/g)]
+    .map(([, name, type]) => ({ name, type: type.replace(/\s+/g, '') }));
+  const widths = { u8: 1, u16: 2, u64: 8, i64: 8, i32: 4, Pubkey: 32, '[u8;32]': 32 };
+  const rustLength = Number(rust.match(/impl Shot\s*\{\s*pub const LEN: usize = (\d+);/)?.[1]);
+  let size = 8;
+  for (const field of fields) {
+    assert.ok(widths[field.type], 'known Rust Shot field type: ' + field.type);
+    field.offset = size;
+    size += widths[field.type];
+  }
+  assert.equal(size, rustLength + 8, 'all actual Rust fields fit Shot::LEN');
+  assert.equal(size, 780, 'Shot full account ABI remains 780 bytes');
+  assert.equal(ACCOUNT_SIZE.Shot, size, 'client length matches the Rust account');
+  const camel = name => name.replace(/_([a-z])/g, (_, letter) => letter.toUpperCase());
+  const unsignedMax = (1n << 64n) - 1n;
+  const [shotAddress, shotBump] = PublicKey.findProgramAddressSync([
+    Buffer.from('shot'), economyHashValue, player.toBuffer(),
+    Buffer.from('1100000000000000', 'hex'),
+  ], coreProgram);
+  const special = {
+    schema: CORE_G2_SCHEMA, bump: shotBump, economy_hash: economyHashValue,
+    ruleset_hash: rulesetHashValue, player, nonce,
+    entry_mode: 2, state: 254, void_reason: 253, outcome_yes: 252, side: 251, hit: 250,
+    stake: unsignedMax, xp_base: 0n, p_bps: 7000,
+    sealed_ts: -(1n << 63n), entry_target_ts: (1n << 63n) - 1n,
+    entry_exponent: -2147483648, exit_exponent: 2147483647,
+  };
+  const data = Buffer.alloc(size);
+  disc('account', 'Shot').copy(data);
+  const expected = {};
+  const writeField = (buffer, field, value) => {
+    const at = field.offset;
+    if (field.type === 'Pubkey') value.toBuffer().copy(buffer, at);
+    else if (field.type === '[u8;32]') Buffer.from(value).copy(buffer, at);
+    else if (field.type === 'u8') buffer.writeUInt8(value, at);
+    else if (field.type === 'u16') buffer.writeUInt16LE(value, at);
+    else if (field.type === 'u64') buffer.writeBigUInt64LE(value, at);
+    else if (field.type === 'i64') buffer.writeBigInt64LE(value, at);
+    else if (field.type === 'i32') buffer.writeInt32LE(value, at);
+  };
+  for (const [index, field] of fields.entries()) {
+    const value = Object.hasOwn(special, field.name) ? special[field.name]
+      : field.type === 'Pubkey' ? key('Shot ' + field.name)
+      : field.type === '[u8;32]' ? hash('Shot ' + field.name)
+      : field.type === 'u64' ? (1n << 53n) + BigInt(index)
+      : field.type === 'i64' ? -(1n << 53n) - BigInt(index)
+      : field.type === 'i32' ? -1000 - index : index;
+    expected[camel(field.name)] = value;
+    writeField(data, field, value);
+  }
+  const decoded = client.decodeShot(data);
+  assert.equal(Object.keys(decoded).length, fields.length, 'every Rust Shot field is exposed once');
+  for (const field of fields) {
+    const name = camel(field.name), value = decoded[name];
+    if (field.type === 'Pubkey') assert.equal(value.toBase58(), expected[name].toBase58(), name);
+    else if (field.type === '[u8;32]') assert.deepEqual(Buffer.from(value), expected[name], name);
+    else assert.equal(value, expected[name], name + ' preserves its Rust integer width/sign');
+  }
+  const info = { owner: coreProgram, executable: false, data };
+  const input = { address: shotAddress, info, economy, ruleset, player, nonce };
+  const checked = client.validateShotAccount(input);
+  assert.equal(checked.state, 254, 'unknown state is returned without inventing an outcome');
+  assert.equal(checked.voidReason, 253, 'unknown void reason remains visible');
+  assert.equal(checked.outcomeYes, 252, 'outcome byte is not coerced to a boolean');
+  assert.equal(checked.hit, 250, 'hit byte is not coerced to a boolean');
+  const changed = (name, value) => mutateInfo(info, copy => {
+    writeField(copy.data, fields.find(field => field.name === name), value);
+  });
+  assert.throws(() => client.validateShotAccount({ ...input, info: null }), /missing/);
+  assert.throws(() => client.validateShotAccount({ ...input,
+    info: { ...info, executable: true } }), /executable/);
+  assert.throws(() => client.validateShotAccount({ ...input,
+    info: { ...info, owner: key('other program') } }), /owner/);
+  for (const bytes of [data.subarray(0, -1), Buffer.concat([data, Buffer.from([0])])])
+    assert.throws(() => client.validateShotAccount({ ...input,
+      info: { ...info, data: bytes } }), /exactly 780/);
+  assert.throws(() => client.decodeShot(data.subarray(0, -1)), /exactly 780/);
+  assert.throws(() => client.validateShotAccount({ ...input,
+    info: mutateInfo(info, copy => { copy.data[0] ^= 1; }) }), /discriminator/);
+  assert.throws(() => client.validateShotAccount({ ...input,
+    info: changed('schema', CORE_G2_SCHEMA + 1) }), /schema/);
+  assert.throws(() => client.validateShotAccount({ ...input,
+    info: changed('economy_hash', hash('other economy')) }), /Economy/);
+  assert.throws(() => client.validateShotAccount({ ...input,
+    info: changed('ruleset_hash', hash('other ruleset')) }), /Ruleset/);
+  assert.throws(() => client.validateShotAccount({ ...input, player: key('other player') }), /player/);
+  assert.throws(() => client.validateShotAccount({ ...input, nonce: nonce + 1n }), /nonce/);
+  assert.throws(() => client.validateShotAccount({ ...input, nonce: -1n }), /nonce/);
+  assert.throws(() => client.validateShotAccount({ ...input, nonce: unsignedMax + 1n }), /nonce/);
+  assert.throws(() => client.validateShotAccount({ ...input, address: key('other PDA') }), /PDA/);
+  assert.throws(() => client.validateShotAccount({ ...input,
+    info: changed('bump', shotBump ^ 1) }), /bump/);
+  const [lastAddress, lastBump] = PublicKey.findProgramAddressSync([
+    Buffer.from('shot'), economyHashValue, player.toBuffer(), Buffer.alloc(8, 255),
+  ], coreProgram);
+  const lastInfo = changed('nonce', unsignedMax);
+  writeField(lastInfo.data, fields.find(field => field.name === 'bump'), lastBump);
+  assert.equal(client.validateShotAccount({ ...input, address: lastAddress,
+    info: lastInfo, nonce: unsignedMax }).nonce, unsignedMax, 'u64 nonce boundary derives the exact PDA');
+}
 const commit = hash('sealed commitment');
 const chainNowTs = 1_700_000_001n;
 const timing = client.admissionTiming({

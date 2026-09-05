@@ -21,6 +21,7 @@ export const ACCOUNT_SIZE = Object.freeze({
   Economy: 415,
   Ruleset: 206,
   PlayerLedger: 285,
+  Shot: 780, // 8-byte Anchor discriminator + Shot::LEN (772).
   EvidenceSpecV2: 262,
   // 8 + TimepinNeedV2::LEN. This said 132 - the PRE-INLINE Need, from before
   // Timepin moved the observation into the account - so the client could not
@@ -110,6 +111,7 @@ export const ACCOUNT_DISCRIMINATOR = Object.freeze({
   Economy: '09475dff98bbaa9a',
   Ruleset: '7b5c88a6a0ecf8b4',
   PlayerLedger: 'd8e0da01437669d5',
+  Shot: 'e1a2a812cfc1f16b',
   HistoryPage: '2b0d259f9c40db44',
   EvidenceSpecV2: '5e4c19f1274146e4',
   TimepinNeedV2: 'e1f8cc821015586c',
@@ -566,6 +568,34 @@ export function createCoreG2Client({
     return value;
   };
 
+  const decodeShot = data => {
+    const r = new Reader(data, 'Shot', ACCOUNT_SIZE.Shot);
+    // Borsh field order follows state.rs::Shot. Keep state/outcome bytes numeric:
+    // an unknown value is evidence to display, never an invented hit or miss.
+    const value = {
+      schema: r.u16(), bump: r.u8(), economyHash: r.bytes32(),
+      rulesetHash: r.bytes32(), player: r.key(), rentRefund: r.key(),
+      delegate: r.key(), nonce: r.u64(), commit: r.bytes32(),
+      entryMode: r.u8(), state: r.u8(), voidReason: r.u8(),
+      stake: r.u64(), cleanupBondLamports: r.u64(), xpBase: r.u64(),
+      sealedTs: r.i64(), entryTargetTs: r.i64(), exitTargetTs: r.i64(),
+      scoreDay: r.i64(), rankShard: r.u8(), entryNeed: r.key(),
+      exitNeed: r.key(), activationWorker: r.key(), activationSlot: r.u64(),
+      activationTs: r.i64(), entryMessageHash: r.bytes32(),
+      entryTimepinResultHash: r.bytes32(), entryPrice: r.i64(),
+      entryConf: r.u64(), entryExponent: r.i32(), entryPublishTime: r.i64(),
+      exitMessageHash: r.bytes32(), exitTimepinResultHash: r.bytes32(),
+      exitPrice: r.i64(), exitConf: r.u64(), exitExponent: r.i32(),
+      exitPublishTime: r.i64(), outcomeYes: r.u8(), settledTs: r.i64(),
+      resolutionSlot: r.u64(), revealDeadlineTs: r.i64(), side: r.u8(),
+      pBps: r.u16(), hit: r.u8(), xpAwarded: r.u64(), resolver: r.key(),
+      forfeitWorker: r.key(), terminalSlot: r.u64(), terminalTs: r.i64(),
+      revealedSalt: r.bytes32(), resolutionHash: r.bytes32(), terminalHash: r.bytes32(),
+    };
+    r.done();
+    return value;
+  };
+
   const decodeHistoryPage = data => {
     // M3: a fixed-size commitment, not a container of rows. This used to walk a
     // Vec of Option<ShotResult> and count the Some tags; there are no rows to
@@ -753,6 +783,21 @@ export function createCoreG2Client({
         value.sealed !== BigInt(value.open) + value.shots + value.voids ||
         value.sealed !== value.nextShotNonce || value.forfeits > value.shots)
       throw new TypeError('Ledger conservation mismatch');
+    return value;
+  };
+
+  const validateShotAccount = ({ address, info, economy, ruleset, player, nonce }) => {
+    const reader = exactAccount(info, coreProgram, 'Shot', ACCOUNT_SIZE.Shot);
+    const value = decodeShot(reader.data);
+    if (value.schema !== CORE_SCHEMA_VERSION) throw new TypeError('Shot schema mismatch');
+    expectEqual(value.economyHash, economy.economyHash, 'Shot Economy');
+    expectEqual(value.rulesetHash, ruleset.rulesetHash, 'Shot Ruleset');
+    expectEqual(ruleset.args.economyHash, economy.economyHash, 'Ruleset Economy');
+    if (!value.player.equals(pk(player))) throw new TypeError('Shot player mismatch');
+    const expectedNonce = unsigned(nonce, U64_MAX, 'nonce');
+    if (value.nonce !== expectedNonce) throw new TypeError('Shot nonce mismatch');
+    const [expected, bump] = shotPda(economy.economyHash, player, expectedNonce);
+    validateAddress(address, expected, bump, value.bump, 'Shot');
     return value;
   };
 
@@ -995,10 +1040,10 @@ export function createCoreG2Client({
     encodeEvidenceSpecArgs, encodeEconomyArgs, encodeRulesetArgs,
     evidencePolicyHash, evidenceSpecHash, economyHashOf, rulesetHashOf,
     decodeEconomy, decodeRuleset, decodeEvidenceSpec, decodeNeed,
-    decodeLedger, decodeHistoryPage,
+    decodeLedger, decodeShot, decodeHistoryPage,
     validateEconomyAccount, validateRulesetAccount,
     validateEvidenceSpecAccount, validateNeedAccount,
-    validateLedgerAccount, validateHistoryPageAccount, validateForwardKernel,
+    validateLedgerAccount, validateShotAccount, validateHistoryPageAccount, validateForwardKernel,
     validateEvidenceSpecShape,
     admissionTiming, rankShardFor, commitmentHash,
     registerEvidenceSpecIx, openNeedIx, openLedgerIx, openHistoryPageIx,
