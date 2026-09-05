@@ -42,6 +42,8 @@
 // of the transaction's own blockTime, so a coincidental byte match cannot pass.
 //
 // Usage:
+//   node ledger-cadence.mjs check-payer --all              # which payer posts what, and
+//                                                          # how many walks the job needs
 //   node ledger-cadence.mjs check-payer --symbol SOL        # is one payer enough?
 //   node ledger-cadence.mjs walk-payer  --hours 24           # ALL SEVEN FEEDS, one pass
 //   node ledger-cadence.mjs walk --symbol SOL [--hours 24] [--out FILE] [--delay-ms 80]
@@ -478,6 +480,24 @@ async function main() {
     return;
   }
   if (mode === 'check-payer') {
+    // --all is the one that matters and it is one command: it answers, for every
+    // feed, WHICH payer posts it and therefore HOW MANY walks the job needs.
+    // Measured 2026-09-05: the SOL/BTC payer posts neither, and the answer for
+    // the other five was still unknown when this was written.
+    if (process.argv.includes('--all')) {
+      const discovery = await discoverPayers({
+        feeds: gameFeeds(), samples: Number(flag('samples', 12)), log: console.log,
+      });
+      console.log('');
+      try {
+        for (const g of groupFeedsByPayer(discovery))
+          console.log(`walk ${g.payer}  ->  ${g.feeds.map(f => f.symbol).join(', ')}`);
+        console.log('\nOne walk-payer run per line above. Feeds on the same line share a payer.');
+      } catch (error) {
+        console.log(error.message);
+      }
+      return;
+    }
     const symbol = flag('symbol', 'SOL');
     const feed = gameFeeds().find(f => f.symbol === symbol);
     const result = await verifyPayerCoverage({
