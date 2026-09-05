@@ -10,6 +10,7 @@
 // Read-only. Touches no chain, sends nothing, changes nothing.
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
+import { CRATES, verifyCrate } from './compile-receipt.mjs';
 
 const R = 'onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/';
 const C = 'onchain/ratchet-core-g2/programs/ratchet-core-g2/src/';
@@ -50,6 +51,69 @@ const check = (id, what, fn, owner) => {
   results.push({ id, what, state, detail, owner });
 };
 
+// ---- the compiler ---------------------------------------------------------
+// Added 2026-09-05 15:0xZ after this gate reported GO on M3 while the Core crate
+// was six errors red. Every row under "the rule" and "the money" reads SOURCE
+// TEXT. Source text that does not compile is not a program, so those rows were
+// describing something that could not exist. The gate now asks a compiler first,
+// and refuses to call any source row GO while the answer is no (see the
+// downgrade pass before the report).
+//
+// The evidence is a hash-bound receipt rather than a live compile, because the
+// machine agents run this on has no Rust toolchain and no network to install one
+// (measured 2026-09-05). tools/compile-receipt.mjs explains the bridge. Set
+// GATE_LIVE_CARGO=1 to compile here instead, when a toolchain is present.
+const compileEvidence = (() => {
+  let cached = null;
+  return () => {
+    if (cached) return cached;
+    const live = process.env.GATE_LIVE_CARGO === '1'
+      && spawnSync('cargo', ['--version'], { encoding: 'utf8' }).status === 0;
+    const out = { crates: [], live };
+    for (const c of CRATES) {
+      if (live) {
+        const chk = spawnSync('cargo', ['check', '--lib'], { cwd: c.workspace, encoding: 'utf8', timeout: 900000 });
+        const tst = spawnSync('cargo', ['test', '--lib'], { cwd: c.workspace, encoding: 'utf8', timeout: 900000 });
+        const o = (tst.stdout || '') + (tst.stderr || '');
+        const m = /test result: \w+\. (\d+) passed; (\d+) failed/.exec(o);
+        out.crates.push({ name: c.name, fresh: true,
+          check: { exit: chk.status },
+          test: { exit: tst.status, passed: m ? +m[1] : null, failed: m ? +m[2] : null,
+                  failing: [...o.matchAll(/^---- (\S+) stdout ----$/gm)].map(x => x[1]) } });
+      } else {
+        const v = verifyCrate(c);
+        out.crates.push(v.ok
+          ? { name: c.name, fresh: true, check: v.receipt.check, test: v.receipt.test, at: v.receipt.generatedAt }
+          : { name: c.name, fresh: false, reason: v.reason });
+      }
+    }
+    cached = out;
+    return out;
+  };
+})();
+
+check('C1', 'both programs COMPILE from the source in this tree', () => {
+  const e = compileEvidence();
+  const stale = e.crates.filter(c => !c.fresh);
+  if (stale.length) return { ok: false, pending: true,
+    detail: stale.map(c => `${c.name}: ${c.reason}`).join('; ')
+      + ' - run: CORE_ROOT=<crate> TIMEPIN_ROOT=<crate> node tools/compile-receipt.mjs where a toolchain exists' };
+  const red = e.crates.filter(c => c.check?.exit !== 0);
+  return { ok: red.length === 0, pending: red.length > 0,
+    detail: red.length ? red.map(c => `${c.name} does not compile`).join('; ')
+                       : `cargo check exit 0 for both (${e.live ? 'compiled here' : 'receipt: ' + e.crates[0].at})` };
+}, 'whoever last touched a .rs file');
+
+check('C2', 'the host test suites are green, ABI pins included', () => {
+  const e = compileEvidence();
+  const stale = e.crates.filter(c => !c.fresh);
+  if (stale.length) return { ok: false, pending: true, detail: 'no fresh compile evidence - see C1' };
+  const red = e.crates.filter(c => (c.test?.failed ?? 1) !== 0);
+  if (red.length === 0) return { ok: true, detail: 'every host test passes in both crates' };
+  return { ok: false, pending: true,
+    detail: red.map(c => `${c.name}: ${c.test.failed} failing (${(c.test.failing || []).join(', ')})`).join('; ') };
+}, 'Opus A (Timepin pins), Opus C (Core pins)');
+
 // ---- the rule -------------------------------------------------------------
 check('R1', 'MIN-CAPTURE predicate is in lifecycle.rs', () => {
   const s = read(R + 'lifecycle.rs');
@@ -63,9 +127,26 @@ check('R2', 'lag < grid is ENFORCED, not merely proved', () => {
 }, 'Opus A');
 
 check('R3', 'the reveal deadline is set at settlement, not at seal', () => {
+  // Corrected 2026-09-05 15:0xZ. The first version tested that
+  // `fn fixed_reveal_deadline` had DISAPPEARED - the same defect the old M3 row
+  // had, and I wrote both. That function must survive: it is still the projection
+  // the four seal paths use, and score_day is derived from it (the deadline moves,
+  // the day does not). So the old condition could only be satisfied by deleting
+  // something the program needs.
+  //
+  // The thing whose presence IS the fix is the ASSIGNMENT at settlement. Verified
+  // against lib.rs:1806 - shot.reveal_deadline_ts = max(now + reveal_window,
+  // projected), written before resolution_hash so the hash covers the value the
+  // player is actually held to. max() is what makes it monotone: it can only ever
+  // give more time than the seal-time projection, never less.
   const s = mustRead(C + 'lib.rs');
-  const stillAbsolute = /fn fixed_reveal_deadline/.test(s);
-  return { ok: !stillAbsolute, pending: stillAbsolute, detail: stillAbsolute ? 'fixed_reveal_deadline still present: player budget has no lower bound' : 'absolute deadline removed' };
+  const assign = /shot\.reveal_deadline_ts\s*=\s*core::cmp::max\(([\s\S]{0,400}?)\)\s*;/.exec(s);
+  const fromNow = !!assign && /unix_timestamp/.test(assign[1]) && /reveal_window_seconds/.test(assign[1]);
+  if (!assign) return { ok: false, pending: true,
+    detail: 'settle_final never assigns shot.reveal_deadline_ts - the deadline is still the seal-time projection, so a late crank leaves the player no budget' };
+  if (!fromNow) return { ok: false, pending: true,
+    detail: 'shot.reveal_deadline_ts is assigned but not from clock.unix_timestamp + reveal_window_seconds - the lower bound is not the settlement time' };
+  return { ok: true, detail: 'set at settlement as max(now + reveal_window, projection)' };
 }, 'Opus A');
 
 // ---- the money ------------------------------------------------------------
@@ -200,6 +281,22 @@ check('X1', 'no surface still promises the 2026-09-08 revocation', () => {
   });
   return { ok: bad.length === 0, detail: bad.length ? 'still promising: ' + bad.join(', ') : 'local copy corrected (live site is a separate check)' };
 }, 'Semir');
+
+// ---- the downgrade --------------------------------------------------------
+// A row that reads source text cannot be GO while that source does not compile.
+// This is the rule I owed the room after M3 reported GO on a red crate: the gate
+// may not say GO on anything that depends on the program existing, until the
+// program exists. The rows below all assert something about compiled behaviour.
+const SOURCE_ROWS = ['R1', 'R2', 'R3', 'M1', 'M2', 'M3'];
+const c1 = results.find(r => r.id === 'C1');
+if (c1 && c1.state !== 'GO') {
+  for (const r of results) {
+    if (SOURCE_ROWS.includes(r.id) && r.state === 'GO') {
+      r.state = 'PENDING';
+      r.detail = 'the source text says yes, but C1 is not GO, so this text is not yet a program: ' + r.detail;
+    }
+  }
+}
 
 // ---- report ---------------------------------------------------------------
 const w = (s, n) => String(s).padEnd(n);

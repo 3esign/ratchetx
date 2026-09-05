@@ -1,0 +1,25 @@
+{
+  "receiptVersion": 1,
+  "crate": "rcx-timepin-v2",
+  "repoPath": "onchain/rcx-timepin-v2/programs/rcx-timepin-v2",
+  "files": {
+    "Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
+    "src/lib.rs": "6a83759c16a5b3403819162164b648d188500a9b80e569b32f72a6635f874ade",
+    "src/lifecycle.rs": "056225299add77093d21836ed507e530ccbd83962491b4efdc25c83b4c797ae7"
+  },
+  "toolchain": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
+  "compiledOn": "Anthropic cloud container (cargo 1.95, no build-sbf)",
+  "generatedAt": "2026-09-05T14:48:36.727Z",
+  "check": {
+    "exit": 0
+  },
+  "test": {
+    "exit": 101,
+    "passed": 25,
+    "failed": 2,
+    "failing": [
+      "tests::exact_compact_account_lengths_are_frozen",
+      "tests::opening_deadlines_and_compact_state_shapes_are_checked"
+    ]
+  }
+}
