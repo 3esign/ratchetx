@@ -76,10 +76,22 @@ export function sweepStaleLocks(root, { now = Date.now(), staleMs = STALE_LOCK_M
         continue;
       }
     }
-    const dir = quarantine ?? path.join(root, '_to_delete', 'stale-git-locks');
+    // QUARANTINE LIVES UNDER .git, WITH A .bak SUFFIX, AND BOTH HALVES MATTER.
+    //
+    // It used to be <root>/_to_delete/stale-git-locks. That is inside the repo
+    // and therefore inside the DEPLOY INPUT: on 2026-09-05 an earlier version of
+    // this same idea put .git_lock_backups/ at the repo root and turned B3 red
+    // with twenty untracked files - a lock-safety workaround that broke a
+    // release-safety gate. Under .git it is invisible to every scanner that
+    // matters, and it also renames within one directory, which is the only move
+    // this mount reliably permits (the _to_delete form failed EACCES).
+    //
+    // The .bak suffix is not decoration either: a file still ending in .lock
+    // inside .git is read by some git versions as a live lock.
+    const dir = quarantine ?? path.join(root, '.git', 'ratchet-lock-quarantine');
     fs.mkdirSync(dir, { recursive: true });
     // Moved, not deleted: this mount denies unlink, and a lock is evidence.
-    fs.renameSync(lock, path.join(dir, `${name}.${st.mtimeMs}`));
+    fs.renameSync(lock, path.join(dir, `${name}.${st.mtimeMs}.bak`));
     swept.push({ name, ageMs: age, bytes: st.size });
   }
   return { swept, held };
