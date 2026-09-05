@@ -63,11 +63,19 @@ ok(perYear / 1e9 > 0.4 && perYear / 1e9 < 0.7,
   + `(${onChain} bytes on chain, ${perDay} lamports each) - if this moved, the struct changed`);
 
 // --- 3. permanent or refundable, stated plainly ------------------------------
-// M1 made the Need a buffer instead of an archive with open_refs + rent_payer +
-// a close. The same shape is what turns this charge into a deposit. Until it is
-// there, this test records that the rent does not come back, so nobody can claim
-// M2 is closed by a grep alone.
-const refundable = /open_refs/.test(lib) && /player_day/.test(lib) && /close_player_day/.test(lib);
+// The shape that turns this charge into a deposit is a recorded funder plus a
+// close that refunds exactly that address. Until it is there, this test records
+// that the rent does not come back, so nobody can claim M2 is closed by a grep.
+//
+// Corrected 2026-09-05 by its author: this condition used to require `open_refs`
+// in Core's lib.rs. open_refs is a TIMEPIN field (M1's counter) and has never
+// existed in Core - Core's reference count is `accepted - terminal`, and
+// state.rs:418 says so on purpose. So the condition was false forever and this
+// file printed "M2 OPEN: the rent is permanent" for hours AFTER close_player_day
+// landed in c8cf429. A test that reports the wrong state of a row it owns is the
+// same defect as a gate row that greps for a proxy - I have spent the afternoon
+// finding those in other people's work and shipped one here.
+const refundable = /pub fn close_player_day/.test(lib) && /close\s*=\s*rent_payer/.test(lib);
 if (!refundable) {
   console.log(`  M2 OPEN: PlayerDay rent is permanent - ${(perYear / 1e9).toFixed(3)} SOL/year `
     + 'per daily player, never returned. The M1 shape (open_refs + rent_payer + a close that '
@@ -75,6 +83,28 @@ if (!refundable) {
 } else {
   ok(/rent_payer/.test(lib), 'a closable PlayerDay must refund a recorded rent_payer, not the caller');
 }
+
+// --- 4. the guard, which the gate's M2 row does not check --------------------
+// M2 greps for `pub fn close_player_day`, `close = rent_payer` and
+// `address = player_day.rent_payer`. All three can be present while the
+// PRECONDITION is gone, and the precondition is the safety: without it anyone
+// could close a day that still has shots in flight, taking the rent out from
+// under an account the late paths (settle, reveal, close) still authenticate
+// against. The refund would go to the right person and the day would still be
+// destroyed. Reviewed and landed as commit c8cf429; pinned here because a grep
+// for three names cannot tell a safe close from an unsafe one.
+const closeFn = /pub fn close_player_day[\s\S]*?\n    }/.exec(lib);
+ok(closeFn, 'close_player_day is gone - M2 is not closed, whatever the gate row says');
+const body = closeFn[0];
+ok(/player_day\.accepted\s*>\s*0/.test(body),
+  'close_player_day no longer requires accepted > 0. A day that never accepted a shot would be closable, '
+  + 'and terminal == accepted is trivially true at 0 == 0 - the same shape as a counter nobody increments.');
+ok(/player_day\.terminal\s*==\s*player_day\.accepted/.test(body),
+  'close_player_day no longer requires terminal == accepted. Anyone could close a day with shots still in '
+  + 'flight: the rent goes to the recorded payer and the account the late paths authenticate against is gone.');
+ok(/PlayerDayStillReferenced/.test(body) && /PlayerDayStillReferenced,/.test(lib),
+  'the PlayerDayStillReferenced error no longer guards close_player_day. Anchor numbers errors by position, '
+  + 'so it must also still exist in the enum - a removed variant renumbers every error after it.');
 
 console.log(`PASS  player day rent: ${checks} checks - the per-day account and the per-day `
   + 'authentication are pinned together, and the number is read from the struct');
