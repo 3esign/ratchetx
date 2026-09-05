@@ -92,6 +92,7 @@ try {
 }
 
 const diverged = [];
+const endingsOnly = [];
 const missing = [];
 let compared = 0;
 
@@ -109,6 +110,23 @@ for (const path of paths) {
   }
   compared += 1;
   const worktree = readFileSync(full);
+  // CONTENT vs ENDINGS, reported separately and never conflated. A file whose
+  // bytes differ only in \r is not a changed file, and calling it one is how a
+  // tool teaches people to ignore it - the same mistake as flagging every *.cmd
+  // before this materialised HEAD. But it is not nothing either: *.mjs is
+  // eol=lf, so a CRLF copy in the worktree violates the line-ending law even
+  // though git has normalised the committed bytes. Say which it is.
+  const strip = buffer => Buffer.from(
+    buffer.toString('binary').replace(/\r\n/g, '\n'), 'binary',
+  );
+  if (sha(worktree) !== sha(head) && sha(strip(worktree)) === sha(strip(head))) {
+    endingsOnly.push({
+      path,
+      worktreeCr: (worktree.toString('binary').match(/\r\n/g) || []).length,
+      headCr: (head.toString('binary').match(/\r\n/g) || []).length,
+    });
+    continue;
+  }
   // Compared as BYTES. A line-ending flip is a real difference to cmd.exe and
   // to a hash, and normalising it away here would hide the second defect this
   // tool was written for.
@@ -134,10 +152,18 @@ for (const { path, head, worktree, bytes } of diverged) {
   console.log(`           HEAD ${head}  worktree ${worktree}  (${delta})`);
 }
 
+for (const { path, worktreeCr, headCr } of endingsOnly) {
+  console.log(`  endings  ${path}`);
+  console.log(`           content identical; worktree has ${worktreeCr} CRLF ` +
+    `lines, the committed copy has ${headCr}. Not a change - but *.mjs is ` +
+    'eol=lf, so this copy violates the line-ending law.');
+}
+
 if (diverged.length === 0) {
   console.log(
     `worktree matches HEAD: ${compared} file${compared === 1 ? '' : 's'} compared` +
-    `${missing.length ? `, ${missing.length} absent` : ''}`,
+    `${missing.length ? `, ${missing.length} absent` : ''}` +
+    `${endingsOnly.length ? `, ${endingsOnly.length} differing only in line endings` : ''}`,
   );
   process.exit(0);
 }
