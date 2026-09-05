@@ -1623,6 +1623,57 @@ mod tests {
         }
     }
 
+    // ---- Structural properties, proved from the parameters themselves --------
+    // Written by the lead and injected into a cloud copy before being handed
+    // over (docs/reviews/opus-lead-2026-09-05/STRUCTURAL_TESTS.md); landed here
+    // because lifecycle.rs is my claim. These need no cadence measurement. A 24 h
+    // run tells us how ALIVE the game is; these say what is TRUE of it, and they
+    // are decided by arithmetic the moment a spec is registered.
+
+    /// Under MIN-CAPTURE a print is admissible for target T iff
+    ///     T <= publish_time <= T + lag
+    /// so a single print serves two consecutive targets T and T+grid iff
+    ///     T+grid <= publish_time <= T+lag,  i.e. iff  lag >= grid.
+    /// Therefore lag < grid is NECESSARY AND SUFFICIENT for every print to
+    /// belong to at most one target. No measurement can establish this and no
+    /// measurement can refute it.
+    fn serves_two_targets(lag: i64, grid: i64) -> bool {
+        let t = 1_800i64;
+        (t..=t + lag).any(|p| p >= t + grid && p <= t + grid + lag)
+    }
+
+    #[test]
+    fn lag_below_grid_is_exactly_the_condition_for_unique_target_assignment() {
+        for grid in [30i64, 60, 300] {
+            for lag in 1..grid {
+                assert!(!serves_two_targets(lag, grid), "lag {lag} grid {grid}");
+            }
+        }
+        for grid in [30i64, 60, 300] {
+            assert!(serves_two_targets(grid, grid), "grid {grid}");
+            assert!(serves_two_targets(grid + 1, grid));
+        }
+    }
+
+    #[test]
+    fn the_spec_does_not_yet_enforce_it_and_that_is_the_gap() {
+        // Documents the hole rather than the fix. It is DESIGNED TO FAIL the day
+        // the `lag < grid` invariant lands in validate_spec, and that failure is
+        // the signal to delete this test -- never to weaken the rule.
+        //
+        // This is not hypothetical: releases/g2-mainnet-economy.json proposes
+        // grid 60 with lag 120 for ETH, BONK, PUMP, JUP and WIF -- exactly the
+        // pair below -- so five of seven feeds would today register a spec in
+        // which one print settles two consecutive targets.
+        let mut args = spec().as_args();
+        args.target_grid_seconds = 60;
+        args.max_post_target_lag_seconds = 120; // twice the grid
+        assert!(
+            crate::validate_spec(&args).is_ok(),
+            "if this now fails, the invariant landed - remove this test"
+        );
+    }
+
     fn candidate() -> CandidateV2 {
         CandidateV2 {
             schema: SCHEMA_VERSION,

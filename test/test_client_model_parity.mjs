@@ -200,6 +200,51 @@ test('every adapter named in a release manifest is one the model accepts', () =>
     'no release manifest declared an evidenceSpecTemplate.adapter — did the field move?');
 });
 
+test('the manifest template registers, once each feed fills in its own numbers', () => {
+  // Stronger than checking the adapter byte: build the spec the manifest
+  // describes and run it through the SAME validator the program mirrors. Every
+  // field the manifest fixes is taken from the manifest; only the per-feed and
+  // generation values it defers are filled with valid placeholders, so a failure
+  // here is always the manifest's and never the placeholder's.
+  //
+  // "Every value in the write-once manifest must trace to a constant in the
+  // source or a measurement with a file path" — this is that rule, executed.
+  const doc = JSON.parse(fs.readFileSync(
+    path.join(repo, 'releases', 'g2-mainnet-economy.json'), 'utf8'));
+  const t = doc.evidenceSpecTemplate;
+  const num = v => (v && typeof v === 'object' && 'proposed' in v ? v.proposed : v);
+  const failures = [];
+
+  for (const feed of doc.feeds ?? []) {
+    const lag = num(feed.maxPostTargetLagSeconds);
+    const candidateSpec = {
+      schema: t.schema, adapter: t.adapter,
+      receiverProgram: T.OFFICIAL_PYTH_RECEIVER_PROGRAM,
+      pushOracleProgram: T.OFFICIAL_PYTH_PUSH_ORACLE_PROGRAM,
+      feedId: Buffer.from(feed.feedId, 'hex'),
+      shardId: t.shardId, requiredVerification: t.requiredVerification,
+      targetGridSeconds: t.targetGridSeconds,
+      minOpenLeadSeconds: t.minOpenLeadSeconds,
+      maxTargetAheadSeconds: t.maxTargetAheadSeconds,
+      maxPreTargetGapSeconds: t.maxPreTargetGapSeconds,
+      maxPostTargetLagSeconds: lag,
+      captureGraceSeconds: num(t.captureGraceSeconds) ?? 60,   // deferred by the manifest
+      maxFutureSkewSeconds: t.maxFutureSkewSeconds,
+      maxConfidenceBps: t.maxConfidenceBps,
+      minExponent: t.minExponent, maxExponent: t.maxExponent,
+      receiverProgramdataSlot: 1n, wormholeProgramdataSlot: 1n,   // generation pins, deferred
+      receiverConfigHash: Buffer.alloc(32, 3), wormholeProgram: Buffer.alloc(32, 4),
+    };
+    const verdict = T.validateEvidenceSpec(candidateSpec);
+    if (!verdict.ok) failures.push(`${feed.symbol}: ${verdict.code}`);
+  }
+
+  assert.equal(failures.length, 0,
+    `releases/g2-mainnet-economy.json describes a spec the program would refuse at `
+    + `registration: ${failures.join('; ')}. register_economy is content-addressed and `
+    + `permanent — a spec that cannot register is an economy that cannot exist.`);
+});
+
 // ------------------------------------------------------------ JS <-> Rust
 
 test('all four declarations of every adapter constant agree', () => {
