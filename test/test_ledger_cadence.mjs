@@ -21,9 +21,9 @@ import { join } from 'node:path';
 import { tmpdir } from 'node:os';
 import {
   findFeedId, decodePriceFeedMessage, extractWrites, extractWritesMulti,
-  toPrintRow, walk, walkPayer, verifyPayerCoverage,
+  toPrintRow, walk, walkPayer, verifyPayerCoverage, discoverPayers, groupFeedsByPayer,
 } from '../onchain/rcx-timepin-v2/scripts/ledger-cadence.mjs';
-import { summarize } from '../onchain/rcx-timepin-v2/scripts/cadence-sampler.mjs';
+import { summarize, sourceAddressFor } from '../onchain/rcx-timepin-v2/scripts/cadence-sampler.mjs';
 
 let checks = 0;
 const check = (fn, label) => { fn(); checks += 1; };
@@ -168,10 +168,10 @@ const fakeRpc = ({ pages, rateLimitOnce = false }) => {
   const result = await walk({
     address: '7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE',
     feedId: SOL_FEED_ID.toString('hex'), symbol: 'SOL',
-    hours: 0.005, delayMs: 0, out, fetchImpl: impl, log: () => {},
+    hours: 0.005, delayMs: 0, out, fetchImpl: impl, log: () => {}, force: true,
   });
   const lines = readFileSync(out, 'utf8').trim().split('\n').map(l => JSON.parse(l));
-  try { rmSync(out); } catch { /* best effort */ }
+  try { rmSync(out); rmSync(`${out}.lock`); } catch { /* best effort */ }
 
   check(() => {
     assert.equal(calls.rateLimited, 1, 'the fake RPC rate-limited once');
@@ -295,14 +295,103 @@ const payerRpc = (payerSequence, address) => async (_url, init) => {
       feeds: FEED_TABLE, hours: 0.001, delayMs: 0, log: () => {},
       out: join(tmpdir(), `rcx-payer-refuse-${process.pid}.ndjson`),
       fetchImpl: payerRpc([SPONSOR, 'OTHERPAYER11111111111111111111111111111111', SPONSOR, SPONSOR], ADDR),
-      samples: 4,
+      samples: 4, force: true,
     }),
-    /REFUSING the payer walk/,
-    'a payer walk refuses to start when the writes come from more than one payer');
-  // The refusal is the reason the optimisation is safe: without it, a rotated
-  // payer would produce a cadence table with invented gaps and no way to tell —
-  // the blind spot the ledger method removes, smuggled back in as a speedup.
+    /REFUSING to group/,
+    'a feed whose writes come from two payers has no complete payer walk at all');
   checks += 1;
+}
+
+// --- the failure that actually happened, 2026-09-05 13:09Z ----------------------
+//
+// A payer walk of 9F6ApEtz... over 11:50:19-12:46:49 returned 678 SOL writes, 678
+// BTC writes and NOTHING ELSE, while a 1 s poll of the same window recorded 66
+// distinct ETH prints, 66 BONK, 66 WIF, 68 PUMP, 65 JUP. That payer posts SOL and
+// BTC only. The old guard checked feeds[0] and generalised its answer to all seven
+// — the same unchecked assumption it existed to prevent, one level up. So: per feed.
+
+{
+  const P1 = '9F6ApEtzkHVdZXzsury6BYmyEh4pahDBxuhNLaGC6saC';   // SOL + BTC
+  const P2 = 'SLOWFEEDPAYER1111111111111111111111111111';       // the other five
+  const BTC_ADDR = 'APgzQGGdv2qCgBkX6aHVkrGePtBVDDg68GiqaM7rmtf5';
+  const WIF_FEED_ID = '4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc';
+
+  const byAddress = new Map([
+    [sourceAddressFor(SOL_FEED_ID.toString('hex')).toBase58(), P1],
+    [BTC_ADDR, P1],
+    [sourceAddressFor(WIF_FEED_ID).toBase58(), P2],
+  ]);
+  const multiRpc = async (_url, init) => {
+    const req = JSON.parse(init.body);
+    if (req.method === 'getSignaturesForAddress') {
+      const addr = req.params[0];
+      return { json: async () => ({
+        result: Array.from({ length: 8 }, (_, i) => ({ signature: `${addr.slice(0, 4)}#${i}`, blockTime: 1788608000 + i, slot: i })),
+      }) };
+    }
+    const sig = req.params[0];
+    const addr = [...byAddress.keys()].find(a => sig.startsWith(a.slice(0, 4)));
+    // The coverage probe asks for jsonParsed (it needs accountKeys); the walk asks
+    // for base64 (it needs the signed message bytes). Serve both shapes, or the
+    // fake RPC tests only half the path.
+    if (req.params[1]?.encoding === 'base64') {
+      const raw = Buffer.concat([Buffer.alloc(8, 1), FIXTURE]);
+      raw.writeBigInt64BE(BigInt(FIXTURE_BLOCK_TIME - 1), 8 + 4 + 32 + 20);
+      raw.writeBigInt64BE(BigInt(FIXTURE_BLOCK_TIME - 2), 8 + 4 + 32 + 28);
+      return { json: async () => ({ result: {
+        slot: 1, blockTime: FIXTURE_BLOCK_TIME,
+        transaction: [raw.toString('base64')], meta: { err: null },
+      } }) };
+    }
+    return { json: async () => ({ result: {
+      slot: 1, blockTime: 1788608000,
+      transaction: { message: { accountKeys: [
+        { pubkey: byAddress.get(addr), signer: true, writable: true },
+        { pubkey: addr, signer: false, writable: true },
+      ] } },
+      meta: { err: null },
+    } }) };
+  };
+
+  const table = [
+    { symbol: 'SOL', feedId: SOL_FEED_ID.toString('hex') },
+    { symbol: 'BTC', feedId: BTC_FEED_ID },
+    { symbol: 'WIF', feedId: WIF_FEED_ID },
+  ];
+  const discovery = await discoverPayers({ feeds: table, samples: 4, delayMs: 0, fetchImpl: multiRpc });
+
+  check(() => {
+    assert.equal(discovery.SOL.dominant, P1, 'SOL is posted by the fast-pair payer');
+    assert.equal(discovery.WIF.dominant, P2, 'WIF is posted by a DIFFERENT payer');
+    assert.ok(discovery.SOL.single && discovery.WIF.single, 'each feed has one payer of its own');
+  }, 'coverage is established per feed, not once for the first feed');
+
+  check(() => {
+    const groups = groupFeedsByPayer(discovery);
+    assert.equal(groups.length, 2, 'two payers means two walks, not one');
+    const byPayer = Object.fromEntries(groups.map(g => [g.payer, g.feeds.map(f => f.symbol).sort()]));
+    assert.deepEqual(byPayer[P1], ['BTC', 'SOL']);
+    assert.deepEqual(byPayer[P2], ['WIF']);
+  }, 'feeds group by the payer that actually posts them');
+
+  await assert.rejects(
+    () => walkPayer({
+      payer: P1, feeds: table, hours: 0.001, delayMs: 0, log: () => {}, samples: 4,
+      out: join(tmpdir(), `rcx-payer-partial-${process.pid}.ndjson`), fetchImpl: multiRpc, force: true,
+    }),
+    /does not post WIF/,
+    'a walk that would silently return nothing for WIF is refused by name');
+  checks += 1;
+
+  const out = join(tmpdir(), `rcx-payer-ok-${process.pid}.ndjson`);
+  const ok = await walkPayer({
+    payer: P1, feeds: table.slice(0, 2), hours: 0.001, delayMs: 0, log: () => {}, samples: 4,
+    out, fetchImpl: multiRpc, force: true,
+  });
+  try { rmSync(out); rmSync(`${out}.lock`); } catch { /* best effort */ }
+  check(() => {
+    assert.ok(ok.signatures > 0, 'and the walk restricted to the feeds that payer DOES post proceeds');
+  }, 'the same payer walks fine once its own feeds are named');
 }
 
 console.log(`ledger cadence: ${checks} checks passed (host tier; fixture bytes are mainnet)`);

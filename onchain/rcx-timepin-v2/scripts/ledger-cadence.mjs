@@ -296,27 +296,79 @@ export async function verifyPayerCoverage({
   };
 }
 
+// MEASURED 2026-09-05 13:09Z, AND IT REFUTED THE PARAGRAPH ABOVE FOR FIVE OF THE
+// SEVEN FEEDS. A payer walk of 9F6ApEtz... covering 11:50:19-12:46:49 returned 678
+// SOL writes, 678 BTC writes and NOTHING ELSE, while a 1 s poll of the same window
+// recorded 66 distinct ETH prints, 66 BONK, 66 WIF, 68 PUMP and 65 JUP. That payer
+// pushes SOL and BTC only; the slow five have a different one.
+//
+// The bug was not the missing knowledge, it was the shape of the check:
+// verifyPayerCoverage was run on feeds[0] and its answer generalised to all seven.
+// The guard existed precisely because "a payer walk is complete only if that payer
+// is the only one posting THOSE FEEDS" - and then it checked one feed. So coverage
+// is now established PER FEED and the feeds are grouped by the payer that actually
+// posts them.
+
+export async function discoverPayers({
+  rpcUrl = process.env.RATCHET_RPC_URL || DEFAULT_RPC,
+  feeds, samples = 12, delayMs = 150, fetchImpl = globalThis.fetch, log = () => {},
+} = {}) {
+  const table = feeds ?? gameFeeds();
+  const out = {};
+  for (const feed of table) {
+    const address = sourceAddressFor(feed.feedId).toBase58();
+    const probe = await verifyPayerCoverage({ rpcUrl, address, samples, delayMs, fetchImpl });
+    out[feed.symbol] = { ...probe, feedId: feed.feedId, address };
+    log(`  ${feed.symbol.padEnd(5)} payer ${probe.dominant ?? 'NONE'} ` +
+      `coverage ${(100 * probe.coverage).toFixed(0)}% over ${probe.writes} writes` +
+      `${probe.single ? '' : ` (${Object.keys(probe.payers).length} payers!)`}`);
+  }
+  return out;
+}
+
+// One walk per distinct payer, each carrying only the feeds that payer posts.
+export function groupFeedsByPayer(discovery) {
+  const groups = new Map();
+  const mixed = [];
+  for (const [symbol, probe] of Object.entries(discovery)) {
+    if (!probe.single) { mixed.push({ symbol, payers: probe.payers }); continue; }
+    if (!groups.has(probe.dominant)) groups.set(probe.dominant, []);
+    groups.get(probe.dominant).push({ symbol, feedId: probe.feedId });
+  }
+  if (mixed.length)
+    throw new Error(
+      `REFUSING to group: ${mixed.map(m => m.symbol).join(', ')} receive writes from more than one ` +
+      'payer, so no payer walk is complete for them. Walk their price accounts instead. ' +
+      `Detail: ${JSON.stringify(Object.fromEntries(mixed.map(m => [m.symbol, m.payers])))}`);
+  return [...groups.entries()].map(([payer, feeds]) => ({ payer, feeds }));
+}
+
 export async function walkPayer({
   rpcUrl = process.env.RATCHET_RPC_URL || DEFAULT_RPC,
   payer, feeds, hours = 24, delayMs = 80, out, samples = 25, force = false,
   fetchImpl = globalThis.fetch, log = console.log, skipCoverageCheck = false,
 } = {}) {
   const feedTable = feeds ?? gameFeeds();
-  if (!payer) {
-    // Discover it rather than hardcoding a sponsor address that can change.
-    const probe = await verifyPayerCoverage({
-      rpcUrl, address: sourceAddressFor(feedTable[0].feedId).toBase58(),
-      samples, fetchImpl, delayMs: 150,
-    });
-    payer = probe.dominant;
-    if (!payer) throw new Error('could not discover a fee payer from the price account');
-    log(`discovered payer ${payer} (${probe.writes} writes sampled, coverage ${(100 * probe.coverage).toFixed(0)}%)`);
-    if (!probe.single && !skipCoverageCheck)
+  if (!skipCoverageCheck) {
+    // EVERY feed, not the first one. A payer that posts SOL is not thereby the
+    // payer that posts WIF, and a walk that assumes so returns an empty
+    // measurement for the feeds it does not cover - which is worse than an error,
+    // because an empty measurement looks like a quiet feed.
+    const discovery = await discoverPayers({ rpcUrl, feeds: feedTable, samples, fetchImpl, log });
+    const groups = groupFeedsByPayer(discovery);
+    payer ??= groups[0]?.payer;
+    if (!payer) throw new Error('could not discover a fee payer from the price accounts');
+    const uncovered = Object.entries(discovery)
+      .filter(([, probe]) => probe.dominant !== payer)
+      .map(([symbol, probe]) => `${symbol} (payer ${probe.dominant})`);
+    if (uncovered.length)
       throw new Error(
-        `REFUSING the payer walk: ${feedTable[0].symbol} writes come from ${Object.keys(probe.payers).length} ` +
-        `different payers (${JSON.stringify(probe.payers)}). A payer walk would silently miss the others, ` +
-        'which is the blind spot this method exists to remove. Walk the price accounts instead, or pass ' +
-        'skipCoverageCheck only if you have another reason to believe the coverage.');
+        `REFUSING the payer walk: payer ${payer} does not post ${uncovered.join(', ')}. ` +
+        `This tree measured exactly that on 2026-09-05: one payer covered SOL and BTC and none of ` +
+        `the other five feeds, and the walk returned zero rows for them without erroring. ` +
+        `There are ${groups.length} payer groups here; run one walk per group - ` +
+        `${groups.map(g => `${g.payer.slice(0, 8)}.. -> ${g.feeds.map(f => f.symbol).join('+')}`).join('; ')}.`);
+    log(`payer ${payer} covers ${feedTable.map(f => f.symbol).join(', ')}`);
   }
 
   const startedAtIso = new Date().toISOString();
