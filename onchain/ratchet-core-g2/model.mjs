@@ -61,7 +61,10 @@ export const TIMEPIN_SCHEMA_V2 = 2;
 export const TIMEPIN_EVIDENCE_POLICY_CANONICAL_LEN = 134;
 export const TIMEPIN_EVIDENCE_SPEC_CANONICAL_LEN = 214;
 export const TIMEPIN_EVIDENCE_SPEC_ACCOUNT_LEN = 262;
-export const TIMEPIN_NEED_ACCOUNT_LEN = 132;
+// 8 + 268. MIN_CAPTURE_SPEC section 2 moved the observation inline into the
+// Need and the rent fields followed it; the header offsets Core reads are
+// unchanged, only the length moved.
+export const TIMEPIN_NEED_ACCOUNT_LEN = 276;
 export const TIMEPIN_CANDIDATE_ACCOUNT_LEN = 119;
 export const TIMEPIN_FULL_VERIFICATION = 1;
 

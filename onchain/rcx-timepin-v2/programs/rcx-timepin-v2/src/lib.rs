@@ -183,6 +183,22 @@ pub mod rcx_timepin_v2 {
         need.capture_deadline_ts = capture_deadline_ts;
         need.candidate_a_hash = [0; 32];
         need.candidate_b_hash = [0; 32];
+        // No observation yet, and no reference from Core until a shot seals
+        // against this target. rent_payer is whoever funded the account, and it
+        // is the only address close_need will ever refund.
+        need.obs_price = 0;
+        need.obs_conf = 0;
+        need.obs_exponent = 0;
+        need.obs_publish_time = 0;
+        need.obs_prev_publish_time = 0;
+        need.obs_ema_price = 0;
+        need.obs_ema_conf = 0;
+        need.obs_posted_slot = 0;
+        need.obs_capture_slot = 0;
+        need.obs_capture_ts = 0;
+        need.obs_worker = Pubkey::default();
+        need.open_refs = 0;
+        need.rent_payer = ctx.accounts.actor.key();
         authenticate_need(
             need,
             &ctx.accounts.evidence_spec,
@@ -387,12 +403,62 @@ pub struct TimepinNeedV2 {
     pub target_ts: i64,
     pub source_deadline_ts: i64,
     pub capture_deadline_ts: i64,
+    /// Was `candidate_a_hash`. Same 32 bytes at the same offset; the name changed
+    /// because under MIN-CAPTURE there is one *observation* that improves, not a
+    /// series of competing candidates.
     pub candidate_a_hash: [u8; 32],
+    /// Was `candidate_b_hash`. Set ONLY for the AMBIGUOUS safety net (two distinct
+    /// signed messages carrying the same publish_time), which on the sponsored
+    /// channel should never fire.
     pub candidate_b_hash: [u8; 32],
+
+    // ---- the observation, inline (MIN_CAPTURE_SPEC section 2) --------------
+    // It used to live in its own CandidateV2 PDA, and every replacement minted a
+    // NEW one - permanent actor-funded rent, 1,564,251 lamports each, with no
+    // close path. A Need improved three times stranded three rents forever, which
+    // is precisely the shape a rule WITH replacement cannot afford. Inline it is
+    // one account: replacement is free, finalize reads one place, and there is no
+    // init_if_needed race. Measured net saving at a single observation: 880,287
+    // lamports, and unboundedly better from the second.
+    pub obs_price: i64,
+    pub obs_conf: u64,
+    pub obs_exponent: i32,
+    pub obs_publish_time: i64,
+    /// Still stored: it is part of the signed message and of `price_message_hash`.
+    /// It is simply no longer part of the predicate under adapter 2.
+    pub obs_prev_publish_time: i64,
+    pub obs_ema_price: i64,
+    pub obs_ema_conf: u64,
+    pub obs_posted_slot: u64,
+    pub obs_capture_slot: u64,
+    pub obs_capture_ts: i64,
+    /// Who submitted the CURRENT best observation. The capture reward is owed to
+    /// whoever is recorded here when the Need finalizes - never to a displaced
+    /// submitter, and never to `PriceUpdate.write_authority`.
+    pub obs_worker: Pubkey,
+
+    // ---- rent is temporary ------------------------------------------------
+    // A Need is a BUFFER between an ephemeral Pyth account and a later
+    // settlement, not an archive: Core's Shot already copies the whole
+    // observation at seal and settle and already closes with a rent refund. Once
+    // every shot referencing this Need has reached a terminal state, the Need
+    // holds no fact that is not already permanent somewhere that outlives it.
+    //
+    // A COUNTER, NOT A TIMER. "Anyone may close N hours after the deadline"
+    // would let one slow crank close the Need out from under a live shot, which
+    // is the same defect shape as a reveal budget that depends on somebody
+    // else's speed. This depends on nobody's.
+    pub open_refs: u32,
+    /// Refunded in full by `close_need`. Whoever paid the rent gets it back.
+    pub rent_payer: Pubkey,
 }
 
 impl TimepinNeedV2 {
-    pub const LEN: usize = 124;
+    // 124 (through candidate_b_hash) + 108 (the inline observation) + 36 (rent).
+    // Changing this trips two deliberate ABI pins - the WorkManifest's
+    // subject_account_size and the frozen-length test - so the layout cannot move
+    // silently. That is the pins working, not a failure.
+    pub const LEN: usize = 268;
 }
 
 pub fn canonical_policy_bytes(
@@ -979,6 +1045,19 @@ mod tests {
             capture_deadline_ts: 2_820,
             candidate_a_hash: [0; 32],
             candidate_b_hash: [0; 32],
+            obs_price: 0,
+            obs_conf: 0,
+            obs_exponent: 0,
+            obs_publish_time: 0,
+            obs_prev_publish_time: 0,
+            obs_ema_price: 0,
+            obs_ema_conf: 0,
+            obs_posted_slot: 0,
+            obs_capture_slot: 0,
+            obs_capture_ts: 0,
+            obs_worker: Pubkey::default(),
+            open_refs: 0,
+            rent_payer: Pubkey::default(),
         }
     }
 
@@ -1093,7 +1172,7 @@ mod tests {
         assert_eq!(spec_bytes.len(), 262);
         let mut need_bytes = Vec::new();
         need(hash, 255).try_serialize(&mut need_bytes).unwrap();
-        assert_eq!(TimepinNeedV2::LEN, 124);
+        assert_eq!(TimepinNeedV2::LEN, 268);
         assert_eq!(need_bytes.len(), 132);
         assert_eq!(ReceiverConfig::LEN, 370);
     }

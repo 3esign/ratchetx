@@ -28,8 +28,11 @@ export const EVIDENCE_POLICY_V2_CANONICAL_LEN = 134;
 export const EVIDENCE_SPEC_V2_CANONICAL_LEN = 214;
 export const EVIDENCE_SPEC_V2_PAYLOAD_LEN = 254;
 export const EVIDENCE_SPEC_V2_ACCOUNT_LEN = 262;
-export const TIMEPIN_NEED_V2_PAYLOAD_LEN = 124;
-export const TIMEPIN_NEED_V2_ACCOUNT_LEN = 132;
+// 124 (through candidateBHash) + 108 (the inline observation) + 36 (rent).
+// MIN_CAPTURE_SPEC section 2: the observation moved out of its own PDA, where
+// every replacement minted a new permanently-rented account.
+export const TIMEPIN_NEED_V2_PAYLOAD_LEN = 268;
+export const TIMEPIN_NEED_V2_ACCOUNT_LEN = 276;
 export const CANDIDATE_V2_PAYLOAD_LEN = 111;
 export const CANDIDATE_V2_ACCOUNT_LEN = 119;
 
@@ -611,6 +614,21 @@ export function encodeTimepinNeedV2(need) {
     i64(need.captureDeadlineTs, 'need.captureDeadlineTs'),
     bytes32(need.candidateAHash, 'need.candidateAHash'),
     bytes32(need.candidateBHash, 'need.candidateBHash'),
+    // The inline observation. Appended, never inserted: every offset above is
+    // unchanged, so a decoder that only reads the header still reads it right.
+    i64(need.obsPrice ?? 0, 'need.obsPrice'),
+    u64(need.obsConf ?? 0, 'need.obsConf'),
+    i32(need.obsExponent ?? 0, 'need.obsExponent'),
+    i64(need.obsPublishTime ?? 0, 'need.obsPublishTime'),
+    i64(need.obsPrevPublishTime ?? 0, 'need.obsPrevPublishTime'),
+    i64(need.obsEmaPrice ?? 0, 'need.obsEmaPrice'),
+    u64(need.obsEmaConf ?? 0, 'need.obsEmaConf'),
+    u64(need.obsPostedSlot ?? 0, 'need.obsPostedSlot'),
+    u64(need.obsCaptureSlot ?? 0, 'need.obsCaptureSlot'),
+    i64(need.obsCaptureTs ?? 0, 'need.obsCaptureTs'),
+    bytes32(need.obsWorker ?? ZERO32, 'need.obsWorker'),
+    u32(need.openRefs ?? 0, 'need.openRefs'),
+    bytes32(need.rentPayer ?? ZERO32, 'need.rentPayer'),
   ]);
   if (payload.length !== TIMEPIN_NEED_V2_PAYLOAD_LEN) throw new RangeError('BAD_NEED_PAYLOAD_LENGTH');
   return Buffer.concat([TIMEPIN_NEED_V2_DISCRIMINATOR, payload]);
