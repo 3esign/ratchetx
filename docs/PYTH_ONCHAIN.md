@@ -34,18 +34,36 @@ Pyth-on-Solana crossing data returns.
 
 ## The accounts
 
-Shard-0 push-feed PDAs, derived from `[u16le(0), feed_id]` under the Pyth push oracle
-program and checked against Pyth's published sponsored-feed table.
+**Corrected 2026-09-05.** This page previously listed a table of v1 push-oracle PDAs. The program and
+`lib/onchain_px.js` have used the **v2** pair since the Pyth receiver upgrade, and every address in
+that old table was wrong — an agent that trusted this page would have read the wrong accounts.
 
-| Feed | Account |
-|------|---------|
-| SOL  | `7UVimffxr9ow1uXYxsr4LHAcV58mLzhmwaeKvJ1pjLiE` |
-| BTC  | `4cSM2e6rvbGQUFiJbqytoVMi5GgghSMr8LwVrT9VPSPo` |
-| ETH  | `42amVS4KgzR9rA28tkVYqVXjq9Qa8dcZQMbH5EYFX6XC` |
-| BONK | `DBE3N8uNjhKPRHfANdwGvCZghWXyLPdqdSbEW2XFwBiX` |
-| PUMP | `HMm3GPbdnqGwbkTnUUqCFsH8AMHDdEC3Lg8gcPD3HJSH` |
-| JUP  | `7dbob1psH1iZBS7qPsm3Kwbf5DzSXK8Jyg31CTgTnxH5` |
-| WIF  | `6B23K3tkb51vLZA14jcEQVCA1pfHptzEHFA93V5dYwbT` |
+The two program ids the code pins (`lib/onchain_px.js:70-71`):
+
+- receiver v2 `rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp` — the **owner** of a price account
+- price feed v2 `pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou` — the program the **address** is
+  derived under, `find_program_address([u16le(shard 0), feed_id], pyt2…)`
+
+Owner and derivation are different programs on purpose; deriving under the owner gives an address
+that does not exist.
+
+**The table below is a copy, not the source of truth.** `lib/onchain_px.js:75-83` is, and the
+Timepin `EvidenceSpecV2` pins the feed id per spec. If the two ever disagree, the code is right and
+this page is stale again.
+
+| Feed | Sponsored shard-0 account | Feed id |
+|------|---------------------------|---------|
+| SOL  | `7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE` | `ef0d8b6f…c280b56d` |
+| BTC  | `APgzQGGdv2qCgBkX6aHVkrGePtBVDDg68GiqaM7rmtf5` | `e62df6c8…4a415b43` |
+| ETH  | `7odryi4WfoMFHtv2eubdMgP1pqQMmdiXSK1N2tqZ2nRH` | `ff61491a…34fd0ace` |
+| BONK | `3nMpgBXnjBSDYupQQEVR7DZM65zkJCdKy1Up7nkqp99w` | `72b02121…29314419` |
+| PUMP | `4KL8nVtrXmLjbbHtrDz5YCHNqmii62oHfr9bsUtx1bgi` | `7a01fca2…b8d5c3b9` |
+| JUP  | `EitcZS5LtbR4EyNhCSy56vvUHPhsifSfWFG5gwSkjNpV` | `0a0408d6…be830996` |
+| WIF  | `9Sn9FVu6WpufA8yZFSRuxYyFgpBrhc5PpTgB3mq2DcsG` | `4ca4beec…d4cc61fc` |
+
+SOL, BTC and ETH are the core three; the other four are enabled per ruleset. Measured cadence for
+the core three, 2026-09-05: SOL and BTC are pushed every 5 s, ETH every ~52 s. That measurement is
+what `max_post_target_lag_seconds` must be set from — never a guess.
 
 Anyone can verify a settlement:
 
