@@ -21,3 +21,32 @@ Status: DRAFT - NOT APPROVED BY THE OWNER, MUST NOT BE REGISTERED
 - **legacyRoot**: 0000000000000000000000000000000000000000000000000000000000000000. Evidence: docs/ROAD_TO_MAINNET.md:236 (lead proposal, tracker section 4 item 2, NOT APPROVED: all-zero).
 - **migrationId**: ratchetx-g2-mainnet-2026-09-fresh-start. Evidence: docs/ROAD_TO_MAINNET.md:236 (lead proposal, tracker section 4 item 2, NOT APPROVED: nonzero migration_id).
 - **timepinProgram**: C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp. Evidence: docs/ROAD_TO_MAINNET.md:237 (lead proposal, tracker section 4 item 2, NOT APPROVED: C8ww).
+
+---
+
+## Launch scope — SOL and BTC only (lead proposal, 2026-09-05, tag D)
+
+**Derived, not sampled.** Coverage is 100 % if and only if the pusher's gap `d` satisfies `d <= lag`.
+With `lag = grid - 1 = 59 s`:
+
+| feeds | observed push gap | headroom against a 59 s lag |
+| --- | --- | --- |
+| SOL, BTC | ~5 s | **twelve times** |
+| ETH, BONK, PUMP, JUP, WIF | ~52 s | **seven seconds** |
+
+Seven seconds of margin against a scheduler nobody here controls — and one that was measured drifting
+through all five phase values inside a single hour — is not a launch. The five slow feeds are marked
+`enabledAtLaunch: false` with the reason inline; nothing is deleted, and each can be enabled later as
+its own registered ruleset once the **on-chain void rate from real play** shows it carries. That is
+the only liveness measurement that belongs to us rather than being borrowed from a feed we do not own.
+
+**This is an owner decision (`launchScope.ownerMustConfirm: true`).** The engineering is neutral on
+which feeds ship; it is not neutral on shipping a feed whose margin is seven seconds.
+
+## One value nobody has justified yet
+
+`maxTargetAheadSeconds: 90000` is twenty-five hours. At a 60 s grid that admits **1,500 open targets
+at once**, each one a `Need` account somebody funds. No structural argument has been offered for that
+number, and it is exactly the shape of relation that should be decided by arithmetic rather than
+taste: what is the largest number of simultaneously open targets the game wants, and does anything in
+the program refuse more? Unreviewed, and it belongs in the same pass as the other parameter relations.
