@@ -1,0 +1,18 @@
+[package]
+name = "rcx-timepin-v2-svm-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Independent transaction tests for Timepin v2 register/open SBF"
+
+[workspace]
+
+[dependencies]
+litesvm = "=0.16.0"
+sha2 = "=0.10.9"
+solana-sdk = "=4.0.1"
+
+# Keep transaction semantics identical while avoiding huge Windows PDB links.
+# Set CARGO_PROFILE_TEST_DEBUG=2 temporarily for native debugger symbols.
+[profile.test]
+debug = 0

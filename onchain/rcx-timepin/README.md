@@ -70,4 +70,10 @@ separately reviewed move to repository-root `.github/workflows/`.
 submitted before the common deadline. Candidate records are sorted by raw
 message hash; capture and terminal provenance remain history-specific.
 
-See [SPEC.md](SPEC.md) for the byte-level identity and terminal rules.
+See [SPEC.md](SPEC.md) for the executable schema-1 byte identity and terminal
+rules. [SPEC_V2.md](SPEC_V2.md) and [model-v2.mjs](model-v2.mjs) define and
+test the proposed multi-cadence, policy-hashed successor used for future
+crypto/xStock T0/T1 design. The separate `../rcx-timepin-v2` workspace now has
+exact Rust/SBF/LiteSVM parity for the complete no-value EvidenceSpec, Need,
+Candidate, terminal Timepin and completion-receipt lifecycle. Schema 2 still has
+no deployment, complete IDL/client, devnet exercise or value path.

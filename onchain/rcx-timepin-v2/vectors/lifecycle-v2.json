@@ -1,0 +1,221 @@
+{
+  "schemaVersion": 2,
+  "scope": "final compact no-value Timepin lifecycle and optional packed-work ABI",
+  "programId": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+  "deployableIdentity": false,
+  "fixtureNeed": {
+    "address": "fDbvhaxmF1a7vukfEuZMoFV4yDWKZXvHh42Wg7DkARA",
+    "bump": 255,
+    "targetTs": 1800001200
+  },
+  "domains": {
+    "messageHashUtf8": "rcx-timepin:pyth-price-message:v2\u0000",
+    "evidenceSetHashUtf8": "rcx-timepin:evidence-set:v2\u0000",
+    "expiredHashUtf8": "rcx-timepin:expired:v2\u0000",
+    "completionResultHashUtf8": "rcx-timepin:completion-result:v2\u0000"
+  },
+  "accounts": {
+    "TimepinNeedV2": {
+      "discriminatorHex": "e1f8cc821015586c",
+      "payloadLength": 124,
+      "accountLength": 132,
+      "fields": "schema u16 | bump u8 | state u8 | evidence_spec_hash[32] | target_ts i64 | source_deadline_ts i64 | capture_deadline_ts i64 | candidate_a_hash[32] | candidate_b_hash[32]",
+      "states": {
+        "open": { "value": 0, "hashShape": "a=zero,b=zero" },
+        "candidate": { "value": 1, "hashShape": "a=nonzero,b=zero" },
+        "final": { "value": 2, "hashShape": "a=nonzero,b=zero" },
+        "ambiguous": { "value": 3, "hashShape": "a<b, both nonzero" },
+        "expired": { "value": 4, "hashShape": "a=zero,b=zero" }
+      },
+      "terminalResult": "Derived from Need address/state/target/candidate hashes; there is no separate terminal account."
+    },
+    "CandidateV2": {
+      "seeds": ["candidate", "need_pubkey", "message_hash_32"],
+      "discriminatorHex": "dcdf4108b3715f4f",
+      "payloadLength": 111,
+      "accountLength": 119,
+      "fields": "schema u16 | bump u8 | need Pubkey | price i64 | conf u64 | exponent i32 | publish_time i64 | prev_publish_time i64 | ema_price i64 | ema_conf u64 | posted_slot u64 | capture_slot u64 | capture_ts i64"
+    },
+    "WorkManifest": {
+      "seeds": ["work_manifest", "manifest_schema_u16_le", "work_kind_u8"],
+      "manifestSchema": 1,
+      "completionSchema": 1,
+      "locatorMode": 2,
+      "discriminatorHex": "bbe5af48f112a455",
+      "payloadLength": 34,
+      "accountLength": 42,
+      "fields": "schema_version u16 | bump u8 | work_kind u8 | completion_schema_version u16 | locator_mode u8 | subject_schema_version u16 | subject_account_size u16 | subject_discriminator[8] | locator_schema_version u16 | locator_discriminator[8] | records_offset u16 | entry_len u16 | locator_capacity u8",
+      "firstCapture": {
+        "workKind": 1,
+        "pda": "DX4pksHm2VLTdVymLEZVAd9QTTvZvxYM56ecxEuvYMeG",
+        "bump": 255
+      },
+      "terminalize": {
+        "workKind": 2,
+        "pda": "Ds8hMvWEvvrdhf4R5otNAH2Wv6DnbRde5myC4UgyEMBL",
+        "bump": 254
+      },
+      "frozenLocatorFields": {
+        "subjectSchema": 2,
+        "subjectAccountSize": 132,
+        "subjectDiscriminatorHex": "e1f8cc821015586c",
+        "locatorSchema": 1,
+        "locatorDiscriminatorHex": "95d0d6e2e05ad694",
+        "recordsOffset": 47,
+        "entryLength": 106,
+        "capacity": 2
+      }
+    },
+    "WorkPage": {
+      "seeds": ["work_page", "need_pubkey"],
+      "fixturePda": "Ew9D8GbH8kWZqHKz11so9DLjXkjFAQFPn6JLd3nUXYdp",
+      "fixtureBump": 254,
+      "schema": 1,
+      "discriminatorHex": "95d0d6e2e05ad694",
+      "basePayloadLength": 39,
+      "baseAccountLength": 47,
+      "maximumPayloadLength": 251,
+      "maximumAccountLength": 259,
+      "recordsOffset": 47,
+      "capacity": 2,
+      "fields": "schema u16 | bump u8 | need Pubkey | records Vec<WorkRecord>",
+      "creationRule": "Call open_work_page only when the canonical page is absent; reserve_work performs each 106-byte dynamic growth; completion never creates a page."
+    },
+    "WorkRecord": {
+      "length": 106,
+      "fields": "subject Pubkey | work_kind u8 | disposition u8 | worker Pubkey | result_hash[32] | completed_slot u64",
+      "dispositions": {
+        "pending": 0,
+        "payable": 1,
+        "nonpayable": 2
+      },
+      "expiry": "A pending FIRST_CAPTURE row becomes NONPAYABLE with default worker; a pending TERMINALIZE row becomes PAYABLE to the expiry actor."
+    }
+  },
+  "instructions": {
+    "openWorkManifest": {
+      "discriminatorHex": "e2efc3ece315c9a3",
+      "dataLength": 9,
+      "data": "discriminator[8] | work_kind u8",
+      "accounts": ["actor signer+writable", "work_manifest writable", "system_program"]
+    },
+    "openWorkPage": {
+      "discriminatorHex": "9efdadb53034bc10",
+      "dataLength": 8,
+      "accounts": ["actor signer+writable", "evidence_spec", "need", "work_page writable", "system_program"]
+    },
+    "reserveWork": {
+      "discriminatorHex": "b9476c8bdcd345b7",
+      "dataLength": 10,
+      "data": "discriminator[8] | work_kind u8 | expected_index u8",
+      "accounts": ["actor signer+writable", "evidence_spec", "need", "work_page writable", "system_program"]
+    },
+    "captureFirst": {
+      "discriminatorHex": "0e54cde37305fa4b",
+      "dataLength": 40,
+      "data": "discriminator[8] | expected_message_hash[32]",
+      "accounts": [
+        "actor signer+writable",
+        "evidence_spec",
+        "need writable",
+        "candidate writable",
+        "official receiver_program executable",
+        "receiver_program_data",
+        "canonical receiver_config",
+        "pinned wormhole_program executable",
+        "wormhole_program_data",
+        "price_update",
+        "canonical optional work_page writable",
+        "system_program"
+      ]
+    },
+    "captureConflict": {
+      "discriminatorHex": "d5552dd458e413b3",
+      "dataLength": 40,
+      "data": "discriminator[8] | expected_message_hash[32]",
+      "accounts": [
+        "actor signer+writable",
+        "evidence_spec",
+        "need writable",
+        "candidate_a",
+        "candidate_b writable",
+        "official receiver_program executable",
+        "receiver_program_data",
+        "canonical receiver_config",
+        "pinned wormhole_program executable",
+        "wormhole_program_data",
+        "price_update",
+        "canonical optional work_page writable",
+        "system_program"
+      ]
+    },
+    "finalize": {
+      "discriminatorHex": "ab3dda387f730cd9",
+      "dataLength": 8,
+      "accounts": ["actor signer+writable", "evidence_spec", "need writable", "candidate", "canonical optional work_page writable"]
+    },
+    "expire": {
+      "discriminatorHex": "f353cd3a39c9f792",
+      "dataLength": 8,
+      "accounts": ["actor signer+writable", "evidence_spec", "need writable", "canonical optional work_page writable"]
+    }
+  },
+  "goldenMessages": {
+    "common": {
+      "feedIdHex": "0303030303030303030303030303030303030303030303030303030303030303",
+      "exponent": -6,
+      "publishTime": 1800001200,
+      "prevPublishTime": 1800001140,
+      "emaEqualsSpot": true
+    },
+    "a": {
+      "price": 12345678,
+      "conf": 12345,
+      "messageHashHex": "ab0c77a65cd62841d91dc3db38c97dc9c8748d12de1e26c3e35e9240715a03fd",
+      "candidatePda": "3hL5srxWhWBYVP62DtwT65xEzP8aijSZmWA7MnU2LiGd",
+      "candidateBump": 254,
+      "runtimeProven": true
+    },
+    "b": {
+      "price": 12345679,
+      "conf": 12346,
+      "messageHashHex": "255922fc1ac24821459b79afd496eafd1fa9780585a6fac9ee42fce1ef08f1f2",
+      "candidatePda": "6UWzssnh5NAZosWoPMpocc8njC9RofSbz3AHKtvnk5ow",
+      "candidateBump": 254,
+      "runtimeProven": false
+    }
+  },
+  "terminalVectors": {
+    "finalResultHashHex": "7c185216ecff12aec2ebf99cb45a9a8010685764e314dc59228129e7b5e27b18",
+    "ambiguousHashOrder": [
+      "255922fc1ac24821459b79afd496eafd1fa9780585a6fac9ee42fce1ef08f1f2",
+      "ab0c77a65cd62841d91dc3db38c97dc9c8748d12de1e26c3e35e9240715a03fd"
+    ],
+    "ambiguousResultHashHex": "e70550b5382e49d608a03cdc9e69a6319426f4ae1558324b793e9f250fcd1d8f",
+    "expiredResultHashHex": "e1bf1f2bbba1fbef93f898685c030b69891648168905541cd710af92eacb26fb",
+    "proofLevel": "Pure/host-vector derivation; conflict/finalize/expire are not claimed as exact-SBF LiteSVM lifecycle transactions in this fixture."
+  },
+  "runtimeEvidence": {
+    "exactSbfCapturePath": "Open -> Candidate with no WorkPage",
+    "captureFirstComputeUnits": 54173,
+    "postedSlot": {
+      "registeredSlot": 1000,
+      "equalFails": true,
+      "plusOnePasses": true,
+      "aheadOfClockFails": true
+    },
+    "persistentGenerationMutationsFailClosed": [
+      "Receiver ProgramData slot",
+      "complete Receiver config bytes",
+      "Wormhole ProgramData slot"
+    ]
+  },
+  "localSbfEvidence": {
+    "path": "target/deploy/rcx_timepin_v2.so",
+    "size": 414264,
+    "sha256": "8d913a5d65b187d665d35088e577ee231b3f2bdb2954377ad4b986fac343ab7f",
+    "releaseArtifact": false,
+    "rebuiltBySvmTask": false,
+    "liteSvm": { "passed": 3, "failed": 0 }
+  }
+}

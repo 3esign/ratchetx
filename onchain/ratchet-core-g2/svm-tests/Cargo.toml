@@ -1,0 +1,23 @@
+[package]
+name = "ratchet-core-g2-svm-tests"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "Independent exact-SBF transaction tests for Ratchet Core G2"
+
+[workspace]
+
+[dependencies]
+base64 = "=0.22.1"
+litesvm = "=0.16.0"
+serde_json = "=1.0.151"
+sha2 = "=0.10.9"
+solana-sdk = "=4.0.1"
+spl-token = { version = "=9.0.0", features = ["no-entrypoint"] }
+spl-token-2022-interface = "=2.1.0"
+
+# This harness links the full Solana/LiteSVM graph. Native debug symbols created
+# a 110 MB PDB and a ten-minute Windows link without adding protocol coverage.
+# Set CARGO_PROFILE_TEST_DEBUG=2 temporarily when native debugger symbols matter.
+[profile.test]
+debug = 0

@@ -1,0 +1,14 @@
+[toolchain]
+anchor_version = "1.0.2"
+solana_version = "4.2.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+rcx_timepin_v2 = "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp"
+
+[provider]
+cluster = "localnet"
+wallet = "~/.config/solana/id.json"

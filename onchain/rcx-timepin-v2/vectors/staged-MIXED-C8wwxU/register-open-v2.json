@@ -1,0 +1,155 @@
+{
+  "schemaVersion": 2,
+  "scope": "final generation-pinned register/open ABI and exact-SBF runtime fixture",
+  "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+  "programIdBytesHex": "a579c04fbc87fd72cda4a2d8190be5afcfb4bc8416a76e149fb3189805a07b09",
+  "deployableIdentity": false,
+  "officialPyth": {
+    "receiverProgram": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+    "pushOracleProgram": "pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou"
+  },
+  "syntheticGenerationFixture": {
+    "note": "Valid Loader-v3 shapes and exact real-scale fixture lengths; code/padding bytes are not claimed to be mainnet account dumps.",
+    "loaderProgram": "BPFLoaderUpgradeab1e11111111111111111111111",
+    "receiverProgramData": {
+      "pda": "3UV7w2yTaqVcUAbWm1KUXdcE1Ziw8CfyyCpZvhKFkPfX",
+      "pdaBump": 254,
+      "dataLength": 425984,
+      "generationSlot": 900,
+      "header": "variant u32 LE = 3 | slot u64 LE = 900 | upgrade_authority Option = None | Loader-v3 45-byte metadata followed by ELF and deterministic padding"
+    },
+    "wormholeProgram": "YMN9Qj5jPNp7j14VPcML1B6xGgcPWVZUGLFU3Mnyfaf",
+    "wormholeProgramData": {
+      "pda": "DZpoFMtx11Jv1yKM3L37iYBM7KPNXEMrWxqfhC5U1jfT",
+      "pdaBump": 254,
+      "dataLength": 671744,
+      "generationSlot": 901,
+      "header": "variant u32 LE = 3 | slot u64 LE = 901 | upgrade_authority Option = None | Loader-v3 45-byte metadata followed by ELF and deterministic padding"
+    },
+    "receiverConfig": {
+      "pda": "H3R4M45f2gyqp6geVUruapzZdyxpgGZ96UnWkDM3ndye",
+      "pdaBump": 255,
+      "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+      "dataLength": 370,
+      "accountDiscriminatorHex": "9b0caae01efacc82",
+      "completeAccountDataSha256": "71255c0e9d2cc86c92b38ff4c759237799098518616ba6fdd0d9b2119e24129e",
+      "configuredWormhole": "YMN9Qj5jPNp7j14VPcML1B6xGgcPWVZUGLFU3Mnyfaf"
+    },
+    "registrationClockSlot": 1000
+  },
+  "evidencePolicy": {
+    "hashDomainUtf8": "rcx-timepin:evidence-policy:v2\u0000",
+    "canonicalLength": 134,
+    "canonicalBytesHex": "0200010cb7fa7a5da628fbaca99aea99f7bf3bdc368968602abf414d4e8ba567bbb0bf0c4a9cb19f9efc2539fe690235d8e9b502efce4ccbe1f226734bff7a138cd26c00000303030303030303030303030303030303030303030303030303030303030303013c0000001e000000100e000078000000780000003c0000000500f402e8030000",
+    "hashHex": "7a045c833d075563a17ed038312013889806266fd51c3c902abbc50e844df4b6",
+    "fields": {
+      "schema": 2,
+      "adapter": 1,
+      "receiverProgram": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+      "pushOracleProgram": "pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou",
+      "shardId": 0,
+      "feedIdHex": "0303030303030303030303030303030303030303030303030303030303030303",
+      "requiredVerification": 1,
+      "targetGridSeconds": 60,
+      "minOpenLeadSeconds": 30,
+      "maxTargetAheadSeconds": 3600,
+      "maxPreTargetGapSeconds": 120,
+      "maxPostTargetLagSeconds": 120,
+      "captureGraceSeconds": 60,
+      "maxFutureSkewSeconds": 5,
+      "minExponent": -12,
+      "maxExponent": 2,
+      "maxConfidenceBps": 1000
+    }
+  },
+  "evidenceSpec": {
+    "hashDomainUtf8": "rcx-timepin:evidence-spec:v2-generation\u0000",
+    "canonicalLength": 214,
+    "canonicalBytesHex": "0200010cb7fa7a5da628fbaca99aea99f7bf3bdc368968602abf414d4e8ba567bbb0bf0c4a9cb19f9efc2539fe690235d8e9b502efce4ccbe1f226734bff7a138cd26c00000303030303030303030303030303030303030303030303030303030303030303013c0000001e000000100e000078000000780000003c0000000500f402e8030000840300000000000071255c0e9d2cc86c92b38ff4c759237799098518616ba6fdd0d9b2119e24129e08080808080808080808080808080808080808080808080808080808080808088503000000000000",
+    "hashHex": "79e506e5b99dd3206812db3903f1fdf392166f9d8980b9f848fc09ca0fc91cd0",
+    "pda": "G8GWhsm8Kbuvza7h2vqtzQEzQq29KHh7c4UDqJEzSdJK",
+    "pdaBump": 255,
+    "payloadLength": 254,
+    "accountLength": 262,
+    "accountDiscriminatorHex": "5e4c19f1274146e4",
+    "generationFields": "receiver_programdata_slot u64 | receiver_config_hash[32] | wormhole_program Pubkey | wormhole_programdata_slot u64",
+    "storedSuffix": "evidence_policy_hash[32] | exact generation fields[80] | registered_slot u64"
+  },
+  "need": {
+    "targetTs": 1800001200,
+    "sourceDeadlineTs": 1800001320,
+    "captureDeadlineTs": 1800001380,
+    "payloadLength": 124,
+    "accountLength": 132,
+    "accountDiscriminatorHex": "e1f8cc821015586c",
+    "pda": "E5vykn5AMZukFN6v8NsPLgMhoiy6h7JVscg1cpRtxMuR",
+    "pdaBump": 254,
+    "fields": "schema u16 | bump u8 | state u8 | evidence_spec_hash[32] | target_ts i64 | source_deadline_ts i64 | capture_deadline_ts i64 | candidate_a_hash[32] | candidate_b_hash[32]"
+  },
+  "instructions": {
+    "registerEvidenceSpec": {
+      "discriminatorHex": "8668d270eff95e77",
+      "dataLength": 254,
+      "data": "discriminator[8] | spec_hash[32] | EvidenceSpecArgs[214]",
+      "accounts": [
+        "payer signer+writable",
+        "evidence_spec writable",
+        "official receiver_program executable",
+        "receiver_program_data Loader-v3",
+        "canonical receiver_config",
+        "config-selected wormhole_program executable",
+        "wormhole_program_data Loader-v3",
+        "system_program"
+      ]
+    },
+    "openNeed": {
+      "discriminatorHex": "a4821105a5fcd669",
+      "dataLength": 48,
+      "data": "discriminator[8] | spec_hash[32] | target_ts_i64_le[8]",
+      "accounts": [
+        "actor signer+writable",
+        "evidence_spec",
+        "need writable",
+        "system_program"
+      ]
+    }
+  },
+  "runtimeEvidence": {
+    "date": "2026-09-04",
+    "liteSvmVersion": "0.16.0",
+    "passed": 3,
+    "failed": 0,
+    "computeUnits": {
+      "registerEvidenceSpec": 35532,
+      "openNeed": 22456,
+      "captureFirstNoWorkPage": 54173
+    },
+    "positive": [
+      "large Loader-v3 registration",
+      "canonical open",
+      "idempotent unrelated-signer open",
+      "post-registration posted_slot + 1 capture"
+    ],
+    "failClosed": [
+      "wrong Receiver ProgramData link",
+      "wrong Receiver generation slot",
+      "wrong complete Receiver config hash",
+      "Receiver config selects another Wormhole",
+      "wrong Wormhole ProgramData link",
+      "wrong Wormhole generation slot",
+      "Clock slot is not later than both generations",
+      "post-registration generation/config mutation",
+      "posted_slot equals registered_slot",
+      "posted_slot is ahead of Clock.slot"
+    ]
+  },
+  "localSbfEvidence": {
+    "path": "target/deploy/rcx_timepin_v2.so",
+    "size": 414264,
+    "sha256": "8d913a5d65b187d665d35088e577ee231b3f2bdb2954377ad4b986fac343ab7f",
+    "releaseArtifact": false,
+    "rebuiltBySvmTask": false,
+    "mixedIdentityStaging": true,
+    "mixedIdentityNote": "REVIEW-ONLY: PDAs are derived for C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp; the artifact tuple is the historical US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx-baked ELF. NOT canonical. Excluded from any candidate swap. Regenerate from the hash-addressed C8wwxU ELF."
+  }
+}

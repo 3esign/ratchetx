@@ -1,0 +1,22 @@
+{
+  "tool": "tools/repin-timepin-vectors.mjs",
+  "toolSha256": "a567de5ffc92a145366992233d653a13b1de4bcd16a0fbfb0488798bfd3cd62e",
+  "generatedAt": "2026-09-04T23:01:45.415Z",
+  "node": "v22.23.2",
+  "mode": "MIXED-IDENTITY (review only, non-canonical)",
+  "from": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+  "to": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+  "deployableIdentity": false,
+  "inputs": {
+    "inDir": "/sessions/rcw-01gynen2uaeysrbf6fwtvwru/mnt/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/rcx-timepin-v2/vectors",
+    "register-open-v2.json": "2b7f933c5edc780290cec906214e4aa6b77ef71547ccc65cb812dc5de156fd8c",
+    "lifecycle-v2.json": "a8ce5e50be967b6fd29fefad83baaa06ca9809517726e0f7889e56591d615db5"
+  },
+  "artifact": {
+    "path": "/sessions/rcw-01gynen2uaeysrbf6fwtvwru/mnt/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/rcx-timepin-v2/target/deploy/rcx_timepin_v2.so",
+    "size": 414264,
+    "sha256": "8d913a5d65b187d665d35088e577ee231b3f2bdb2954377ad4b986fac343ab7f",
+    "embedsTargetId": false,
+    "idOffset": -1
+  }
+}

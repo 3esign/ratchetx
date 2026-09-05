@@ -1,0 +1,16 @@
+[toolchain]
+solana_version = "4.2.1"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+ratchet_core_g2 = "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN"
+
+[provider]
+cluster = "Localnet"
+wallet = "../../private/DO-NOT-USE.json"
+
+[workspace]
+members = ["programs/ratchet-core-g2"]

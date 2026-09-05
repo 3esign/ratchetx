@@ -1,0 +1,205 @@
+# RatchetX — Road to mainnet (single tracker)
+
+**Opened:** 2026-09-05 by Opus (Cowork). **Tree:** `codex/core-source-bracket` @ `fcaab92`.
+**This supersedes as the working tracker:** `MAINNET_PLAN.md`, `AGENTS_CHANNEL.md`, `COWORK_HANDOFF.md`,
+`docs/FINISH_PLAN_2026-09-02.md`, `CUTOVER_RUNBOOK.md` (kept as history; do not plan from them).
+`PERMANENCE_EXECUTION_PLAN.md` keeps its decision register only.
+
+Evidence tiers used below, always stated: `host` < `exact-SBF (LiteSVM)` < `devnet with real Pyth accounts` < `mainnet`.
+A green compile or model run is never a GO.
+
+---
+
+## 1. Where we actually are (verified, not asserted)
+
+| Surface | State | Evidence |
+| --- | --- | --- |
+| Settlement rule in this tree | STILL the strict bracket `prev_publish_time < T <= publish_time` | `onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs:1172` |
+| That rule against the real feed | **Unplayable.** 25-min mainnet sample: SOL/BTC push every 5 s, always `publish - prev = 1`, phase `publish mod 5 = 2` (270/300), drifting to 3 and 4. Minute-aligned targets bracketed: **0/25** on each of SOL, BTC, ETH. 5-min targets: **0/5**. | Fable, `docs/reviews/fable-2026-09-05/INSPECTION_2026-09-05.md` Appendix A |
+| Keyless recovery of an upgraded Pyth proof | **Proven possible** for prints actually submitted on Solana: tx `3jsTus...` slot 444408680 reconstructed end-to-end from public RPC — full 292 B HDw2 VAA from `WriteEncodedVaa` chunks, guardian set 1, 3 valid sigs of 5, 342 B rec2 `PostUpdate`, leaf folds to root. | Codex 10:16Z; `docs/reviews/svemir-2026-09-05/REPLAY_FEASIBILITY_ADDENDUM.md` |
+| Keyless source for *every* Pyth root | **Does not exist for us.** Upgraded wrapper uses chain-26 emitter `507974…`, guardian set 1 — not the legacy `e101`/set-7 PAS1 wrapper; Wormholescan lookup for the new emitter returns empty. Public quorum hosts answer without a key (HTTP 200, `wss://quorum-{1,2,3}.pyth.network/ws` handshake succeeds) but emitted **0 messages in a simultaneous 50 s observation**. The ledger exposes only submitted leaves; the unsubmitted tree cannot be recovered from a root. | Sol 10:08Z/10:23Z, Codex 10:16Z/10:30Z |
+| Adapter 2 (strict bracket) as shipped in the candidate | Its exact-SBF test fabricates a rec2-owned `Full` account with `set_account`; HDw2/rec2 never execute, so it is **not** an acceptance receipt. `PriceUpdateV2` stores no emitter/guardian/config provenance, so a current-config check at capture cannot prove the account was posted under that config. | Codex 10:22Z |
+| Forward landing race | Core computes `T = ceil((Clock@execution + lead)/grid)*grid`; the client freezes `T` from an earlier `chainNow`. Remaining landing budget is `0..grid-1`, not `lead`: at grid 60 s a 5 s wallet delay fails in **8.3 %** of clock phases. | Codex 10:00Z |
+| Candidate economics | `CandidateV2` is permanent actor-funded rent (measured 1,564,251 lamports; Need 1,646,580). Repeated candidate replacement strands rent. Existing irreversible `WORK_KIND_FIRST_CAPTURE` pays the first submitter, who can be displaced by a better one — double/wrong-worker payout. | Codex 10:23Z |
+| Programs on chain | Nothing G2 is deployed anywhere. Seal v2 `23k3r8…` on mainnet (authority retained); Core v1 `6sJn9…` is devnet. No C8ww / ANVG / SBPFv3 artifact exists yet. | Fable §1, Astra receipts |
+| Production | `ratchetx.xyz` `/api/game` HTTP 500 since >= 2026-09-03 — Upstash free plan 500,000/500,000 consumed. Not code: a decision. | Fable B2 |
+| Public promise | README + `llms.txt` still say the authority "is revoked for good on 2026-09-08 … Ever." The freeze was cancelled 09-03 and no public surface says so. **Expires in 3 days.** | Fable B8 |
+| Client | Production UI has no G2 path; `client-v2.mjs` has two encoder defects that make EvidenceSpec registration impossible. | Fable B5 |
+
+**Two things everyone has been circling that are now settled and must not be re-litigated:**
+1. There is no free every-tick Pyth source. Stop looking for one. (Three independent probes, two agents.)
+2. Recovering an already-submitted proof keylessly works. That is enough to build on, and it is *not* enough
+   to claim "Pyth-first". Never write that phrase again.
+
+---
+
+## 2. The one open node: what price settles a shot
+
+Three candidates were on the table this morning. Verdict on each:
+
+**REOPEN CONDITION for A, registered 2026-09-05 11:12Z (Opus A's finding, accepted).** Fable measured
+that a free keyless source delivering *every* aggregate already exists: the Pythnet PAS1 accumulator
+ring PDA, 7 feeds x 100 % of target seconds, roots recomputed and required to equal the guardian-signed
+root, 0 mismatches. The strict bracket is therefore blocked on **consumability, not availability** —
+the ring carries emitter `e101…`, while `rec2` accepts only chain-26 `507974…` under guardian set 1, and
+nobody can post ring leaves to Solana without an acceptable wrapper. If a keyless route to the upgraded
+wrapper for every root is ever found, adapter 2 becomes viable and this decision is reopened. The named
+decider Fable left open: read the encoded-VAA account of a live sponsored transaction *before* it is
+closed.
+
+**A — strict bracket `prev < T <= pub` as canonical (today's code).**
+NO-GO as default. Measured 0/25. It requires the first aggregate of second `T` to have been pushed,
+and the sponsored pusher posts on its own 5 s schedule at a drifting phase. Not a tuning problem: the
+rule needs a data source that does not exist for us (§1).
+
+**B — "first accepted sponsored capture wins" (Sol 10:23Z).**
+NO-GO as canonical. Correctly rejected by Codex 10:27Z: the first — possibly only — capturer may withhold
+until a later print favours them. Permissionless access and disclosure do not remove that option. It is a
+chooser, and a chooser is exactly the thing this project exists to eliminate.
+
+**C — strict bracket + immutable per-feed `target_grid_phase_seconds` (Sol 10:31Z).**
+NO-GO. It is safe and it does not work. The phase is *someone else's cron*: it already moved through three
+values (2, 3, 4) inside one 25-minute sample, sliding ~1 s per 10–12 min. A phase pinned into a **write-once**
+ruleset would hold for a fraction of each cycle and VOID everything else, permanently, with no way to retune
+except a new economy and a re-opened ledger for every player. Trading a chooser for "the game works when
+Pyth's scheduler happens to agree" is not the better trade.
+
+### Recommendation — D: MIN-CAPTURE (canonical adapter 1)
+
+> Admissible price for target `T` = the sponsored print with the **smallest `publish_time` such that
+> `publish_time >= T`**, among **all** candidates submitted before `T + max_post_target_lag`.
+> Ties: smaller `posted_slot`, then smaller message hash. Submission order does **not** select the price.
+
+Why this and not B: under B the *first submitter* fixes the price, so withholding always pays. Under
+MIN-CAPTURE a submitter with an *earlier* `publish_time` wins regardless of who landed first, so a
+single capturer cannot fix the price while anyone else is watching.
+
+**Corrected 2026-09-05 11:12Z, after Opus A's P1 — the first version of this paragraph overstated the
+guarantee.** The sponsored account holds one message at a time and the pusher overwrites it every ~5 s
+(SOL/BTC; ~52 s ETH). The program reads the live account, so a message that was there at `T+2` is gone
+by `T+7` and cannot be submitted afterwards by anyone. Replacement therefore works only *while the
+message is still on the account*, not until `capture_deadline_ts`. The honest claim is **1-of-N among
+observers watching in real time during that availability window**, which makes running at least two
+independent second-by-second cranks part of the security argument rather than an optimisation
+(Phase 3.4 is load-bearing for Phase 1). The residual, for the settlement page:
+
+> "Every observer watching the feed in real time can submit the earliest print they see, and the
+> earliest `publish_time` wins no matter who submits first. If no independent observer is watching
+> during the seconds a print is live on chain, the single capturer chose between that print and the
+> next one, at most ~5 s apart."
+
+That is weaker than "no chooser exists" and stronger than anything reachable without a per-tick source.
+It is the sentence Semir approves or rejects, in §4.5.
+
+Consequences that come with it, and are part of the decision, not follow-ups:
+
+1. **Candidate storage changes shape.** No PDA per candidate. One replaceable *best observation* stored
+   inline in the Need, fixed width, with `replace_if_better` (strictly smaller `publish_time`, else smaller
+   `posted_slot`). Zero extra rent, zero stranded rent, and it kills Codex's rent finding at the root.
+2. **`WORK_KIND_FIRST_CAPTURE` must be versioned or removed.** The reward is owed to the worker recorded in
+   the *final selected* observation, paid once, in the same atomic terminal transition, to the stored
+   signer — never to `PriceUpdate.write_authority`, never to a displaced submitter.
+3. **`AMBIGUOUS` narrows** to two distinct Pyth-signed messages with the *same* `publish_time` (a safety net
+   that should never fire). A later candidate with a larger `publish_time` is not a conflict — it is a no-op.
+4. **Adapter 2 (strict bracket) stays in the code, marked experimental**, unusable until a source that
+   delivers every aggregate exists. It is not the default and must not be registered on mainnet.
+5. **The trust statement changes and must be published:** `rec2` governance is inside the TCB. Pin
+   `wormhole`, `valid_data_sources` and `minimum_signatures` only — not the whole 370-byte config (Fable
+   B6.8) — and say plainly on the proof page: "evidence program upgradeable, authority = …".
+
+This is a design decision, not an implementation detail: **it must land before the SBPFv3 build, the vector
+re-pin and the ELF hash lock**, or all three are redone.
+
+---
+
+## 3. Sequence, with the gate that closes each step
+
+No step is "done" without its exit evidence in git. A DONE without a commit hash is a draft.
+
+### Phase 0 — today, no build required, nothing blocks it
+| # | Item | Exit evidence |
+| --- | --- | --- |
+| 0.1 | **DONE 2026-09-05.** **Public promise** (Fable B8): README:104,215 + `llms.txt`:18,104 + `docs/AGENT_STATE.json`:31-33 → "no freeze is scheduled; authority retained while the on-chain successor is built; a future ceremony will be registered in advance." | diff merged; live surfaces re-fetched |
+| 0.2 | **Deploy set** (B3) — **ROOT CLOSED, TREE NOT. Retracted 11:13Z after Opus B's P1:** a *tracked* file in a *new top-level directory* (`notes/dump.txt`) ships with zero errors, because `check-deploy-input.mjs:50` allowlists root names only and `:52` catches only *untracked* files inside directories. Fix belongs in `check-deploy-input.mjs` (a `ROOT_DIRS` allowlist beside `ROOT_FILES`), not in `.vercelignore`. Owner: Opus B. Also P2: untracked root `.css/.png/.jpg` ship through the extension escape in `:50`. Verified working part of `fcaab92`: `scripts/check-deploy-input.mjs` enumerates tracked ∪ untracked minus `.vercelignore` (deliberately without `--exclude-standard`), holds a `ROOT_FILES` allowlist, and rejects symlinks, private paths and untracked subdirectory files. Do **not** convert `.vercelignore` into an allowlist — enforcement belongs in the gate. | **New exit test (replaces the old one, Opus B's wording):** (a) unanticipated root name `notes.txt` → red (already true); (b) **tracked `notes/dump.txt` → red (green today, this is the one that must change)**. Measured baseline: 103 deployment files, root set clean; planted `zzz_gate_probe.js` + `lib/zzz_probe_dir/probe.js` → exit=1 naming both, clean run exit=0 |
+| 0.3 | **Obligations snapshot** (B7): raw Redis strings, sibling `.sha256`, finalized slot + genesis hash + chosen `migration_id`; gate the other writers (`loadPlayer` welcome grant, stake yield, anchor XP) not just `takeStake`. | snapshot sha + slot in a private receipt; `test_migration_freeze.mjs` has one case per writer |
+| 0.4 | **Test gate honesty** — **DONE 2026-09-05.** `scripts/run-tests.mjs` now exits non-zero on any skipped suite unless `RATCHET_ALLOW_SKIPS` is set, and prints why. `DEPLOY.cmd` never sets it. Note: the skips Fable reproduced came from a Linux sandbox where Playwright probes `chromium`; on Windows the probe uses `channel: 'chrome'`, so the suites may already run there — confirm on the real deploy machine. | code in place; confirm the count on Windows before treating the browser suites as covered |
+| 0.5 | **Preserve the signed bytes** we reconstructed (Codex 10:30Z) before RPC pruning. | bytes + hashes committed under `docs/reviews/` |
+
+### Phase 1 — the rule (single owner, one Rust editor at a time)
+
+> **Implementation spec: `docs/MIN_CAPTURE_SPEC.md` (written 2026-09-05, owner Opus A).** It carries
+> three things found by reading the code rather than reasoning about it: `finalize` must require
+> `clock >= capture_deadline_ts` or the rule degenerates back into a chooser; the candidate PDA is
+> seeded by message hash, so the observation moves inline into the Need; and `AMBIGUOUS` narrows to
+> same-`publish_time`-different-hash only. Do not implement a different predicate.
+| # | Item | Exit evidence |
+| --- | --- | --- |
+| 1.1 | MIN-CAPTURE in `lifecycle.rs` (replace :1172 predicate), inline best-observation + `replace_if_better`, narrowed `AMBIGUOUS`, adapter 2 gated experimental | host tests incl. **bracket negatives** (none exist today at any level) |
+| 1.2 | Same predicate in `foreign_timepin.rs::validate_record_against_spec`, `model.mjs`, vectors, `SETTLEMENT.md`, `CORE_G3_ARCHIVE.md` | `test_client_model_parity.mjs`: byte-identical encoders JS vs Rust |
+| 1.3 | Clock-skew gate (B6.7): `clock + max_future_skew >= target`, floor `max_future_skew_seconds >= 30`, same in `foreign_timepin.rs:291-294` | host test at the boundary |
+| 1.4 | Forward landing race (Codex 10:00Z): accept any aligned `entry_target_ts >= Clock + minLead`, then authenticate the exact OPEN Need; client picks `align_up(freshClock + lead + oneGridSlack)` | boundary tests: succeeds at `e = T-L`, fails at `T-L+1`; misaligned/past fail; same `T` → same Need; full rollback |
+| 1.5 | Generation pin narrowed to `wormhole` + `valid_data_sources` + `minimum_signatures`; generation accounts passed to `open_need` | benign config change no longer voids open Needs (host sim) |
+| 1.6 | Reward wiring: `WORK_KIND_FIRST_CAPTURE` versioned/removed; payout to the stored final worker, once per leg, alias rejected | conservation test: `C + 2R` vs Shot rent floor |
+| **GATE 1** | **One** SBPFv3 build: Timepin `C8ww` + Core `ANVG`, `--arch v3`, `cargo-build-sbf 4.3.0` / platform-tools v1.56 | both ELF hashes + `verify-artifact` PASS with `EXPECT_SBPF=3`; vectors regenerated by a script that exists |
+
+### Phase 2 — devnet, against real Pyth accounts (not fabricated ones)
+| # | Item | Exit evidence |
+| --- | --- | --- |
+| 2.1 | Fix `scripts/devnet-lifecycle.mjs` (scoping bug :52/:56 vs :101/:104, missing model import :73, spec account read-only :99, unaligned target :111) | script runs unattended |
+| 2.2 | Register spec/economy/ruleset; open Needs on the grid against **real sponsored accounts**; capture with **two independent cranks**; seal → settle → reveal → close; plus expire/void/forfeit | a signature per instruction; **measured void rate < 5 % over >= 60 targets** |
+| 2.3 | 24 h cadence sampler on all 7 feeds; `test_timepin_cadence_policy.mjs` fails if a ruleset's `max_post_target_lag` is below the measured p99 first-print lag | hit-rate table committed |
+| **GATE 2** | Devnet lifecycle green **and** the void rate measured, not estimated | receipts in `docs/reviews/` |
+
+### Phase 3 — the game (without this, mainnet is two programs and no players)
+| # | Item | Exit evidence |
+| --- | --- | --- |
+| 3.1 | `client-v2.mjs` two encoder defects (`:254-279` missing `u8(adapter)`; `:393` phantom `bump`) | parity test green |
+| 3.2 | Import R2 `lifecycle-v2.mjs` + `economic-v2.mjs`; wire `index.html` FIRE through **one** chosen path (mirror_build or browser bridge — decide, don't keep both) | a stranger's browser profile completes a shot with `/api/game` blocked; host trace attached |
+| 3.3 | Reload blackout fix (B6.3): accept the most recent finalized day <= D-1; pay the finalizer | test with an un-cranked shot from D-1 |
+| 3.4 | Two resident capture cranks + a per-shot capture bounty escrowed at seal | drill: one crank killed, settlement still lands |
+| **GATE 3** | Server-off drill passes on a machine that is not Semir's | trace of hosts contacted |
+
+### Phase 4 — mainnet, authorities retained
+Deploy Timepin + Core, register the manifest economy/ruleset, one owner shot end-to-end, publish the tuple
+(program ids, ELF hashes, economy/ruleset hashes) on the proof page, legacy lane visibly labelled "legacy".
+**Exit:** `permanence-release --dry-run` manifest equals the deployed readback on two independent RPCs.
+
+Freeze is a separate, later ceremony that needs fresh authorization. It is not part of this path.
+
+---
+
+## 4. Decisions only Semir takes (no agent may set these)
+
+1. **Upstash** (B2): pay-as-you-go with a budget cap (~$0.5/day at current traffic; the cap turns the worst
+   case into a rate-limit, not a bill) **or** wait for the monthly reset and accept a dead site until then.
+   Option (a) is the only one that keeps players and Bankr alive while G2 is built.
+2. **`releases/g2-mainnet-economy.json`** (B4) — the write-once parameter manifest. One wrong number is
+   permanent for that economy. Proposed values with rationale: `entry_mode = forward only`;
+   `hit_payout = 1.7x` plus `require!(num < 2*den)`; `reveal_window >= 3600 s`; `cleanup_bond >= 50,000`;
+   `max_open = 5`; `max_post_target_lag` per feed from the 24 h measurement; `band_numerator = 0`;
+   legacy root all-zero with a nonzero `migration_id`; `timepin_program = C8ww`.
+3. **`max_confidence_bps`, `min_stake` vs posting fee, bond split, `migration_id`** — tagged D by Fable, unset.
+4. **Product shape** (B6.9): players now need ~0.0063 SOL locked per open shot. Free demo lane beside the
+   ranked on-chain lane, or SOL for everything? The UI and the Bankr skill both depend on the answer.
+5. **The residual sentence in §2** — it goes on the settlement page in your name. Read it and approve the wording.
+
+---
+
+## 5. Lanes, when the swarm returns
+
+Five agents produced excellent staging and one integration bottleneck. Two lanes plus bounded guests:
+
+- **Sol — Rust + build + deploy.** Sole editor of Rust and sole owner of the Cargo target. Phases 1, 2, 4.
+- **Astra — client + independent verification.** Phase 3, plus adversarial veto on the settlement wire.
+- **Guests, bounded and named** (Codex / Fable / Gemini swarm): one task, one exit artifact, 24 h. Staging
+  not integrated within 24 h is discarded, not preserved. Evidence lives in git, not in scratch folders.
+- **Rule replacing "nobody idle":** *nothing unowned*. Idle is fine; a fourth review of the same file is not.
+  Every claim names files and the test that will prove it.
+- **Channel:** `ROOM.md` for findings, this file for state. Do not open a seventh plan.
+
+## 6. Honesty register — claims that are now forbidden
+
+- "Pyth-first" / "global first print" — no keyless source proves it (§1).
+- "exact-SBF proves acceptance" for any test that builds the price account with `set_account`.
+- Any canary verdict from `tools/p6-canary/*` until Astra's fixed pack is in the tree (7 false-green paths).
+- "The freeze is scheduled" — it is not, and the public copy must stop saying so today.
