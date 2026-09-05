@@ -267,25 +267,35 @@ check('I1', 'Core can actually READ a Need that a real Timepin writes', () => {
                                   : (why ? why[0].slice(0, 400) : 'test/test_foreign_timepin_abi.mjs is RED') };
 }, 'Opus A + Opus B (one seam, two owners - agree who moves)');
 
-check('I2', 'Core accepts the adapter this project actually settled on', () => {
-  // The canonical rule is MIN-CAPTURE, ADAPTER_PYTH_MIN_CAPTURE_V2 = 2, measured
-  // 442/442. Core's validate_spec_shape hardcodes 'spec.adapter == 1' - the
-  // strict-bracket adapter we abandoned at 11.1 % - and additionally requires
-  // max_pre_target_gap_seconds > 0, while Timepin PINS that field to zero for
-  // adapter 2 (lib.rs:573-579, because under MIN-CAPTURE prev_publish_time is not
-  // in the predicate and a non-zero bound would be a dead number inside every
-  // spec hash). The two validators are mutually exclusive: no economy can be
-  // registered on the mainnet adapter, and Core's own MIN-CAPTURE branch is
-  // unreachable. Proved on a real RegisterRuleset transaction.
-  const s = mustRead(C + 'foreign_timepin.rs');
-  const pinnedToOne = /spec\.adapter\s*==\s*1\b/.test(s);
-  const gapMustBePositive = /spec\.max_pre_target_gap_seconds\s*>\s*0/.test(s);
-  const problems = [];
-  if (pinnedToOne) problems.push('validate_spec_shape requires spec.adapter == 1, so adapter 2 (MIN-CAPTURE, the canonical rule) can never register');
-  if (gapMustBePositive) problems.push('validate_spec_shape requires max_pre_target_gap_seconds > 0, which Timepin pins to 0 for adapter 2 - mutually exclusive');
-  return { ok: problems.length === 0, pending: problems.length > 0,
-           detail: problems.length ? problems.join('; ') : 'Core admits the canonical adapter and agrees with Timepin on the pre-target gap' };
-}, 'Opus A');
+check('I2', 'Core admits the canonical adapter - asked of a compiler, not of text', () => {
+  // REWRITTEN 2026-09-05 17:1xZ because the row I wrote at 17:00 went FALSE RED
+  // within the hour. Opus C fixed validate_spec_shape in 96a21df; my row grepped
+  // for 'spec.adapter == 1' and found it - inside the COMMENT that explains what
+  // the line USED to say. It also flagged 'max_pre_target_gap_seconds > 0', which
+  // is now correctly guarded inside the adapter branch. Two false reds from one
+  // regex, on a fix that had already landed.
+  //
+  // Text matching cannot tell a program from a description of a program. That is
+  // the same failure as the six false GREENS today, wearing the other colour, and
+  // it is my third row to fall to it. So this row no longer reads the file at all.
+  // It asks whether a COMPILER RAN A NAMED TEST OVER THESE EXACT BYTES and it
+  // passed - the receipt carries the passing names, hash-bound to the source.
+  //
+  // The test is Opus C's, landed with the fix:
+  // the_registration_gate_admits_both_adapters_and_crosses_neither. Its name is
+  // the whole assertion - both adapters admitted, neither allowed to carry the
+  // other's pre-gap - which is exactly what Timepin pins at lib.rs:573-583.
+  const NAME = 'foreign_timepin::tests::the_registration_gate_admits_both_adapters_and_crosses_neither';
+  const core = CRATES.find(c => c.name === 'ratchet-core-g2');
+  const v = verifyCrate(core);
+  if (!v.ok) return { ok: false, pending: true, detail: 'no compile evidence for these bytes: ' + v.reason };
+  const passing = v.receipt.test?.passing;
+  if (!Array.isArray(passing)) return { ok: false, pending: true,
+    detail: 'the receipt predates passing-test names - regenerate it with tools/compile-receipt.mjs' };
+  if (!passing.includes(NAME)) return { ok: false, pending: true,
+    detail: `${NAME} did not pass. Until it does, no economy can register on ADAPTER_PYTH_MIN_CAPTURE_V2 and Core's own MIN-CAPTURE branch is unreachable` };
+  return { ok: true, detail: 'the registration gate admits both adapters and crosses neither, per a compiler over these bytes' };
+}, 'Opus C (landed 96a21df)');
 
 // ---- the build ------------------------------------------------------------
 check('B1', 'the built artifacts are NEWER THAN THE SOURCE and carry the right identity', () => {
@@ -338,8 +348,23 @@ check('B2', 'the golden vectors re-pin to the current source', () => {
 }, 'build owner, then Opus A');
 
 check('B3', 'the release safety gate is green', () => {
+  // 'gate RED' was all this row could say, and at 17:08 it said it once and then
+  // went green twice with nothing changed in between. A row that fails without
+  // saying why is a row nobody can act on, and an intermittent one is worse than a
+  // red one: it teaches people to re-run until it agrees with them. So it now
+  // carries the failing lines out, and it reports a spawn that never ran
+  // (timeout, or no node) as DIFFERENT from a gate that ran and refused.
   const r = spawnSync('node', ['scripts/check-release-safety.mjs'], { encoding: 'utf8', timeout: 120000 });
-  return { ok: r.status === 0, detail: r.status === 0 ? 'gate exit 0' : 'gate RED' };
+  if (r.error || r.status === null) {
+    return { ok: false, pending: true,
+             detail: 'check-release-safety.mjs did not complete (' + (r.error ? r.error.message : 'killed or timed out')
+                   + ') - this is NOT a refusal, the check never finished' };
+  }
+  if (r.status === 0) return { ok: true, detail: 'gate exit 0' };
+  const out = ((r.stdout || '') + (r.stderr || '')).split('\n').filter(l => /FAIL|Error/.test(l));
+  return { ok: false,
+           detail: out.length ? out.slice(0, 4).join(' | ').slice(0, 500) + (out.length > 4 ? ` (+${out.length - 4} more)` : '')
+                              : 'gate exited ' + r.status + ' with no FAIL line - read its output directly' };
 }, 'Opus B');
 
 // ---- the public record ----------------------------------------------------
@@ -360,7 +385,7 @@ check('X1', 'no surface still promises the 2026-09-08 revocation', () => {
 // This is the rule I owed the room after M3 reported GO on a red crate: the gate
 // may not say GO on anything that depends on the program existing, until the
 // program exists. The rows below all assert something about compiled behaviour.
-const SOURCE_ROWS = ['R1', 'R2', 'R3', 'M1', 'M2', 'M3', 'I2'];
+const SOURCE_ROWS = ['R1', 'R2', 'R3', 'M1', 'M2', 'M3'];
 const c1 = results.find(r => r.id === 'C1');
 if (c1 && c1.state !== 'GO') {
   for (const r of results) {

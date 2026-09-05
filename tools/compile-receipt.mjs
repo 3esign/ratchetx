@@ -78,7 +78,19 @@ function crateDirFor(c) {
 function parseTestSummary(out) {
   const m = /test result: \w+\. (\d+) passed; (\d+) failed/.exec(out);
   const failing = [...out.matchAll(/^---- (\S+) stdout ----$/gm)].map(x => x[1]);
-  return m ? { passed: +m[1], failed: +m[2], failing } : { passed: null, failed: null, failing };
+  // The NAMES of the passing tests, added 2026-09-05 17:1xZ, and the reason is a
+  // row of mine that went false-RED an hour after I wrote it. I2 grepped
+  // foreign_timepin.rs for 'spec.adapter == 1' and found it - inside the COMMENT
+  // that explains what the line used to say. Text matching cannot tell a program
+  // from a description of a program, and that is the seventh such reading today.
+  //
+  // A named test that a compiler ran and passed is not a description of anything.
+  // So the receipt now carries the passing names, and a gate row can ask
+  // "did THIS test pass, against THESE bytes" instead of "does this file contain
+  // this string". That is the strongest evidence this bridge can carry.
+  const passing = [...out.matchAll(/^test (\S+) \.\.\. ok$/gm)].map(x => x[1]).sort();
+  return m ? { passed: +m[1], failed: +m[2], failing, passing }
+           : { passed: null, failed: null, failing, passing };
 }
 
 function generate() {

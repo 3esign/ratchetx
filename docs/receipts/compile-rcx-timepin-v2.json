@@ -8,8 +8,8 @@
     "src/lifecycle.rs": "056225299add77093d21836ed507e530ccbd83962491b4efdc25c83b4c797ae7"
   },
   "toolchain": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
-  "compiledOn": "unspecified host",
-  "generatedAt": "2026-09-05T17:01:31.785Z",
+  "compiledOn": "Anthropic cloud container (cargo 1.95, no build-sbf)",
+  "generatedAt": "2026-09-05T17:06:18.112Z",
   "check": {
     "exit": 0
   },
@@ -20,6 +20,33 @@
     "failing": [
       "tests::exact_compact_account_lengths_are_frozen",
       "tests::opening_deadlines_and_compact_state_shapes_are_checked"
+    ],
+    "passing": [
+      "lifecycle::tests::capture_must_be_strictly_after_registration_slot",
+      "lifecycle::tests::compact_candidate_and_work_abi_sizes_are_exact",
+      "lifecycle::tests::compact_candidate_recomputes_the_unchanged_message_hash",
+      "lifecycle::tests::expiry_makes_capture_nonpayable_and_terminalization_payable",
+      "lifecycle::tests::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment",
+      "lifecycle::tests::lead_above_skew_is_exactly_the_condition_for_an_unknowable_price",
+      "lifecycle::tests::min_capture_accepts_a_print_later_than_the_target_and_the_bracket_does_not",
+      "lifecycle::tests::min_capture_accepts_the_target_second_and_refuses_the_one_before",
+      "lifecycle::tests::no_work_page_records_never_gate_permissionless_completion",
+      "lifecycle::tests::publish_before_target_stays_at_the_tail_of_the_error_enum",
+      "lifecycle::tests::reservability_and_terminal_hashes_are_state_derived",
+      "lifecycle::tests::the_bracket_still_refuses_a_predecessor_at_or_after_the_target",
+      "lifecycle::tests::the_open_window_must_span_a_whole_grid_or_the_game_stops_for_part_of_it",
+      "lifecycle::tests::the_post_target_lag_bound_is_what_keeps_min_capture_finite",
+      "lifecycle::tests::the_pre_target_gap_is_live_under_the_bracket_and_inert_under_min_capture",
+      "lifecycle::tests::the_source_deadline_is_the_lag_restated_and_not_a_second_bound",
+      "lifecycle::tests::the_spec_refuses_a_lead_that_does_not_clear_the_skew",
+      "lifecycle::tests::the_spec_refuses_an_open_window_narrower_than_the_grid",
+      "lifecycle::tests::the_two_adapters_disagree_on_an_intra_second_repeat_deliberately",
+      "lifecycle::tests::two_record_sponsored_path_completes_each_kind_once",
+      "test_id",
+      "tests::every_profile_and_source_quality_byte_is_in_the_134_byte_policy",
+      "tests::official_policy_and_generation_bounds_fail_closed",
+      "tests::policy_and_generation_hashes_are_independent_and_complete",
+      "tests::public_program_and_official_upgraded_ids_are_pinned"
     ]
   }
 }

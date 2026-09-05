@@ -9,8 +9,8 @@
     "src/state.rs": "bb21e809fd343344c11b2b88a076077501c1859ba8ac7eea495e7bf93b283b92"
   },
   "toolchain": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
-  "compiledOn": "unspecified host",
-  "generatedAt": "2026-09-05T17:01:28.304Z",
+  "compiledOn": "Anthropic cloud container (cargo 1.95, no build-sbf)",
+  "generatedAt": "2026-09-05T17:05:53.243Z",
   "check": {
     "exit": 0
   },
@@ -18,6 +18,37 @@
     "exit": 0,
     "passed": 29,
     "failed": 0,
-    "failing": []
+    "failing": [],
+    "passing": [
+      "foreign_timepin::tests::final_compact_accounts_and_result_hash_are_exact",
+      "foreign_timepin::tests::policy_is_generation_independent_while_exact_spec_is_not",
+      "foreign_timepin::tests::the_registration_gate_admits_both_adapters_and_crosses_neither",
+      "foreign_timepin::tests::wrong_need_spec_candidate_state_and_hash_are_rejected",
+      "lifecycle_tests::a_deadline_set_at_settlement_is_latency_independent",
+      "lifecycle_tests::archive_funding_preserves_bond_and_uses_actor_only_for_remainder",
+      "lifecycle_tests::delegation_surface_and_direct_seal_discriminators_are_exact",
+      "lifecycle_tests::memo_digest_payload_is_exact_lowercase_ascii_hex",
+      "lifecycle_tests::optional_work_loader_accepts_exact_dynamic_page",
+      "lifecycle_tests::the_players_reveal_budget_has_no_lower_bound_today",
+      "lifecycle_tests::work_manifest_abi_matches_work_market_v2",
+      "state::tests::arithmetic_boundaries_are_integer_exact",
+      "state::tests::compact_result_reconstructs_commit_and_binds_only_game_facts",
+      "state::tests::conservation_reserves_every_possible_terminal_award",
+      "state::tests::delegate_bounds_are_exact",
+      "state::tests::frozen_economy_policy_is_exact",
+      "state::tests::frozen_lengths_match_borsh",
+      "state::tests::history_pages_append_sequentially_and_terminalize_out_of_order_once",
+      "state::tests::merkle_domains_commit_to_cluster_migration_snapshot_cutover_and_node_kind",
+      "state::tests::permanent_ledger_is_the_legacy_claim_tombstone",
+      "state::tests::podium_allocation_actions_and_reload_conserve",
+      "state::tests::ranking_is_deterministic_sharded_and_hash_bound",
+      "state::tests::reload_history_page_is_bounded_ordered_and_tamper_evident",
+      "state::tests::reload_route_memo_binds_every_routing_fact",
+      "state::tests::resolution_and_terminal_hashes_bind_separate_state",
+      "state::tests::ruleset_policy_allows_new_exact_generation_but_not_changed_quality",
+      "state::tests::validate_contents_does_not_overflow_shift_on_a_full_page",
+      "state::tests::work_page_reserves_uniquely_and_terminalizes_once",
+      "test_id"
+    ]
   }
 }
