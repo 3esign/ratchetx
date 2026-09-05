@@ -4,18 +4,18 @@
   "repoPath": "onchain/rcx-timepin-v2/programs/rcx-timepin-v2",
   "files": {
     "Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
-    "src/lib.rs": "7b17efc81e088525dfa517b8dabc3d5912b35ed04b95316393af0d460355f51a",
-    "src/lifecycle.rs": "e758f23b6a130ea933e402ff074191b2b2e313601951e30fa50d64385fba79f6"
+    "src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
+    "src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8"
   },
   "toolchain": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
   "compiledOn": "Anthropic cloud container (cargo 1.95, no build-sbf)",
-  "generatedAt": "2026-09-05T17:32:56.153Z",
+  "generatedAt": "2026-09-05T18:23:48.930Z",
   "check": {
     "exit": 0
   },
   "test": {
     "exit": 0,
-    "passed": 27,
+    "passed": 28,
     "failed": 0,
     "failing": [],
     "passing": [
@@ -27,6 +27,7 @@
       "lifecycle::tests::lead_above_skew_is_exactly_the_condition_for_an_unknowable_price",
       "lifecycle::tests::min_capture_accepts_a_print_later_than_the_target_and_the_bracket_does_not",
       "lifecycle::tests::min_capture_accepts_the_target_second_and_refuses_the_one_before",
+      "lifecycle::tests::min_capture_selects_the_earliest_and_refuses_a_later_print",
       "lifecycle::tests::no_work_page_records_never_gate_permissionless_completion",
       "lifecycle::tests::publish_before_target_stays_at_the_tail_of_the_error_enum",
       "lifecycle::tests::reservability_and_terminal_hashes_are_state_derived",

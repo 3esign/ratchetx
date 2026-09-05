@@ -893,6 +893,30 @@ pub fn capture_first_handler(
     Ok(())
 }
 
+/// The MIN-CAPTURE order, as a value rather than as three lines inside a handler.
+///
+/// Extracted 2026-09-05 the moment S1 was implemented, because the handler had
+/// just been made correct and BOTH host suites still passed - 27 of 27, with
+/// nothing exercising the change at all. A rule that only exists inside an
+/// instruction cannot be unit-tested, and a rule nobody can test is how this
+/// defect survived being specified, documented and "covered" in the first place.
+///
+/// Smaller is better, and the order is TOTAL: publish_time is the rule itself,
+/// posted_slot is the first tie-break, and the message hash settles the rest.
+/// Two distinct candidates are therefore never incomparable, which is why
+/// ambiguity has no case to handle.
+pub fn capture_order_key(publish_time: i64, posted_slot: u64, message_hash: [u8; 32]) -> (i64, u64, [u8; 32]) {
+    (publish_time, posted_slot, message_hash)
+}
+
+/// True when `challenger` is the admissible capture and must replace `incumbent`.
+pub fn capture_replaces(
+    challenger: (i64, u64, [u8; 32]),
+    incumbent: (i64, u64, [u8; 32]),
+) -> bool {
+    challenger < incumbent
+}
+
 pub fn capture_conflict_handler(
     ctx: Context<CaptureConflict>,
     expected_message_hash: [u8; 32],
@@ -940,46 +964,68 @@ pub fn capture_conflict_handler(
         expected_message_hash != first_hash,
         TimepinLifecycleError::DuplicateMustUseFirstCapture
     );
+    // S1: MIN-CAPTURE NOW SELECTS. THIS HANDLER USED TO DECLARE AMBIGUITY.
+    //
+    // The rule this program is built on is: the admissible price for target T is
+    // the SMALLEST publish_time >= T among the candidates submitted before
+    // capture_deadline, ties broken by posted_slot and then by message hash. That
+    // rule was written in the spec, in the docs and in the host tests. It was not
+    // written HERE. Until 2026-09-05 this function took any second distinct
+    // message hash, wrote candidate_b, sorted the two hashes BY HASH and set
+    // NEED_AMBIGUOUS -- terminal, refunded. It never once read publish_time.
+    //
+    // What that cost: an honest capture at T+1 followed by an ORDINARY Pyth
+    // update at T+5 cancelled the target. Every shot on it refunded. A player
+    // facing a loss could force that with no forged data at all - just a normal
+    // later print, which Pyth produces on its own. Found by an independent
+    // read-only audit against commit e249dbc; confirmed here by reading these
+    // lines.
+    //
+    // THE ORDER IS TOTAL, WHICH IS WHY AMBIGUITY DISAPPEARS RATHER THAN BEING
+    // HANDLED. (publish_time, posted_slot, message_hash) compares any two
+    // distinct candidates: publish_time is the rule, posted_slot is the first
+    // tie-break, and the hashes cannot be equal here because the duplicate check
+    // above already rejected that case. So two candidates are never
+    // incomparable, and NEED_AMBIGUOUS becomes unreachable through this path. The
+    // state constant stays where it is - it is inside terminal_result_hash and
+    // every hash derived from it - but nothing can produce it any more.
+    //
+    // The tie-break by hash is arbitrary and that is exactly what it must be:
+    // deterministic, identical for every observer, and not chooseable by whoever
+    // submits, because the hash is over Pyth's signed message and nobody here
+    // gets to pick its content.
+    //
+    // A LOSING PRINT FAILS THE TRANSACTION. candidate_b is `init`, so returning
+    // an error rolls its creation back and the submitter pays only a failed
+    // transaction. That is the correct incentive: bring a better print or bring
+    // nothing. And no work completion is recorded on this path any more - a
+    // replacement is not a terminalization, and paying TERMINALIZE for it was
+    // paying for the wrong event.
+    let a = &ctx.accounts.candidate_a;
+    let challenger = capture_order_key(candidate.publish_time, candidate.posted_slot, expected_message_hash);
+    let incumbent = capture_order_key(a.publish_time, a.posted_slot, first_hash);
+    require!(
+        capture_replaces(challenger, incumbent),
+        TimepinLifecycleError::CaptureIsNotEarlier
+    );
     write_candidate(
         &mut ctx.accounts.candidate_b,
         ctx.bumps.candidate_b,
         need_key,
         &candidate,
     );
-    let (candidate_a_hash, candidate_b_hash) = if first_hash < expected_message_hash {
-        (first_hash, expected_message_hash)
-    } else {
-        (expected_message_hash, first_hash)
-    };
     let need = &mut ctx.accounts.need;
-    need.state = NEED_AMBIGUOUS;
-    need.candidate_a_hash = candidate_a_hash;
-    need.candidate_b_hash = candidate_b_hash;
-    let result_hash = terminal_result_hash(need_key, need)?;
+    // The Need keeps exactly one candidate and stays open. candidate_b_hash is
+    // left at zero deliberately: finalize requires it, and after this change the
+    // second slot has no meaning.
+    need.candidate_a_hash = expected_message_hash;
     let actor = ctx.accounts.actor.key();
-    apply_optional_work_completions(
-        &ctx.accounts.work_page.to_account_info(),
-        need_key,
-        &[WorkCompletion {
-            work_kind: WORK_KIND_TERMINALIZE,
-            disposition: RECEIPT_PAYABLE,
-            worker: actor,
-            action_fact_hash: result_hash,
-        }],
-        clock.slot,
-    )?;
     emit!(EvidenceCapturedV2 {
         need: need_key,
         message_hash: expected_message_hash,
         actor,
-        disposition: CaptureDispositionV2::Ambiguous as u8,
-        state: NEED_AMBIGUOUS,
-    });
-    emit!(NeedTerminalizedV2 {
-        need: need_key,
-        terminal_kind: NEED_AMBIGUOUS,
-        result_hash,
-        actor,
+        disposition: CaptureDispositionV2::Candidate as u8,
+        state: NEED_CANDIDATE,
     });
     Ok(())
 }
@@ -1563,10 +1609,55 @@ pub enum TimepinLifecycleError {
     // breaking them.
     #[msg("signed publication is before the target")]
     PublishBeforeTarget,
+    // APPENDED AT THE TAIL for the same reason as the variant above: Anchor
+    // numbers by declaration order. This one is S1's - a later print offered
+    // against an earlier admissible one. It is not a fault, it is the rule
+    // refusing the wrong price, and the message says so plainly.
+    #[msg("a later print cannot replace an earlier admissible capture")]
+    CaptureIsNotEarlier,
 }
 
 #[cfg(test)]
 mod tests {
+    #[test]
+    fn min_capture_selects_the_earliest_and_refuses_a_later_print() {
+        use super::{capture_order_key as k, capture_replaces as replaces};
+        let lo = [0x11; 32];
+        let hi = [0x22; 32];
+
+        // THE DEFECT THIS TEST EXISTS FOR. Before S1 the handler compared the two
+        // MESSAGE HASHES and called any second distinct print ambiguity, so an
+        // honest capture at T+1 followed by an ordinary Pyth update at T+5
+        // cancelled the target and refunded every shot on it. Here T+5 must lose.
+        assert!(!replaces(k(5, 100, lo), k(1, 100, hi)), "a later print must never win");
+        assert!(replaces(k(1, 100, hi), k(5, 100, lo)), "an earlier print must replace a later one");
+
+        // Note both lines above use the hash that would have won the OLD
+        // comparison, so each of them fails if anyone reintroduces hash ordering.
+
+        // publish_time first, then posted_slot, then the hash - and each step is
+        // only reached when the one before it ties.
+        assert!(replaces(k(3, 7, hi), k(3, 9, lo)), "equal publish_time falls to posted_slot");
+        assert!(!replaces(k(3, 9, lo), k(3, 7, hi)), "the later slot must lose");
+        assert!(replaces(k(3, 7, lo), k(3, 7, hi)), "equal slot falls to the hash");
+        assert!(!replaces(k(3, 7, hi), k(3, 7, lo)), "and the larger hash loses");
+
+        // TOTALITY, which is the whole reason ambiguity disappeared rather than
+        // being handled: two DISTINCT candidates always compare, so exactly one
+        // of the two directions holds. Duplicates never reach here - the handler
+        // rejects an identical hash before this point.
+        for (c, i) in [
+            (k(1, 1, lo), k(2, 2, hi)),
+            (k(2, 2, hi), k(1, 1, lo)),
+            (k(4, 4, lo), k(4, 4, hi)),
+        ] {
+            assert_ne!(replaces(c, i), replaces(i, c), "the order must be total for distinct candidates");
+        }
+
+        // A candidate never replaces itself, so a resubmission cannot churn state.
+        assert!(!replaces(k(3, 7, lo), k(3, 7, lo)), "identical keys must not replace");
+    }
+
     use super::*;
     use crate::{
         canonical_policy_bytes, evidence_policy_hash, ADAPTER_PYTH_PUSH_V2, VERIFICATION_FULL,
