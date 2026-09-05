@@ -4,13 +4,13 @@
   "repoPath": "onchain/ratchet-core-g2/programs/ratchet-core-g2",
   "files": {
     "Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
-    "src/foreign_timepin.rs": "536795adc98c456c7432227dfb010877a07ccca7e9aac4117b62f78b06afe5ef",
+    "src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
     "src/lib.rs": "25a7042772377d4f7e77315354aa36c71a9c4d4efec9523387d47d3d70985d9e",
     "src/state.rs": "bb21e809fd343344c11b2b88a076077501c1859ba8ac7eea495e7bf93b283b92"
   },
   "toolchain": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
   "compiledOn": "Anthropic cloud container (cargo 1.95, no build-sbf)",
-  "generatedAt": "2026-09-05T17:05:53.243Z",
+  "generatedAt": "2026-09-05T17:32:55.113Z",
   "check": {
     "exit": 0
   },

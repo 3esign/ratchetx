@@ -70,10 +70,12 @@ export const TIMEPIN_SCHEMA_V2 = 2;
 export const TIMEPIN_EVIDENCE_POLICY_CANONICAL_LEN = 134;
 export const TIMEPIN_EVIDENCE_SPEC_CANONICAL_LEN = 214;
 export const TIMEPIN_EVIDENCE_SPEC_ACCOUNT_LEN = 262;
-// 8 + 268. MIN_CAPTURE_SPEC section 2 moved the observation inline into the
-// Need and the rent fields followed it; the header offsets Core reads are
-// unchanged, only the length moved.
-export const TIMEPIN_NEED_ACCOUNT_LEN = 276;
+// 8 + 160: the 124-byte header through candidate_b_hash, plus open_refs 4 and
+// rent_payer 32. It read 276 for part of an afternoon, when the eleven obs_
+// fields were still declared on the Need. They are gone: nothing ever wrote
+// them, and the observation lives where it has always lived, in the CandidateV2
+// account below.
+export const TIMEPIN_NEED_ACCOUNT_LEN = 168;
 export const TIMEPIN_CANDIDATE_ACCOUNT_LEN = 119;
 export const TIMEPIN_FULL_VERIFICATION = 1;
 

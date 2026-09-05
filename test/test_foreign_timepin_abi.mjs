@@ -181,10 +181,20 @@ for (const [constName, structName] of [
 // These four checks are the shape of that agreement, not its exact spelling.
 const shape = /fn validate_spec_shape[\s\S]*?\n}/.exec(foreign);
 ok(shape, 'foreign_timepin.rs must still have validate_spec_shape - it is what gates every foreign spec');
-const shapeBody = shape[0];
+// COMMENTS STRIPPED BEFORE MATCHING. Every check below asks what the CODE says,
+// and a Rust comment is not code. This test failed on 2026-09-05 against a
+// CORRECT validate_spec_shape because the fix Opus C landed explains itself with
+// the line "It used to read \`spec.adapter == 1\`" - and the check was looking for
+// that string. The lead's own I2 gate row failed the same way within the hour,
+// on the same comment. Text matching cannot tell a program from a description of
+// a program; the least it can do is not read the description.
+const decomment = src => src
+  .replace(/\/\*[\s\S]*?\*\//g, ' ')
+  .split('\n').map(line => line.replace(/\/\/.*$/, '')).join('\n');
+const shapeBody = decomment(shape[0]);
 const tpSpec = /pub fn validate_spec[\s\S]*?\n}/.exec(tpLib);
 ok(tpSpec, 'the timepin crate must still have validate_spec');
-const tpBody = tpSpec[0];
+const tpBody = decomment(tpSpec[0]);
 
 ok(!/spec\.adapter\s*==\s*1\b/.test(shapeBody),
   'Core\'s validate_spec_shape hardcodes `spec.adapter == 1`. Timepin accepts ADAPTER_PYTH_PUSH_V2 and '

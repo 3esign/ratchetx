@@ -205,12 +205,12 @@ const makeNeed = ({
     NEED_DISC, u16(TIMEPIN_SCHEMA_V2), u8(derived.bump), u8(state),
     evidenceSpecHash, i64(targetTs), i64(sourceDeadlineTs),
     i64(captureDeadlineTs), candidateAHash, candidateBHash,
-    // The inline observation and the rent fields (MIN_CAPTURE_SPEC section 2).
-    // Core reads only the header, so these are zeroed here on purpose: the point
-    // of this fixture is that a Core decoder written against the header keeps
-    // working when the tail grows, and it would stop being that point if the
-    // fixture filled them in.
-    Buffer.alloc(108), Buffer.alloc(36),
+    // The two rent fields, 4 + 32. The 108 bytes of inline observation that used
+    // to be appended here are gone from the account: nothing ever wrote them, and
+    // MIN_CAPTURE_SPEC section 2 described a migration whose second half never
+    // landed. Zeroed on purpose - Core reads the header, and a fixture that
+    // filled these in would stop testing what it was written to test.
+    Buffer.alloc(36),
   ]);
   eq(data.length, TIMEPIN_NEED_ACCOUNT_LEN, 'Need byte length');
   return account(derived.key, timepinProgram, data);
@@ -522,7 +522,12 @@ eq(TIMEPIN_EVIDENCE_SPEC_CANONICAL_LEN, 214,
   'exact Timepin generation canonical bytes');
 eq(TIMEPIN_EVIDENCE_SPEC_ACCOUNT_LEN, 262,
   'Timepin EvidenceSpec account bytes');
-eq(TIMEPIN_NEED_ACCOUNT_LEN, 276, 'terminal-in-Need account bytes');
+// 168, and the name of the old expectation is the whole story: "terminal-in-Need"
+// described a Need that carried the observation. It never did - the eleven obs_
+// fields were declared and written as zeros, and they are gone now. 8 + 124
+// header + 4 open_refs + 32 rent_payer = 168, and the Rust constant this mirrors
+// is foreign_timepin.rs NEED_ACCOUNT_LEN.
+eq(TIMEPIN_NEED_ACCOUNT_LEN, 168, 'Need account bytes: header plus the two rent fields');
 eq(TIMEPIN_CANDIDATE_ACCOUNT_LEN, 119, 'compact Candidate account bytes');
 eq(encodeTimepinEvidencePolicy(evidenceSpec).length, 134,
   'Timepin policy encoding exact');

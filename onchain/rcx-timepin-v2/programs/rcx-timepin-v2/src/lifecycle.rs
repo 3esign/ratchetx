@@ -1622,17 +1622,6 @@ mod tests {
             capture_deadline_ts: 1_980,
             candidate_a_hash: a,
             candidate_b_hash: b,
-            obs_price: 0,
-            obs_conf: 0,
-            obs_exponent: 0,
-            obs_publish_time: 0,
-            obs_prev_publish_time: 0,
-            obs_ema_price: 0,
-            obs_ema_conf: 0,
-            obs_posted_slot: 0,
-            obs_capture_slot: 0,
-            obs_capture_ts: 0,
-            obs_worker: Pubkey::default(),
             open_refs: 0,
             rent_payer: Pubkey::default(),
         }
@@ -1878,7 +1867,7 @@ mod tests {
             assert_eq!(manifest.completion_schema_version, 1);
             assert_eq!(manifest.locator_mode, 2);
             assert_eq!(manifest.subject_schema_version, SCHEMA_VERSION);
-            assert_eq!(manifest.subject_account_size, 276);
+            assert_eq!(manifest.subject_account_size, 168);
             assert_eq!(manifest.subject_discriminator, TimepinNeedV2::DISCRIMINATOR);
             assert_eq!(manifest.locator_schema_version, 1);
             assert_eq!(manifest.locator_discriminator, WorkPage::DISCRIMINATOR);

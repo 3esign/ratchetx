@@ -55,17 +55,6 @@ const BASELINE = {
   // lifecycle that writes them did not". These eleven come OUT in I1 - this
   // baseline exists so that the gate is honest between the ruling and the edit,
   // and every one of these lines should be deleted in the same commit.
-  'rcx-timepin-v2 TimepinNeedV2.obs_price': 'I1 - Branch B removes it',
-  'rcx-timepin-v2 TimepinNeedV2.obs_conf': 'I1 - Branch B removes it',
-  'rcx-timepin-v2 TimepinNeedV2.obs_exponent': 'I1 - Branch B removes it',
-  'rcx-timepin-v2 TimepinNeedV2.obs_publish_time': 'I1 - Branch B removes it',
-  'rcx-timepin-v2 TimepinNeedV2.obs_prev_publish_time': 'I1 - Branch B removes it',
-  'rcx-timepin-v2 TimepinNeedV2.obs_ema_price': 'I1 - Branch B removes it',
-  'rcx-timepin-v2 TimepinNeedV2.obs_ema_conf': 'I1 - Branch B removes it',
-  'rcx-timepin-v2 TimepinNeedV2.obs_posted_slot': 'I1 - Branch B removes it',
-  'rcx-timepin-v2 TimepinNeedV2.obs_capture_slot': 'I1 - Branch B removes it',
-  'rcx-timepin-v2 TimepinNeedV2.obs_capture_ts': 'I1 - Branch B removes it',
-  'rcx-timepin-v2 TimepinNeedV2.obs_worker': 'I1 - Branch B removes it',
   // The lead ruled open_refs STAYS because M1 needs it. That ruling is about
   // the FUTURE: as of this commit the field is set to 0 at open and nothing
   // increments or decrements it, so close_need built on it today would find

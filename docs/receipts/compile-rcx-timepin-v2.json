@@ -4,23 +4,20 @@
   "repoPath": "onchain/rcx-timepin-v2/programs/rcx-timepin-v2",
   "files": {
     "Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
-    "src/lib.rs": "6a83759c16a5b3403819162164b648d188500a9b80e569b32f72a6635f874ade",
-    "src/lifecycle.rs": "056225299add77093d21836ed507e530ccbd83962491b4efdc25c83b4c797ae7"
+    "src/lib.rs": "7b17efc81e088525dfa517b8dabc3d5912b35ed04b95316393af0d460355f51a",
+    "src/lifecycle.rs": "e758f23b6a130ea933e402ff074191b2b2e313601951e30fa50d64385fba79f6"
   },
   "toolchain": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
   "compiledOn": "Anthropic cloud container (cargo 1.95, no build-sbf)",
-  "generatedAt": "2026-09-05T17:06:18.112Z",
+  "generatedAt": "2026-09-05T17:32:56.153Z",
   "check": {
     "exit": 0
   },
   "test": {
-    "exit": 101,
-    "passed": 25,
-    "failed": 2,
-    "failing": [
-      "tests::exact_compact_account_lengths_are_frozen",
-      "tests::opening_deadlines_and_compact_state_shapes_are_checked"
-    ],
+    "exit": 0,
+    "passed": 27,
+    "failed": 0,
+    "failing": [],
     "passing": [
       "lifecycle::tests::capture_must_be_strictly_after_registration_slot",
       "lifecycle::tests::compact_candidate_and_work_abi_sizes_are_exact",
@@ -44,7 +41,9 @@
       "lifecycle::tests::two_record_sponsored_path_completes_each_kind_once",
       "test_id",
       "tests::every_profile_and_source_quality_byte_is_in_the_134_byte_policy",
+      "tests::exact_compact_account_lengths_are_frozen",
       "tests::official_policy_and_generation_bounds_fail_closed",
+      "tests::opening_deadlines_and_compact_state_shapes_are_checked",
       "tests::policy_and_generation_hashes_are_independent_and_complete",
       "tests::public_program_and_official_upgraded_ids_are_pinned"
     ]

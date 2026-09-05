@@ -30,7 +30,24 @@ import { createHash } from 'node:crypto';
 
 const read = path => readFileSync(new URL(path, import.meta.url), 'utf8');
 const CORE = read('../onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs');
-const TIMEPIN = read('../onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs');
+// BOTH Timepin files. This read lib.rs alone until 2026-09-05 17:4xZ, and
+// CandidateV2 is declared in lifecycle.rs - so this test could not see the
+// account it was asked about, reported it as deleted, and that false P0 is what
+// sent Core's half of I1 down the wrong branch: the CandidateV2 reader was
+// removed as dead, leaving Core to build settlement records from eleven inline
+// fields that Timepin writes as zeros. Only the compiler stopped it.
+//
+// A test that reads one file and answers about a crate is not measuring the
+// crate. The self-check below refuses to run if this corpus is not what it
+// claims to be, because "I looked and found nothing" and "I could not look" must
+// never produce the same verdict.
+const TIMEPIN = read('../onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs')
+  + '\n' + read('../onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs');
+for (const [what, needle] of [['lib.rs', 'pub struct TimepinNeedV2 {'], ['lifecycle.rs', 'pub struct CandidateV2 {']]) {
+  assert.ok(TIMEPIN.includes(needle),
+    `SELF-CHECK FAILED: the Timepin corpus does not contain ${needle} from ${what}. ` +
+    'Every "Timepin does not define X" verdict below would be vacuous. Fix the paths before reading further.');
+}
 
 let checks = 0;
 const eq = (actual, expected, message) => {
@@ -127,8 +144,13 @@ for (const account of ACCOUNTS) {
 // that a real Timepin never created. The length of a view for a struct that
 // does not exist is not wrong - it is unanswerable.
 
-const CORE_VIEWS = [...CORE.matchAll(/struct (\w+)(?:View|AccountView) \{/g)]
-  .map(match => match[1]);
+// The suffix is stripped, not alternated. /(\w+)(?:View|AccountView)/ looks like
+// it handles both spellings, but \w+ is greedy and \w matches every letter of
+// "Account", so the second arm is unreachable: CandidateV2AccountView yielded
+// the name "CandidateV2Account", which no crate has ever defined. That, with the
+// single-file corpus above, is why a live account was reported as deleted.
+const CORE_VIEWS = [...CORE.matchAll(/struct (\w+View) \{/g)]
+  .map(match => match[1].replace(/(?:Account)?View$/, ''));
 const ownedByTimepin = name =>
   new RegExp(`pub struct ${name} \\{`).test(TIMEPIN) ||
   // Views Core builds for its own use rather than decoding from an account.
@@ -142,13 +164,40 @@ eq(orphans, [],
   'Both mean Core asks for an account no transaction can supply.');
 
 checks += 1;
-assert.ok(!/CANDIDATE_SEED|CANDIDATE_DISCRIMINATOR|CANDIDATE_ACCOUNT_LEN/.test(CORE),
-  'Core still carries CandidateV2 plumbing. Timepin inlined that observation ' +
-  'into the Need; the account does not exist.');
+// INVERTED 2026-09-05 17:4xZ, and this assertion is the reason the inversion
+// matters. It demanded that Core have NO CandidateV2 plumbing, on the premise
+// that "Timepin inlined that observation into the Need; the account does not
+// exist". BOTH HALVES OF THAT PREMISE ARE FALSE, and this file's own two bugs
+// are what produced it: the corpus was lib.rs alone, and the view-name regex
+// yielded "CandidateV2Account". Measured directly instead:
+//   rcx-timepin-v2/src/lifecycle.rs:496  pub struct CandidateV2
+//   rcx-timepin-v2/src/lifecycle.rs:513  CandidateV2::LEN = 111
+//   rcx-timepin-v2/src/lifecycle.rs:23   CANDIDATE_SEED = b"candidate"
+//   rcx-timepin-v2/src/lifecycle.rs:1298 price: message.price   <- the real observation
+// The account is alive and it is the ONLY account carrying a real price. The
+// eleven obs_ fields on the Need are written as zeros at lib.rs:189-199 and
+// nowhere else, so a Core that reads them settles nothing: price_message_hash
+// over zeros cannot equal the hash the Need commits to, and every settle_final
+// reverts with WrongMessageHash.
+//
+// So Core MUST carry this plumbing, and the test now says so.
+assert.ok(/CANDIDATE_SEED/.test(CORE) && /CANDIDATE_DISCRIMINATOR/.test(CORE)
+  && /CANDIDATE_ACCOUNT_LEN/.test(CORE),
+  'Core has no CandidateV2 plumbing. rcx-timepin-v2 still writes the observation '
+  + 'into a CandidateV2 PDA (lifecycle.rs:1298) and writes zeros into the Need\'s '
+  + 'obs_ fields (lib.rs:189-199), so a Core that does not load the Candidate has '
+  + 'no price to settle with and every settle_final reverts with WrongMessageHash.');
 checks += 1;
-assert.ok(!/pub struct CandidateV2\b/.test(TIMEPIN),
-  'Timepin has a CandidateV2 struct again. If the account came back, Core has ' +
-  'to read it again and this file is enforcing the wrong shape.');
+// The other half of the same inversion. This assertion said Timepin must NOT
+// have a CandidateV2 struct, and its own failure message named the remedy: "If
+// the account came back, Core has to read it again and this file is enforcing
+// the wrong shape." The account never left. The file was enforcing the wrong
+// shape from the moment it was written, and it said so itself.
+assert.ok(/pub struct CandidateV2\b/.test(TIMEPIN),
+  'Timepin has no CandidateV2 struct. It is the account that carries the real '
+  + 'observation (lifecycle.rs price: message.price); if it is genuinely gone, '
+  + 'then something must WRITE the Need\'s obs_ fields, and today nothing does - '
+  + 'they are set to zero at open_need and never touched again.');
 
 // --- 3. the seeds Core derives with must be the seeds Timepin uses ----------
 
@@ -258,17 +307,10 @@ put64(1_920);        // sourceDeadlineTs
 put64(1_980);        // captureDeadlineTs
 fill(0x22, 32);      // candidateAHash
 fill(0x00, 32);      // candidateBHash
-put64(-101);         // obsPrice   - NEGATIVE, so an i64 read as u64 is obvious
-put64u(202);         // obsConf
-put32i(-8);          // obsExponent - negative for the same reason
-put64(1_801);        // obsPublishTime
-put64(1_799);        // obsPrevPublishTime
-put64(-303);         // obsEmaPrice
-put64u(404);         // obsEmaConf
-put64u(505);         // obsPostedSlot
-put64u(606);         // obsCaptureSlot
-put64(1_802);        // obsCaptureTs
-fill(0x33, 32);      // obsWorker
+// The eleven obs_ fields used to be written here. They are not on the account:
+// nothing in rcx-timepin-v2 ever wrote them, and they were removed rather than
+// filled. The observation this fixture used to fake lives in the CandidateV2
+// account, which has its own decoder and its own check above.
 put32u(7);           // openRefs
 fill(0x44, 32);      // rentPayer
 checks += 1;
@@ -280,23 +322,14 @@ const decoded = core.decodeNeed(needBytes);
 eq([
   decoded.schema, decoded.bump, decoded.state,
   decoded.targetTs, decoded.sourceDeadlineTs, decoded.captureDeadlineTs,
-  decoded.obsPrice, decoded.obsConf, decoded.obsExponent,
-  decoded.obsPublishTime, decoded.obsPrevPublishTime,
-  decoded.obsEmaPrice, decoded.obsEmaConf,
-  decoded.obsPostedSlot, decoded.obsCaptureSlot, decoded.obsCaptureTs,
   decoded.openRefs,
 ], [
   2, 255, 2,
   1_800n, 1_920n, 1_980n,
-  -101n, 202n, -8,
-  1_801n, 1_799n,
-  -303n, 404n,
-  505n, 606n, 1_802n,
   7,
 ], 'decodeNeed put a value in the wrong field. Borsh is positional: two ' +
    'same-width fields swapped decode without error and mean different things.');
-eq([...decoded.obsWorker.toBytes().slice(0, 2)], [0x33, 0x33],
-  'obsWorker is not where the program writes it');
+// obsWorker was checked here. It is not a field of this account.
 eq([...decoded.rentPayer.toBytes().slice(0, 2)], [0x44, 0x44],
   'rentPayer is not where the program writes it');
 checks += 1;

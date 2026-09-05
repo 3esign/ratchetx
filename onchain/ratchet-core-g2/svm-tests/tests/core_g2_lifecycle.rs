@@ -53,7 +53,7 @@ const SOURCE_DEADLINE_OFFSET: i64 = SPEC_LAG as i64;
 const CAPTURE_DEADLINE_OFFSET: i64 = SOURCE_DEADLINE_OFFSET + SPEC_GRACE as i64;
 // The exact length of a TimepinNeedV2 account as rcx-timepin-v2 writes it today.
 // One name, so the branch-B change is one line here instead of five.
-const NEED_LEN: usize = 132;
+const NEED_LEN: usize = 168;
 const RCX_UNIT: u64 = 1_000_000;
 const RCX_SUPPLY: u64 = 936_699_884_132_132;
 const LEGACY_CREDITS: u64 = 100;
@@ -1285,6 +1285,13 @@ impl World {
         data.extend_from_slice(&(target + SOURCE_DEADLINE_OFFSET).to_le_bytes());
         data.extend_from_slice(&(target + CAPTURE_DEADLINE_OFFSET).to_le_bytes());
         data.extend_from_slice(&candidate_a);
+        data.extend_from_slice(&[0; 32]);
+        // open_refs and rent_payer. Timepin writes both, Core's view reads both,
+        // and a fabricated Need that stops at candidate_b_hash is 132 bytes
+        // against a decoder that demands 168 - which is the whole of I1 in
+        // miniature. Zeroes are correct here: this harness never exercises
+        // close_need, and rent_payer is only ever compared, never dereferenced.
+        data.extend_from_slice(&0u32.to_le_bytes());
         data.extend_from_slice(&[0; 32]);
         assert_eq!(data.len(), NEED_LEN);
         data

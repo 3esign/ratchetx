@@ -183,20 +183,8 @@ pub mod rcx_timepin_v2 {
         need.capture_deadline_ts = capture_deadline_ts;
         need.candidate_a_hash = [0; 32];
         need.candidate_b_hash = [0; 32];
-        // No observation yet, and no reference from Core until a shot seals
-        // against this target. rent_payer is whoever funded the account, and it
-        // is the only address close_need will ever refund.
-        need.obs_price = 0;
-        need.obs_conf = 0;
-        need.obs_exponent = 0;
-        need.obs_publish_time = 0;
-        need.obs_prev_publish_time = 0;
-        need.obs_ema_price = 0;
-        need.obs_ema_conf = 0;
-        need.obs_posted_slot = 0;
-        need.obs_capture_slot = 0;
-        need.obs_capture_ts = 0;
-        need.obs_worker = Pubkey::default();
+        // No reference from Core until a shot seals against this target, and
+        // rent_payer is the only address close_need will ever refund.
         need.open_refs = 0;
         need.rent_payer = ctx.accounts.actor.key();
         authenticate_need(
@@ -412,30 +400,23 @@ pub struct TimepinNeedV2 {
     /// channel should never fire.
     pub candidate_b_hash: [u8; 32],
 
-    // ---- the observation, inline (MIN_CAPTURE_SPEC section 2) --------------
-    // It used to live in its own CandidateV2 PDA, and every replacement minted a
-    // NEW one - permanent actor-funded rent, 1,564,251 lamports each, with no
-    // close path. A Need improved three times stranded three rents forever, which
-    // is precisely the shape a rule WITH replacement cannot afford. Inline it is
-    // one account: replacement is free, finalize reads one place, and there is no
-    // init_if_needed race. Measured net saving at a single observation: 880,287
-    // lamports, and unboundedly better from the second.
-    pub obs_price: i64,
-    pub obs_conf: u64,
-    pub obs_exponent: i32,
-    pub obs_publish_time: i64,
-    /// Still stored: it is part of the signed message and of `price_message_hash`.
-    /// It is simply no longer part of the predicate under adapter 2.
-    pub obs_prev_publish_time: i64,
-    pub obs_ema_price: i64,
-    pub obs_ema_conf: u64,
-    pub obs_posted_slot: u64,
-    pub obs_capture_slot: u64,
-    pub obs_capture_ts: i64,
-    /// Who submitted the CURRENT best observation. The capture reward is owed to
-    /// whoever is recorded here when the Need finalizes - never to a displaced
-    /// submitter, and never to `PriceUpdate.write_authority`.
-    pub obs_worker: Pubkey,
+    // THE OBSERVATION IS NOT HERE, AND THAT IS THE RULING, NOT AN OMISSION.
+    // It was inlined here on 2026-09-05 in fe0f8e6 - eleven fields, 108 bytes -
+    // and the capture lifecycle that would have written them was never built, so
+    // every Need this program can create carried 108 bytes of zeros in a
+    // PERMANENT per-target account: 395 SOL a year for a migration whose second
+    // half does not exist. The observation lives in the CandidateV2 PDA
+    // (lifecycle.rs:496), which capture_first and capture_conflict actually
+    // write and which Core actually reads.
+    //
+    // FINISHING THAT MIGRATION IS DEFERRED, NOT REJECTED, and its reason is
+    // written down: it is the only branch that earns the 880,287 lamports, and it
+    // is a design change for the next generation rather than a launch change for
+    // this one. Anyone reviving it must also answer what capture_conflict does
+    // with the SECOND observation - with one inline slot, candidate_b_hash keeps
+    // its commitment but loses its preimage on chain.
+    // test/test_no_unwritten_fields_in_permanent_accounts.mjs is the gate that
+    // stops the next such field from shipping declared and dead.
 
     // ---- rent is temporary ------------------------------------------------
     // A Need is a BUFFER between an ephemeral Pyth account and a later
@@ -454,11 +435,12 @@ pub struct TimepinNeedV2 {
 }
 
 impl TimepinNeedV2 {
-    // 124 (through candidate_b_hash) + 108 (the inline observation) + 36 (rent).
+    // 124 (through candidate_b_hash) + 36 (rent). The observation is NOT here;
+    // see the struct comment above.
     // Changing this trips two deliberate ABI pins - the WorkManifest's
     // subject_account_size and the frozen-length test - so the layout cannot move
     // silently. That is the pins working, not a failure.
-    pub const LEN: usize = 268;
+    pub const LEN: usize = 160;
 }
 
 pub fn canonical_policy_bytes(
@@ -1041,21 +1023,20 @@ mod tests {
             state: NEED_OPEN,
             evidence_spec_hash: hash,
             target_ts: TARGET,
-            source_deadline_ts: 2_700,
-            capture_deadline_ts: 2_820,
+            // DERIVED from the same spec authenticate_need checks this Need
+            // against, rather than typed. These read 2_700 and 2_820 - the
+            // deadlines of a spec whose lag was 900, which is above the grid and
+            // which R2 now refuses to register at all. Two literals recording a
+            // game the program had stopped playing, and the second half of the
+            // same drift as the pin above.
+            //
+            // A fixture that derives cannot drift again: change the lag and this
+            // Need follows it, which is the only way a fixture stays a test of
+            // the program instead of a test of somebody's memory.
+            source_deadline_ts: derive_deadlines(&spec(), TARGET).unwrap().0,
+            capture_deadline_ts: derive_deadlines(&spec(), TARGET).unwrap().1,
             candidate_a_hash: [0; 32],
             candidate_b_hash: [0; 32],
-            obs_price: 0,
-            obs_conf: 0,
-            obs_exponent: 0,
-            obs_publish_time: 0,
-            obs_prev_publish_time: 0,
-            obs_ema_price: 0,
-            obs_ema_conf: 0,
-            obs_posted_slot: 0,
-            obs_capture_slot: 0,
-            obs_capture_ts: 0,
-            obs_worker: Pubkey::default(),
             open_refs: 0,
             rent_payer: Pubkey::default(),
         }
@@ -1172,8 +1153,8 @@ mod tests {
         assert_eq!(spec_bytes.len(), 262);
         let mut need_bytes = Vec::new();
         need(hash, 255).try_serialize(&mut need_bytes).unwrap();
-        assert_eq!(TimepinNeedV2::LEN, 268);
-        assert_eq!(need_bytes.len(), 132);
+        assert_eq!(TimepinNeedV2::LEN, 160);
+        assert_eq!(need_bytes.len(), 168);
         assert_eq!(ReceiverConfig::LEN, 370);
     }
 
@@ -1207,7 +1188,16 @@ mod tests {
     #[test]
     fn opening_deadlines_and_compact_state_shapes_are_checked() {
         let s = spec();
-        assert_eq!(validate_open(1_000, TARGET, &s).unwrap(), (2_700, 2_820));
+        // DERIVED, not copied from the failing run. args() has
+        // max_post_target_lag_seconds 599 and capture_grace_seconds 120, and
+        // derive_deadlines is source = target + lag, capture = source + grace:
+        //   1_800 + 599 = 2_399, then 2_399 + 120 = 2_519.
+        // The pin said (2_700, 2_820) because it was written when the lag was
+        // 900 - 1_800 + 900 = 2_700 - and 900 is ABOVE the 600-second grid, the
+        // spec R2 now refuses outright. When the lag became grid - 1 the pin was
+        // left recording the old game. A frozen pin that nobody re-derives stops
+        // pinning the program and starts pinning its history.
+        assert_eq!(validate_open(1_000, TARGET, &s).unwrap(), (2_399, 2_519));
         assert!(validate_open(1_771, TARGET, &s).is_err());
         assert!(validate_open(1_000, TARGET + 1, &s).is_err());
         assert!(derive_deadlines(&s, i64::MAX).is_err());

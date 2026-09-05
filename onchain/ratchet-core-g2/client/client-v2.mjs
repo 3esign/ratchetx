@@ -26,7 +26,7 @@ export const ACCOUNT_SIZE = Object.freeze({
   // Timepin moved the observation into the account - so the client could not
   // decode a single real Need. Same stale number, same day, as
   // foreign_timepin.rs NEED_ACCOUNT_LEN.
-  TimepinNeedV2: 276,
+  TimepinNeedV2: 168,
   // M3: the page is a FIXED size, so there is no Min and no Max. It was
   // 87..2_743, which is the growing Vec-of-rows form the program no longer has.
   HistoryPage: 118,
@@ -437,15 +437,12 @@ export function createCoreG2Client({
       evidenceSpecHash: r.bytes32(), targetTs: r.i64(),
       sourceDeadlineTs: r.i64(), captureDeadlineTs: r.i64(),
       candidateAHash: r.bytes32(), candidateBHash: r.bytes32(),
-      // THE OBSERVATION, INLINE. This decoder stopped at candidateBHash and
-      // called r.done(), which asserts every byte was consumed - so on a real
-      // 276-byte Need it threw. Order mirrors rcx-timepin-v2 TimepinNeedV2
-      // exactly; borsh is positional.
-      obsPrice: r.i64(), obsConf: r.u64(), obsExponent: r.i32(),
-      obsPublishTime: r.i64(), obsPrevPublishTime: r.i64(),
-      obsEmaPrice: r.i64(), obsEmaConf: r.u64(),
-      obsPostedSlot: r.u64(), obsCaptureSlot: r.u64(), obsCaptureTs: r.i64(),
-      obsWorker: r.key(),
+      // The two rent fields, and only those. Eleven obs_ fields were briefly
+      // decoded here as well; they are gone from the account because nothing
+      // ever wrote them. r.done() below asserts every byte is consumed, which
+      // makes this decoder one of THREE places that must agree with
+      // TimepinNeedV2::LEN exactly - the Rust reader, this client, and
+      // model.mjs. Borsh is positional, so this order mirrors the struct.
       openRefs: r.u32(), rentPayer: r.key(),
     };
     r.done();

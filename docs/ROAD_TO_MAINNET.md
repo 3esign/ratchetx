@@ -48,6 +48,48 @@ fix. If a fourth is found, it is found the same way: ask what the row would forc
 
 ---
 
+## 0b. The compile bridge, and the four switches it reads
+
+The machine agents run the gate on has **no Rust toolchain** and no network to install
+one. The machine that has one does not hold the repository. So evidence that the programs
+compile travels in the tree as a hash-bound receipt: `tools/compile-receipt.mjs` records the
+sha256 of every file it compiled next to cargo's exit codes and the NAMES of the tests that
+passed, and `tools/mainnet-go-check.mjs` re-hashes those files before believing a word of
+it. Move one byte and the receipt describes a different program and counts for nothing.
+
+Regenerate it wherever a compiler exists:
+
+    CORE_ROOT=~/cg TIMEPIN_ROOT=~/tp COMPILE_HOST="<where this ran>" node tools/compile-receipt.mjs
+    node tools/compile-receipt.mjs --verify   # re-hash only, runs no compiler
+
+| switch | read by | what it does |
+|---|---|---|
+| `CORE_ROOT` | `tools/compile-receipt.mjs` | crate root for ratchet-core-g2 when it is not at its repository path (a scratch copy on a machine that has cargo). Unset means the repository path. |
+| `TIMEPIN_ROOT` | `tools/compile-receipt.mjs` | the same, for rcx-timepin-v2. |
+| `COMPILE_HOST` | `tools/compile-receipt.mjs` | free text recorded in the receipt saying WHERE it was compiled. Unset records `unspecified host`, which is honest but useless to the next reader — always set it. |
+| `GATE_LIVE_CARGO` | `tools/mainnet-go-check.mjs` | `1` makes rows C1/C2 run cargo here instead of reading the receipt. Only useful on a machine with a toolchain; unset is the normal path. |
+
+### Committing in this checkout
+
+`git add <paths>` does not scope `git commit`: a bare commit writes the whole index,
+including anything another writer staged a second earlier. Use
+`node tools/git-commit-paths.mjs -m "subject" -- <paths>`, which wraps
+`git commit --only`, reads the commit back, and fails if the file set is not exactly
+what was asked for. This mount denies `unlink`, so git cannot clear its own locks and the
+next command dies on one; that tool decides whether a lock is litter or a live writer by
+sampling whether its mtime is still MOVING, not by age alone.
+
+| switch | read by | what it does |
+|---|---|---|
+| `RATCHET_GIT_LOCK_OBSERVE_MS` | `tools/git-commit-paths.mjs` | how long to watch a `.git` lock before deciding it is nobody's. Longer is safer with concurrent writers, slower alone. |
+| `RATCHET_GIT_LOCK_STALE_MS` | `tools/git-commit-paths.mjs` | the age floor a lock must also clear before it is treated as litter. Both conditions must hold. |
+
+**A receipt that was not written by a compiler is a lie with a hash on it.** Never hand-edit
+one. If the receipt is stale, C1 falls to PENDING and the downgrade pass strips GO from every
+row that reads source text — that is the mechanism working, not a fault.
+
+---
+
 ## 1. Where we actually are (verified, not asserted)
 
 | Surface | State | Evidence |
