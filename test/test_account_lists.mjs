@@ -18,13 +18,14 @@
 //      requires one.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
 import { derive, OUT } from '../tools/derive-account-lists.mjs';
 import { CORE_INSTRUCTION, TIMEPIN_INSTRUCTION, INSTRUCTION_ACCOUNTS }
   from '../onchain/ratchet-core-g2/client/client-v2.mjs';
 
 let checks = 0;
 const committed = JSON.parse(readFileSync(new URL('../' + OUT, import.meta.url), 'utf8'));
-const fresh = derive(new URL('../', import.meta.url).pathname);
+const fresh = derive(fileURLToPath(new URL('../', import.meta.url)));
 
 checks += 1;
 assert.deepEqual(Object.keys(fresh).sort(), Object.keys(committed).sort(),
