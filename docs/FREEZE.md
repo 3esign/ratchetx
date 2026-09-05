@@ -1,4 +1,4 @@
-# The freeze — Ratchet Seal v2 becomes immutable on 2026-09-08
+# The freeze — CANCELLED on 2026-09-03; no freeze is scheduled (historical precommitment)
 
 > **Superseded on 2026-09-03 by owner direction.** There is no scheduled
 > freeze and this page is retained only as the historical precommitment. Do not

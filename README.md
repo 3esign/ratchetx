@@ -100,8 +100,10 @@ program-owned clock; settlement selects the first verified Ratchet checkpoint cr
 with disjoint settle/void deadlines, commit-reveal and rent cleanup. This needs no Hermes API key or
 trusted price signer. Eligible SOL chambers expose optional player-paid sealing during the soak
 period; server settlement remains canonical until checkpoint, settle, reveal and close automation
-is integrated end to end. Upgrade authority is deliberately retained during soak — and is revoked
-for good on **2026-09-08**, registered before the fact in [docs/FREEZE.md](docs/FREEZE.md). This program is
+is integrated end to end. Upgrade authority is deliberately retained during soak. **No freeze is scheduled.** The
+2026-09-08 ceremony this page announced earlier was cancelled on 2026-09-03; the authority is
+retained while the on-chain successor is built, and any future ceremony will again be registered
+in advance in [docs/FREEZE.md](docs/FREEZE.md). This program is
 not a redeemable floor vault; do not describe the modeled floor as redeemable until a separate
 funded vault PDA, liabilities proof and no-withdraw path are deployed and independently reviewed.
 
@@ -211,6 +213,7 @@ labeled display-only fallback and can never enable sealing ·
 `RATCHET_SEAL_FEEDS` (comma-separated clocks enabled for sealing; safe default `SOL`)
 
 No player-funds key exists in the site or backend; the game cannot custody or move player tokens. The
-program upgrade authority is retained offline only for the declared soak period — which now has an end
-date: **revoked on 2026-09-08**, registered in advance in [docs/FREEZE.md](docs/FREEZE.md). Read the
-code; that is the point.
+program upgrade authority is retained offline for the declared soak period. **There is no end date at
+present**: the 2026-09-08 revocation announced here earlier was cancelled on 2026-09-03 while the
+on-chain successor is built. A new date will be registered in advance in
+[docs/FREEZE.md](docs/FREEZE.md) before any ceremony happens. Read the code; that is the point.
