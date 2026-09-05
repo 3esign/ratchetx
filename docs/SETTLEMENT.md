@@ -71,30 +71,72 @@ has every incentive to checkpoint immediately; our own keeper and every
 total neglect. This is v2's "first recorded sample" rule with the recording
 moved on-chain and the recorder role opened to the world.
 
-### Optional precision upgrade: signed historical updates
+### The two adapters, and which one settles money
 
-For exact *first-print* proofs, an authenticated Hermes timestamp endpoint can
-return the signed Core update whose metadata includes `prev_publish_time`. A cranker
-submits `binary.data` through the upgraded Core Solana receiver, and the
-program enforces:
+The evidence spec carries an `adapter` byte. It selects the predicate, and there
+are exactly two.
+
+**Adapter 2 — MIN-CAPTURE. The mainnet-class rule.**
+
+> For target `T`, the admissible observation is the sponsored print with the
+> **smallest `publish_time` such that `publish_time >= T`**, among all
+> observations submitted before the Need's `capture_deadline_ts`. Ties: smaller
+> `posted_slot`, then smaller `price_message_hash`. **The order of submission
+> never selects the price.**
+
+`prev_publish_time` is not part of this predicate, so `max_pre_target_gap_seconds`
+carries no meaning under it and is pinned to zero at registration — the field
+cannot be dropped, because it is inside `canonical_policy_bytes` and every spec
+hash, and a live-looking number that nothing reads would mislead every later
+reader. `max_post_target_lag_seconds` is what keeps the rule finite and is the one
+bound that matters.
+
+The honest limit, which belongs on this page and not in a comment: the sponsored
+`PriceUpdateV2` account holds **one message at a time** and the pusher overwrites
+it. A print that was on the account at `T+2` is gone by `T+7`, and the program
+reads the live account, never a cache. So a later observer can displace an earlier
+capture only *while the message is still on the account*. The assumption is
+**1-of-N among observers watching in real time during that window** — not "anyone
+until the deadline". A capturer who lets `T+2` vanish and submits `T+7` cannot be
+caught by the program. Two independent cranks polling every second are therefore
+part of the security argument, not an operational nicety.
+
+**Adapter 1 — the strict bracket. Experimental; not for mainnet.**
 
 ```
-prev_publish_time < expiry <= publish_time
+prev_publish_time < T <= publish_time
 ```
 
-which cryptographically proves the posted update is the first publish at or
-after expiry — no trust in the cranker at all. Per Pyth's guidance: if
-settlement can happen after the available Hermes history window, the
-application must **archive the Core-compatible payloads itself or run a keeper
-that fetches and posts them promptly** — a sponsored push account alone cannot
-reconstruct arbitrary historical updates. (Also per Pyth: the Pyth Pro
-`/v1/{channel}/price` payload is a different format and is *not* a drop-in
-replacement for a Core receiver.)
+This is the rule with no chooser at all: it identifies exactly one signed message
+per target. It is not a worse rule — it is a rule for a source we do not have. It
+needs a feed that delivers *every* aggregate, and the sponsored account is not one:
+the pusher posts on its own schedule, measured at ~5 s for SOL and BTC and ~51–53 s
+for ETH, BONK, PUMP, JUP and WIF, at a drifting phase. Against the real feed the
+bracket matched **0 of 25** minute-aligned targets.
 
-RatchetX's stance: the checkpoint race is the floor that ships first — a floor
-in the sense that the worst case is a refund, not in the sense that a settlement
-is guaranteed to happen; the keyed predicate path is an optional sharpening we can turn on
-without changing any game rule, if and when we choose to pay for it.
+Such a source does exist in one sense — Pythnet's accumulator ring carries every
+aggregate and is readable by anyone with no key — but its leaves cannot be brought
+to Solana: the ring's wrapper is signed under the legacy emitter, while the
+receiver this program authenticates against accepts only chain-26 emitter
+`507974…` under guardian set 1, and no public index carries that emitter at all.
+The leaves are free; the signature that would be accepted is not obtainable. That
+is the whole blocker, and it is the one thing that would reopen adapter 1.
+
+**The two predicates must never be unified.** They look like a strict and a relaxed
+form of one rule, and they are not. On a full-aggregate source the strict `<` on
+the left is the only thing excluding intra-second repeats — messages carrying
+`pub == prev == T` that genuinely differ in price, conf and ema; 20 of 98 sampled
+keys carried up to three of them. Under `publish_time >= T` all of those tie at the
+minimum and the tie-break falls to the submitter, handing back the chooser the
+design exists to remove. MIN-CAPTURE is safe from this **only** because the account
+it is pinned to holds one message at a time: 235 consecutive sponsored writes
+carried 235 distinct publish times and zero duplicates. Change the pin and you
+change which predicate is safe.
+
+**No key, in either.** A keyed Hermes endpoint would make first-print proofs easy
+and is permanently out of scope: a secret in the canonical settlement path is a
+project-level failure, not a shortcut. Everything above is reachable from public
+Solana state by anyone.
 
 ### Design consequences we accept on purpose
 

@@ -1,7 +1,27 @@
 import { PublicKey } from '@solana/web3.js';
 
 export const TIMEPIN_SCHEMA_V2 = 2;
+// Adapter 1 is the strict bracket `prev_publish_time < T <= publish_time`. It is
+// EXPERIMENTAL from 2026-09-05 and must not be registered for mainnet play: it is
+// honest only against a source that delivers every aggregate, and the sponsored
+// PriceUpdateV2 account is not one -- it holds a single message that the pusher
+// overwrites every ~5 s (SOL/BTC) to ~52 s (ETH, BONK, PUMP, JUP, WIF), so the one
+// message that brackets a given second is almost never the one on the account.
 export const ADAPTER_PYTH_PUSH_V2 = 1;
+// Adapter 2 is MIN-CAPTURE: the admissible print for target T is the one with the
+// smallest publish_time such that publish_time >= T. See docs/MIN_CAPTURE_SPEC.md.
+//
+// Why the two predicates must NEVER be unified, even though adapter 2 looks like a
+// relaxation of adapter 1: on a full-aggregate source (Pythnet's accumulator ring,
+// ~2.5 aggregates per second) the strict `<` on the left is the only thing that
+// excludes intra-second repeats, which carry pub == prev == T and genuinely differ
+// in price, conf and ema -- measured 20 of 98 keys with up to 3 distinct signed
+// messages. Under `publish_time >= T` all of those tie at the minimum and the tie
+// break falls to the submitter. Adapter 2 is safe here ONLY because the sponsored
+// PDA it is pinned to holds one message at a time, so the tie cannot arise
+// (measured: 235 consecutive sponsored writes, 235 distinct publish times, zero
+// duplicates). Change the pin and you change which predicate is safe.
+export const ADAPTER_PYTH_MIN_CAPTURE_V2 = 2;
 export const VERIFICATION_FULL = 1;
 export const PRICE_UPDATE_V2_LEN = 134;
 export const EVIDENCE_POLICY_V2_CANONICAL_LEN = 134;
@@ -266,7 +286,8 @@ export function deriveWorkPagePda(programId, needAddress) {
 export function validateEvidenceSpec(spec) {
   try {
     if (spec?.schema !== TIMEPIN_SCHEMA_V2) return fail('BAD_SCHEMA');
-    if (spec.adapter !== ADAPTER_PYTH_PUSH_V2) return fail('BAD_ADAPTER');
+    if (spec.adapter !== ADAPTER_PYTH_PUSH_V2
+      && spec.adapter !== ADAPTER_PYTH_MIN_CAPTURE_V2) return fail('BAD_ADAPTER');
     if (!bytes32(spec.receiverProgram, 'receiverProgram').equals(OFFICIAL_PYTH_RECEIVER_PROGRAM))
       return fail('UNOFFICIAL_RECEIVER_PROGRAM');
     if (!bytes32(spec.pushOracleProgram, 'pushOracleProgram').equals(OFFICIAL_PYTH_PUSH_ORACLE_PROGRAM))
@@ -285,7 +306,13 @@ export function validateEvidenceSpec(spec) {
     if (spec.targetGridSeconds === 0) return fail('ZERO_GRID');
     if (spec.minOpenLeadSeconds < 5) return fail('LEAD_TOO_SHORT');
     if (spec.maxTargetAheadSeconds < spec.minOpenLeadSeconds) return fail('AHEAD_BEFORE_LEAD');
-    if (spec.maxPreTargetGapSeconds === 0) return fail('ZERO_PRE_GAP');
+    // Under MIN-CAPTURE `prev_publish_time` is not part of the predicate, so a
+    // non-zero pre-gap would be a dead number sitting inside canonical_policy_bytes
+    // and every spec hash, misleading every later reader. The field cannot be
+    // removed (it is in the hash), so it is pinned to zero instead.
+    if (spec.adapter === ADAPTER_PYTH_MIN_CAPTURE_V2) {
+      if (spec.maxPreTargetGapSeconds !== 0) return fail('PRE_GAP_MUST_BE_ZERO');
+    } else if (spec.maxPreTargetGapSeconds === 0) return fail('ZERO_PRE_GAP');
     if (spec.maxPostTargetLagSeconds === 0) return fail('ZERO_POST_LAG');
     if (spec.captureGraceSeconds === 0) return fail('ZERO_CAPTURE_GRACE');
     if (!Number.isInteger(spec.minExponent) || !Number.isInteger(spec.maxExponent)
@@ -649,12 +676,24 @@ export function decodePriceUpdateV2(sourceAccount) {
   };
 }
 
-function validateDecisionFields(spec, need, candidate) {
+// Exported so the settlement rule can be tested on its own. It used to be
+// reachable only through evaluateCapture, which needs a 134-byte price account,
+// three PDAs and a generation context -- so the one predicate the whole economy
+// rests on had no direct test at any level, which is exactly how the strict
+// bracket reached the build queue unchallenged (MIN_CAPTURE_SPEC.md section 7).
+export function validateDecisionFields(spec, need, candidate) {
   const target = asBig(need.targetTs, 'need.targetTs');
   const previous = asBig(candidate.prevPublishTime, 'prevPublishTime');
   const published = asBig(candidate.publishTime, 'publishTime');
-  if (!(previous < target && target <= published)) return fail('NOT_CROSSING');
-  if (target - previous > BigInt(spec.maxPreTargetGapSeconds)) return fail('PRE_GAP');
+  if (spec.adapter === ADAPTER_PYTH_MIN_CAPTURE_V2) {
+    // MIN-CAPTURE. The bracket and the pre-gap have no meaning here: the rule is
+    // the earliest print at or after the target, and `finalize` picks the minimum
+    // over everything submitted. Mirrors lifecycle.rs's PublishBeforeTarget.
+    if (published < target) return fail('PUBLISH_BEFORE_TARGET');
+  } else {
+    if (!(previous < target && target <= published)) return fail('NOT_CROSSING');
+    if (target - previous > BigInt(spec.maxPreTargetGapSeconds)) return fail('PRE_GAP');
+  }
   if (published - target > BigInt(spec.maxPostTargetLagSeconds)) return fail('POST_LAG');
   if (published > asBig(need.sourceDeadlineTs)) return fail('SOURCE_AFTER_DEADLINE');
   const price = asBig(candidate.price, 'price');

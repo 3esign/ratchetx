@@ -737,7 +737,10 @@ export function alignFutureTarget(nowTs, leadSeconds, gridSeconds) {
 export function encodeTimepinEvidencePolicy(spec) {
   if (!spec || numberUint(spec.schema, 16, 'spec.schema') !==
       TIMEPIN_SCHEMA_V2) fail('TIMEPIN_SPEC_SCHEMA');
-  if (numberUint(spec.adapter, 8, 'spec.adapter') !== 1)
+  // Adapter 1 = strict bracket (experimental from 2026-09-05); adapter 2 =
+  // MIN-CAPTURE, the mainnet-class rule. Mirrors foreign_timepin.rs.
+  const adapter = numberUint(spec.adapter, 8, 'spec.adapter');
+  if (adapter !== 1 && adapter !== 2)
     fail('TIMEPIN_SPEC_ADAPTER');
   nonzero32(spec.receiverProgram, 'spec.receiverProgram');
   nonzero32(spec.pushOracleProgram, 'spec.pushOracleProgram');
@@ -1026,12 +1029,20 @@ export function authenticateTimepinCandidate({
       record.exponent > evidenceSpec.maxExponent)
     fail('TIMEPIN_CANDIDATE_EXPONENT');
   if (!same(candidate.need, need.key)) fail('TIMEPIN_CANDIDATE_NEED');
-  if (record.price <= 0n || record.prevPublishTime >= need.targetTs ||
-      record.publishTime < need.targetTs)
-    fail('TIMEPIN_CANDIDATE_BRACKET');
-  if (need.targetTs - record.prevPublishTime >
-      BigInt(evidenceSpec.maxPreTargetGapSeconds) ||
-      record.publishTime - need.targetTs >
+  if (record.price <= 0n) fail('TIMEPIN_CANDIDATE_BRACKET');
+  if (evidenceSpec.adapter === 2) {
+    // MIN-CAPTURE: earliest print at or after the target. prev_publish_time is not
+    // part of the predicate, so there is no bracket and no pre-gap bound here.
+    if (record.publishTime < need.targetTs) fail('TIMEPIN_CANDIDATE_BRACKET');
+  } else {
+    if (record.prevPublishTime >= need.targetTs ||
+        record.publishTime < need.targetTs)
+      fail('TIMEPIN_CANDIDATE_BRACKET');
+    if (need.targetTs - record.prevPublishTime >
+        BigInt(evidenceSpec.maxPreTargetGapSeconds))
+      fail('TIMEPIN_CANDIDATE_GAP');
+  }
+  if (record.publishTime - need.targetTs >
       BigInt(evidenceSpec.maxPostTargetLagSeconds))
     fail('TIMEPIN_CANDIDATE_GAP');
   if (record.captureTs < need.targetTs ||
