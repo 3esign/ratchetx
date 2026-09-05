@@ -35,8 +35,8 @@ REM  Escape hatch: RATCHET_DEPLOY_DIRTY=1, set nowhere in this repository.
 echo  Checking the files that will ship against their commits...
 node scripts/check-clean-tree.mjs >> deploy_check.txt 2>&1
 if errorlevel 1 goto :dirtytree
-echo  Running the same release gate used by CI...
-call npm test >> deploy_check.txt 2>&1
+echo  Running CI checks and the mandatory private backup restore...
+call npm run test:release >> deploy_check.txt 2>&1
 if errorlevel 1 goto :testfail
 echo  Release gate passed.
 echo  Node found - good. Starting the deploy (first time may take
