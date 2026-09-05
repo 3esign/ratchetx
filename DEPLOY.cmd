@@ -24,12 +24,15 @@ call npm -v >> deploy_check.txt 2>&1
 where node >nul 2>nul
 if errorlevel 1 goto :nonode
 
-REM  A folder deploy ships the WORKING TREE, not a commit, so an uncommitted
-REM  tree puts bytes live that exist in no commit and can never be reviewed,
-REM  reproduced or rolled back to. The check is a node script on purpose:
-REM  batch is the one thing nobody here can run, and a gate nobody can run is
-REM  not a gate. Escape hatch is RATCHET_DEPLOY_DIRTY=1, set nowhere in the repo.
-echo  Checking the working tree against a commit...
+REM  A folder deploy uploads the WORKING TREE, so a file that ships while
+REM  uncommitted puts bytes live that no commit contains: unreviewable,
+REM  unreproducible, impossible to roll back to. Only the DEPLOY SET is a
+REM  hard stop - this tree is permanently dirty while G2 is built and none
+REM  of that ships, so it must never stand between you and a deploy. The
+REM  check is a node script on purpose: batch is the one thing nobody here
+REM  can run, and a gate nobody can run is not a gate.
+REM  Escape hatch: RATCHET_DEPLOY_DIRTY=1, set nowhere in this repository.
+echo  Checking the files that will ship against their commits...
 node scripts/check-clean-tree.mjs >> deploy_check.txt 2>&1
 if errorlevel 1 goto :dirtytree
 echo  Running the same release gate used by CI...
@@ -134,11 +137,12 @@ echo  ============================================================
 
 :dirtytree
 echo  ============================================================
-echo  DEPLOY STOPPED - the working tree does not match a commit.
-echo  A folder deploy would publish bytes that are in no commit.
-echo  The uncommitted paths are listed in deploy_check.txt.
-echo  Commit or stash them, then run this again. To deploy a dirty
-echo  tree deliberately: set RATCHET_DEPLOY_DIRTY=1 first.
+echo  DEPLOY STOPPED - files that SHIP are not in any commit.
+echo  Deploying now would publish bytes no commit contains.
+echo  deploy_check.txt names them. Only shipping files count;
+echo  uncommitted work outside the deploy set is not the problem.
+echo  Commit those files, then run this again. To publish
+echo  uncommitted bytes deliberately: set RATCHET_DEPLOY_DIRTY=1.
 echo  Nothing was sent to production.
 echo  ============================================================
 goto :end
