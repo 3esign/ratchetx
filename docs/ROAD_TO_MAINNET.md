@@ -18,7 +18,7 @@ A green compile or model run is never a GO.
 | That rule against the real feed | **Unplayable.** 25-min mainnet sample: SOL/BTC push every 5 s, always `publish - prev = 1`, phase `publish mod 5 = 2` (270/300), drifting to 3 and 4. Minute-aligned targets bracketed: **0/25** on each of SOL, BTC, ETH. 5-min targets: **0/5**. | Fable, `docs/reviews/fable-2026-09-05/INSPECTION_2026-09-05.md` Appendix A |
 | Keyless recovery of an upgraded Pyth proof | **Proven possible** for prints actually submitted on Solana: tx `3jsTus...` slot 444408680 reconstructed end-to-end from public RPC — full 292 B HDw2 VAA from `WriteEncodedVaa` chunks, guardian set 1, 3 valid sigs of 5, 342 B rec2 `PostUpdate`, leaf folds to root. | Codex 10:16Z; `docs/reviews/svemir-2026-09-05/REPLAY_FEASIBILITY_ADDENDUM.md` |
 | Keyless source for *every* Pyth root | **Does not exist for us.** Upgraded wrapper uses chain-26 emitter `507974…`, guardian set 1 — not the legacy `e101`/set-7 PAS1 wrapper; Wormholescan lookup for the new emitter returns empty. Public quorum hosts answer without a key (HTTP 200, `wss://quorum-{1,2,3}.pyth.network/ws` handshake succeeds) but emitted **0 messages in a simultaneous 50 s observation**. The ledger exposes only submitted leaves; the unsubmitted tree cannot be recovered from a root. | Sol 10:08Z/10:23Z, Codex 10:16Z/10:30Z |
-| Adapter 2 (strict bracket) as shipped in the candidate | Its exact-SBF test fabricates a rec2-owned `Full` account with `set_account`; HDw2/rec2 never execute, so it is **not** an acceptance receipt. `PriceUpdateV2` stores no emitter/guardian/config provenance, so a current-config check at capture cannot prove the account was posted under that config. | Codex 10:22Z |
+| The strict-bracket adapter as shipped in the candidate (called "Adapter 2" that morning; the code now numbers it **1**, see the note under §2) | Its exact-SBF test fabricates a rec2-owned `Full` account with `set_account`; HDw2/rec2 never execute, so it is **not** an acceptance receipt. `PriceUpdateV2` stores no emitter/guardian/config provenance, so a current-config check at capture cannot prove the account was posted under that config. | Codex 10:22Z |
 | Forward landing race | Core computes `T = ceil((Clock@execution + lead)/grid)*grid`; the client freezes `T` from an earlier `chainNow`. Remaining landing budget is `0..grid-1`, not `lead`: at grid 60 s a 5 s wallet delay fails in **8.3 %** of clock phases. | Codex 10:00Z |
 | Candidate economics | `CandidateV2` is permanent actor-funded rent (measured 1,564,251 lamports; Need 1,646,580). Repeated candidate replacement strands rent. Existing irreversible `WORK_KIND_FIRST_CAPTURE` pays the first submitter, who can be displaced by a better one — double/wrong-worker payout. | Codex 10:23Z |
 | Programs on chain | Nothing G2 is deployed anywhere. Seal v2 `23k3r8…` on mainnet (authority retained); Core v1 `6sJn9…` is devnet. No C8ww / ANVG / SBPFv3 artifact exists yet. | Fable §1, Astra receipts |
@@ -43,7 +43,8 @@ ring PDA, 7 feeds x 100 % of target seconds, roots recomputed and required to eq
 root, 0 mismatches. The strict bracket is therefore blocked on **consumability, not availability** —
 the ring carries emitter `e101…`, while `rec2` accepts only chain-26 `507974…` under guardian set 1, and
 nobody can post ring leaves to Solana without an acceptable wrapper. If a keyless route to the upgraded
-wrapper for every root is ever found, adapter 2 becomes viable and this decision is reopened. The named
+wrapper for every root is ever found, the strict-bracket adapter (**adapter 1** in the code) becomes
+viable and this decision is reopened. The named
 decider Fable left open: read the encoded-VAA account of a live sponsored transaction *before* it is
 closed.
 
@@ -64,7 +65,14 @@ ruleset would hold for a fraction of each cycle and VOID everything else, perman
 except a new economy and a re-opened ledger for every player. Trading a chooser for "the game works when
 Pyth's scheduler happens to agree" is not the better trade.
 
-### Recommendation — D: MIN-CAPTURE (canonical adapter 1)
+### Recommendation — D: MIN-CAPTURE (canonical, **adapter 2** in the code)
+
+> **Numbering, fixed 2026-09-05 after I confused it myself.** The code is the authority and it reads:
+> `ADAPTER_PYTH_PUSH_V2 = 1` is the **strict bracket**, kept and marked experimental;
+> `ADAPTER_PYTH_MIN_CAPTURE_V2 = 2` is **MIN-CAPTURE**, the canonical rule
+> (`rcx-timepin-v2/src/lib.rs:29`, `onchain/rcx-timepin/model-v2.mjs:10,24`). Earlier prose in this
+> file said "adapter 2" for the strict bracket, because that is what Sol's candidate was called on
+> the morning of 09-05. Wherever the two disagree, the constant wins.
 
 > Admissible price for target `T` = the sponsored print with the **smallest `publish_time` such that
 > `publish_time >= T`**, among **all** candidates submitted before `T + max_post_target_lag`.
@@ -101,7 +109,7 @@ Consequences that come with it, and are part of the decision, not follow-ups:
    signer — never to `PriceUpdate.write_authority`, never to a displaced submitter.
 3. **`AMBIGUOUS` narrows** to two distinct Pyth-signed messages with the *same* `publish_time` (a safety net
    that should never fire). A later candidate with a larger `publish_time` is not a conflict — it is a no-op.
-4. **Adapter 2 (strict bracket) stays in the code, marked experimental**, unusable until a source that
+4. **The strict bracket (adapter 1) stays in the code, marked experimental**, unusable until a source that
    delivers every aggregate exists. It is not the default and must not be registered on mainnet.
 5. **The trust statement changes and must be published:** `rec2` governance is inside the TCB. Pin
    `wormhole`, `valid_data_sources` and `minimum_signatures` only — not the whole 370-byte config (Fable
@@ -256,7 +264,7 @@ No step is "done" without its exit evidence in git. A DONE without a commit hash
 > same-`publish_time`-different-hash only. Do not implement a different predicate.
 | # | Item | Exit evidence |
 | --- | --- | --- |
-| 1.1 | MIN-CAPTURE in `lifecycle.rs` (replace :1172 predicate), inline best-observation + `replace_if_better`, narrowed `AMBIGUOUS`, adapter 2 gated experimental | host tests incl. **bracket negatives** (none exist today at any level) |
+| 1.1 | MIN-CAPTURE in `lifecycle.rs` (replace :1172 predicate), inline best-observation + `replace_if_better`, narrowed `AMBIGUOUS`, adapter 1 (strict bracket) gated experimental | host tests incl. **bracket negatives** (none exist today at any level) |
 | 1.2 | Same predicate in `foreign_timepin.rs::validate_record_against_spec`, `model.mjs`, vectors, `SETTLEMENT.md`, `CORE_G3_ARCHIVE.md` | `test_client_model_parity.mjs`: byte-identical encoders JS vs Rust |
 | 1.3 | Clock-skew gate (B6.7): `clock + max_future_skew >= target`, floor `max_future_skew_seconds >= 30`, same in `foreign_timepin.rs:291-294` | host test at the boundary |
 | 1.4 | Forward landing race (Codex 10:00Z): accept any aligned `entry_target_ts >= Clock + minLead`, then authenticate the exact OPEN Need; client picks `align_up(freshClock + lead + oneGridSlack)` | boundary tests: succeeds at `e = T-L`, fails at `T-L+1`; misaligned/past fail; same `T` → same Need; full rollback |
