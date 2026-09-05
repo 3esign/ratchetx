@@ -44,44 +44,48 @@ naming the other.
 
 ## 3. The change: PlayerDay becomes a buffer, exactly as the Need did
 
-This is not a new pattern. M1 applied it to `TimepinNeedV2` this morning: `open_refs`, `rent_payer`,
-and a close that refunds. The same three moves fit `PlayerDay` without touching day semantics,
-without touching `score_day`, and without any shot in flight losing its day.
+**Corrected 2026-09-05 14:29Z.** The first version of this section asked for two fields and for edits
+to `record_accepted` and `record_terminal`. **One of those fields already exists under another name,
+and the two edits are already written.** `record_accepted` (`lib.rs:4160`) does `player_day.accepted
++= 1` at every seal; `record_terminal` (`lib.rs:4176`) does `player_day.terminal += 1` at every
+terminal transition and already guards with `require!(player_day.terminal < player_day.accepted,
+ScoreCounterUnderflow)`. The reference count I proposed to add **is** `accepted - terminal`,
+maintained on every path, with an underflow guard that predates this document. Adding `open_refs`
+would have been a second copy of a number the program already keeps, and two copies of one fact are
+how they come to disagree.
 
-**3.1 — two fields on the struct** (`state.rs:389-403`, `LEN` 100 → 136)
+So the change is smaller than M1's was, and it does not touch the hot scoring paths at all.
+
+**3.1 — one field on the struct** (`state.rs:406-419`, `LEN` 100 → 132)
 
 ```rust
-pub open_refs: u32,     // shots whose score_day binds this account and have not terminalized
 pub rent_payer: Pubkey, // the only address a close will ever refund
 ```
 
-`LEN` must be recomputed, not guessed: `state.rs:2822` already asserts
-`serialized_len(&PlayerDay::default()) == PlayerDay::LEN`, so a wrong number fails there first.
-That assertion is the reason this is safe to change.
+`state.rs:2822` already asserts `serialized_len(&PlayerDay::default()) == PlayerDay::LEN`, so a
+wrong length fails there first. That assertion is the reason this is safe to change without a
+compiler in the room. `state.rs` belongs to Opus C, so this line is posted rather than landed.
 
-**3.2 — set them once, at creation** (`initialize_or_authenticate_player_day`, `lib.rs:4004-4027`)
+**3.2 — set it once, at creation** (`initialize_or_authenticate_player_day`, `lib.rs:4004-4027`)
 
-Inside the `if player_day.schema == 0` branch only: `open_refs: 0`, and `rent_payer` = the account
-that funds the init. Everything else in that function is unchanged, and `authenticate_player_day`
-must **not** compare either field — they are lifecycle state, not identity.
+Inside the `if player_day.schema == 0` branch only: `rent_payer` = the account that funds the init.
+`authenticate_player_day` must **not** compare it — it is lifecycle state, not identity.
 
-**3.3 — count the references**
+**3.3 — no change to the counters**
 
-- **increment** in `record_accepted` (`lib.rs:4160`), which is where a shot first binds its
-  `score_day`: it is called from all four seal paths (`lib.rs:1007`, `:1175`, `:1331`, `:1515`).
-- **decrement** in `record_terminal` (`lib.rs:4176`), called from every terminal transition
-  (`lib.rs:1635`, `:1857`, `:1928`, `:2080`, `:2240`, `:2305`).
-
-The pairing is already exact — every shot that is recorded accepted is eventually recorded terminal
-— which is why this needs no new bookkeeping. Decrement must saturate at zero rather than wrap.
+None. `record_accepted` and `record_terminal` are untouched.
 
 **3.4 — one instruction**
 
-`close_player_day(ctx)`: requires `player_day.open_refs == 0`, refunds the full lamport balance to
-the recorded `rent_payer` and to nobody else, and is permissionless — anyone may call it, since the
-refund address is fixed in the account and the caller cannot redirect it. Permissionless matters:
-the player has no reason to come back and close yesterday's account, so somebody else has to be able
-to, and the same argument the crank rests on applies here.
+`close_player_day(ctx)`: requires `accepted > 0 && terminal == accepted` — every shot that ever
+bound this day has terminalized — and closes with Anchor's `close = rent_payer`, the shape this
+program already uses for `Shot` at `lib.rs:3059` (`close = rent_refund`). Permissionless: the player
+has no reason to come back and close yesterday's account, so somebody else has to be able to, and
+the refund address is fixed in the account so a caller cannot redirect it.
+
+Re-creation after a close is already safe and needs no new path: a later shot binding that same day
+re-enters `initialize_or_authenticate_player_day` through the existing `schema == 0` branch with
+`accepted` back at 0, and whoever funds it becomes the new `rent_payer`.
 
 ## 4. What must be true before M1 or M2 may read GO
 
@@ -97,10 +101,11 @@ The row should assert the behaviour it names: a `pub fn` whose name contains `cl
 
 ## 5. Tests that must fail first
 
-1. `open_refs` is `0` at creation and `rent_payer` is the funder — not the signer of a later call.
-2. Sealing a shot increments; terminalizing it decrements; the counter returns to zero.
-3. `close_player_day` is **refused** while `open_refs > 0`.
-4. `close_player_day` refunds `rent_payer`, not the caller, when a third party calls it.
+1. `rent_payer` is the funder at creation — not the signer of some later call.
+2. `close_player_day` is **refused** while `terminal < accepted`.
+3. `close_player_day` refunds `rent_payer`, not the caller, when a third party calls it.
+4. A day closed and then re-entered by a later shot re-initialises cleanly, with the new funder as
+   `rent_payer` and `accepted` back at zero.
 5. A shot sealed on day D and revealed on day D+1 still authenticates — the midnight case, which is
-   the one this whole document exists to protect. It should be written before the change and pass
-   before and after it.
+   the one this whole document exists to protect. Write it before the change and watch it pass both
+   before and after.
