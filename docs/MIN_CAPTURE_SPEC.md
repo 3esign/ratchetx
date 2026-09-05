@@ -17,6 +17,21 @@ minute-aligned targets bracketed on each of SOL, BTC and ETH; **0 of 5** five-mi
 There is no keyless source that would give us every aggregate (three independent probes; room
 10:16Z–10:31Z). The rule must therefore change, not the source.
 
+**Corrected 2026-09-05 12:51Z with a longer run, because the numbers above were one window.**
+`docs/reviews/cadence/cadence-2026-09-05.ndjson` — 63 minutes, all seven feeds, 442 targets at grid
+60, zero RPC errors:
+
+| | MIN-CAPTURE | strict bracket | first-print lag p99 |
+| --- | --- | --- | --- |
+| SOL, BTC | **100.0 %** | 11.1 % (15.4 % at grid 300) | **4 s** |
+| ETH, BONK, PUMP, JUP, WIF | **100.0 %** | 0–1.6 % | **51–52 s** |
+
+The strict bracket is **not** zero: the publish phase sweeps, and SOL visited all five phase values
+inside the hour, so the 0-of-25 figure was an unlucky window rather than the rule. The verdict does
+not change — 11 % is not a game, and a phase that *moves* is the worst possible thing to pin into a
+write-once ruleset — but do not quote 0/25 again. MIN-CAPTURE settling **442 of 442** is the number
+that matters, and the two lag populations are why `max_post_target_lag_seconds` must be per feed.
+
 ## 1. The rule
 
 > For target `T`, the admissible observation is the sponsored print with the **smallest
