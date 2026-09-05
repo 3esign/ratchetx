@@ -1,0 +1,374 @@
+diff --git a/onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs b/onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs
+index a035cec..ca68239 100644
+--- a/onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs
++++ b/onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs
+@@ -73,7 +73,10 @@ const SHOT_LEN: usize = 780;
+ // added 1 (and SHOT_RESULT_LEN on top) were describing the account that used to
+ // grow. RELOAD_HISTORY_BASE_LEN below is a DIFFERENT account that M3 did not
+ // touch and correctly stays 87.
+-const HISTORY_BASE_LEN: usize = 118;
++const HISTORY_PENDING_OFFSET: usize = 8 + 2 + 1 + 32 + 32 + 8;
++const HISTORY_MASK_OFFSET: usize = HISTORY_PENDING_OFFSET + 1;
++const HISTORY_ROOT_OFFSET: usize = HISTORY_MASK_OFFSET + 2;
++const HISTORY_BASE_LEN: usize = HISTORY_ROOT_OFFSET + 32;
+ const SHOT_RESULT_LEN: usize = 165;
+ const WORK_BASE_LEN: usize = 87;
+ const WORK_RECORD_LEN: usize = 106;
+@@ -588,7 +591,7 @@ fn encode_vec32(values: &[[u8; 32]]) -> Vec<u8> {
+     out
+ }
+ 
+-fn evidence_policy_canonical() -> Vec<u8> {
++fn evidence_policy_canonical(max_confidence_bps: u32) -> Vec<u8> {
+     let mut out = Vec::with_capacity(134);
+     out.extend_from_slice(&SCHEMA.to_le_bytes());
+     out.push(SPEC_ADAPTER);
+@@ -606,7 +609,7 @@ fn evidence_policy_canonical() -> Vec<u8> {
+     out.extend_from_slice(&5u16.to_le_bytes());
+     out.extend_from_slice(&(-12i8).to_le_bytes());
+     out.extend_from_slice(&2i8.to_le_bytes());
+-    out.extend_from_slice(&1_000u32.to_le_bytes());
++    out.extend_from_slice(&max_confidence_bps.to_le_bytes());
+     assert_eq!(out.len(), 134);
+     out
+ }
+@@ -663,6 +666,8 @@ struct Kernel {
+ 
+ struct World {
+     svm: LiteSVM,
++    archived_events: Vec<Vec<u8>>,
++    spec_confidence_bps: u32,
+ }
+ 
+ impl World {
+@@ -721,7 +726,11 @@ impl World {
+                 .expect("LiteSVM bundled processor account");
+             assert!(account.executable, "{program} must be executable");
+         }
+-        let mut world = Self { svm };
++        let mut world = Self {
++            svm,
++            archived_events: Vec::new(),
++            spec_confidence_bps: 1_000,
++        };
+         world.set_clock(NOW);
+         world
+     }
+@@ -848,10 +857,96 @@ impl World {
+             signers,
+             self.svm.latest_blockhash(),
+         );
+-        self.svm
+-            .send_transaction(tx)
+-            .map(|metadata| metadata.logs)
+-            .map_err(|error| format!("{}\n{:?}", error.meta.logs.join("\n"), error.err))
++        match self.svm.send_transaction(tx) {
++            Ok(metadata) => {
++                self.record_archives(&metadata.logs);
++                println!("compute_units={}", metadata.compute_units_consumed);
++                Ok(metadata.logs)
++            }
++            Err(error) => Err(format!("{}\n{:?}", error.meta.logs.join("\n"), error.err)),
++        }
++    }
++
++    // Preserve detailed result assertions after M3: rows are emitted events,
++    // while the fixed account authenticates their count, mask and rolling root.
++    fn record_archives(&mut self, logs: &[String]) {
++        let mut stack: Vec<&str> = Vec::new();
++        for line in logs {
++            if let Some(program) = line.strip_prefix("Program ") {
++                if let Some((id, _)) = program.split_once(" invoke [") {
++                    stack.push(id);
++                } else if let Some(id) = program.strip_suffix(" success") {
++                    assert_eq!(stack.pop(), Some(id));
++                } else if let Some((id, _)) = program.split_once(" failed: ") {
++                    assert_eq!(stack.pop(), Some(id));
++                }
++            }
++            if let Some(encoded) = line.strip_prefix("Program data: ") {
++                let bytes = BASE64.decode(encoded).expect("valid event base64");
++                if bytes.starts_with(&discriminator("event", "ShotArchived")) {
++                    assert_eq!(
++                        stack.last().copied(),
++                        Some(core_program().to_string().as_str()),
++                        "ShotArchived must be emitted by the pinned Core program"
++                    );
++                    assert_eq!(bytes.len(), 154 + SHOT_RESULT_LEN);
++                    self.archived_events.push(bytes);
++                }
++            }
++        }
++        assert!(stack.is_empty());
++    }
++
++    fn archived_row(
++        &self,
++        history_key: Pubkey,
++        economy: &[u8; 32],
++        player: &Pubkey,
++        nonce: u64,
++    ) -> Vec<u8> {
++        let page = self.svm.get_account(&history_key).expect("fixed HistoryPage");
++        assert_eq!(page.owner, core_program());
++        assert_eq!(page.data.len(), HISTORY_BASE_LEN);
++        assert_eq!(&page.data[..8], &discriminator("account", "HistoryPage"));
++        assert_eq!(read_u16(&page.data, 8), SCHEMA);
++        assert_eq!(&page.data[11..43], economy);
++        assert_eq!(&page.data[43..75], player.as_ref());
++        let page_index = read_u64(&page.data, 75);
++        assert_eq!(history_key, history_page_pda(economy, player, page_index));
++        assert_eq!(page_index, nonce / 16);
++        let pending = page.data[HISTORY_PENDING_OFFSET];
++        assert!(pending <= 16);
++        let mut root = [0u8; 32];
++        let mut mask = 0u16;
++        let mut sequence = 0u8;
++        let mut selected = None;
++        for event in self.archived_events.iter().filter(|event| {
++            &event[8..40] == economy && &event[40..72] == player.as_ref()
++                && read_u64(event, 80) == page_index
++        }) {
++            let event_nonce = read_u64(event, 72);
++            assert_eq!(event_nonce / 16, page_index);
++            let slot = event[88];
++            assert_eq!(slot as u64, event_nonce % 16);
++            assert!(slot < pending);
++            assert_eq!(mask & (1u16 << slot), 0, "no duplicate terminal slot");
++            mask |= 1u16 << slot;
++            sequence += 1;
++            assert_eq!(event[89], sequence, "archive sequence has no omission or repeat");
++            let row = &event[154..];
++            let row_hash = hash_parts(&[b"rcx-core:history-row:g2\0", &event_nonce.to_le_bytes(), row]);
++            assert_eq!(read_hash(event, 90), row_hash);
++            root = hash_parts(&[b"rcx-core:history-chain:g2\0", &root, &row_hash]);
++            assert_eq!(read_hash(event, 122), root);
++            if event_nonce == nonce {
++                assert!(selected.is_none(), "one archive per nonce");
++                selected = Some(row.to_vec());
++            }
++        }
++        assert_eq!(read_u16(&page.data, HISTORY_MASK_OFFSET), mask);
++        assert_eq!(mask.count_ones(), u32::from(sequence));
++        assert_eq!(read_hash(&page.data, HISTORY_ROOT_OFFSET), root);
++        selected.expect("requested nonce has a committed archive event")
+     }
+ 
+     fn instruction(&self, name: &str, args: Vec<u8>, accounts: Vec<AccountMeta>) -> Instruction {
+@@ -880,7 +975,7 @@ impl World {
+     }
+ 
+     fn register_timepin_spec(&mut self, actor: &Keypair) -> ([u8; 32], [u8; 32], Pubkey) {
+-        let policy = evidence_policy_canonical();
++        let policy = evidence_policy_canonical(self.spec_confidence_bps);
+         let policy_hash = hash_parts(&[TIMEPIN_POLICY_DOMAIN, &policy]);
+         let config = receiver_config_data();
+         let receiver_config_hash = hash_parts(&[&config]);
+@@ -2582,8 +2677,9 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page()
+     assert_eq!(read_i64(&sealed.data, 262), day);
+     let pending_history = world.svm.get_account(&history_key).unwrap();
+     assert_eq!(pending_history.data.len(), HISTORY_BASE_LEN);
+-    assert_eq!(read_u32(&pending_history.data, 83), 1);
+-    assert_eq!(pending_history.data[87], 0);
++    assert_eq!(pending_history.data[HISTORY_PENDING_OFFSET], 1);
++    assert_eq!(read_u16(&pending_history.data, HISTORY_MASK_OFFSET), 0);
++    assert_eq!(read_hash(&pending_history.data, HISTORY_ROOT_OFFSET), [0; 32]);
+ 
+     // A dust-funded canonical PDA cannot veto sponsor initialization.
+     world.put_empty_system_account(work_key, 17);
+@@ -2650,7 +2746,10 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page()
+     assert_eq!(read_hash(&awaiting.data, 475), exit.message_hash);
+     assert_eq!(read_hash(&awaiting.data, 507), exit.result_hash);
+     assert_eq!(awaiting.data[567], 1);
+-    assert_eq!(read_i64(&awaiting.data, 584), exit_target + 300);
++    assert_eq!(
++        read_i64(&awaiting.data, 584),
++        exit_target + CAPTURE_DEADLINE_OFFSET + i64::from(REVEAL_WINDOW)
++    );
+     assert_eq!(&awaiting.data[604..636], worker.pubkey().as_ref());
+     assert_ne!(&awaiting.data[716..748], &[0; 32]);
+     assert_eq!(&awaiting.data[748..780], &[0; 32]);
+@@ -2679,23 +2778,23 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page()
+ 
+     let history = world.svm.get_account(&history_key).unwrap();
+     assert_eq!(history.data.len(), HISTORY_BASE_LEN);
+-    assert_eq!(read_u32(&history.data, 83), 1);
+-    assert_eq!(history.data[87], 1);
+-    let result = 88;
+-    assert_eq!(&history.data[result..result + 32], &kernel.ruleset_hash);
+-    assert_eq!(&history.data[result + 32..result + 64], &salt);
++    assert_eq!(history.data[HISTORY_PENDING_OFFSET], 1);
++    let row = world.archived_row(history_key, &kernel.economy_hash, &player.pubkey(), nonce);
++    let result = 0;
++    assert_eq!(&row[result..result + 32], &kernel.ruleset_hash);
++    assert_eq!(&row[result + 32..result + 64], &salt);
+     assert_eq!(
+-        (history.data[result + 64], history.data[result + 65]),
++        (row[result + 64], row[result + 65]),
+         (4, 0)
+     );
+-    assert_eq!(read_u64(&history.data, result + 66), stake);
+-    assert_eq!(read_i64(&history.data, result + 74), NOW);
+-    assert_eq!(read_i64(&history.data, result + 82), entry_target);
+-    assert_eq!(read_i64(&history.data, result + 90), exit_target);
+-    assert_eq!(history.data[result + 98], side);
+-    assert_eq!(read_u16(&history.data, result + 99), p_bps);
++    assert_eq!(read_u64(&row, result + 66), stake);
++    assert_eq!(read_i64(&row, result + 74), NOW);
++    assert_eq!(read_i64(&row, result + 82), entry_target);
++    assert_eq!(read_i64(&row, result + 90), exit_target);
++    assert_eq!(row[result + 98], side);
++    assert_eq!(read_u16(&row, result + 99), p_bps);
+     assert_eq!(
+-        &history.data[result + 101..result + 133],
++        &row[result + 101..result + 133],
+         Pubkey::default().as_ref()
+     );
+     let expected_game_hash = expected_game_result_hash(
+@@ -2721,7 +2820,7 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page()
+         day,
+     );
+     assert_eq!(
+-        read_hash(&history.data, result + 133),
++        read_hash(&row, result + 133),
+         expected_game_hash,
+         "compact row must bind both authenticated Timepin terminal hashes"
+     );
+@@ -2877,16 +2976,17 @@ fn equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe
+ 
+     let history = world.svm.get_account(&history_key).unwrap();
+     assert_eq!(history.data.len(), HISTORY_BASE_LEN);
+-    assert_eq!(history.data[87], 1);
+-    let result = 88;
+-    assert_eq!(&history.data[result + 32..result + 64], &commit);
++    assert_eq!(history.data[HISTORY_PENDING_OFFSET], 1);
++    let row = world.archived_row(history_key, &kernel.economy_hash, &player.pubkey(), nonce);
++    let result = 0;
++    assert_eq!(&row[result + 32..result + 64], &commit);
+     assert_eq!(
+-        (history.data[result + 64], history.data[result + 65]),
++        (row[result + 64], row[result + 65]),
+         (5, 5)
+     );
+-    assert_eq!(read_u64(&history.data, result + 66), stake);
+-    assert_eq!(history.data[result + 98], 0);
+-    assert_eq!(read_u16(&history.data, result + 99), 0);
++    assert_eq!(read_u64(&row, result + 66), stake);
++    assert_eq!(row[result + 98], 0);
++    assert_eq!(read_u16(&row, result + 99), 0);
+     let expected_game_hash = expected_game_result_hash(
+         &kernel.economy_hash,
+         &player.pubkey(),
+@@ -2909,7 +3009,7 @@ fn equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe
+         0,
+         day,
+     );
+-    assert_eq!(read_hash(&history.data, result + 133), expected_game_hash);
++    assert_eq!(read_hash(&row, result + 133), expected_game_hash);
+ 
+     let ledger = world
+         .svm
+@@ -3377,26 +3477,28 @@ fn delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionle
+         delegated_history.data.len(),
+         HISTORY_BASE_LEN
+     );
+-    let first_result = 88;
++    assert_eq!(delegated_history.data[HISTORY_PENDING_OFFSET], 1);
++    let row = world.archived_row(history_key, &kernel.economy_hash, &player.pubkey(), nonce);
++    let first_result = 0;
+     assert_eq!(
+         (
+-            delegated_history.data[first_result + 64],
+-            delegated_history.data[first_result + 65],
++            row[first_result + 64],
++            row[first_result + 65],
+         ),
+         (4, 0)
+     );
+     assert_eq!(
+-        &delegated_history.data[first_result + 101..first_result + 133],
++        &row[first_result + 101..first_result + 133],
+         delegate.pubkey().as_ref()
+     );
+     assert_eq!(
+-        read_hash(&delegated_history.data, first_result + 133),
++        read_hash(&row, first_result + 133),
+         expected_game_result_hash(
+             &kernel.economy_hash,
+             &player.pubkey(),
+             nonce,
+             &kernel.ruleset_hash,
+-            &salt,
++            &commit,
+             stake,
+             NOW,
+             entry_target,
+@@ -3466,20 +3568,20 @@ fn delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionle
+     let history = world.svm.get_account(&history_key).unwrap();
+     assert_eq!(
+         history.data.len(),
+-        HISTORY_BASE_LEN + 2 * (1 + SHOT_RESULT_LEN)
++        HISTORY_BASE_LEN
+     );
+-    assert_eq!(read_u32(&history.data, 83), 2);
+-    assert_eq!(history.data[253], 1);
+-    let second_result = 254;
++    assert_eq!(history.data[HISTORY_PENDING_OFFSET], 2);
++    let row = world.archived_row(history_key, &kernel.economy_hash, &player.pubkey(), rejected_nonce);
++    let second_result = 0;
+     assert_eq!(
+         (
+-            history.data[second_result + 64],
+-            history.data[second_result + 65],
++            row[second_result + 64],
++            row[second_result + 65],
+         ),
+         (5, 1)
+     );
+     assert_eq!(
+-        read_hash(&history.data, second_result + 133),
++        read_hash(&row, second_result + 133),
+         expected_game_result_hash(
+             &kernel.economy_hash,
+             &player.pubkey(),
+@@ -3532,7 +3634,8 @@ fn observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless() {
+         .unwrap();
+     let sealed_ts = world.svm.get_sysvar::<Clock>().unix_timestamp;
+     assert_eq!(sealed_ts, entry_target + CAPTURE_DEADLINE_OFFSET);
+-    let exit_target = sealed_ts + 300;
++    let exit_target = (sealed_ts + 300 + i64::from(SPEC_GRID) - 1)
++        .div_euclid(i64::from(SPEC_GRID)) * i64::from(SPEC_GRID);
+     let day = score_day(exit_target);
+     world
+         .open_timepin_need(&player, kernel.spec_hash, exit_target)
+@@ -3592,14 +3695,15 @@ fn observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless() {
+ 
+     let history = world.svm.get_account(&history_key).unwrap();
+     assert_eq!(history.data.len(), HISTORY_BASE_LEN);
+-    assert_eq!(history.data[87], 1);
+-    let result = 88;
++    assert_eq!(history.data[HISTORY_PENDING_OFFSET], 1);
++    let row = world.archived_row(history_key, &kernel.economy_hash, &player.pubkey(), nonce);
++    let result = 0;
+     assert_eq!(
+-        (history.data[result + 64], history.data[result + 65]),
++        (row[result + 64], row[result + 65]),
+         (5, 3)
+     );
+     assert_eq!(
+-        read_hash(&history.data, result + 133),
++        read_hash(&row, result + 133),
+         expected_game_result_hash(
+             &kernel.economy_hash,
+             &player.pubkey(),
+@@ -3854,7 +3958,10 @@ fn settle_final_rejects_shot_from_another_economy_and_ruleset() {
+     let exit = world.put_final(kernel.spec_hash, exit_target, 11_000);
+     let other_registrar = world.wallet();
+     let other_legacy_player = world.wallet();
++    // Distinguish the immutable second spec through a non-derived policy field.
++    world.spec_confidence_bps = 999;
+     let other_kernel = world.bootstrap(&other_registrar, &other_legacy_player.pubkey());
++    assert_ne!(other_kernel.spec_hash, kernel.spec_hash);
+     assert_ne!(other_kernel.economy_hash, kernel.economy_hash);
+     assert_ne!(other_kernel.ruleset_hash, kernel.ruleset_hash);
+     world.open_ledger(&player, &other_kernel).unwrap();
