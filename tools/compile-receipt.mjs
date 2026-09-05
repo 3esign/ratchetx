@@ -147,6 +147,26 @@ export function verifyCrate(c, readFile = f => fs.readFileSync(f)) {
     if (!(rel in (receipt.files || {}))) drift.push(`${rel} is new since the receipt`);
   }
   if (drift.length) return { ok: false, receipt, reason: `receipt describes different bytes: ${drift.join(', ')}` };
+
+  // INTERNAL CONSISTENCY, because the hashes only prove WHICH bytes a receipt
+  // describes - never that its verdicts came from the same run. I proved that on
+  // myself at 20:2xZ: I patched the file hashes after a green recompile and left
+  // the previous run's test block behind, so the receipt claimed fresh source
+  // with 28 passed and 1 failed while carrying a 29-name passing list. It was
+  // internally impossible and nothing noticed. These three lines notice.
+  const t = receipt.test || {};
+  const inconsistent = [];
+  if (Array.isArray(t.passing) && typeof t.passed === 'number' && t.passing.length !== t.passed)
+    inconsistent.push(`test.passed is ${t.passed} but the passing list has ${t.passing.length} names`);
+  if (Array.isArray(t.failing) && typeof t.failed === 'number' && t.failing.length !== t.failed)
+    inconsistent.push(`test.failed is ${t.failed} but the failing list has ${t.failing.length} names`);
+  if ((t.exit === 0) !== (t.failed === 0))
+    inconsistent.push(`test.exit is ${t.exit} but test.failed is ${t.failed}`);
+  if (inconsistent.length)
+    return { ok: false, receipt,
+             reason: `the receipt contradicts itself, so it was assembled rather than produced: `
+                   + `${inconsistent.join('; ')}. Regenerate it with a compiler; do not hand-edit one.` };
+
   return { ok: true, receipt };
 }
 

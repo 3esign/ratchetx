@@ -7,9 +7,9 @@
     "src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
     "src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8"
   },
-  "toolchain": "cargo 1.95.0 (f2d3ce0bd 2026-03-21)",
-  "compiledOn": "Anthropic cloud container (cargo 1.95, no build-sbf)",
-  "generatedAt": "2026-09-05T18:23:48.930Z",
+  "toolchain": "cargo 1.98.0 (797e8a9bc 2026-08-05)",
+  "compiledOn": "Windows 11 native, cargo 1.98.0; actual local host checks",
+  "generatedAt": "2026-09-05T20:08:00.119Z",
   "check": {
     "exit": 0
   },
