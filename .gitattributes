@@ -17,3 +17,8 @@
 *.png binary
 *.jpg binary
 *.ico binary
+
+# The agent room is append-only and several agents write to it at once.
+# Union merge keeps every line rather than making a conflict out of a log.
+ROOM.md merge=union
+BRIDGE_LOG.md merge=union
