@@ -339,12 +339,16 @@ const latestSummary = () => {
 // gate can refuse is refused below against these, so the gate is proven red
 // before it is ever trusted green.
 
+const feedSummary = ({ p99, max, gapMax, targets = 1440 }) => ({
+  publishGapSeconds: { p50: gapMax, p99: gapMax, max: gapMax },
+  grids: { 60: { targets, minCapture: { firstPrintLagSeconds: { p99, max } } } },
+});
 const goodSummary = () => ({
   observedHours: 24.5,
   pollIntervalMs: 1000,
   feeds: {
-    SOL: { grids: { 60: { targets: 1440, minCapture: { firstPrintLagSeconds: { p99: 7 } } } } },
-    ETH: { grids: { 60: { targets: 1440, minCapture: { firstPrintLagSeconds: { p99: 53 } } } } },
+    SOL: feedSummary({ p99: 7, max: 9, gapMax: 12 }),
+    ETH: feedSummary({ p99: 53, max: 55, gapMax: 58 }),
   },
 });
 const goodManifest = () => ({
@@ -358,19 +362,50 @@ check(() => {
   const rows = auditManifest(goodManifest(), goodSummary());
   assert.equal(rows.length, 2, 'both feeds audited');
   assert.deepEqual(rows[0], {
-    symbol: 'SOL', maxPostTargetLagSeconds: 30, measuredP99: 7, targets: 1440,
-  }, 'the comparison is returned, not just asserted');
-}, 'a measured manifest passes');
+    symbol: 'SOL', maxPostTargetLagSeconds: 30,
+    measuredMax: 9, measuredP99: 7, gapMax: 12, headroomSeconds: 18, targets: 1440,
+  }, 'the comparison is returned with the headroom, not just asserted');
+  assert.equal(rows[1].headroomSeconds, 62, 'ETH: 120 s against a 58 s gap');
+}, 'a measured manifest passes and reports its headroom');
 
 check(() => {
-  // The one that matters. ETH's p99 is 53 s; a manifest that promises 30 s would
-  // void every target whose print lands between 30 and 53 s late, forever.
+  // The one that matters. ETH's max is 55 s; a manifest promising 30 s would void
+  // every target whose print lands between 30 and 55 s late, forever.
   const m = goodManifest();
   m.feeds[1].maxPostTargetLagSeconds = 30;
   assert.throws(() => auditManifest(m, goodSummary()),
-    /ETH: maxPostTargetLagSeconds 30 s is below the measured p99 first-print lag 53 s/,
-    'a lag below the measured p99 is refused, by name and by number');
-}, 'a lag below the measured p99 is refused');
+    /ETH: maxPostTargetLagSeconds 30 s is below the measured MAXIMUM first-print lag 55 s/,
+    'a lag below the measured maximum is refused, by name and by number');
+}, 'a lag below the measured maximum is refused');
+
+check(() => {
+  // THE STATISTIC IS THE MAXIMUM, NOT THE p99, and this is the case that
+  // separates them. 54 s clears ETH's p99 of 53 and misses its max of 55: one
+  // target in a hundred voids, permanently, in an economy that cannot be edited.
+  // A percentile is the right statistic for a service level and the wrong one for
+  // a constant.
+  const m = goodManifest();
+  m.feeds[1].maxPostTargetLagSeconds = 54;
+  assert.throws(() => auditManifest(m, goodSummary()),
+    /below the measured MAXIMUM first-print lag 55 s \(p99 53 s\)/,
+    'clearing the percentile is not clearing the tail');
+}, 'a lag that clears p99 and misses the max is refused');
+
+check(() => {
+  // And the tail we saw is not the tail that exists. A target landing just after
+  // a print waits the whole publish gap, so the widest observed gap bounds the
+  // targets nobody sampled. Measured 2026-09-05: WIF at a 52 s median with a 58 s
+  // gap inside one hour, against a derived lag of 59.
+  const m = goodManifest();
+  m.feeds[1].maxPostTargetLagSeconds = 56;   // clears max 55, misses gap 58
+  assert.throws(() => auditManifest(m, goodSummary()),
+    /below the widest observed publish gap 58 s/,
+    'a lag narrower than the widest gap is refused');
+  const ok = goodManifest();
+  ok.feeds[1].maxPostTargetLagSeconds = 58;
+  assert.equal(auditManifest(ok, goodSummary())[1].headroomSeconds, 0,
+    'exactly the gap is admissible, with zero headroom, and the report says zero');
+}, 'the widest observed publish gap is a floor too');
 
 check(() => {
   assert.throws(() => auditManifest(goodManifest(), null),
@@ -402,10 +437,15 @@ check(() => {
     /no first-print lag measured/, 'an empty measurement is not a zero measurement');
   assert.throws(() => auditManifest({ feeds: [] }, goodSummary()),
     /declares no feeds/, 'an empty manifest does not pass by having nothing to check');
+  const stillD = goodManifest();
+  stillD.feeds[0].maxPostTargetLagSeconds = { tag: 'D', proposed: 59, derivation: 'grid - 1' };
+  assert.throws(() => auditManifest(stillD, goodSummary()),
+    /still tagged D and therefore undecided: SOL/,
+    'a row the owner has not accepted may not be inside a FINAL manifest, however well reasoned');
   const notANumber = goodManifest();
-  notANumber.feeds[0].maxPostTargetLagSeconds = { tag: 'D', note: 'to be decided' };
+  notANumber.feeds[0].maxPostTargetLagSeconds = { proposed: 'soon' };
   assert.throws(() => auditManifest(notANumber, goodSummary()),
-    /is not a number/, 'an undecided parameter is not a decided one');
+    /is not a number/, 'and a non-number is still a non-number');
 }, 'every other way the gate can be cheated is refused');
 
 // --- and now the real files ---------------------------------------------------
@@ -476,8 +516,14 @@ check(() => {
       `${ADAPTER_PYTH_PUSH_V2} (strict bracket, experimental) and ${ADAPTER_PYTH_MIN_CAPTURE_V2} ` +
       '(MIN-CAPTURE). "adapter 3" was used informally in the room last night and never committed.');
     assert.ok((manifestData.feeds ?? []).length > 0, 'a manifest with no feeds is not a draft, it is a stub');
-    assert.ok(!/"tag"\s*:\s*"D"/.test(JSON.stringify(manifestData)),
-      'a row still tagged D is undecided; promote it back to the proposal rather than shipping the tag');
+    // NOTE: tag "D" is EXPECTED here and is not an error. A DRAFT manifest whose
+    // rows are marked "decision reserved for the owner" is exactly what a draft
+    // should look like - Opus A's derived lag lands as {tag: D, proposed: 59,
+    // derivation: ...}, which is a proposal with its reasoning attached, not a
+    // silent decision. The rule that no D may survive belongs on the FINAL path,
+    // in auditManifest, and that is where it now is. Asserting it here would
+    // punish the honest shape and reward stripping the tag, which is precisely
+    // what went wrong at b44341b.
     return;
   }
   const rows = auditManifest(manifestData, found?.data);

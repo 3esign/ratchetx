@@ -222,6 +222,18 @@ export function auditManifest(manifest, summary, {
     throw new Error(
       `poll interval ${summary.pollIntervalMs} ms is too coarse to bound a 5 s feed's first print`);
 
+  // A FINAL manifest may not carry an undecided row. On the DRAFT path tag "D"
+  // is the correct shape - a proposal with its reasoning attached - so this rule
+  // lives here and only here. Stripping the tag to pass a gate is what produced
+  // b44341b, where five owner decisions became values overnight.
+  const undecided = (manifest.feeds ?? [])
+    .filter(f => f.maxPostTargetLagSeconds?.tag === 'D')
+    .map(f => f.symbol);
+  if (undecided.length)
+    throw new Error(
+      `still tagged D and therefore undecided: ${undecided.join(', ')}. A FINAL manifest is what ` +
+      'someone registers from; a row the owner has not accepted may not be inside it.');
+
   const rows = [];
   for (const feed of manifest.feeds ?? []) {
     const measured = summary.feeds?.[feed.symbol];
@@ -231,19 +243,42 @@ export function auditManifest(manifest, summary, {
     if (!grid) throw new Error(`${feed.symbol}: no measurement at grid ${gridKey}`);
     if (!(grid.targets >= minTargets))
       throw new Error(`${feed.symbol}: ${grid.targets} targets measured, GATE 2 asks for at least ${minTargets}`);
-    const p99 = grid.minCapture.firstPrintLagSeconds.p99;
-    if (p99 === null || p99 === undefined)
+    const lags = grid.minCapture.firstPrintLagSeconds;
+    if (lags.p99 === null || lags.p99 === undefined)
       throw new Error(`${feed.symbol}: no first-print lag measured`);
     const raw = feed.maxPostTargetLagSeconds;
     const lag = (raw && typeof raw === 'object') ? Number(raw.proposed) : Number(raw);
     if (!Number.isFinite(lag))
       throw new Error(`${feed.symbol}: maxPostTargetLagSeconds is not a number`);
-    if (!(lag >= p99))
+
+    // THE STATISTIC IS THE MAXIMUM, NOT THE p99, and the difference is the whole
+    // risk. This parameter is WRITE-ONCE: a lag that clears the 99th percentile
+    // and not the tail voids one target in a hundred, permanently, for every
+    // player, in an economy that cannot be edited. A percentile is the right
+    // statistic for a service level and the wrong one for a constant.
+    if (!(lag >= lags.max))
       throw new Error(
-        `${feed.symbol}: maxPostTargetLagSeconds ${lag} s is below the measured p99 first-print ` +
-        `lag ${p99} s. Every target whose print arrives later than ${lag} s would VOID, ` +
-        'permanently, and this parameter cannot be edited after registration.');
-    rows.push({ symbol: feed.symbol, maxPostTargetLagSeconds: lag, measuredP99: p99, targets: grid.targets });
+        `${feed.symbol}: maxPostTargetLagSeconds ${lag} s is below the measured MAXIMUM ` +
+        `first-print lag ${lags.max} s (p99 ${lags.p99} s). It clears the percentile and not the ` +
+        'tail, and this parameter cannot be edited after registration.');
+
+    // And the tail we DID see is not the tail that exists. The first-print lag
+    // for a target is bounded by the publish gap containing it, so the widest
+    // observed gap is the conservative bound for targets nobody sampled.
+    const gapMax = measured.publishGapSeconds?.max;
+    if (Number.isFinite(gapMax) && !(lag >= gapMax))
+      throw new Error(
+        `${feed.symbol}: maxPostTargetLagSeconds ${lag} s is below the widest observed publish gap ` +
+        `${gapMax} s. A target landing just after a print waits the whole gap, so any gap wider ` +
+        'than the lag voids a target - measured on 2026-09-05: WIF sat at a 52 s median with a ' +
+        '58 s gap inside one hour.');
+
+    rows.push({
+      symbol: feed.symbol, maxPostTargetLagSeconds: lag,
+      measuredMax: lags.max, measuredP99: lags.p99, gapMax: gapMax ?? null,
+      headroomSeconds: lag - Math.max(lags.max, Number.isFinite(gapMax) ? gapMax : 0),
+      targets: grid.targets,
+    });
   }
   if (!rows.length) throw new Error('the manifest declares no feeds');
   return rows;
