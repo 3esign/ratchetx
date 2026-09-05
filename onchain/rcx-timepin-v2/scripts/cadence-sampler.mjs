@@ -5,7 +5,8 @@
 //
 // Two modes, and the split is the point:
 //
-//   sample     the only mode that needs the network. Polls the seven sponsored
+//   sample     the only mode that needs the network. Refuses to start if another
+//              collector holds the output file's lock (--force overrides). Polls the seven sponsored
 //              push-source accounts and appends one NDJSON line per change.
 //   summarize  pure. Reads that NDJSON and produces the hit-rate table. No
 //              network, no clock, no randomness — so the arithmetic that the
@@ -34,7 +35,7 @@
 //   node cadence-sampler.mjs summarize --in FILE [--out FILE] [--grid 60,300]
 
 import { createRequire } from 'node:module';
-import { appendFileSync, readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { appendFileSync, readFileSync, writeFileSync, mkdirSync, existsSync, statSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { Connection, PublicKey } from '@solana/web3.js';
@@ -82,16 +83,25 @@ const stats = values => {
 
 export function summarize(lines, { grids = [60, 300] } = {}) {
   const records = [];
-  const meta = { errors: 0, malformed: 0 };
+  const meta = { errors: 0, malformed: 0, headers: 0, duplicateRows: 0 };
+  const seenKeys = new Set();
   let header = null;
   for (const raw of lines) {
     const line = raw.trim();
     if (!line) continue;
     let row;
     try { row = JSON.parse(line); } catch { meta.malformed += 1; continue; }
-    if (row.kind === 'header') { header = row; continue; }
+    if (row.kind === 'header') { meta.headers += 1; header ??= row; continue; }
+    if (row.kind === 'footer') continue;
     if (row.kind === 'error') { meta.errors += 1; continue; }
     if (row.kind !== 'print') { meta.malformed += 1; continue; }
+    // Two collectors appending to one file is a real thing that happened
+    // (2026-09-05: two samplers 21 s apart, 49.8 % duplicate rows). Every
+    // statistic below is computed over a deduplicated (symbol, publish_time)
+    // set so the numbers survive it - but a file that is quietly twice its
+    // size must SAY so, not rely on the reader noticing two headers.
+    const key = `${row.symbol}:${row.publishTime}`;
+    if (seenKeys.has(key)) meta.duplicateRows += 1; else seenKeys.add(key);
     records.push(row);
   }
 
@@ -173,6 +183,10 @@ export function summarize(lines, { grids = [60, 300] } = {}) {
     records: records.length,
     errors: meta.errors,
     malformed: meta.malformed,
+    headers: meta.headers,
+    duplicateRows: meta.duplicateRows,
+    // More than one header means more than one collector wrote this file.
+    collidingCollectors: meta.headers > 1,
     feeds,
     limits: {
       accountPolling: 'An account holds one message at a time. Prints overwritten between two polls are invisible.',
@@ -239,20 +253,79 @@ export function auditManifest(manifest, summary, {
 
 const DEFAULT_RPC = 'https://api.mainnet-beta.solana.com';
 
+// Two samplers appending to one NDJSON file is not hypothetical: on 2026-09-05
+// two started 21 seconds apart and half the rows in the 24 h file were
+// duplicates. The statistics survived it, by luck rather than design. This makes
+// the second one refuse instead.
+//
+// Staleness is by mtime, not existence, because the shell that most often has to
+// clean up after a crash here cannot delete files: a lock that only an operator
+// can remove is a lock that outlives the crash and blocks the restart.
+export function acquireOutputLock(outPath, { staleMs = 300_000, force = false, now = Date.now } = {}) {
+  const lockPath = `${outPath}.lock`;
+  if (existsSync(lockPath) && !force) {
+    let held = {};
+    try { held = JSON.parse(readFileSync(lockPath, 'utf8')); } catch { /* unreadable is still held */ }
+    const age = now() - statSync(lockPath).mtimeMs;
+    if (age < staleMs)
+      throw new Error(
+        `REFUSING to start: ${lockPath} was touched ${Math.round(age / 1000)} s ago by pid ` +
+        `${held.pid ?? 'unknown'} (started ${held.startedAt ?? 'unknown'}). Another collector is ` +
+        'writing this file, and two collectors produce a file that is half duplicates. Stop that ' +
+        `one, or pass --force, or use --out to write somewhere else.`);
+  }
+  const write = () => writeFileSync(lockPath,
+    `${JSON.stringify({ pid: process.pid, startedAt: new Date().toISOString(), outPath })}\n`, 'utf8');
+  write();
+  return { lockPath, heartbeat: write };
+}
+
+// OpusB, 12:58Z, adversarial review of the live run: "Detecting the collision
+// after the fact is good; not being able to create it is better." He is right.
+// The lock below catches a CONCURRENT second collector; these two catch the
+// other half of the problem - a RESTART inside the measurement window silently
+// appending to the previous run's file, which over 24 hours is likely rather
+// than hypothetical.
+
+// A default output path that is unique per RUN, not per day.
+export function runStampedPath(dir, prefix, at = new Date()) {
+  const iso = at.toISOString();
+  return join(dir, `${prefix}-${iso.slice(0, 10)}-${iso.slice(11, 19).replace(/:/g, '')}.ndjson`);
+}
+
+// And when an explicit --out names a file that already has a header from a
+// DIFFERENT run, refuse rather than merge two measurements into one file.
+export function assertOwnFile(outPath, startedAt, { force = false } = {}) {
+  if (force || !existsSync(outPath)) return;
+  const first = readFileSync(outPath, 'utf8').split('\n').find(l => l.trim());
+  if (!first) return;
+  let header;
+  try { header = JSON.parse(first); } catch { return; }
+  if (header.kind !== 'header' || !header.startedAt) return;
+  if (header.startedAt !== startedAt)
+    throw new Error(
+      `REFUSING to append: ${outPath} already holds a run started ${header.startedAt}, and this ` +
+      `one started ${startedAt}. Two runs in one file is how 49.8 % of the 2026-09-05 24 h file ` +
+      'became duplicates. Omit --out to get a run-stamped filename, or pass --force to merge on ' +
+      'purpose.');
+}
+
 export async function sample({
   rpcUrl = process.env.RATCHET_RPC_URL || DEFAULT_RPC,
-  hours = 24, intervalMs = 1000, out,
+  hours = 24, intervalMs = 1000, out, force = false,
   now = () => Math.floor(Date.now() / 1000),
 } = {}) {
   const feeds = gameFeeds().map(f => ({ ...f, address: sourceAddressFor(f.feedId) }));
-  const outPath = out ?? join(repoRoot, 'docs', 'reviews', 'cadence',
-    `cadence-${new Date().toISOString().slice(0, 10)}.ndjson`);
+  const startedAt = new Date().toISOString();
+  const outPath = out ?? runStampedPath(join(repoRoot, 'docs', 'reviews', 'cadence'), 'cadence');
   mkdirSync(dirname(outPath), { recursive: true });
+  assertOwnFile(outPath, startedAt, { force });
 
+  const lock = acquireOutputLock(outPath, { force });
   const connection = new Connection(rpcUrl, 'confirmed');
   const write = row => appendFileSync(outPath, `${JSON.stringify(row)}\n`, 'utf8');
   write({
-    kind: 'header', startedAt: new Date().toISOString(), rpcUrl, intervalMs, hours,
+    kind: 'header', startedAt, rpcUrl, intervalMs, hours,
     feeds: feeds.map(f => ({ symbol: f.symbol, feedId: f.feedId, address: f.address.toBase58() })),
   });
 
@@ -292,6 +365,7 @@ export async function sample({
       backoffMs = Math.min(backoffMs ? backoffMs * 2 : 2000, 60_000);
       await new Promise(r => setTimeout(r, backoffMs));
     }
+    lock.heartbeat();
     const wait = Math.max(0, intervalMs - (Date.now() - cycleStart));
     if (wait) await new Promise(r => setTimeout(r, wait));
   }
@@ -313,6 +387,7 @@ async function main() {
       hours: Number(flag('hours', 24)),
       intervalMs: Number(flag('interval-ms', 1000)),
       out: flag('out', undefined),
+      force: process.argv.includes('--force'),
     });
     return;
   }

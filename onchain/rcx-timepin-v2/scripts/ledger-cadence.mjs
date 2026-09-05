@@ -52,7 +52,9 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { gameFeeds, sourceAddressFor } from './cadence-sampler.mjs';
+import {
+  gameFeeds, sourceAddressFor, acquireOutputLock, assertOwnFile, runStampedPath,
+} from './cadence-sampler.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const repoRoot = join(here, '..', '..', '..');
@@ -146,7 +148,7 @@ const isRateLimit = text => /rate limit|429|too many/i.test(String(text));
 
 export async function walk({
   rpcUrl = process.env.RATCHET_RPC_URL || DEFAULT_RPC,
-  symbol, address, feedId, hours = 24, delayMs = 80, out,
+  symbol, address, feedId, hours = 24, delayMs = 80, out, force = false,
   fetchImpl = globalThis.fetch, log = console.log,
 } = {}) {
   if (!address || !feedId) {
@@ -156,9 +158,12 @@ export async function walk({
     address = sourceAddressFor(feed.feedId).toBase58();
   }
   const feedIdBytes = Buffer.from(feedId, 'hex');
-  const outPath = out ?? join(repoRoot, 'docs', 'reviews', 'cadence',
-    `ledger-${symbol ?? address.slice(0, 8)}-${new Date().toISOString().slice(0, 10)}.ndjson`);
+  const startedAtIso = new Date().toISOString();
+  const outPath = out ?? runStampedPath(join(repoRoot, 'docs', 'reviews', 'cadence'),
+    `ledger-${symbol ?? address.slice(0, 8)}`);
   mkdirSync(dirname(outPath), { recursive: true });
+  assertOwnFile(outPath, startedAtIso, { force });
+  const lock = acquireOutputLock(outPath, { force });
 
   let backoff = 0;
   const rpc = async (method, params) => {
@@ -190,7 +195,7 @@ export async function walk({
   const startedAt = Math.floor(Date.now() / 1000);
   const floor = startedAt - hours * 3600;
   write({
-    kind: 'header', method: 'walk-ledger', startedAt: new Date().toISOString(),
+    kind: 'header', method: 'walk-ledger', startedAt: startedAtIso,
     rpcUrl, hours, symbol, address, feedId,
     // The reducer's poll-interval gate is about a POLLING method's blind spot.
     // This method has none, so it declares an interval of 0 rather than pretending.
@@ -222,6 +227,7 @@ export async function walk({
       }
     }
     before = page[page.length - 1].signature;
+    lock.heartbeat();
     log(`  page ${pages}: ${signatures} signatures, ${writes} writes, oldest ${oldest} (${((startedAt - oldest) / 3600).toFixed(2)} h back)`);
     if (oldest !== null && oldest <= floor) break;
   }
@@ -292,7 +298,7 @@ export async function verifyPayerCoverage({
 
 export async function walkPayer({
   rpcUrl = process.env.RATCHET_RPC_URL || DEFAULT_RPC,
-  payer, feeds, hours = 24, delayMs = 80, out, samples = 25,
+  payer, feeds, hours = 24, delayMs = 80, out, samples = 25, force = false,
   fetchImpl = globalThis.fetch, log = console.log, skipCoverageCheck = false,
 } = {}) {
   const feedTable = feeds ?? gameFeeds();
@@ -313,9 +319,11 @@ export async function walkPayer({
         'skipCoverageCheck only if you have another reason to believe the coverage.');
   }
 
-  const outPath = out ?? join(repoRoot, 'docs', 'reviews', 'cadence',
-    `payer-${new Date().toISOString().slice(0, 10)}.ndjson`);
+  const startedAtIso = new Date().toISOString();
+  const outPath = out ?? runStampedPath(join(repoRoot, 'docs', 'reviews', 'cadence'), 'payer');
   mkdirSync(dirname(outPath), { recursive: true });
+  assertOwnFile(outPath, startedAtIso, { force });
+  const lock = acquireOutputLock(outPath, { force });
   const write = row => appendFileSync(outPath, `${JSON.stringify(row)}\n`, 'utf8');
 
   let backoff = 0;
@@ -343,7 +351,7 @@ export async function walkPayer({
   const startedAt = Math.floor(Date.now() / 1000);
   const floor = startedAt - hours * 3600;
   write({
-    kind: 'header', method: 'walk-payer', startedAt: new Date().toISOString(),
+    kind: 'header', method: 'walk-payer', startedAt: startedAtIso,
     rpcUrl, hours, payer, intervalMs: 0,
     feeds: feedTable.map(f => ({ symbol: f.symbol, feedId: f.feedId,
       sourceAddress: sourceAddressFor(f.feedId).toBase58() })),
@@ -377,6 +385,7 @@ export async function walkPayer({
       }
     }
     before = page[page.length - 1].signature;
+    lock.heartbeat();
     log(`  page ${pages}: ${signatures} tx, ${writes} writes ${JSON.stringify(perFeed)}, oldest ${((startedAt - oldest) / 3600).toFixed(2)} h back`);
     if (oldest !== null && oldest <= floor) break;
   }
@@ -402,6 +411,7 @@ async function main() {
       hours: Number(flag('hours', 24)),
       delayMs: Number(flag('delay-ms', 80)),
       out: flag('out', undefined),
+      force: process.argv.includes('--force'),
     });
     return;
   }
@@ -411,6 +421,7 @@ async function main() {
       hours: Number(flag('hours', 24)),
       delayMs: Number(flag('delay-ms', 80)),
       out: flag('out', undefined),
+      force: process.argv.includes('--force'),
     });
     return;
   }

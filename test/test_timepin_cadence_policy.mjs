@@ -26,11 +26,13 @@
 // Evidence tier: host.
 
 import assert from 'node:assert/strict';
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, rmSync, utimesSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
-  summarize, percentile, gameFeeds, sourceAddressFor, auditManifest,
+  summarize, percentile, gameFeeds, sourceAddressFor, auditManifest, acquireOutputLock,
+  assertOwnFile, runStampedPath,
 } from '../onchain/rcx-timepin-v2/scripts/cadence-sampler.mjs';
 import {
   ADAPTER_PYTH_PUSH_V2, ADAPTER_PYTH_MIN_CAPTURE_V2,
@@ -190,6 +192,97 @@ check(() => {
   assert.ok(!Object.keys(s.feeds.G).some(k => /tie/i.test(k)),
     'and the summary reports no tie statistic, because it cannot honestly have one');
 }, 'the tie caveat is demonstrated, not merely declared');
+
+// --- two collectors, one file --------------------------------------------------
+//
+// This is not hypothetical. On 2026-09-05 two samplers started 21 seconds apart
+// against docs/reviews/cadence/cadence-2026-09-05.ndjson and 49.8 % of the rows
+// were duplicates. Every statistic survived it because they are computed over a
+// deduplicated (symbol, publish_time) set - but that was luck, not design, and a
+// file that is quietly twice its size must announce itself.
+
+check(() => {
+  const rows = prints('A', series(100, 400, 5));
+  const doubled = summarize([
+    JSON.stringify({ kind: 'header', intervalMs: 1000, startedAt: 'first' }),
+    ...rows,
+    JSON.stringify({ kind: 'header', intervalMs: 1000, startedAt: 'second' }),
+    ...rows,
+  ]);
+  assert.equal(doubled.headers, 2, 'two headers are counted, not overwritten');
+  assert.equal(doubled.collidingCollectors, true, 'and the file says so in one field');
+  assert.equal(doubled.duplicateRows, rows.length, 'every duplicated row is counted');
+  assert.equal(doubled.header.startedAt, 'first', 'the FIRST header is kept, not the last');
+
+  const single = summarize(withHeader(rows));
+  assert.equal(single.collidingCollectors, false);
+  assert.equal(single.duplicateRows, 0);
+
+  // The numbers that decide GATE 2 must be identical either way.
+  const g1 = single.feeds.A.grids['60'], g2 = doubled.feeds.A.grids['60'];
+  assert.deepEqual(g2.minCapture.firstPrintLagSeconds, g1.minCapture.firstPrintLagSeconds,
+    'the lag distribution is unchanged by duplication');
+  assert.equal(g2.strictBracket.hitRate, g1.strictBracket.hitRate, 'and so is the bracket rate');
+  assert.equal(doubled.feeds.A.distinctPublishTimes, single.feeds.A.distinctPublishTimes);
+  assert.equal(doubled.feeds.A.observations, 2 * single.feeds.A.observations,
+    'only the raw observation count doubles, and it is not used for any rate');
+}, 'a doubled file announces itself and its statistics are unchanged');
+
+check(() => {
+  const out = join(tmpdir(), `rcx-lock-test-${process.pid}.ndjson`);
+  try { rmSync(`${out}.lock`); } catch { /* first run */ }
+  const first = acquireOutputLock(out);
+  assert.ok(existsSync(first.lockPath), 'the first collector takes the lock');
+  assert.throws(() => acquireOutputLock(out), /REFUSING to start/,
+    'and the second one refuses instead of doubling the data');
+  assert.throws(() => acquireOutputLock(out), /Another collector is writing this file/,
+    'with a message that says what is wrong and how to override');
+  assert.doesNotThrow(() => acquireOutputLock(out, { force: true }),
+    '--force is an escape hatch, deliberately');
+
+  // Staleness is by mtime, not existence: the shell that most often has to clean
+  // up after a crash here CANNOT DELETE FILES, so a lock only an operator can
+  // remove is a lock that outlives the crash and blocks the restart forever.
+  const old = new Date(Date.now() - 3600_000);
+  utimesSync(first.lockPath, old, old);
+  assert.doesNotThrow(() => acquireOutputLock(out),
+    'an hour-old lock is stale and does not block a restart');
+  try { rmSync(first.lockPath); } catch { /* best effort */ }
+}, 'the output lock refuses a second collector and expires on its own');
+
+check(() => {
+  // OpusB's 12:58Z review of the live run: "Detecting the collision after the
+  // fact is good; NOT BEING ABLE TO CREATE IT is better." The lock catches a
+  // concurrent second collector. This catches the other half - a RESTART inside
+  // a 24 h window silently appending to the previous run's file, which over 24
+  // hours is likely rather than hypothetical.
+  const a = runStampedPath('/tmp', 'cadence', new Date('2026-09-05T11:43:01.458Z'));
+  const b = runStampedPath('/tmp', 'cadence', new Date('2026-09-05T11:43:22.745Z'));
+  assert.notEqual(a, b, 'two runs 21 seconds apart get two filenames, not one');
+  assert.match(a, /cadence-2026-09-05-114301\.ndjson$/, 'and the stamp is the run, to the second');
+  assert.match(b, /cadence-2026-09-05-114322\.ndjson$/);
+  // Those two timestamps are the real ones from the 2026-09-05 24 h file, whose
+  // two collectors produced 49.8 % duplicate rows under the old per-day name.
+}, 'a default output path is unique per run, not per day');
+
+check(() => {
+  const out = join(tmpdir(), `rcx-own-file-${process.pid}.ndjson`);
+  try { rmSync(out); } catch { /* first run */ }
+  assert.doesNotThrow(() => assertOwnFile(out, '2026-09-05T11:43:01.458Z'),
+    'a file that does not exist yet is nobody else\'s');
+  writeFileSync(out, `${JSON.stringify({ kind: 'header', startedAt: '2026-09-05T11:43:01.458Z' })}\n`, 'utf8');
+  assert.doesNotThrow(() => assertOwnFile(out, '2026-09-05T11:43:01.458Z'),
+    'a run may reopen its OWN file');
+  assert.throws(() => assertOwnFile(out, '2026-09-05T11:43:22.745Z'),
+    /REFUSING to append/,
+    'but a different run may not append to it, which is exactly what happened today');
+  assert.doesNotThrow(() => assertOwnFile(out, '2026-09-05T11:43:22.745Z', { force: true }),
+    '--force merges on purpose');
+  writeFileSync(out, 'not json at all\n', 'utf8');
+  assert.doesNotThrow(() => assertOwnFile(out, 'x'),
+    'a file with no readable header is not claimed by anyone, so it is not refused');
+  try { rmSync(out); } catch { /* best effort */ }
+}, 'a second run refuses to append to the first run file');
 
 // --- the feed table ----------------------------------------------------------
 //
