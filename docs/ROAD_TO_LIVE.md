@@ -133,16 +133,25 @@ described; the cluster is devnet and the SOL is free.
 | # | task | done when |
 |---|---|---|
 | 5.1 | Gate green: **21 of 21** | `node tools/mainnet-go-check.mjs` exits 0 — the mainnet gate, unweakened, on the devnet path |
-| 5.2 | Devnet SOL accumulated | 14.13 SOL on the deploy payer, which is the measured peak |
+| 5.2 | Devnet SOL accumulated | **9.7 SOL** on `wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz` — was written here as 14.13 and that was wrong, see below |
 | 5.3 | Deploy **core first, then timepin** | readback through two RPCs, identities match the manifest |
 | 5.4 | Register spec, economy and rulesets | hashes match the manifest byte for byte |
 | 5.5 | First whole game | sealed, settled and revealed on devnet, and re-verified from the saved record by someone who was not us |
 
-**5.2 is a logistics item with a lead time, and it is the only one nobody can
-shorten by thinking harder.** The faucet hands out two SOL at a time under a rate
-limit, so 14.13 is at least seven rounds of asking. Start it before 5.1 closes,
-not after. `node ops/g2-deploy/preflight.mjs --cache-root <cache> --rpc <devnet>
---payer <pubkey>` reports the shortfall.
+**The 14.13 figure was mine and it was wrong by a factor of about one and a
+half.** I modelled the deploy buffer as an ADDITIONAL charge held on top of the
+programdata account. It is not: the CLI funds the buffer rent-exempt for the ELF,
+and `DeployWithMaxDataLen` then uses those lamports to fund programdata, whose
+size differs from the buffer's by eight bytes. The payer pays for ONE copy of the
+program, not two — which is why the figure quoted in the wild is about 0.7 SOL
+per hundred kilobytes, a number I should have noticed disagreed with mine by
+double. Corrected in `ops/g2-deploy/rent.mjs` by a reviewer, not by me.
+
+**Exact fit, both programs: 9.68 SOL plus deploy fees of roughly a hundredth.**
+Ten covers it; eleven or twelve is comfortable rather than exact.
+
+`node ops/g2-deploy/preflight.mjs --cache-root <cache> --rpc <devnet> --payer
+wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz` reports the shortfall.
 
 **Why core first.** The peak a payer must hold is everything already locked plus
 the current program's own buffer, so the larger program goes first: 14.12 SOL
@@ -158,7 +167,7 @@ deploy and a sentence.
 
 | # | task | done when |
 |---|---|---|
-| 6.1 | The deposit exists | 14.13 SOL on a mainnet payer, exact fit — **not** the 26.42 doubled allocation, which buys in-place upgrades a program we intend to freeze will never use |
+| 6.1 | The deposit exists | 9.7 SOL on a mainnet payer, exact fit — **not** the 26.42 doubled allocation, which buys in-place upgrades a program we intend to freeze will never use |
 | 6.2 | Core rebuilt smaller, if it can be | `opt-level = "z"` measured against compute units; every 100 KB is 0.7 SOL off the deposit, permanently |
 | 6.3 | Deploy, same order, same readback | identities match the manifest |
 | 6.4 | The first mainnet transaction | Semir, in his own words. No agent, ever. |
