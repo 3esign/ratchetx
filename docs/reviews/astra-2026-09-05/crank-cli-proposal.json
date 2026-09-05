@@ -1,0 +1,280 @@
+{
+  "schema": 1,
+  "kind": "SCRATCH_ONLY_CRANK_CLI_PROPOSAL",
+  "createdAt": "2026-09-05T22:03:34.958Z",
+  "status": "PASS",
+  "applied": false,
+  "committed": false,
+  "root": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+  "scratch": "C:/Users/treed/AppData/Local/Temp/ratchetx crank # % cli-0K4A1f",
+  "buildHost": {
+    "platform": "win32",
+    "arch": "x64",
+    "release": "10.0.26200",
+    "node": "v22.20.0"
+  },
+  "scope": [
+    "ops/g2-crank/crank.mjs",
+    "test/test_crank_cli.mjs (new, proposal only)"
+  ],
+  "sharedInputsBefore": {
+    "ops/g2-crank/crank.mjs": "a26c631477dae6a85e8c7e26a45eb5b0208da39dbe0cc7097ac3291210f9e57b",
+    "ops/g2-crank/cluster.mjs": "175e3fa9c4852acfb6e296693999f270699cd89012fe2564059b29cb08e3c89a",
+    "ops/g2-crank/decide.mjs": "b36b878e50f6f7db4fe2ac7129f55b2ab21e8eb787193d0e6f5b66dfecb6ce1d",
+    "ops/g2-crank/plan.mjs": "09876fa36f5a0abd3d2bb78e2e885637ef03119b6769d33dcdec185c4df03aa0",
+    "onchain/ratchet-core-g2/client/client-v2.mjs": "941f53a4294d449482dbdd4d9516c1fb0c46f91ec9fb102c1e31cc71d2027e72",
+    "test/test_crank_refuses.mjs": "f43e8fb6134e9ab46d9263fd9b2269ae39c0eb53cdc118e9477fcde2132ca684"
+  },
+  "sharedInputsAfter": {
+    "ops/g2-crank/crank.mjs": "a26c631477dae6a85e8c7e26a45eb5b0208da39dbe0cc7097ac3291210f9e57b",
+    "ops/g2-crank/cluster.mjs": "175e3fa9c4852acfb6e296693999f270699cd89012fe2564059b29cb08e3c89a",
+    "ops/g2-crank/decide.mjs": "b36b878e50f6f7db4fe2ac7129f55b2ab21e8eb787193d0e6f5b66dfecb6ce1d",
+    "ops/g2-crank/plan.mjs": "09876fa36f5a0abd3d2bb78e2e885637ef03119b6769d33dcdec185c4df03aa0",
+    "onchain/ratchet-core-g2/client/client-v2.mjs": "941f53a4294d449482dbdd4d9516c1fb0c46f91ec9fb102c1e31cc71d2027e72",
+    "test/test_crank_refuses.mjs": "f43e8fb6134e9ab46d9263fd9b2269ae39c0eb53cdc118e9477fcde2132ca684"
+  },
+  "sharedInputsUnchanged": true,
+  "scratchInputs": {
+    "ops/g2-crank/crank.mjs": "d4d717958552aa2fde92844d3cddc48fcc966eec76f2eabbcc8c34fbecb892c8",
+    "ops/g2-crank/cluster.mjs": "175e3fa9c4852acfb6e296693999f270699cd89012fe2564059b29cb08e3c89a",
+    "ops/g2-crank/decide.mjs": "b36b878e50f6f7db4fe2ac7129f55b2ab21e8eb787193d0e6f5b66dfecb6ce1d",
+    "ops/g2-crank/plan.mjs": "09876fa36f5a0abd3d2bb78e2e885637ef03119b6769d33dcdec185c4df03aa0",
+    "onchain/ratchet-core-g2/client/client-v2.mjs": "941f53a4294d449482dbdd4d9516c1fb0c46f91ec9fb102c1e31cc71d2027e72",
+    "test/test_crank_refuses.mjs": "f43e8fb6134e9ab46d9263fd9b2269ae39c0eb53cdc118e9477fcde2132ca684"
+  },
+  "proposedNewTestSha256": "839353faa29707b5595f33c56bec45dd578fce31f95c840aefd19069393db0b6",
+  "patch": {
+    "path": "docs/reviews/astra-2026-09-05/crank-cli-proposal.patch",
+    "sha256": "b6dbe160b1e92934afd395ccdc172a335d64fac879df00bdeffbd95377234914"
+  },
+  "environment": {
+    "cleared": [
+      "RATCHET_RPC_URL",
+      "RATCHET_CRANK_KEYPAIR",
+      "NODE_OPTIONS"
+    ],
+    "dependencies": "Junction to existing repository node_modules; no dependency install",
+    "network": "Final subprocess checks preload socket, TLS, HTTP(S), and fetch refusal hooks; deliberate fetch control exits89.",
+    "keys": "No private key contents read, copied, imported or signed"
+  },
+  "results": {
+    "originalMissingRpc": {
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "originalMissingSendKey": {
+      "exit": 0,
+      "stdout": "",
+      "stderr": ""
+    },
+    "repairedMissingRpcExit": 1,
+    "repairedMissingSendKeyExit": 1,
+    "quietImportExit": 0,
+    "cliRegression": {
+      "passed": 3,
+      "exit": 0
+    },
+    "originalRefusals": {
+      "passed": 7,
+      "exit": 0
+    },
+    "negativeOriginalGuardControl": "exit1; asserts original actual0 is not required1",
+    "networkDenialControlExit": 89,
+    "gitApplyCheckExit": 0
+  },
+  "limitations": [
+    "Host-only CLI refusal and import proof; no chain state reads, sends, or crank operational readiness claimed.",
+    "The first scratch regression attempt had generated preload newline escaping incorrect; that failure and the corrected successful run are both retained."
+  ],
+  "records": [
+    {
+      "label": "before actual CLI missing RPC",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f\\ops\\g2-crank\\crank.mjs"
+      ],
+      "cwd": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "before actual CLI send missing key",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f\\ops\\g2-crank\\crank.mjs",
+        "--rpc",
+        "http://127.0.0.1:9",
+        "--send"
+      ],
+      "cwd": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "after actual CLI regression with network refusal guards",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "test/test_crank_cli.mjs"
+      ],
+      "cwd": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f",
+      "status": 1,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:123\r\n    triggerUncaughtException(\r\n    ^\r\n\r\nAssertionError [ERR_ASSERTION]: preconditions refuse before any network attempt\r\n    at run (file:///C:/Users/treed/AppData/Local/Temp/ratchetx%20crank%20%23%20%25%20cli-0K4A1f/test/test_crank_cli.mjs:49:12)\r\n    at file:///C:/Users/treed/AppData/Local/Temp/ratchetx%20crank%20%23%20%25%20cli-0K4A1f/test/test_crank_cli.mjs:52:16\r\n    at ModuleJob.run (node:internal/modules/esm/module_job:345:25)\r\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\r\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {\r\n  generatedMessage: false,\r\n  code: 'ERR_ASSERTION',\r\n  actual: 'C:\\\\Users\\\\treed\\\\AppData\\\\Local\\\\Temp\\\\ratchetx crank # % CLI-nLxACa\\\\network-guard.cjs:2\\r\\n' +\r\n    \"const blocked = () => { attempted = true; process.stderr.write('UNEXPECTED_NETWORK\\r\\n\" +\r\n    '                                                               ^^^^^^^^^^^^^^^^^^^\\r\\n' +\r\n    '\\r\\n' +\r\n    'SyntaxError: Invalid or unexpected token\\r\\n' +\r\n    '    at wrapSafe (node:internal/modules/cjs/loader:1638:18)\\r\\n' +\r\n    '    at Module._compile (node:internal/modules/cjs/loader:1680:20)\\r\\n' +\r\n    '    at Object..js (node:internal/modules/cjs/loader:1839:10)\\r\\n' +\r\n    '    at Module.load (node:internal/modules/cjs/loader:1441:32)\\r\\n' +\r\n    '    at Function._load (node:internal/modules/cjs/loader:1263:12)\\r\\n' +\r\n    '    at TracingChannel.traceSync (node:diagnostics_channel:322:14)\\r\\n' +\r\n    '    at wrapModuleLoad (node:internal/modules/cjs/loader:237:24)\\r\\n' +\r\n    '    at Module.require (node:internal/modules/cjs/loader:1463:12)\\r\\n' +\r\n    '    at node:internal/modules/cjs/loader:1989:12\\r\\n' +\r\n    '    at loadPreloadModules (node:internal/process/pre_execution:733:5)\\r\\n' +\r\n    '\\r\\n' +\r\n    'Node.js v22.20.0\\r\\n',\r\n  expected: /UNEXPECTED_NETWORK/,\r\n  operator: 'doesNotMatch',\r\n  diff: 'simple'\r\n}\r\n\r\nNode.js v22.20.0\r\n"
+    },
+    {
+      "label": "original seven refusal checks unchanged",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "test/test_crank_refuses.mjs"
+      ],
+      "cwd": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "cluster: devnet\nMODE: DRY RUN - nothing will be sent\nok - crank refusals: 7 checks; mainnet, unknown clusters, implicit wallets, default endpoints and invented chain state are all refused\n",
+      "stderr": ""
+    },
+    {
+      "label": "after regression preload escaping correction",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "test/test_crank_cli.mjs"
+      ],
+      "cwd": "C:/Users/treed/AppData/Local/Temp/ratchetx crank # % cli-0K4A1f",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "ok - crank CLI: 3 subprocess checks; missing RPC, missing send key and quiet import; no network\n",
+      "stderr": ""
+    },
+    {
+      "label": "negative control: final regression rejects original silent CLI",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "test/test_crank_cli.mjs"
+      ],
+      "cwd": "C:/Users/treed/AppData/Local/Temp/ratchetx crank # % cli-0K4A1f",
+      "status": 1,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": "node:internal/modules/run_main:123\r\n    triggerUncaughtException(\r\n    ^\r\n\r\nAssertionError [ERR_ASSERTION]: direct execution without RPC must refuse with exit 1\r\n\r\n0 !== 1\r\n\r\n    at file:///C:/Users/treed/AppData/Local/Temp/ratchetx%20crank%20%23%20%25%20cli-0K4A1f/test/test_crank_cli.mjs:53:10\r\n    at ModuleJob.run (node:internal/modules/esm/module_job:345:25)\r\n    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:665:26)\r\n    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5) {\r\n  generatedMessage: false,\r\n  code: 'ERR_ASSERTION',\r\n  actual: 0,\r\n  expected: 1,\r\n  operator: 'strictEqual',\r\n  diff: 'simple'\r\n}\r\n\r\nNode.js v22.20.0\r\n"
+    },
+    {
+      "label": "after actual CLI missing RPC; network denied",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "--require",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f\\diagnostic-network-guard.cjs",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f\\ops\\g2-crank\\crank.mjs"
+      ],
+      "cwd": "C:/Users/treed/AppData/Local/Temp/ratchetx crank # % cli-0K4A1f",
+      "status": 1,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": "--rpc <url> (or RATCHET_RPC_URL) is required; there is no default endpoint\n"
+    },
+    {
+      "label": "after actual CLI send missing key; network denied",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "--require",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f\\diagnostic-network-guard.cjs",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f\\ops\\g2-crank\\crank.mjs",
+        "--rpc",
+        "http://127.0.0.1:9",
+        "--send"
+      ],
+      "cwd": "C:/Users/treed/AppData/Local/Temp/ratchetx crank # % cli-0K4A1f",
+      "status": 1,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": "--send requires --keypair; the fee payer is never implicit\n"
+    },
+    {
+      "label": "after actual quiet import; network denied",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "--require",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f\\diagnostic-network-guard.cjs",
+        "--input-type=module",
+        "-e",
+        "await import(\"file:///C:/Users/treed/AppData/Local/Temp/ratchetx%20crank%20%23%20%25%20cli-0K4A1f/ops/g2-crank/crank.mjs\");"
+      ],
+      "cwd": "C:/Users/treed/AppData/Local/Temp/ratchetx crank # % cli-0K4A1f",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": ""
+    },
+    {
+      "label": "network denial control rejects deliberate fetch",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "--require",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f\\diagnostic-network-guard.cjs",
+        "-e",
+        "fetch('http://127.0.0.1:9')"
+      ],
+      "cwd": "C:/Users/treed/AppData/Local/Temp/ratchetx crank # % cli-0K4A1f",
+      "status": 89,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": "UNEXPECTED_NETWORK\nC:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f\\diagnostic-network-guard.cjs:2\r\nconst blocked=()=>{attempted=true;process.stderr.write('UNEXPECTED_NETWORK\\n');throw new Error('UNEXPECTED_NETWORK');};\r\n                                                                               ^\r\n\r\nError: UNEXPECTED_NETWORK\r\n    at blocked (C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx crank # % cli-0K4A1f\\diagnostic-network-guard.cjs:2:86)\r\n    at [eval]:1:1\r\n    at runScriptInThisContext (node:internal/vm:209:10)\r\n    at node:internal/process/execution:446:12\r\n    at [eval]-wrapper:6:24\r\n    at runScriptInContext (node:internal/process/execution:444:60)\r\n    at evalFunction (node:internal/process/execution:279:30)\r\n    at evalTypeScript (node:internal/process/execution:291:3)\r\n    at node:internal/main/eval_string:74:3\r\n\r\nNode.js v22.20.0\r\n"
+    },
+    {
+      "label": "final proposed CLI regression",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "test/test_crank_cli.mjs"
+      ],
+      "cwd": "C:/Users/treed/AppData/Local/Temp/ratchetx crank # % cli-0K4A1f",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "ok - crank CLI: 3 subprocess checks; missing RPC, missing send key and quiet import; no network\n",
+      "stderr": ""
+    },
+    {
+      "label": "final original seven refusal checks",
+      "command": [
+        "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+        "test/test_crank_refuses.mjs"
+      ],
+      "cwd": "C:/Users/treed/AppData/Local/Temp/ratchetx crank # % cli-0K4A1f",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "cluster: devnet\nMODE: DRY RUN - nothing will be sent\nok - crank refusals: 7 checks; mainnet, unknown clusters, implicit wallets, default endpoints and invented chain state are all refused\n",
+      "stderr": ""
+    },
+    {
+      "label": "proposal git apply --check only; not applied",
+      "command": [
+        "git",
+        "apply",
+        "--check",
+        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\docs\\reviews\\astra-2026-09-05\\crank-cli-proposal.patch"
+      ],
+      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
+      "status": 0,
+      "signal": null,
+      "error": null,
+      "stdout": "",
+      "stderr": ""
+    }
+  ]
+}

@@ -1,0 +1,105 @@
+diff --git a/ops/g2-crank/crank.mjs b/ops/g2-crank/crank.mjs
+index 808ac7a..83f37d9 100644
+--- a/ops/g2-crank/crank.mjs
++++ b/ops/g2-crank/crank.mjs
+@@ -16,6 +16,8 @@
+ // is deliberate: it is the one part that cannot be proved until a deployment
+ // exists, so it is kept as thin as it can be made.
+ import fs from 'node:fs';
++import path from 'node:path';
++import { pathToFileURL } from 'node:url';
+ import { webcrypto } from 'node:crypto';
+ import { assertSendable } from './cluster.mjs';
+ import { decideAll } from './decide.mjs';
+@@ -84,8 +86,8 @@ export async function readState() {
+     + 'crank that cannot see anything look identical from outside.');
+ }
+ 
+-if (import.meta.url === `file://${process.argv[1]}`) {
++if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+   const web3 = await import('@solana/web3.js');
+   await main({ web3, connectionFactory: url => new web3.Connection(url, 'confirmed') })
+-    .catch(e => { console.error(String(e.message || e)); process.exit(1); });
++    .catch(e => { console.error(String(e.message || e)); process.exitCode = 1; });
+ }
+diff --git a/test/test_crank_cli.mjs b/test/test_crank_cli.mjs
+new file mode 100644
+index 0000000..d75bca3
+--- /dev/null
++++ b/test/test_crank_cli.mjs
+@@ -0,0 +1,75 @@
++#!/usr/bin/env node
++// Exercise the actual CLI in a path requiring file-URL escaping. No RPC or keys.
++import assert from 'node:assert/strict';
++import { copyFileSync, existsSync, mkdirSync, mkdtempSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
++import { tmpdir } from 'node:os';
++import path from 'node:path';
++import { fileURLToPath, pathToFileURL } from 'node:url';
++import { spawnSync } from 'node:child_process';
++
++const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
++const tempRoot = path.resolve(tmpdir());
++const scratch = mkdtempSync(path.join(tempRoot, 'ratchetx crank # % CLI-'));
++const files = [
++  'ops/g2-crank/crank.mjs', 'ops/g2-crank/cluster.mjs',
++  'ops/g2-crank/decide.mjs', 'ops/g2-crank/plan.mjs',
++  'onchain/ratchet-core-g2/client/client-v2.mjs',
++];
++const guard = path.join(scratch, 'network-guard.cjs');
++const cli = path.join(scratch, 'ops/g2-crank/crank.mjs');
++const env = { ...process.env };
++for (const name of Object.keys(env)) {
++  if (['RATCHET_RPC_URL', 'RATCHET_CRANK_KEYPAIR', 'NODE_OPTIONS'].includes(name.toUpperCase())) delete env[name];
++}
++let checks = 0;
++try {
++  for (const rel of files) {
++    const dest = path.join(scratch, rel);
++    mkdirSync(path.dirname(dest), { recursive: true });
++    copyFileSync(path.join(root, rel), dest);
++  }
++  assert.ok(existsSync(path.join(root, 'node_modules')), 'installed dependencies are required');
++  symlinkSync(path.join(root, 'node_modules'), path.join(scratch, 'node_modules'), process.platform === 'win32' ? 'junction' : 'dir');
++  writeFileSync(guard, [
++    'let attempted = false;',
++    "const blocked = () => { attempted = true; process.stderr.write('UNEXPECTED_NETWORK\\n'); throw new Error('UNEXPECTED_NETWORK'); };",
++    "require('node:net').Socket.prototype.connect = blocked;",
++    "require('node:tls').connect = blocked;",
++    "require('node:http').request = blocked; require('node:http').get = blocked;",
++    "require('node:https').request = blocked; require('node:https').get = blocked;",
++    'globalThis.fetch = blocked;',
++    "process.on('exit', () => { if (attempted) process.exitCode = 89; });",
++  ].join('\n'));
++  const run = args => {
++    const result = spawnSync(process.execPath, ['--require', guard, ...args], {
++      cwd: scratch, env, encoding: 'utf8', windowsHide: true, timeout: 15000,
++    });
++    assert.ifError(result.error);
++    assert.equal(result.signal, null, 'CLI must exit normally');
++    assert.doesNotMatch(result.stdout + result.stderr, /UNEXPECTED_NETWORK/, 'preconditions refuse before any network attempt');
++    return result;
++  };
++  let result = run([cli]);
++  assert.equal(result.status, 1, 'direct execution without RPC must refuse with exit 1');
++  assert.equal(result.stdout, '');
++  assert.match(result.stderr, /--rpc <url>.*is required/);
++  checks += 1;
++
++  result = run([cli, '--rpc', 'http://127.0.0.1:9', '--send']);
++  assert.equal(result.status, 1, 'sending without a key must refuse with exit 1');
++  assert.equal(result.stdout, '');
++  assert.match(result.stderr, /--send requires --keypair/);
++  checks += 1;
++
++  result = run(['--input-type=module', '-e', 'await import(' + JSON.stringify(pathToFileURL(cli).href) + ');']);
++  assert.equal(result.status, 0, 'import must not invoke the CLI');
++  assert.equal(result.stdout, '', 'import is quiet');
++  assert.equal(result.stderr, '', 'import reports no CLI refusal');
++  checks += 1;
++} finally {
++  const resolved = path.resolve(scratch);
++  assert.equal(path.dirname(resolved), tempRoot, 'cleanup is limited to the created temp directory');
++  assert.ok(path.basename(resolved).startsWith('ratchetx crank # % CLI-'), 'cleanup target has the exact task prefix');
++  rmSync(resolved, { recursive: true, force: true });
++}
++console.log('ok - crank CLI: ' + checks + ' subprocess checks; missing RPC, missing send key and quiet import; no network');
