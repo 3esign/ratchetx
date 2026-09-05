@@ -12,7 +12,8 @@
 // It refuses mainnet outright, on the genesis hash, the same way the crank does.
 import fs from 'node:fs';
 import path from 'node:path';
-import { deploymentCost, sol, LAMPORTS_PER_SOL } from './rent.mjs';
+import { deploymentCost, sol, rentExempt, fetchRentQuotes, SIZE_OF_PROGRAM,
+  sizeOfProgramData, sizeOfBuffer } from './rent.mjs';
 
 export const PROGRAMS = [
   { name: 'timepin', file: 'rcx_timepin_v2.so', id: 'C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp' },
@@ -38,19 +39,18 @@ export function findArtifacts(cacheRoot, programs = PROGRAMS) {
   return found;
 }
 
-export function budget(artifacts, { maxLenMultiplier = 2 } = {}) {
+export function budget(artifacts, { maxLenMultiplier = 2, rentForSize = rentExempt } = {}) {
   const rows = artifacts.filter(a => !a.missing).map(a => ({
     ...a,
-    exact: deploymentCost(a.bytes),
-    headroom: deploymentCost(a.bytes, { maxLen: a.bytes * maxLenMultiplier }),
+    exact: deploymentCost(a.bytes, { rentForSize }),
+    headroom: deploymentCost(a.bytes, { maxLen: a.bytes * maxLenMultiplier, rentForSize }),
   }));
   const sum = (rows_, pick) => rows_.reduce((t, r) => t + pick(r), 0);
   return {
     rows,
     missing: artifacts.filter(a => a.missing).map(a => a.name),
-    // Deploying one at a time means the peak is the largest single peak plus the
-    // permanent cost of everything already deployed - which is cheaper than the
-    // naive sum and is how it will actually be done.
+    // Fresh deployment reuses its buffer funding. Every program's final rent
+    // remains locked; no additional buffer deposit is added to that total.
     exact: {
       permanent: sum(rows, r => r.exact.permanent),
       peakSequential: peakSequential(rows, 'exact'),
@@ -73,24 +73,13 @@ function peakSequential(rows, which) {
   return worst;
 }
 
-// ORDER IS FREE MONEY, AND THE CHEAP ORDER IS THE ONE NOBODY PICKS.
-//
-// The peak a payer must HOLD is: everything already deployed (permanent, locked)
-// plus the current program's own peak (which includes its buffer). Deploying the
-// LARGEST program first means its buffer is funded while nothing else is locked
-// yet; deploying it last means paying for it on top of everything.
-//
-// For this pair that is 14.12 SOL against 16.74 - 2.62 SOL, for choosing an
-// order. On devnet that is a faucet handing out two at a time, so it is not an
-// abstraction: it is one and a bit fewer rounds of asking.
-//
-// The permanent cost is identical either way. Nothing is traded for this.
+// Retained API: fresh deployments have equal rent peaks in either order.
+// Keep caller order; protocol dependencies, not a fictitious saving, choose it.
 export function cheapestOrder(rows, which = 'exact') {
-  const byLargestFirst = [...rows].sort((a, b) => b[which].permanent - a[which].permanent);
   return {
-    order: byLargestFirst.map(r => r.name),
-    peak: peakSequential(byLargestFirst, which),
-    worstPeak: peakSequential([...byLargestFirst].reverse(), which),
+    order: rows.map(r => r.name),
+    peak: peakSequential(rows, which),
+    worstPeak: peakSequential([...rows].reverse(), which),
   };
 }
 
@@ -103,55 +92,60 @@ const arg = (name, fallback = null) => {
 
 export async function main({ connectionFactory } = {}) {
   const cacheRoot = arg('cache-root');
-  if (!cacheRoot) throw new Error('--cache-root <dir> is required; there is no default artifact location');
+  if (typeof cacheRoot !== 'string') throw new Error('--cache-root <dir> is required; there is no default artifact location');
+  const selectedPlan = arg('plan', 'exact');
+  if (!['exact', 'headroom'].includes(selectedPlan)) throw new Error('--plan must be exact or headroom');
   const artifacts = findArtifacts(cacheRoot);
-  const b = budget(artifacts);
-
-  console.log(`artifact cache: ${cacheRoot}`);
-  for (const a of artifacts) {
-    if (a.missing) { console.log(`  ${a.name.padEnd(8)} MISSING - ${a.file} is not in this cache`); continue; }
-    console.log(`  ${a.name.padEnd(8)} ${String(a.bytes).padStart(9)} bytes  ${a.id}`);
-  }
-  if (b.missing.length) console.log(`\nNOT DEPLOYABLE: missing ${b.missing.join(', ')}`);
-
-  const cheap = cheapestOrder(b.rows, 'exact');
-  console.log('\ncost, exact fit (--max-len equal to the program):');
-  console.log(`  permanent            ${sol(b.exact.permanent)} SOL`);
-  console.log(`  peak, one at a time  ${sol(cheap.peak)} SOL   DEPLOY IN THIS ORDER: ${cheap.order.join(' then ')}`);
-  console.log(`  (the other order costs ${sol(cheap.worstPeak)} SOL at peak for the same permanent total)`);
-  console.log('\ncost, one upgrade of headroom (--max-len twice the program):');
-  console.log(`  permanent            ${sol(b.headroom.permanent)} SOL`);
-  console.log(`  peak, one at a time  ${sol(b.headroom.peakSequential)} SOL`);
-  console.log('\nThe buffer account is reclaimed when the deploy consumes it, so the peak is what the');
-  console.log('payer must HOLD and the permanent figure is what stays locked in rent afterwards.');
-  console.log('Pass --max-len explicitly at deploy time. The CLI default depends on its version, and');
-  console.log('an exact fit means the first upgrade that grows the binary cannot be deployed in place.');
-
   const rpc = arg('rpc');
   const payer = arg('payer');
-  if (!rpc) { console.log('\nno --rpc given, so no balance was read'); return b; }
-  if (!connectionFactory) throw new Error('--rpc needs a connection factory; run this as a CLI');
-  const { assertSendable } = await import('../g2-crank/cluster.mjs');
-  // AWAITED. The CLI below hands main an ASYNC factory - it imports web3 before
-  // it can build a Connection - so an unawaited call handed assertSendable a
-  // Promise, whose getGenesisHash is undefined, and the cluster guard refused
-  // every real invocation with "could not read the genesis hash". Found by a
-  // reviewer's test that exercised the actual CLI path rather than a stub, which
-  // is the only shape that could have caught it.
-  const connection = await connectionFactory(rpc);
-  const cluster = await assertSendable(connection);
-  console.log(`\ncluster: ${cluster.name}`);
-  if (!payer) { console.log('no --payer <pubkey> given, so no balance was read'); return b; }
-  const web3 = await import('@solana/web3.js');
-  const lamports = await connection.getBalance(new web3.PublicKey(payer));
-  const need = b.headroom.peakSequential;
-  console.log(`payer ${payer}`);
-  console.log(`  holds  ${sol(lamports)} SOL`);
-  console.log(`  needs  ${sol(need)} SOL for the headroom plan`);
-  console.log(lamports >= need
-    ? '  SUFFICIENT'
-    : `  SHORT BY ${sol(need - lamports)} SOL - a deploy started now fails part-way`);
-  return { ...b, payerLamports: lamports };
+  let connection = null, cluster = null, rentForSize = rentExempt;
+  const rentSource = rpc ? 'rpc' : 'legacy-estimate';
+  if (rpc) {
+    if (typeof rpc !== 'string') throw new Error('--rpc requires a URL');
+    if (!connectionFactory) throw new Error('--rpc needs a connection factory; run this as a CLI');
+    connection = await connectionFactory(rpc);
+    const { assertSendable } = await import('../g2-crank/cluster.mjs');
+    cluster = await assertSendable(connection);
+    const sizes = [SIZE_OF_PROGRAM, ...artifacts.filter(a => !a.missing).flatMap(a =>
+      [sizeOfBuffer(a.bytes), sizeOfProgramData(a.bytes), sizeOfProgramData(a.bytes * 2)])];
+    const quotes = await fetchRentQuotes(connection, sizes);
+    rentForSize = size => {
+      if (!quotes.has(size)) throw new Error('missing RPC rent quote for ' + size + ' bytes');
+      return quotes.get(size);
+    };
+  }
+  const b = budget(artifacts, { rentForSize });
+  const selectedRentLamports = b[selectedPlan].peakSequential;
+  const report = { ...b, selectedPlan, selectedRentLamports, rentSource,
+    cluster: cluster?.name ?? null, feesIncluded: false, firstDeploymentOnly: true };
+  console.log('artifact cache: ' + cacheRoot);
+  for (const a of artifacts) {
+    console.log(a.missing ? '  ' + a.name + ' MISSING - ' + a.file
+      : '  ' + a.name + ' ' + a.bytes + ' bytes ' + a.id);
+  }
+  console.log(rpc ? 'rent: live RPC quotes on ' + cluster.name
+    : 'rent: LEGACY ESTIMATE ONLY (6960 lamports/byte); use --rpc for current cluster quotes');
+  console.log('exact capacity: ' + sol(b.exact.permanent) + ' SOL rent');
+  console.log('double capacity: ' + sol(b.headroom.permanent) + ' SOL rent');
+  console.log('selected plan: ' + selectedPlan + ', ' + sol(selectedRentLamports) + ' SOL rent');
+  console.log('First deployment reuses buffer funding before creating ProgramData; fees are additional.');
+  console.log('Capacity does not decide upgrade authority. Exact capacity can be extended later while upgradeable.');
+  console.log('This is a budget, not artifact acceptance or permission to deploy.');
+  if (b.missing.length) {
+    console.log('NOT DEPLOYABLE: missing ' + b.missing.join(', ') + '; totals above are partial');
+    return report;
+  }
+  if (!rpc) { console.log('No RPC supplied: no payer funding verdict.'); return report; }
+  if (!payer) { console.log('No --payer <pubkey> supplied: no balance was read.'); return report; }
+  if (typeof payer !== 'string') throw new Error('--payer requires a public key');
+  const { PublicKey } = await import('@solana/web3.js');
+  const lamports = await connection.getBalance(new PublicKey(payer));
+  if (!Number.isSafeInteger(lamports) || lamports < 0) throw new Error('RPC returned an invalid payer balance');
+  const rentCovered = lamports >= selectedRentLamports;
+  console.log('payer ' + payer + ' holds ' + sol(lamports) + ' SOL');
+  console.log(rentCovered ? 'RENT COVERED for ' + selectedPlan + '; transaction fees still need funding.'
+    : 'RENT SHORT BY ' + sol(selectedRentLamports - lamports) + ' SOL for ' + selectedPlan + ', before fees.');
+  return { ...report, payerLamports: lamports, rentCovered };
 }
 
 import { pathToFileURL } from 'node:url';

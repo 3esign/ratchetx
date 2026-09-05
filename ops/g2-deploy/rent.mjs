@@ -1,65 +1,100 @@
-// What a devnet deployment of the two G2 programs actually costs, in lamports.
-//
-// Pure arithmetic over MEASURED file sizes. No network, no keys, no chain, and
-// nothing here can send anything. It exists so that the deployment step is a
-// number somebody checked rather than a surprise at the moment of deploying.
-//
-// Every constant below is named with what it is, because a magic number in a
-// cost calculation is how a deploy fails half-way with a buffer account funded
-// and a program account not.
+// Funding arithmetic for a fresh loader-v3 deployment with a newly created
+// Agave CLI buffer. No transaction is sent here; fees, upgrades, existing
+// buffers, and pre-existing program accounts require a separate calculation.
 
-// solana-sdk rent: an account is exempt when it holds
-//   (ACCOUNT_STORAGE_OVERHEAD + data_len) * LAMPORTS_PER_BYTE_YEAR * EXEMPTION_YEARS
+// Historical SDK defaults, retained for explicitly labeled offline estimates.
+// They are not a current cluster quote: observed mainnet rent on 2026-09-05
+// differed. Use fetchRentQuotes and inject its exact per-size values for funding.
 export const ACCOUNT_STORAGE_OVERHEAD = 128;
 export const LAMPORTS_PER_BYTE_YEAR = 3480;
 export const EXEMPTION_YEARS = 2;
 export const LAMPORTS_PER_SOL = 1_000_000_000;
 
-export const rentExempt = dataLen =>
-  (ACCOUNT_STORAGE_OVERHEAD + dataLen) * LAMPORTS_PER_BYTE_YEAR * EXEMPTION_YEARS;
+function checkedSize(value, name, minimum = 0) {
+  if (!Number.isSafeInteger(value) || value < minimum) {
+    throw new TypeError(`${name} must be a safe integer >= ${minimum}`);
+  }
+  return value;
+}
 
-// bpf_loader_upgradeable::UpgradeableLoaderState, serialized sizes.
-//   Program        = 4 (enum tag) + 32 (programdata address)              = 36
-//   ProgramData    = 4 (enum tag) + 8 (slot) + 1 (option) + 32 (authority) = 45, then the ELF
-//   Buffer         = 4 (enum tag) + 1 (option) + 32 (authority)            = 37, then the ELF
+function checkedLamports(value, size) {
+  if (!Number.isSafeInteger(value) || value <= 0) {
+    throw new TypeError(`rent quote for ${size} bytes must be a positive safe integer`);
+  }
+  return value;
+}
+
+export const rentExempt = dataLen => {
+  checkedSize(dataLen, 'account data size');
+  return checkedLamports((ACCOUNT_STORAGE_OVERHEAD + dataLen)
+    * LAMPORTS_PER_BYTE_YEAR * EXEMPTION_YEARS, dataLen);
+};
+
+// bpf_loader_upgradeable::UpgradeableLoaderState serialized account sizes.
 export const SIZE_OF_PROGRAM = 36;
 export const SIZE_OF_PROGRAMDATA_METADATA = 45;
 export const SIZE_OF_BUFFER_METADATA = 37;
 
-export const sizeOfProgramData = elfLen => SIZE_OF_PROGRAMDATA_METADATA + elfLen;
-export const sizeOfBuffer = elfLen => SIZE_OF_BUFFER_METADATA + elfLen;
+export const sizeOfProgramData = elfLen => checkedSize(
+  SIZE_OF_PROGRAMDATA_METADATA + checkedSize(elfLen, 'allocated ELF size'), 'ProgramData size');
+export const sizeOfBuffer = elfLen => checkedSize(
+  SIZE_OF_BUFFER_METADATA + checkedSize(elfLen, 'ELF size'), 'buffer size');
 
-// THE HEADROOM QUESTION, STATED RATHER THAN ASSUMED.
-//
-// `solana program deploy` allocates programdata for `--max-len` bytes of ELF.
-// Without the flag the CLI picks a default, and which default depends on the CLI
-// version. That is not a detail: at these sizes the difference between exact fit
-// and double is about 7 SOL for the pair, and an exact fit means the FIRST
-// upgrade that grows the binary by one byte cannot be deployed in place.
-//
-// So both are computed and both are reported, and the flag is passed explicitly
-// at deploy time rather than trusted. A number that depends on which version of
-// a tool somebody has installed is not a measurement.
-export function deploymentCost(elfLen, { maxLen = null } = {}) {
-  const allocated = maxLen === null ? elfLen : maxLen;
-  if (allocated < elfLen) {
-    throw new Error(`max-len ${allocated} is smaller than the program's ${elfLen} bytes, `
-      + 'so the deploy would be rejected after the buffer was already funded');
+// Fetch every requested size or reject. No static fallback, inferred multiplier,
+// retry, or partial quote map is returned. The caller owns cluster identification
+// and the connection's commitment, and must record those with its funding plan.
+export async function fetchRentQuotes(connection, sizes) {
+  if (!connection || typeof connection.getMinimumBalanceForRentExemption !== 'function') {
+    throw new TypeError('connection.getMinimumBalanceForRentExemption is required');
   }
-  const program = rentExempt(SIZE_OF_PROGRAM);
-  const programData = rentExempt(sizeOfProgramData(allocated));
-  // The buffer is funded during the deploy and reclaimed when it is consumed, so
-  // it is a PEAK requirement rather than a permanent cost. A payer funded only
-  // for the permanent part fails part-way through.
-  const bufferPeak = rentExempt(sizeOfBuffer(elfLen));
+  if (!Array.isArray(sizes)) throw new TypeError('rent quote sizes must be an array');
+  const unique = [...new Set(sizes.map(size => checkedSize(size, 'account data size')))];
+  const entries = await Promise.all(unique.map(async size => [size, checkedLamports(
+    await connection.getMinimumBalanceForRentExemption(size), size)]));
+  return new Map(entries);
+}
+
+// Agave v4.2.1 cli/src/program.rs:1425,2556,2614 and
+// programs/bpf_loader/src/lib.rs:287-300 establish the funding sequence:
+// 1. The CLI funds the buffer with rent(45 + maxLen), including any headroom.
+// 2. The final transaction creates the separate 36-byte Program account.
+// 3. The loader drains the buffer to the payer BEFORE creating ProgramData.
+// The same ProgramData lamports move through the buffer; they are not paid twice.
+// Exact capacity and upgrade authority are independent choices. Later growth
+// needs a supported ProgramData extension and its additional rent.
+export function deploymentCost(elfLen, { maxLen = null, rentForSize = rentExempt } = {}) {
+  checkedSize(elfLen, 'ELF size', 1);
+  const allocated = maxLen === null ? elfLen : checkedSize(maxLen, 'max-len', 1);
+  if (allocated < elfLen) {
+    throw new Error(`max-len ${allocated} is smaller than the program's ${elfLen} bytes`);
+  }
+  const programDataSize = sizeOfProgramData(allocated);
+  const bufferSize = sizeOfBuffer(elfLen);
+  if (typeof rentForSize !== 'function') throw new TypeError('rentForSize must be a function');
+  const quote = size => checkedLamports(rentForSize(size), size);
+  const program = quote(SIZE_OF_PROGRAM);
+  const programData = quote(programDataSize);
+  const bufferRentMinimum = quote(bufferSize);
+  const bufferFunding = programData;
+  if (bufferFunding < bufferRentMinimum) {
+    throw new Error('ProgramData quote cannot fund the buffer rent minimum; obtain consistent rent quotes');
+  }
+  const permanent = program + programData;
+  if (!Number.isSafeInteger(permanent)) throw new RangeError('total deployment lamports exceed safe integer precision');
   return {
     elfLen,
     allocatedElfLen: allocated,
     programAccount: program,
     programDataAccount: programData,
-    permanent: program + programData,
-    bufferPeak,
-    peak: program + programData + bufferPeak,
+    permanent,
+    bufferRentMinimum,
+    bufferFunding,
+    // Compatibility field: actual CLI buffer funding, not an added peak charge.
+    bufferPeak: bufferFunding,
+    peak: permanent,
+    rentBasis: rentForSize === rentExempt ? 'legacy-static-estimate' : 'provided-quotes',
+    feesIncluded: false,
+    scope: 'fresh loader-v3 deployment with a newly CLI-funded buffer; excludes fees, upgrades and existing accounts',
   };
 }
 

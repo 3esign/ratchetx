@@ -1,13 +1,5 @@
-// What the G2 devnet deployment costs, and why the number matters before anyone
-// starts one.
-//
-// The two artifacts are 375,944 and 1,014,408 bytes. At Solana's rent that is
-// 16.74 SOL held at peak for an exact fit and 26.42 SOL with one upgrade of
-// headroom - and a devnet faucet hands out two SOL at a time. A deploy started
-// without checking this funds a buffer account, runs out, and leaves a
-// half-deployed program and a stranded buffer.
-//
-// Everything here is arithmetic and file sizes. No network, no keys, no chain.
+// Fresh first-deploy rent, plan selection and async RPC integration.
+// Host tests use fixed quotes and synthetic files; no real balances or sends.
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -37,14 +29,15 @@ const CORE = 1_014_408;
 
 const t = deploymentCost(TIMEPIN);
 eq(t.programDataAccount, (128 + 45 + TIMEPIN) * 3480 * 2, 'timepin programdata exemption');
-eq(t.bufferPeak, (128 + 37 + TIMEPIN) * 3480 * 2, 'timepin buffer exemption');
+eq(t.bufferRentMinimum, (128 + 37 + TIMEPIN) * 3480 * 2, 'legacy buffer rent minimum');
+eq(t.bufferFunding, t.programDataAccount, 'CLI prefunds buffer with ProgramData rent');
 eq(t.permanent, t.programAccount + t.programDataAccount, 'permanent is program + programdata');
-eq(t.peak, t.permanent + t.bufferPeak, 'peak is permanent plus the buffer held during the deploy');
+eq(t.peak, t.permanent, 'initial deploy reuses buffer before funding ProgramData');
 
-// Headroom doubles the programdata allocation and nothing else - the buffer only
-// ever holds the real ELF.
+// Capacity changes ProgramData rent and CLI buffer funding; buffer bytes remain the ELF size.
 const th = deploymentCost(TIMEPIN, { maxLen: TIMEPIN * 2 });
-eq(th.bufferPeak, t.bufferPeak, 'headroom changed the buffer, which holds the real program, not the allocation');
+eq(th.bufferRentMinimum, t.bufferRentMinimum, 'capacity does not change buffer bytes');
+eq(th.bufferFunding, th.programDataAccount, 'CLI prefunds selected capacity');
 ok(th.programDataAccount > t.programDataAccount, 'headroom did not increase the programdata allocation');
 
 // ---- a max-len that cannot work is refused before anything is funded --------
@@ -53,48 +46,23 @@ assert.throws(() => deploymentCost(CORE, { maxLen: CORE - 1 }),
   /smaller than the program/,
   'a max-len below the program size was accepted; the deploy would fail AFTER funding the buffer');
 
-// ---- sequential deployment is cheaper at peak than doing both at once -------
+// First deploy's final account rent is also its maximum allocated rent.
 const arts = [
   { name: 'timepin', bytes: TIMEPIN, missing: false },
   { name: 'core', bytes: CORE, missing: false },
 ];
 const b = budget(arts);
-ok(b.headroom.peakSequential < b.headroom.peakTogether,
-  'deploying one at a time is not cheaper at peak than funding both buffers together, which means '
-  + 'peakSequential is not computing what it claims');
+eq(b.headroom.peakSequential, b.headroom.peakTogether, 'no additional simultaneous buffer rent');
 eq(b.headroom.permanent,
   deploymentCost(TIMEPIN, { maxLen: TIMEPIN * 2 }).permanent + deploymentCost(CORE, { maxLen: CORE * 2 }).permanent,
-  'the permanent total is not the sum of the two permanent costs');
-
-// The order matters: the peak is worst when the LARGER program is deployed last,
-// because everything already deployed is still locked.
+  'total permanent rent');
 const reversed = budget([arts[1], arts[0]]);
-ok(b.headroom.peakSequential !== reversed.headroom.peakSequential,
-  'deployment order does not affect the peak, which means the already-deployed cost is being ignored');
-
-// ---- the numbers we are actually going to act on ---------------------------
-// Pinned as SOL, to two decimals, because these are the figures a person will
-// read before funding a payer. If a constant changes, this test says so.
-const SOL = 1e9;
-eq((b.exact.peakSequential / SOL).toFixed(2), '16.74', 'exact-fit peak changed');
-eq((b.headroom.peakSequential / SOL).toFixed(2), '26.42', 'headroom peak changed');
-eq((b.headroom.permanent / SOL).toFixed(2), '19.36', 'permanent cost changed');
-
-// ---- the cheap order, which is the one nobody picks -------------------------
-// The peak is what is already locked plus the current program's own buffer, so
-// the LARGEST program must go first: deploying it last pays for its buffer on
-// top of everything else. The permanent total is identical either way, so this
-// is 2.62 SOL for choosing an order - on devnet, more than one fewer round of
-// asking a faucet that hands out two at a time.
-{
-  const c = cheapestOrder(b.rows, 'exact');
-  eq(c.order.join(','), 'core,timepin', 'the cheapest order is not largest-first');
-  ok(c.peak < c.worstPeak, 'order does not change the peak, so the recommendation is meaningless');
-  eq((c.peak / SOL).toFixed(2), '14.12', 'the cheap order peak changed');
-  eq((c.worstPeak / SOL).toFixed(2), '16.74', 'the expensive order peak changed');
-  eq(budget(arts).exact.permanent, budget([arts[1], arts[0]]).exact.permanent,
-    'reordering changed the PERMANENT cost, which would mean this is a trade rather than free');
-}
+eq(b.headroom.peakSequential, reversed.headroom.peakSequential, 'order cannot create a rent saving');
+eq(b.exact.peakSequential, 9681540960, 'legacy-rate exact first-deploy rent, including headers');
+eq(b.headroom.peakSequential, 19358390880, 'legacy-rate double first-deploy rent');
+const c = cheapestOrder(b.rows, 'exact');
+eq(c.order.join(','), 'timepin,core', 'equal cost retains caller order');
+eq(c.peak, c.worstPeak, 'fresh deployment has equal rent peaks in either order');
 
 // ---- a missing artifact is reported, never counted as free ------------------
 const partial = budget([arts[0], { name: 'core', missing: true }]);
@@ -121,7 +89,7 @@ try {
     console.log = () => {};
     const measured = await main({ connectionFactory: async rpc => {
       factoryRpc = rpc;
-      return { getGenesisHash: async () => {
+      return { getMinimumBalanceForRentExemption: async size => (128 + size) * 5080, getGenesisHash: async () => {
         genesisRead = true;
         return 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
       } };
@@ -133,6 +101,51 @@ try {
     process.argv = savedArgv;
     console.log = savedLog;
   }
+
+  // A payer between the two plans must fund exact, while double capacity remains short.
+  fs.writeFileSync(path.join(tmp, 'aaa', 'ratchet_core_g2.so'), Buffer.alloc(21));
+  const invoke = async (args, connection) => {
+    const argv = process.argv, log = console.log;
+    const output = [];
+    try {
+      process.argv = [process.execPath, 'preflight.mjs', '--cache-root', tmp, ...args];
+      console.log = line => output.push(line);
+      const result = await main({ connectionFactory: async () => connection });
+      return { result, output: output.join('\n') };
+    } finally { process.argv = argv; console.log = log; }
+  };
+  const payer = '11111111111111111111111111111111';
+  const rpcArgs = ['--rpc', 'mock://devnet', '--payer', payer];
+  let rentReads = 0, balanceReads = 0;
+  const conn = {
+    getGenesisHash: async () => 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG',
+    getMinimumBalanceForRentExemption: async size => { rentReads++; return (128 + size) * 5080; },
+    getBalance: async () => { balanceReads++; return 3_650_000; },
+  };
+  const exact = await invoke(rpcArgs, conn);
+  eq(exact.result.selectedPlan, 'exact', 'default plan is exact');
+  eq(exact.result.selectedRentLamports, 3_586_480, 'selected need uses RPC rate and exact capacity');
+  ok(exact.result.rentCovered, 'payer covers the exact plan it was shown');
+  eq(exact.result.feesIncluded, false, 'rent is not total transaction cost');
+  eq(exact.result.rentSource, 'rpc', 'live quote provenance');
+  ok(exact.output.includes('RENT COVERED') && exact.output.includes('fees still'), 'funding output qualifies fees');
+  const headroom = await invoke([...rpcArgs, '--plan', 'headroom'], conn);
+  eq(headroom.result.selectedRentLamports, 3_749_040, 'double capacity uses same RPC schedule');
+  eq(headroom.result.rentCovered, false, 'same payer is short for double capacity');
+  ok(headroom.output.includes('RENT SHORT BY'), 'selected-plan shortfall shown');
+  ok(rentReads > 0 && balanceReads === 2, 'async RPC rent and balances were actually read');
+  const offline = await invoke([], null);
+  eq(offline.result.rentSource, 'legacy-estimate', 'offline source is explicitly legacy');
+  eq(offline.result.rentCovered, undefined, 'offline estimate cannot certify payer funding');
+  ok(offline.output.includes('LEGACY ESTIMATE'), 'legacy calculation labelled on output');
+  checks++; await assert.rejects(invoke(['--plan', 'mystery'], conn), /plan must be/);
+  checks++; await assert.rejects(invoke(rpcArgs, { ...conn,
+    getMinimumBalanceForRentExemption: async () => { throw new Error('rent RPC unavailable'); } }), /rent RPC unavailable/);
+  let forbiddenRentRead = false;
+  checks++; await assert.rejects(invoke(rpcArgs, { ...conn,
+    getGenesisHash: async () => '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d',
+    getMinimumBalanceForRentExemption: async () => { forbiddenRentRead = true; return 1; } }), /mainnet/i);
+  eq(forbiddenRentRead, false, 'mainnet refusal precedes rent/balance reads');
 
   // TWO copies of one program in a content-addressed cache means two different
   // builds are present and nothing can say which one would be deployed.
@@ -149,4 +162,4 @@ checks += 1;
 assert.throws(() => findArtifacts(path.join(tmp, 'does-not-exist')), /cannot read the artifact cache/,
   'an unreadable cache answered instead of refusing');
 
-console.log(`ok - the deploy budget is measured, not guessed (${checks} checks)`);
+console.log(`ok - fresh-deploy rent and selected-plan RPC preflight (${checks} checks)`);
