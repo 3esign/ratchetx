@@ -38,16 +38,56 @@ function gitFiles(root, args) {
   return run.stdout.split('\0').filter(Boolean);
 }
 
+// Three listings, one index, and the index does not hold still.
+//
+// `git ls-files` cannot answer all three questions at once, and on 2026-09-05
+// this gate went red on docs/reviews/opus-lead-2026-09-05/MIN_CAPTURE_S7_TESTS.md
+// with two verdicts that were both false: it called a TRACKED file untracked, and
+// it called a directory .vercelignore has excluded since h69 an unreviewed
+// deployment surface. Nothing was wrong with the tree. A commit had landed
+// between the first listing and the third, so the file was absent from `tracked`
+// and present in `possible`. With several agents committing minutes apart that is
+// the normal case, not a rare one, and the cost is not just a wasted red: the
+// message it printed told the reader to add `docs` to the allowlist, which would
+// have published every review and internal plan in the repository.
+//
+// So the tracked listing is read again after the other two and the enumeration is
+// retried while it keeps moving. If it will not hold still, this throws: a gate
+// that cannot enumerate its own input has no verdict to give, and no verdict is
+// the safe answer.
+const sameListing = (a, b) => a.length === b.length && a.every((v, i) => v === b[i]);
+
+export function enumerateStable(list, attempts = 3) {
+  let last = null;
+  for (let i = 0; i < attempts; i++) {
+    const before = list('tracked');
+    const excludedTracked = list('excludedTracked');
+    const possible = list('possible');
+    const after = list('tracked');
+    if (sameListing(before, after)) return {tracked: before, excludedTracked, possible};
+    last = before.length + ' then ' + after.length + ' tracked files';
+  }
+  throw new Error('The index changed while the deployment input was being enumerated ('
+    + last + '); no verdict is given rather than a wrong one. Re-run when commits settle.');
+}
+
 // Git is only the ignore-pattern engine and index inventory here. In particular,
 // --exclude-standard must NOT be added: gitignored local files can still be sent
 // by a folder-based Vercel deployment. No file contents are read by this module.
-export function inspectDeployInput(root = process.cwd(), {ignoreFile = '.vercelignore'} = {}) {
+export function inspectDeployInput(root = process.cwd(), {ignoreFile = '.vercelignore', attempts = 3} = {}) {
   root = path.resolve(root);
   const ignore = path.resolve(root, ignoreFile);
   if (!fs.statSync(ignore).isFile()) throw new Error('Missing .vercelignore');
-  const tracked = new Set(gitFiles(root, ['--cached']));
-  const excludedTracked = new Set(gitFiles(root, ['--cached', '--ignored', '--exclude-from='+ignore]));
-  const possible = new Set(gitFiles(root, ['--cached', '--others', '--exclude-from='+ignore]));
+  const listings = enumerateStable(which => gitFiles(root,
+    which === 'tracked' ? ['--cached']
+    : which === 'excludedTracked' ? ['--cached', '--ignored', '--exclude-from='+ignore]
+    : ['--cached', '--others', '--exclude-from='+ignore]), attempts);
+  const tracked = new Set(listings.tracked);
+  const excludedTracked = new Set(listings.excludedTracked);
+  const possible = new Set(listings.possible);
+  // Whatever .vercelignore already excludes is not a public surface question, so
+  // the directory message below must never point at one of those directories.
+  const ignoredTops = new Set([...excludedTracked].map(n => n.split('/')[0]));
   const files=[], errors=[];
   for (const name of [...possible].sort()) {
     if (excludedTracked.has(name)) continue;
@@ -71,7 +111,10 @@ export function inspectDeployInput(root = process.cwd(), {ignoreFile = '.verceli
     }else{
       const top=name.split('/')[0];
       if(!ROOT_DIRS.has(top))
-        errors.push('Unreviewed deployment directory: '+name+' (add "'+top+'" to ROOT_DIRS in check-deploy-input.mjs only after reviewing everything that directory publishes)');
+        errors.push('Unreviewed deployment directory: '+name+(ignoredTops.has(top)
+          ? ' (.vercelignore already excludes "'+top+'/", so this listing disagrees with itself -'
+            + ' do NOT add it to ROOT_DIRS; re-run, and if it persists the index is inconsistent)'
+          : ' (add "'+top+'" to ROOT_DIRS in check-deploy-input.mjs only after reviewing everything that directory publishes)'));
       if(!tracked.has(name))
         errors.push('Untracked deployment file must be reviewed and tracked: '+name);
     }

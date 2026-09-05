@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import {execFileSync} from 'node:child_process';
-import {inspectDeployInput,isNeverReadPath} from '../scripts/check-deploy-input.mjs';
+import {inspectDeployInput,isNeverReadPath,enumerateStable} from '../scripts/check-deploy-input.mjs';
 
 function fixture(t, ignore='*.md\nnode_modules/\n.env*\n_to_delete/\n') {
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'ratchetx-deploy-'));
@@ -48,3 +48,39 @@ test('a tracked file in an unreviewed top-level directory cannot ship',t=>{const
 // bypass unless tracked-ness carries the review, which is the signal the nested
 // check already uses. Untracked style.css/logo.png shipped with errors:[] before.
 test('root assets ship by extension only once they are tracked',t=>{const f=fixture(t);f.put('style.css');f.put('logo.png');assert.ok(f.check().errors.some(e=>e.endsWith('style.css')));assert.ok(f.check().errors.some(e=>e.endsWith('logo.png')));f.track(['style.css','logo.png']);assert.deepEqual(f.check().errors,[]);});
+
+// Measured 2026-09-05: this gate reported a TRACKED file as untracked AND as an
+// unreviewed deployment directory, because a commit landed between the first of
+// its three git ls-files calls and the third. Nothing was wrong with the tree.
+// The message it printed then told the reader to allowlist "docs", which would
+// have published every review in the repository, so a race here is not a wasted
+// red - it is a wrong instruction under time pressure.
+test('a listing that moves under the enumeration is retried, not believed',t=>{
+  let call=0;
+  // The index settles after the first sweep, exactly as a landing commit does.
+  const shifting=which=>{
+    if(which==='tracked') return ++call<=1 ? ['a.js'] : ['a.js','docs/new.md'];
+    return which==='excludedTracked' ? ['docs/new.md'] : ['a.js','docs/new.md'];
+  };
+  const r=enumerateStable(shifting,3);
+  assert.deepEqual(r.tracked,['a.js','docs/new.md'],'the settled listing is the one used');
+  assert.ok(call>2,'it re-read the tracked listing rather than trusting one pass');
+});
+
+test('a listing that never settles yields no verdict at all',t=>{
+  let n=0;
+  const never=which=>which==='tracked' ? ['f'+(n++)] : [];
+  assert.throws(()=>enumerateStable(never,3),/index changed while the deployment input was being enumerated/);
+});
+
+// The advice must never be "publish this directory" for a directory
+// .vercelignore already excludes. That combination means the listing disagrees
+// with itself, and the only safe reading of it is: do not act on this.
+test('a directory .vercelignore already excludes is never suggested for the allowlist',t=>{
+  const f=fixture(t,'docs/\n');
+  f.put('docs/keep.md');f.track(['docs/keep.md']);
+  f.put('notes/dump.txt');f.track(['notes/dump.txt']);
+  const errs=f.check().errors.join(' | ');
+  assert.ok(/notes.*add "notes" to ROOT_DIRS/.test(errs),'a genuinely new directory still says how to review it');
+  assert.ok(!/add "docs" to ROOT_DIRS/.test(errs),'an excluded directory is never proposed for the allowlist');
+});

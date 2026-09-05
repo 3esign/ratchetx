@@ -25,7 +25,7 @@ try {
   deploymentFiles = deployment.files;
   for (const error of deployment.errors) fail(error);
   if (!deployment.errors.length) ok(`${deployment.files.length} deployment input files pass the public surface boundary`);
-} catch { fail('deployment input could not be enumerated; upload is blocked'); }
+} catch (e) { fail('deployment input could not be enumerated; upload is blocked: ' + (e && e.message || e)); }
 const scanFiles = [...new Set([...files, ...deploymentFiles])];
 const forbiddenNames = /(^|\/)(phases_extracted\d*\.txt|plan_dump\.txt|rotate\d*\.js|run_sql\.js|test-pyth\.mjs|patch\.py|[^/]+\.bak)$/i;
 const secretPatterns = [
