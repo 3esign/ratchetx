@@ -250,6 +250,16 @@ export function discoverSvmTargets(metadata, cwd, program) {
   return names.sort();
 }
 
+// Record the actual process host; a compiler version alone does not identify
+// the OS-specific platform-tools distribution. Verification must not rewrite
+// the original build invocation host; Cargo may reuse compiled inputs.
+function hostEvidence(root) {
+  return { platform: process.platform, architecture: process.arch,
+    osType: os.type(), osRelease: os.release(), osVersion: os.version(),
+    nodeVersion: process.version, nodeExecutable: process.execPath,
+    workspace: fs.realpathSync(root) };
+}
+
 export function runBuild({ root = ROOT, expected = {}, ci = false, buildOnly = false, verifyArtifacts = false, spawn = spawnSync, log = console.log,
   cacheRoot = path.join(os.tmpdir(), 'ratchetx-onchain-sbf'), platformHome = os.homedir(), platform = process.platform } = {}) {
   const receiptPath = path.join(root, 'docs/receipts/g2-build-artifacts.json');
@@ -263,10 +273,10 @@ export function runBuild({ root = ROOT, expected = {}, ci = false, buildOnly = f
   }
   const receipt = previous
     ? { ...previous, status: 'RUNNING', mode: 'verify-artifacts', verificationStartedAt: new Date().toISOString(),
-      stages: [...previous.stages] }
+      verificationHost: hostEvidence(root), stages: [...previous.stages] }
     : { schema: 1, status: 'RUNNING', evidenceTier: 'local candidate; no deployment',
       startedAt: new Date().toISOString(), mode: buildOnly ? 'build-only' : ci ? 'ci' : 'local',
-      toolchain: TOOLCHAIN, sourceHashes: {}, artifacts: {}, stages: [] };
+      toolchain: TOOLCHAIN, buildHost: hostEvidence(root), sourceHashes: {}, artifacts: {}, stages: [] };
   delete receipt.finishedAt;
   delete receipt.failure;
   fs.mkdirSync(path.dirname(receiptPath), { recursive: true });

@@ -566,3 +566,31 @@ test('a passing test log cannot certify source drift during SBF execution', t =>
   assert.equal(evidence.accepted, false);
   assert.ok(evidence.problems.some(problem => problem.includes('source/lockfile drift')));
 });
+
+
+test('verification records its own host without rewriting original build provenance', t => {
+  const f = fixture(t), calls = [];
+  const built = runBuild({ ...f, buildOnly: true, spawn: fakeSpawn(f, calls), log: () => {} });
+  assert.deepEqual(built.buildHost, { platform: process.platform, architecture: process.arch,
+    osType: os.type(), osRelease: os.release(), osVersion: os.version(),
+    nodeVersion: process.version, nodeExecutable: process.execPath, workspace: fs.realpathSync(f.root) });
+  assert.equal(built.verificationHost, undefined);
+  const file = path.join(f.root, 'docs/receipts/g2-build-artifacts.json');
+  const originalHost = { ...built.buildHost, platform: 'fixture-other-platform', workspace: '/original/build/workspace' };
+  fs.writeFileSync(file, JSON.stringify({ ...built, buildHost: originalHost }));
+  const verified = runBuild({ ...f, verifyArtifacts: true, spawn: fakeSpawn(f, []), log: () => {} });
+  assert.deepEqual(verified.buildHost, originalHost);
+  assert.deepEqual(verified.verificationHost, built.buildHost);
+  assert.equal(verified.status, 'PASS');
+});
+
+test('legacy receipt verification leaves an unrecorded builder host unrecorded', t => {
+  const f = fixture(t);
+  const built = runBuild({ ...f, buildOnly: true, spawn: fakeSpawn(f, []), log: () => {} });
+  delete built.buildHost;
+  fs.writeFileSync(path.join(f.root, 'docs/receipts/g2-build-artifacts.json'), JSON.stringify(built));
+  const verified = runBuild({ ...f, verifyArtifacts: true, spawn: fakeSpawn(f, []), log: () => {} });
+  assert.equal(Object.hasOwn(verified, 'buildHost'), false);
+  assert.equal(verified.verificationHost.platform, process.platform);
+  assert.equal(verified.status, 'PASS');
+});
