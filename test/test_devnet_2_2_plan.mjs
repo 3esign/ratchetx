@@ -59,8 +59,19 @@ check(() => {
     assert.equal(back.state, byte, `${name} is byte ${byte}`);
     assert.equal(back.stateName, NEED_STATE[byte], `and decodes back to ${NEED_STATE[byte]}`);
   }
-  assert.throws(() => decodeTimepinNeedV2(Buffer.alloc(64)), /expected 132/,
+  // The length is read from the MODEL's constant, never written as a literal.
+  // TimepinNeedV2 grew from 132 to 276 bytes at 13:47Z when the inline
+  // observation landed (fe0f8e6); a test with 132 baked into it would have gone
+  // red for the wrong reason and been "fixed" by bumping a number. The fields
+  // this decoder reads are all before the new ones, so the round-trip above
+  // still pins every offset - which is the point of round-tripping against the
+  // model instead of asserting bytes.
+  assert.throws(() => decodeTimepinNeedV2(Buffer.alloc(64)),
+    new RegExp(`expected ${TIMEPIN_NEED_V2_ACCOUNT_LEN}`),
     'a short account is refused rather than read as a Need');
+  assert.throws(() => decodeTimepinNeedV2(Buffer.alloc(TIMEPIN_NEED_V2_ACCOUNT_LEN + 1)),
+    new RegExp(`expected ${TIMEPIN_NEED_V2_ACCOUNT_LEN}`),
+    'and so is a LONGER one - a layout that grew is not a Need this decoder understands');
 }, 'every Need state byte matches lib.rs:45-49');
 
 // --- the void rate, which is the whole of GATE 2 --------------------------------
@@ -245,7 +256,8 @@ const accountsFor = states => async keys => keys.map((k) => {
   const r = await report({ receipt: receiptOf(bad), getAccounts: accountsFor(bad) });
   check(() => {
     assert.equal(r.undecodable.length, 1, 'an account that is not a Need is reported');
-    assert.match(r.undecodable[0].error, /expected 132/, 'with the reason');
+    assert.match(r.undecodable[0].error, new RegExp(`expected ${TIMEPIN_NEED_V2_ACCOUNT_LEN}`),
+      'with the reason, and the length comes from the model rather than a literal');
     assert.equal(r.summary.meetsGate2, false, 'and it fails the gate');
   }, 'an undecodable account is a hole too, not a silent skip');
 }
