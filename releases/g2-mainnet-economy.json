@@ -53,7 +53,7 @@
   "rulesetTemplate": {
     "schema": 2,
     "entryMode": 2,
-    "targetGridSeconds": 60,
+    "targetGridSeconds": 300,
     "minOpenLeadSeconds": 30,
     "maxEntryAgeSeconds": 0,
     "bandNumerator": 0,
@@ -103,7 +103,7 @@
     "pushOracleProgram": "pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou",
     "shardId": 0,
     "requiredVerification": 1,
-    "targetGridSeconds": 60,
+    "targetGridSeconds": 300,
     "minOpenLeadSeconds": 60,
     "maxTargetAheadSeconds": 90000,
     "maxPreTargetGapSeconds": 0,
@@ -126,8 +126,8 @@
       "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
       "maxPostTargetLagSeconds": {
         "tag": "D",
-        "proposed": 59,
-        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
+        "proposed": 299,
+        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
       "enabledAtLaunch": true
     },
@@ -137,8 +137,8 @@
       "feedId": "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
       "maxPostTargetLagSeconds": {
         "tag": "D",
-        "proposed": 59,
-        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
+        "proposed": 299,
+        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
       "enabledAtLaunch": true
     },
@@ -148,10 +148,10 @@
       "feedId": "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
       "maxPostTargetLagSeconds": {
         "tag": "D",
-        "proposed": 59,
-        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
+        "proposed": 299,
+        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
-      "enabledAtLaunch": false,
+      "enabledAtLaunch": true,
       "disabledReason": "DISABLED FOR LAUNCH. Pushed roughly every 52 s. With grid 60 the derived lag is 59, leaving SEVEN SECONDS of headroom against a scheduler nobody here controls and which was measured drifting through all five phase values inside one hour. SOL and BTC push every 5 s - twelve times that margin. A feed is added later as its own registered ruleset once the ON-CHAIN VOID RATE from real play shows it carries, which is the only measurement that is ours rather than borrowed. Lead proposal 2026-09-05, tag D: OWNER DECISION."
     },
     {
@@ -160,10 +160,10 @@
       "feedId": "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419",
       "maxPostTargetLagSeconds": {
         "tag": "D",
-        "proposed": 59,
-        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
+        "proposed": 299,
+        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
-      "enabledAtLaunch": false,
+      "enabledAtLaunch": true,
       "disabledReason": "DISABLED FOR LAUNCH. Pushed roughly every 52 s. With grid 60 the derived lag is 59, leaving SEVEN SECONDS of headroom against a scheduler nobody here controls and which was measured drifting through all five phase values inside one hour. SOL and BTC push every 5 s - twelve times that margin. A feed is added later as its own registered ruleset once the ON-CHAIN VOID RATE from real play shows it carries, which is the only measurement that is ours rather than borrowed. Lead proposal 2026-09-05, tag D: OWNER DECISION."
     },
     {
@@ -172,10 +172,10 @@
       "feedId": "7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9",
       "maxPostTargetLagSeconds": {
         "tag": "D",
-        "proposed": 59,
-        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
+        "proposed": 299,
+        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
-      "enabledAtLaunch": false,
+      "enabledAtLaunch": true,
       "disabledReason": "DISABLED FOR LAUNCH. Pushed roughly every 52 s. With grid 60 the derived lag is 59, leaving SEVEN SECONDS of headroom against a scheduler nobody here controls and which was measured drifting through all five phase values inside one hour. SOL and BTC push every 5 s - twelve times that margin. A feed is added later as its own registered ruleset once the ON-CHAIN VOID RATE from real play shows it carries, which is the only measurement that is ours rather than borrowed. Lead proposal 2026-09-05, tag D: OWNER DECISION."
     },
     {
@@ -184,10 +184,10 @@
       "feedId": "0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996",
       "maxPostTargetLagSeconds": {
         "tag": "D",
-        "proposed": 59,
-        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
+        "proposed": 299,
+        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
-      "enabledAtLaunch": false,
+      "enabledAtLaunch": true,
       "disabledReason": "DISABLED FOR LAUNCH. Pushed roughly every 52 s. With grid 60 the derived lag is 59, leaving SEVEN SECONDS of headroom against a scheduler nobody here controls and which was measured drifting through all five phase values inside one hour. SOL and BTC push every 5 s - twelve times that margin. A feed is added later as its own registered ruleset once the ON-CHAIN VOID RATE from real play shows it carries, which is the only measurement that is ours rather than borrowed. Lead proposal 2026-09-05, tag D: OWNER DECISION."
     },
     {
@@ -196,10 +196,10 @@
       "feedId": "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc",
       "maxPostTargetLagSeconds": {
         "tag": "D",
-        "proposed": 59,
-        "derivation": "derived: grid - 1. Admissibility for target T is [T, T+lag], so coverage is monotonically non-decreasing in lag, and lag < grid is necessary and sufficient for a print to belong to at most one target; grid-1 is therefore the coverage optimum for every feed without knowing its cadence. Enforced at registration by lib.rs::validate_spec; proved in lifecycle.rs::lag_below_grid_is_exactly_the_condition_for_unique_target_assignment."
+        "proposed": 299,
+        "derivation": "grid - 1. lag < grid is necessary and sufficient for a print to belong to at most one target, and grid - 1 is the largest lag satisfying it, so this is not a choice - it follows from targetGridSeconds."
       },
-      "enabledAtLaunch": false,
+      "enabledAtLaunch": true,
       "disabledReason": "DISABLED FOR LAUNCH. Pushed roughly every 52 s. With grid 60 the derived lag is 59, leaving SEVEN SECONDS of headroom against a scheduler nobody here controls and which was measured drifting through all five phase values inside one hour. SOL and BTC push every 5 s - twelve times that margin. A feed is added later as its own registered ruleset once the ON-CHAIN VOID RATE from real play shows it carries, which is the only measurement that is ours rather than borrowed. Lead proposal 2026-09-05, tag D: OWNER DECISION."
     }
   ],
@@ -210,10 +210,29 @@
     "registration transactions are built from this file, never typed"
   ],
   "launchScope": {
-    "tag": "D",
-    "proposed": "SOL and BTC only, target grid 60 s, derived lag 59 s",
-    "rationale": "Coverage is 100 % iff the pusher gap d satisfies d <= lag. SOL and BTC at ~5 s clear a 59 s lag by twelve times; the other five at ~52 s clear it by seven seconds. Launch on the two that are structurally safe and add the rest from on-chain evidence.",
-    "ownerMustConfirm": true
+    "tag": "OWNER DECISION, TAKEN 2026-09-05",
+    "ownerStatement": "svih sedam",
+    "ownerStatementMeaning": "Asked to choose between (A) SOL and BTC only at grid 60 and (C) all seven feeds at grid 300 for every feed, the owner answered 'svih sedam' - all seven. That is option C. The grid is part of what he chose, because option C was stated to him as 'all seven, grid 300 for all'. Recorded here as his words plus this reading of them, so that nothing is attributed to him that he did not say.",
+    "feeds": [
+      "SOL",
+      "BTC",
+      "ETH",
+      "BONK",
+      "PUMP",
+      "JUP",
+      "WIF"
+    ],
+    "targetGridSeconds": 300,
+    "maxPostTargetLagSeconds": 299,
+    "whyOneGridAndNotTwo": "A mixed launch - grid 60 for SOL/BTC and 300 for the slow five - was considered and rejected before he was asked. It buys the extra tokens by creating two economies inside one: at grid 300 a player gets 80% fewer rounds per day and therefore 80% fewer chances at XP, so the slow feeds would be dead weight on a shared daily leaderboard. Nobody had analysed that fairness, and these numbers are written once. One grid is a rule; two grids is an exception with an unexamined consequence.",
+    "marginEvidence": "Widest observed gap between consecutive publishes, 63-minute mainnet run, all 7 feeds, 442 targets, zero RPC errors (docs/reviews/cadence/cadence-2026-09-05.summary.json): SOL 7 s, BTC 7 s, JUP 53 s, BONK 54 s, PUMP 54 s, ETH 55 s, WIF 58 s. At grid 300 the lag is 299, so the tightest feed (WIF) has 241 s of margin before a target finds no admissible print. At grid 60 that same feed had 1 s.",
+    "knownLimitOfThatEvidence": "63 minutes is not a tail characterisation. It is the reason for choosing the grid with 241 s of margin rather than the one with 1 s, not a claim that the tail is known.",
+    "horizonsDivideCleanly": true,
+    "horizonCheck": "horizon_seconds % target_grid_seconds == 0 for all seven horizons (300, 600, 900, 1800, 3600, 21600, 86400) at grid 300.",
+    "stillRequiredFromOwner": [
+      "core program id (ANV vs cGf, decided by which keypair FILE exists)",
+      "the economic numbers: 700/300 burn-podium split, 17/10 hit payout, maxOpen 5, revealWindowSeconds 3600"
+    ]
   },
   "permanentCosts": {
     "_": "COSTS THAT ARE NEVER REFUNDED IN THIS GENERATION. Written here because a player pays them and must be able to find them before playing, not discover them afterwards. Every number below is DERIVED from a constant in source; none of it is a proposal or a judgement.",
@@ -222,7 +241,12 @@
     "needRentPaidBy": "Whoever calls open_need. It is init_if_needed with payer = actor, and the Need is SHARED per (spec, target_ts), so the cost is per TARGET ACTUALLY PLAYED - not per grid slot.",
     "needRentIsPermanent": true,
     "needRentWhyPermanent": "There is no close_need and there must not be one yet. The field it would be guarded by, open_refs, is written to zero at open_need and never incremented anywhere - the guard open_refs == 0 is 0 == 0. A Need is shared and closing deletes the account that settle_final and the void path both read, so one permissionless close on that vacuous guard would strand every shot on that target permanently. A retention timer cannot substitute: settlement assigns reveal_deadline_ts = max(now + reveal_window, projection), so a shot's life has no upper bound computable from the Need. The real fix is hold_need/release_need with Core calling both, which requires Timepin to decide who may hold - an architectural change for a later generation.",
-    "needRentUpperBoundNote": "At a 60-second grid with EVERY target played, one feed accrues 1,440 * 2,060,160 lamports = 2.97 SOL/day = 1,083 SOL/year. That is the fully played upper bound, not an expected cost."
+    "needRentUpperBoundNote": "At grid 300 a fully played day is 86400/300 = 288 targets per feed, so one feed accrues 288 * 2,060,160 = 593,326,080 lamports = 0.593 SOL/day = 216.6 SOL/year, and all seven feeds come to 1,516 SOL/year. That is the FULLY PLAYED upper bound, not an expected cost. For comparison, the earlier grid-60 proposal cost 1,083 SOL/year PER FEED: two feeds at grid 60 would have been 2,166 SOL/year. Choosing grid 300 therefore added five tokens AND cut the permanent rent ceiling by 30% against a two-feed launch.",
+    "needsInFlight": {
+      "value": 300,
+      "derivation": "maxTargetAheadSeconds / targetGridSeconds = 90000 / 300.",
+      "note": "At grid 60 this was 1,500 simultaneous open targets, a number flagged as unjustified when the manifest was first drafted. The grid decision reduced it fivefold without anyone editing it."
+    }
   },
   "knownMismatches": [
     {
