@@ -429,8 +429,41 @@ pub struct TimepinNeedV2 {
     // would let one slow crank close the Need out from under a live shot, which
     // is the same defect shape as a reveal budget that depends on somebody
     // else's speed. This depends on nobody's.
+    //
+    // NOTHING INCREMENTS THIS, AND NO INSTRUCTION READS IT. Measured 2026-09-05:
+    // `open_refs` occurs four times in the repository - this declaration, the
+    // `= 0` in open_need above, and two test fixtures. The counter the paragraph
+    // above describes was never written, so the guard it was meant to support
+    // (`open_refs == 0`) is `0 == 0` and passes for a Need a thousand live shots
+    // are about to settle against.
+    //
+    // The field stays, and it stays at zero, because it is inside the frozen
+    // length and inside every hash derived from it. Making it real is
+    // `hold_need`/`release_need` with Core calling both - and that requires
+    // Timepin to decide WHO may hold, which it cannot do today: the dependency
+    // runs one way (EconomyArgs.timepin_program) and Timepin is a general
+    // evidence layer with Core as one consumer. That is an architectural
+    // decision for a later generation, not a patch.
     pub open_refs: u32,
-    /// Refunded in full by `close_need`. Whoever paid the rent gets it back.
+    /// The address a refund could only ever go to. **There is no `close_need`,**
+    /// and this comment used to promise one - a comment promising an instruction
+    /// is the same class of untruth as a check that cannot fail.
+    ///
+    /// A Need is SHARED, one per (spec, target_ts), however many shots point at
+    /// it, and closing deletes the account that `settle_final` and the void path
+    /// both read. With no working counter, one permissionless close would make
+    /// every shot on that target permanently unsettleable and unvoidable. A
+    /// retention timer cannot replace the counter either: R3 sets
+    /// `shot.reveal_deadline_ts = max(now + reveal_window, projection)` at
+    /// settlement, so after R3 a shot's life has NO upper bound computable from
+    /// this account.
+    ///
+    /// The rent is therefore permanent in this generation, and it is quantified
+    /// rather than hidden: (128 + 168) * 6960 = 2,060,160 lamports per Need,
+    /// paid by whoever opened it. Needs are opened on demand (`init_if_needed`,
+    /// `payer = actor`), so the cost is per target ACTUALLY PLAYED - not per
+    /// grid slot. The 1,083 SOL/year figure for a 60-second grid is the fully
+    /// played upper bound for one feed, not an expected cost.
     pub rent_payer: Pubkey,
 }
 

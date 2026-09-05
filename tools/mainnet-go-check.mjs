@@ -150,21 +150,52 @@ check('R3', 'the reveal deadline is set at settlement, not at seal', () => {
 }, 'Opus A');
 
 // ---- the money ------------------------------------------------------------
-check('M1', 'the Need can be closed and its rent returned', () => {
-  // Corrected 2026-09-05 14:15Z after Opus B refuted this row. The first version
-  // tested for the FIELDS open_refs and rent_payer and printed that closing was
-  // possible. The fields landed; the INSTRUCTION that spends them was never
-  // written, and I had posted that fact myself forty-eight minutes earlier.
-  // A check that verifies preparation and reports completion is worse than no
-  // check. What matters is that lamports can actually leave the account.
-  const s = (read(R + 'lifecycle.rs') || '') + (read(R + 'lib.rs') || '');
-  const fields = /open_refs/.test(s) && /rent_payer/.test(s);
-  const canReturnLamports = /close\s*=/.test(s) || /try_borrow_mut_lamports/.test(s) || /pub fn close_need/.test(s);
-  if (canReturnLamports) return { ok: true, detail: 'a close path exists and returns lamports' };
-  return { ok: false, pending: true,
-           detail: fields
-             ? 'open_refs + rent_payer are declared but NO close instruction exists - the rent still never comes back (1,225 SOL/year at a 1-minute grid)'
-             : 'no close path and no fields - 1,225 SOL/year locked permanently at a 1-minute grid' };
+check('M1', 'the permanent Need rent is DECLARED, since it cannot be refunded', () => {
+  // REWRITTEN 2026-09-05 18:2xZ. I specified this row as "close_need exists,
+  // guarded by open_refs == 0". Opus C proved the guard is 0 == 0 before he
+  // stood down, and he is right: open_refs occurs four times in the repository -
+  // the declaration, the `= 0` in open_need, and two test fixtures. Nothing
+  // increments it. No Timepin instruction knows a shot exists, and Core reads
+  // Needs read-only, so nothing ever could.
+  //
+  // A Need is SHARED - one per (spec, target_ts) however many shots point at it -
+  // and closing deletes the account settle_final and the void path both read. On
+  // a vacuous guard, one permissionless close strands every shot on that target
+  // permanently. A retention timer is not a substitute: R3 sets
+  // shot.reveal_deadline_ts = max(now + reveal_window, projection) AT SETTLEMENT,
+  // so after R3 a shot's life has no upper bound computable from the Need. I made
+  // that worse today myself.
+  //
+  // So M1 does not ship in this generation, and this row stops asking for the
+  // instruction and starts refusing SILENCE about the cost. The rent is real,
+  // permanent, and payable by whoever opens the Need. It must be written where a
+  // player can find it before the first mainnet transaction, not discovered
+  // afterwards.
+  //
+  // The number is derived, not typed: the account is 8 + 160 = 168 bytes, and
+  // Solana rent exemption is (128 + data_len) * 3480 * 2 = 296 * 6960 =
+  // 2,060,160 lamports. Needs are init_if_needed with payer = actor, so this is
+  // charged per target ACTUALLY PLAYED, not per grid slot - the 1,083 SOL/year
+  // figure for one feed at a 60-second grid is the fully played upper bound.
+  const NEED_ACCOUNT_BYTES = 168;
+  const LAMPORTS = (128 + NEED_ACCOUNT_BYTES) * 3480 * 2;
+  const src = (read(R + 'lifecycle.rs') || '') + (read(R + 'lib.rs') || '');
+  if (/pub fn close_need/.test(src)) {
+    return { ok: false, detail: 'close_need EXISTS. It must not, while open_refs is never incremented: '
+      + 'one permissionless close strands every shot on that target. If a real hold/release counter '
+      + 'landed, delete this row and write one that tests the counter.' };
+  }
+  const m = read(MANIFEST);
+  if (!m) return { ok: false, detail: 'manifest missing' };
+  const j = JSON.parse(m);
+  const flat = JSON.stringify(j);
+  const declared = flat.includes(String(LAMPORTS));
+  return { ok: declared, pending: !declared,
+    detail: declared
+      ? `permanent Need rent declared as ${LAMPORTS} lamports per target played`
+      : `the manifest does not state the permanent Need rent. It is ${LAMPORTS} lamports `
+        + `((128 + ${NEED_ACCOUNT_BYTES}) * 3480 * 2) per target played, it is never refunded in this `
+        + `generation, and a player pays it. Put the exact number in the manifest.` };
 }, 'Opus A');
 
 check('M2', 'a finished PlayerDay can be closed and its rent returned', () => {
@@ -240,6 +271,96 @@ check('P2', 'every feed has lag = grid - 1, asked of every feed by name', () => 
   const tail = ((r.stdout || '') + (r.stderr || '')).trim().split('\n').slice(-2).join(' ').slice(0, 300);
   return { ok: r.status === 0, detail: r.status === 0 ? 'lag = grid - 1 for every feed, grid read once from the templates' : tail };
 }, 'Opus B');
+
+// ---- what the gate did not know -------------------------------------------
+// Added 2026-09-05 20:2xZ after an INDEPENDENT AUDIT (Codex, GPT-6 Astra,
+// read-only, against commit e249dbc) found three defects this gate had no row
+// for. It was reporting 4 of 16 while all three were live. I verified every one
+// in source before writing a row for it; two of them are in decisions I made
+// today and one of those I caused.
+//
+// A gate that does not know about a defect is not a gate. That is the same shape
+// as the six false greens of this morning, one level up - at the instrument.
+
+check('S1', 'MIN-CAPTURE actually SELECTS the minimum, rather than declaring ambiguity', () => {
+  // The canonical rule is: the admissible price for target T is the SMALLEST
+  // publish_time >= T among candidates submitted before capture_deadline. That
+  // rule is in the spec, in the docs, and in the host tests.
+  //
+  // It is not in the handler. Verified at lifecycle.rs:935-975: capture_conflict
+  // takes ANY second distinct message hash, writes candidate_b, sets
+  // need.state = NEED_AMBIGUOUS and stores both hashes sorted BY HASH. It never
+  // compares publish_time. So an honest capture at T+1 followed by an ordinary
+  // Pyth update at T+5 cancels the target and refunds the round - and a player
+  // facing a loss can cause that with no forged data at all.
+  //
+  // This row is deliberately crude: it demands that the conflict path mention
+  // publish_time at all. A handler that decides between two candidates without
+  // ever reading the field the rule is defined on cannot be implementing the
+  // rule. When the real selection lands, replace this with a named host test.
+  const s = mustRead(R + 'lifecycle.rs');
+  const conflict = /pub fn capture_conflict_handler[\s\S]*?\n}/.exec(s)
+                || /fn capture_conflict[\s\S]*?\n}/.exec(s);
+  if (!conflict) return { ok: false, pending: true, detail: 'capture_conflict handler not found - cannot verify the selection rule' };
+  const body = conflict[0]
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .split('\n').map(l => l.replace(/\/\/.*$/, '')).join('\n');
+  const selects = /publish_time/.test(body);
+  const declaresAmbiguous = /NEED_AMBIGUOUS/.test(body);
+  if (!selects && declaresAmbiguous) {
+    return { ok: false, pending: true,
+      detail: 'capture_conflict sets NEED_AMBIGUOUS without ever reading publish_time: a later ordinary '
+        + 'oracle update cancels the target. MIN-CAPTURE is specified but not implemented (lifecycle.rs:935-975)' };
+  }
+  return { ok: selects, pending: !selects,
+    detail: selects ? 'the conflict path reads publish_time, so it can implement minimum selection'
+                    : 'the conflict path never reads publish_time' };
+}, 'lead');
+
+check('S2', 'a shot cannot be stranded by settling across midnight', () => {
+  // authenticate_shot_kernel requires shot.score_day == utc_day(shot.reveal_deadline_ts)
+  // at lib.rs:4404, on EVERY path. R3 - my ruling today - assigns
+  // shot.reveal_deadline_ts = max(now + reveal_window, projection) AT SETTLEMENT
+  // while score_day stays frozen from seal. Settle late enough to cross a UTC day
+  // boundary and that require! fails forever: reveal, forfeit and refund all
+  // reject the shot and the credits are locked.
+  //
+  // The conjunct is REDUNDANT, which is why deleting it is the fix rather than
+  // reverting R3. score_day is already authenticated at lib.rs:4223 against
+  // player_day.day and rank_shard.day, and PlayerDay's PDA is seeded with the
+  // day - a wrong score_day cannot find its account. The clause protects nothing
+  // that is not already protected, and it is the only thing stranding the shot.
+  const s = mustRead(C + 'lib.rs');
+  const src = s.replace(/\/\*[\s\S]*?\*\//g, ' ').split('\n').map(l => l.replace(/\/\/.*$/, '')).join('\n');
+  const ties = /score_day\s*==\s*utc_day\(\s*shot\.reveal_deadline_ts\s*\)/.test(src);
+  const bindsAccounts = /shot\.score_day\s*==\s*player_day\.day/.test(src);
+  if (ties) return { ok: false, pending: true,
+    detail: 'the kernel still ties score_day to utc_day(reveal_deadline_ts) while R3 moves that deadline at '
+      + 'settlement: any settle that crosses midnight strands the shot permanently on every later path' };
+  if (!bindsAccounts) return { ok: false,
+    detail: 'the midnight clause is gone but score_day is no longer bound to player_day.day either - '
+      + 'removing BOTH leaves score_day unauthenticated. Restore the account binding.' };
+  return { ok: true, detail: 'score_day is bound to its accounts and not to the moving deadline' };
+}, 'lead');
+
+check('S3', 'a PlayerDay cannot be closed while its day can still accept shots', () => {
+  // close_player_day requires accepted > 0 && terminal == accepted. That is
+  // satisfiable MID-DAY: every shot so far is terminal, more are still allowed.
+  // The account closes, the next shot recreates it with zero XP, and a player who
+  // earned 100 then 20 stays ranked at 100 - which is podium money.
+  // My M2 row asked whether lamports could leave. They can. That was the wrong
+  // question on its own.
+  const s = mustRead(C + 'lib.rs');
+  const fn = /pub fn close_player_day[\s\S]*?\n    }/.exec(s);
+  if (!fn) return { ok: false, pending: true, detail: 'close_player_day not found' };
+  const body = fn[0].replace(/\/\*[\s\S]*?\*\//g, ' ').split('\n').map(l => l.replace(/\/\/.*$/, '')).join('\n');
+  const guardsDay = /day\s*<|utc_day|day_is_closed|finalized|DayFinal/.test(body);
+  return { ok: guardsDay, pending: !guardsDay,
+    detail: guardsDay
+      ? 'closure is gated on the scoring day being over, not merely on the shots so far'
+      : 'close_player_day is guarded only by accepted > 0 && terminal == accepted, which holds MID-DAY: '
+        + 'anyone can close a live day and the next shot recreates it with zero XP (podium money)' };
+}, 'lead');
 
 // ---- the seam -------------------------------------------------------------
 // Added 2026-09-05 17:0xZ, and these are the two most important rows on this

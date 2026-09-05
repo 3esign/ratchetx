@@ -4400,8 +4400,32 @@ fn authenticate_shot_kernel(
     require!(
         shot.nonce < ledger.next_shot_nonce
             && shot.rank_shard == rank_shard_for(&shot.player)
-            && shot.reveal_deadline_ts > shot.exit_target_ts
-            && shot.score_day == utc_day(shot.reveal_deadline_ts),
+            && shot.reveal_deadline_ts > shot.exit_target_ts,
+        // S2: `shot.score_day == utc_day(shot.reveal_deadline_ts)` STOOD HERE and
+        // it stranded shots. R3 assigns reveal_deadline_ts = max(now + window,
+        // projection) AT SETTLEMENT while score_day stays frozen from seal, so a
+        // settlement that crosses midnight UTC made this conjunct false forever -
+        // and this kernel runs on every path, so reveal, forfeit and refund all
+        // rejected the shot from then on. Credits locked, open-shot capacity
+        // locked, daily finalization obstructed. Found by an independent audit
+        // (Codex/Astra, read-only, against e249dbc); R3 was my ruling and this
+        // was its cost.
+        //
+        // Deleting it is the fix rather than reverting R3, because the conjunct
+        // is REDUNDANT. score_day is authenticated where it matters, twenty lines
+        // below in authenticate_shot_score_accounts:
+        //     shot.score_day == player_day.day && shot.score_day == rank_shard.day
+        // and PlayerDay's PDA is seeded with the day itself
+        // ([PLAYER_DAY_SEED, economy_hash, day.to_le_bytes(), player]), so a Shot
+        // carrying a wrong score_day cannot find an account to score into. The
+        // clause protected nothing that is not still protected; it only tied a
+        // frozen field to a value the program deliberately moves.
+        //
+        // Countersigned before landing: an independent model was given the two
+        // validators, the PDA seeds and the settlement assignment, and asked to
+        // name any way a wrong or chosen score_day could be exploited once this
+        // line is gone. Answer: NONE - score_day is immutable after seal, and the
+        // accounts it must match are bound to it by derivation.
         CoreG2Error::BadShotShape
     );
     match shot.state {
