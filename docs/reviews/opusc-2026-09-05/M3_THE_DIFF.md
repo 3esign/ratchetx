@@ -237,3 +237,43 @@ nothing was **omitted**. Neither alone is enough and I would not let either be d
 
 No cargo, so I compile nothing and I claim no build. The `#[account]` layout change is an **ABI
 break**: it must land in the same pass as the other ABI changes and before `register_economy`.
+
+---
+
+## 7. Pre-flight — everything the change needs, checked before anyone compiles it
+
+A compile round trip with the one agent who has cargo is expensive; three of them is a stall. So this
+was checked first.
+
+**Available already:** `hashv` is imported at `state.rs:3`; the domain-constant convention exists
+(`b"rcx-core:…:g2\0"`), so the two new ones are `rcx-core:history-row:g2` and
+`rcx-core:history-chain:g2`; `validate_compact_result_shape` is `pub` at `state.rs:1007`, so it can
+move to the write path; `ShotResult` derives `AnchorSerialize + Clone + Copy`, so it can ride inside
+the event.
+
+**Missed in §1–§6, and it makes the change bigger than advertised: THE RUST UNIT TESTS DO NOT COMPILE
+AFTER THIS.** Four lines of `state.rs` reference `page.slots` — `3336`, `3337`, `3346`, `3353` — all
+inside `history_pages_append_sequentially_and_terminalize_out_of_order_once`, the very test that
+corrected the design in §0. The change is **two files plus a test rewrite, in the same pass**, or the
+workspace does not build.
+
+| line, today | after |
+| --- | --- |
+| `page.slots[1].is_none()` | `page.terminal_mask & (1 << 1) == 0` |
+| `page.slots[2]…game_result_hash != [0;32]` | `page.terminal_mask & (1 << 2) != 0` and `page.results_root != [0;32]` |
+| `page.slots.len() == HISTORY_PAGE_CAP` | `page.pending_count as usize == HISTORY_PAGE_CAP` |
+| three `serialized_len_for(3,1) / (3,2) / (16,2)` assertions | **one, and stronger**: the serialised length is *identical* after zero, one, two and sixteen operations — the point of the change, stated as a test |
+
+**And one assertion has no on-chain analogue.** `state.rs:3353` tampers a **stored** row
+(`page.slots[2].as_mut().unwrap().state = AwaitReveal`) and requires `validate_contents` to reject it.
+Under the commitment form there is no stored row to tamper with, so the property is vacuous on chain
+— vacuous in the good direction, since you cannot corrupt what is not there, but the test does not
+survive as written and deleting it silently would be the wrong move.
+
+It **moves** rather than disappears: the property becomes *"`commit_terminal` never folds a bad row
+into the root"*, asserted by handing it a non-terminal shot and requiring an error. That is strictly
+earlier than today's check, which rejects a row that has already been written.
+
+What is genuinely lost: the ability to detect after-the-fact corruption of stored rows. That loss is
+moot — there are no stored rows — but it is the honest entry on this side of the ledger, and the
+off-chain reconstruction in §4 is what now detects a lying indexer.
