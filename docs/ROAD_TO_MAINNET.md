@@ -173,20 +173,37 @@ Three things follow for the sequence, and they are why the phases are ordered as
 near the tracker's sequence.** Filed here because §2b says to keep looking for the next thing to
 delete, and this is the largest thing on the board.
 
-**Measured surface.** `WorkPage` / `WorkManifest` / `WORK_KIND` appear **118 times** in
-`rcx-timepin-v2/src/lifecycle.rs` and **95 times** in `ratchet-core-g2/src/lib.rs`. It brings its own
-instructions (`open_work_manifest`, `open_work_page`, `reserve_work`), its own account kinds, its own
-rent, and its own failure modes — Fable's B6.5 is one of them: `void_pending_entry` calls
-`complete_optional_work` three times, each re-loading and re-serialising a page whose validation is
-O(n²) over 48 records, and **no SBF test fills a page**, so the compute ceiling is unmeasured on the
-path that runs when things go wrong.
+**CORRECTED 2026-09-05 12:1xZ — my first version of this proposal aimed at the wrong program, and
+the measurement that fixed it also found a better repair than deletion.** Pinned in
+`test/test_work_page_cost_model.mjs`, read out of the source so it cannot go stale:
+
+| | Core G2 | Timepin v2 |
+| --- | --- | --- |
+| `WORK_PAGE_CAP` | **48** (`HISTORY_PAGE_CAP × WORK_KINDS_PER_SHOT`, asserted at `lib.rs:5038`) | **2** (`lifecycle.rs:36`) |
+| comparisons per `validate_contents` on a full page | **1128** | **1** |
+| record bytes per pass | 5,088 (`WorkRecord::LEN` = 106) | 212 |
+
+So Timepin's work market is *cheap* — deleting it would have removed the inexpensive one and left the
+expensive one standing. The surface count (118 occurrences in Timepin's `lifecycle.rs`, 95 in Core's
+`lib.rs`) measures text, not cost, and I let it stand in for cost.
+
+**And the real defect is not the page at all — it is validating on read.**
+`lookup_optional_index` (`state.rs:1690-1697`) calls `validate_contents()` on *every lookup*, so the
+O(n²) duplicate scan is paid per access rather than once per write. `void_pending_entry` issues three
+`complete_optional_work` calls back to back, so the failure path pays **≥ 3,384 comparisons and
+30,528 bytes of (de)serialisation** before a single CU is counted — and **no SBF test fills a page**,
+so the actual ceiling is still unknown.
+
+The minimal repair is therefore not deletion: **enforce the no-duplicate invariant where records are
+inserted, and stop re-validating on read.** One invariant, checked once, O(n) at the write. That is
+smaller than deleting a subsystem and it removes the same risk.
 
 **What it buys.** It is what makes capture permissionless *and* paid, so that cranks exist without us
 running them. That matters: a game whose settlement depends on Semir's machine has an operator, and
 we said we would not have one.
 
-**The reduction.** The same meaning in a fraction of the form: **an inline capture bounty in the
-Need.** Escrow it when the Need is opened, record the worker in the observation (MIN-CAPTURE already
+**The reduction, still worth considering but no longer urgent.** The same meaning in a fraction of
+the form: **an inline capture bounty in the Need.** Escrow it when the Need is opened, record the worker in the observation (MIN-CAPTURE already
 adds that field), pay it once at finalize to the recorded worker. No `WorkPage`, no `WorkManifest`,
 no reservations, no page rollover, no O(n²) validation, no extra rent, and the compute path that
 currently has no test simply stops existing. Permissionless and paid, both kept.
@@ -203,6 +220,8 @@ frozen Core.
    if the answer is "nothing", that is the answer.
 3. Semir's call, because it changes what the launch economy pays for, and payment shape is his §4.
 
+**What changed in priority:** the validate-on-read repair is now the item worth doing, and it is
+small, local and independent of MIN-CAPTURE. The deletion stays proposed and unhurried.
 Until all three exist, **nobody deletes anything.** MIN-CAPTURE lands as specified, with
 `WORK_KIND_FIRST_CAPTURE` versioned per `MIN_CAPTURE_SPEC.md` §5, and this proposal stays proposed.
 
