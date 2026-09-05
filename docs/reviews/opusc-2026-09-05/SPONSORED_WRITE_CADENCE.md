@@ -145,3 +145,42 @@ node onchain/rcx-timepin-v2/scripts/cadence-sampler.mjs summarize --in docs/revi
 
 The payer is **discovered**, not hardcoded: `walkPayer` derives it from the price account's own
 writes at start-up, so a sponsor that changes address is detected rather than followed blindly.
+
+---
+
+# Addendum 2, 14:04Z — the answer is TWO payers, and the guard is what found it
+
+**Measured by Svemir** on the laptop, `check-payer --all`, publicnode, no key, no retries on 429;
+started 13:52:02Z, finished 13:52:35Z. **Evidence tier: `mainnet`.**
+
+| payer | feeds | coverage |
+| --- | --- | --- |
+| `9F6ApEtzkHVdZXzsury6BYmyEh4pahDBxuhNLaGC6saC` | SOL, BTC | 100 % over 12 sampled writes each |
+| `4p16wya1Vw2u9w22oah4yXQgySb6eWKRRLMsEXCreish` | ETH, BONK, PUMP, JUP, WIF | 100 % over 12 sampled writes each |
+
+**Every one of the seven feeds has exactly one payer, and there are two payers.** The five that the
+first addendum could not account for are accounted for.
+
+## What this settles
+
+1. **A payer walk needs exactly TWO runs.** Not one — my 12:26 claim, refuted at 13:09 — and not
+   seven. `groupFeedsByPayer` prints the two lines; each is one `walk-payer` invocation with its own
+   feed table.
+2. **The two-population split runs all the way down.** It is not only a cadence difference (5 s vs
+   ~52 s) and a window-utilisation difference (12 % vs 90–98 %): the two groups have **different
+   sponsors**. Whatever decision is taken about the slow five — grid, lag, or dropping them — it is a
+   decision about a different pusher, not about a slower setting on the same one.
+3. **The cost is dominated by the fast payer.** `9F6ApEtz` runs at 1.00 tx/s (measured, 1000
+   transactions in 998 s), so ~86,400 transactions/day; the slow-five payer posts roughly
+   5 × 1,662 = ~8,300 writes/day for our feeds. At the measured 6.34× real-time walk rate, a full day
+   of history is about 3.8 h for the fast payer and much less for the slow one.
+
+## The part worth keeping
+
+The guard is what produced this. At 12:26 I claimed one payer covered all seven feeds and committed a
+coverage check to make that claim safe — and the check tested `feeds[0]` and generalised. The data
+refuted it at 13:09; the fix (`3996979`) made coverage per feed and added the grouping; and the
+grouping is what turned "who posts the other five?" into a single command whose output is the answer.
+
+A guard that only confirms what you already believe is decoration. This one contradicted its author
+twice — once by being wrong, once by being right — and the second time it printed the job plan.
