@@ -15,7 +15,8 @@ A green compile or model run is never a GO.
 | Surface | State | Evidence |
 | --- | --- | --- |
 | Settlement rule in this tree | STILL the strict bracket `prev_publish_time < T <= publish_time` | `onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs:1172` |
-| That rule against the real feed | **Unplayable.** 25-min mainnet sample: SOL/BTC push every 5 s, always `publish - prev = 1`, phase `publish mod 5 = 2` (270/300), drifting to 3 and 4. Minute-aligned targets bracketed: **0/25** on each of SOL, BTC, ETH. 5-min targets: **0/5**. | Fable, `docs/reviews/fable-2026-09-05/INSPECTION_2026-09-05.md` Appendix A |
+| That rule against the real feed | **Unplayable as canonical — and the "0/25" that first proved it was a window, not the rule.** 63-minute mainnet run, all 7 feeds, 442 targets at grid 60, zero RPC errors: strict bracket hits **11.1 %** on SOL/BTC (15.4 % at grid 300) and **0–1.6 %** on the five slow feeds. The publish phase sweeps — SOL visited all five values in 63 minutes — so Fable's 0/25 and Opus C's own 0/19 were unlucky windows. 11 % is still not a game, and a swept phase makes the phase-pin idea worse rather than better. | Opus C, `docs/reviews/cadence/cadence-2026-09-05.ndjson`; original window: Fable `INSPECTION_2026-09-05.md` App. A |
+| MIN-CAPTURE against the same run | **100.0 % on every feed, 442 of 442 targets.** Not 95, not 99. First-print lag p99: **4 s** for SOL/BTC, **51–52 s** for the other five — two populations, so `max_post_target_lag` cannot be one number. | same file |
 | Keyless recovery of an upgraded Pyth proof | **Proven possible** for prints actually submitted on Solana: tx `3jsTus...` slot 444408680 reconstructed end-to-end from public RPC — full 292 B HDw2 VAA from `WriteEncodedVaa` chunks, guardian set 1, 3 valid sigs of 5, 342 B rec2 `PostUpdate`, leaf folds to root. | Codex 10:16Z; `docs/reviews/svemir-2026-09-05/REPLAY_FEASIBILITY_ADDENDUM.md` |
 | Keyless source for *every* Pyth root | **Does not exist for us.** Upgraded wrapper uses chain-26 emitter `507974…`, guardian set 1 — not the legacy `e101`/set-7 PAS1 wrapper; Wormholescan lookup for the new emitter returns empty. Public quorum hosts answer without a key (HTTP 200, `wss://quorum-{1,2,3}.pyth.network/ws` handshake succeeds) but emitted **0 messages in a simultaneous 50 s observation**. The ledger exposes only submitted leaves; the unsubmitted tree cannot be recovered from a root. | Sol 10:08Z/10:23Z, Codex 10:16Z/10:30Z |
 | The strict-bracket adapter as shipped in the candidate (called "Adapter 2" that morning; the code now numbers it **1**, see the note under §2) | Its exact-SBF test fabricates a rec2-owned `Full` account with `set_account`; HDw2/rec2 never execute, so it is **not** an acceptance receipt. `PriceUpdateV2` stores no emitter/guardian/config provenance, so a current-config check at capture cannot prove the account was posted under that config. | Codex 10:22Z |
@@ -49,9 +50,12 @@ decider Fable left open: read the encoded-VAA account of a live sponsored transa
 closed.
 
 **A — strict bracket `prev < T <= pub` as canonical (today's code).**
-NO-GO as default. Measured 0/25. It requires the first aggregate of second `T` to have been pushed,
-and the sponsored pusher posts on its own 5 s schedule at a drifting phase. Not a tuning problem: the
-rule needs a data source that does not exist for us (§1).
+NO-GO as default, and the reason is now measured rather than inferred: **11.1 %** on SOL/BTC over 442
+targets, **0–1.6 %** on the five slow feeds. The earlier "0/25" was a single unlucky phase window and
+anyone quoting it as if the rule were dead in all phases will be contradicted by the run. It does not
+matter: an 11 % settlement rate is not a game, and because the phase *sweeps*, pinning it into a
+write-once ruleset is worse than leaving it alone. The rule still needs a per-aggregate source we do
+not have (§1).
 
 **B — "first accepted sponsored capture wins" (Sol 10:23Z).**
 NO-GO as canonical. Correctly rejected by Codex 10:27Z: the first — possibly only — capturer may withhold
@@ -65,7 +69,11 @@ ruleset would hold for a fraction of each cycle and VOID everything else, perman
 except a new economy and a re-opened ledger for every player. Trading a chooser for "the game works when
 Pyth's scheduler happens to agree" is not the better trade.
 
-### Recommendation — D: MIN-CAPTURE (canonical, **adapter 2** in the code)
+### Recommendation — D: MIN-CAPTURE (canonical, **adapter 2** in the code) — now measured at 100 %
+
+> **442 of 442 targets on all seven feeds**, 63-minute mainnet run, zero RPC errors. This is the
+> number Gate 2's void rate is built on, and it is the difference between a rule that argues well and
+> a rule that works.
 
 > **Numbering, fixed 2026-09-05 after I confused it myself.** The code is the authority and it reads:
 > `ADAPTER_PYTH_PUSH_V2 = 1` is the **strict bracket**, kept and marked experimental;
