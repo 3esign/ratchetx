@@ -56,6 +56,22 @@ One detail worth keeping: the crank refused to settle for a full minute, because
 feed publishes in bursts every ~15–20 seconds and was running behind the chain clock. The
 program would not take a price stamped before expiry. Nobody was supervising it.
 
+## Verifying a built artifact
+
+`node tools/verify-artifact.mjs <path.so> <expectedProgramId> [sha256] [size]` reads the ELF
+itself and prints size, sha256, the program identities embedded in it, and the SBPF version.
+Three environment variables turn that from a description into a gate, and release verification
+sets all three:
+
+| Variable | What it does |
+|---|---|
+| `EXPECT_SBPF` | the SBPF version the ELF must declare (`3` for the v3 build). Anything else fails. |
+| `REQUIRE_CONTENT_ADDRESS` | `1` demands the expected sha256, size and `EXPECT_SBPF` all be supplied, so a check cannot pass by having been asked nothing. |
+| `FORBID_PROGRAM_IDS` | comma-separated program ids that must **not** appear anywhere in the ELF. This is what stops a rebuilt artifact from being locked while it still carries a superseded identity — the exact failure that put a keyless placeholder id inside a Timepin build. Unset, the check silently forbids nothing. |
+
+Written down because an unset switch fails silently: `FORBID_PROGRAM_IDS` empty is not "no
+forbidden ids found", it is "nobody asked".
+
 ## Honest limits of this version
 
 - **Devnet.** This is research. The live game still settles on our server; the proof page is

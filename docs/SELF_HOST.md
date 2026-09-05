@@ -56,6 +56,8 @@ production. Environment:
 | `X402_ENABLED`, `X402_ENTRY_USDC_ATOMIC`, `X402_FACILITATOR_URL`, `X402_FACILITATOR_BEARER` | optional standard x402 v2 agent door; prove your own configured recipient, amount, settlement and replay with a funded smoke before enabling |
 | `KV_REST_API_URL/TOKEN`, `UPSTASH_REDIS_*` | legacy KV fallbacks — not needed on Supabase |
 | `RATCHET_CAPTURE_SECRET`, `RATCHET_LP_BURN_TX`, `CREDIT_PER_TOKEN` | ops extras; safe to omit |
+| `RATCHET_ALLOW_SKIPS`, `RATCHET_DEPLOY_DIRTY` | release-gate escape hatches, both unset everywhere in this repository and both meant to stay that way. `RATCHET_ALLOW_SKIPS=1` accepts a run in which some suites never executed; `RATCHET_DEPLOY_DIRTY=1` accepts publishing a working tree whose bytes exist in no commit. Either one turns a green gate into a claim about less than it looks like. |
+| `RATCHET_LAYOUT_SERVER`, `RATCHET_MAX_SHARD` | test and ops knobs read by `scripts/`: point the browser suites at a fixture server you already run instead of the one the runner starts, and cap the shard range the equity-feed check walks. |
 
 Then `npm test` — the full suite runs against your instance's handlers with a
 stubbed KV, so you know your copy behaves exactly like ours.

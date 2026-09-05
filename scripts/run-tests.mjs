@@ -9,6 +9,7 @@ import { readdirSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
+import { verdictFor, gateExit } from './suite-verdict.mjs';
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..');
 const dir = join(root, 'test');
@@ -118,6 +119,20 @@ const run = f => new Promise(res => {
   p.on('close', code => res({ f, code, out }));
 });
 
+// A suite that exits 0 is not the same as a suite that proved something, and the
+// two skip branches above are not the only way a suite goes dark. A node:test
+// case can skip itself INSIDE the child process, which then exits 0 and gets
+// printed as `ok` -- invisible to the counter above. Measured 2026-09-05:
+// test_supabase_final_snapshot_restore.mjs reported `# tests 1 # pass 0
+// # skipped 1` and was reported green while asserting nothing, and
+// test_deploy_input.mjs kept its DEPLOY.cmd exit-code case dark on every machine
+// that is not Windows -- a release-gate assertion, invisible in CI.
+//
+// node:test already prints its own counters in TAP and this runner already
+// captures the child's output; it just threw it away on success. Read them.
+// The judgement itself lives in scripts/suite-verdict.mjs so it can be tested
+// without running 127 suites -- see test/test_run_tests_gate.mjs.
+
 let failed = 0, skipped = 0;
 for (const f of files) {
   const server = SERVER_FOR.get(f);
@@ -132,12 +147,27 @@ for (const f of files) {
     continue;
   }
   const r = await run(f);
-  if (r.code === 0) console.log(`ok    ${f}`);
-  else {
+  const v = verdictFor(r);
+  if (v.status === 'fail') {
     failed++;
     console.log(`FAIL  ${f}\n${r.out.split('\n').slice(-25).join('\n')}`);
-  }
+  } else if (v.status === 'empty') {
+    failed++;
+    console.log(`EMPTY ${f.padEnd(28)} (exited 0 with ${v.cases} case(s) and 0 assertions passed)`);
+  } else if (v.status === 'dark') {
+    skipped++;
+    console.log(`ok*   ${f.padEnd(28)} (${v.dark} case(s) skipped inside the suite; see its TAP output)`);
+  } else console.log(`ok    ${f}`);
 }
 console.log(`\n${files.length - failed - skipped} passed · ${failed} failed · ${skipped} skipped`);
 if (servedBy) servedBy.close();
-process.exit(failed ? 1 : 0);
+// A gate that goes green on suites it never ran is worse than a red one: it reports
+// coverage it does not have. Skips fail the gate unless a human deliberately accepts
+// the gap for a non-release run. DEPLOY.cmd never sets RATCHET_ALLOW_SKIPS.
+const skipsAccepted = !!process.env.RATCHET_ALLOW_SKIPS;
+if (skipped && !skipsAccepted) {
+  console.log(`\nGATE FAILED: ${skipped} suite(s) were skipped, so they proved nothing.`);
+  console.log('Fix the reason printed above (most often: npx playwright install chromium),');
+  console.log('or set RATCHET_ALLOW_SKIPS=1 to accept the gap for a non-release run.');
+}
+process.exit(gateExit({ failed, skipped, allowSkips: skipsAccepted }));

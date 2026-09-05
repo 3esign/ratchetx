@@ -38,3 +38,13 @@ test('DEPLOY preserves a failed CLI exit through successful report printing',t=>
   f.put('mock-deploy.cmd','@echo off\r\necho simulated success\r\nexit /b 0\r\n');
   execFileSync('cmd.exe',['/d','/c','runner.cmd'],{cwd:f.root,stdio:'pipe'});
 });
+
+// Measured 2026-09-05 (OpusB, synthetic-repo probe against the real gate): before
+// this guard existed, notes/dump.txt and internal/creds.txt shipped with
+// errors:[] as soon as they were tracked. .vercelignore could not catch them --
+// a denylist can only name directories that already exist.
+test('a tracked file in an unreviewed top-level directory cannot ship',t=>{const f=fixture(t);f.put('notes/dump.txt');f.track(['notes/dump.txt']);assert.ok(f.check().errors.some(e=>e.startsWith('Unreviewed deployment directory: notes/dump.txt')));f.put('lib/ok.js');f.track(['lib/ok.js']);assert.ok(!f.check().errors.some(e=>e.includes('lib/ok.js')));});
+// The extension escape for the site's own stylesheets and icons is a review
+// bypass unless tracked-ness carries the review, which is the signal the nested
+// check already uses. Untracked style.css/logo.png shipped with errors:[] before.
+test('root assets ship by extension only once they are tracked',t=>{const f=fixture(t);f.put('style.css');f.put('logo.png');assert.ok(f.check().errors.some(e=>e.endsWith('style.css')));assert.ok(f.check().errors.some(e=>e.endsWith('logo.png')));f.track(['style.css','logo.png']);assert.deepEqual(f.check().errors,[]);});

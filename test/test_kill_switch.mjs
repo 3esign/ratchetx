@@ -110,7 +110,14 @@ const DOCS = MD_DIRS.flatMap(d => {
 // time, same lesson: a scan shallower than the thing it scans reports confident
 // nonsense. The settlement path a stranger runs without us is code, so scan it.
 const CLIENT_DIRS = ['onchain/ratchet-core/client', 'onchain/ratchet-core-devnet'];
-const code = ['api', 'lib', 'tools', 'mcp', ...CLIENT_DIRS]
+// scripts/ belongs here for the fourth time, and it is the worst omission of the
+// four: scripts/ is where the RELEASE GATE lives. On 2026-09-05 the tracker
+// documented `RATCHET_ALLOW_SKIPS` while the only code reading it was
+// scripts/run-tests.mjs, and this suite reported "no code reads it" -- a
+// confident false finding about the gate that guards every deploy. Same lesson
+// as mcp/, as ops/heartbeat-worker/ and as the onchain client dirs: a scan
+// shallower than the thing it scans reports confident nonsense.
+const code = ['api', 'lib', 'tools', 'mcp', 'scripts', ...CLIENT_DIRS]
   .flatMap(d => {
     let names = [];
     try { names = readdirSync(at(d)); } catch { return []; }
@@ -165,11 +172,16 @@ for (const name of [...named].sort()) {
 //
 // A configuration switch nobody wrote down is a switch nobody can check. So the
 // scan now runs both ways.
-const CODE_DIRS = ['api', 'lib', 'tools', 'mcp', 'agent', 'ops/heartbeat-worker', ...CLIENT_DIRS];
+const CODE_DIRS = ['api', 'lib', 'tools', 'mcp', 'scripts', 'agent', 'ops/heartbeat-worker', ...CLIENT_DIRS];
 // HOME is the operating system's, not ours: nothing to document and nothing to
 // set. It is the only exemption, and it is named rather than pattern-matched so
 // that adding a second one has to be a deliberate act.
-const NOT_OURS = new Set(['HOME']);
+// USERPROFILE joins HOME for the same reason and no other: it is Windows' name
+// for the same operating-system variable, read by scripts/push_root.mjs to find
+// the user's own home directory. Neither is Ratchet configuration, so there is
+// nothing to document and nothing for an operator to set. Two names, both the
+// OS's, both listed by hand so that a third exemption has to be argued for.
+const NOT_OURS = new Set(['HOME', 'USERPROFILE']);
 
 const readVars = text => {
   const out = new Set();

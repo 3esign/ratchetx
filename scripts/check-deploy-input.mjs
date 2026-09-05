@@ -12,6 +12,24 @@ const ROOT_FILES = new Set([
 ]);
 export const isNeverReadPath = name => /(^|\/)(\.env(?:\..*)?|secrets\.json|[^/]*keypair[^/]*\.json|id\.json)$|(^|\/)[^/]*\.keys(\/|$)/i.test(name);
 
+// A new top-level directory is a new public surface, and .vercelignore cannot
+// guard one: it is a denylist, so it can only name the directories that existed
+// when it was written. Measured 2026-09-05 against the real gate: a TRACKED file
+// in a directory nobody thought to ignore shipped with zero errors
+// (notes/dump.txt -> ships:true errors:[]). Root was already an allowlist below;
+// this is the same allowlist one level down. Contents are the top-level segments
+// of the deploy set actually measured that day (103 files), not a guess.
+const ROOT_DIRS = new Set([
+  '.github', '.well-known', 'api', 'lib', 'releases', 'skills', 'vendor',
+]);
+// The site's own stylesheets and icons ship from the root. They are allowed by
+// extension rather than by name, but only once they are TRACKED: an untracked
+// root .css/.png reaches a folder-based deployment without ever having been
+// reviewed, which is the same unreviewed channel the nested check closes. Nine
+// root assets shipped this way on 2026-09-05 and all nine were tracked.
+const isReviewedRootAsset = (name, tracked) =>
+  /^.+\.(css|png|jpe?g)$/.test(name) && tracked.has(name);
+
 function gitFiles(root, args) {
   const run = spawnSync('git', ['-C', root, 'ls-files', '-z', ...args], {
     encoding:'utf8', timeout:60000, maxBuffer:8_000_000,
@@ -47,10 +65,16 @@ export function inspectDeployInput(root = process.cwd(), {ignoreFile = '.verceli
     if(!fs.lstatSync(cursor).isFile()){errors.push('Non-file deployment input: '+name);continue;}
     files.push(name);
     if(isNeverReadPath(name)) errors.push('Private path is not excluded from deployment: '+name);
-    if(!name.includes('/')&&!ROOT_FILES.has(name)&&!/^.+\.(css|png|jpe?g)$/.test(name))
-      errors.push('Unreviewed root deployment file: '+name);
-    if(name.includes('/')&&!tracked.has(name))
-      errors.push('Untracked deployment file must be reviewed and tracked: '+name);
+    if(!name.includes('/')){
+      if(!ROOT_FILES.has(name)&&!isReviewedRootAsset(name,tracked))
+        errors.push('Unreviewed root deployment file: '+name);
+    }else{
+      const top=name.split('/')[0];
+      if(!ROOT_DIRS.has(top))
+        errors.push('Unreviewed deployment directory: '+name+' (add "'+top+'" to ROOT_DIRS in check-deploy-input.mjs only after reviewing everything that directory publishes)');
+      if(!tracked.has(name))
+        errors.push('Untracked deployment file must be reviewed and tracked: '+name);
+    }
   }
   return {files, errors, tracked:[...tracked]};
 }
