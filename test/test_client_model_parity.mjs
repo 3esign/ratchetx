@@ -35,8 +35,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const repo = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
-const T = await import(path.join(repo, 'onchain/rcx-timepin/model-v2.mjs'));
-const C = await import(path.join(repo, 'onchain/ratchet-core-g2/model.mjs'));
+const T = await import(new URL('../onchain/rcx-timepin/model-v2.mjs', import.meta.url));
+const C = await import(new URL('../onchain/ratchet-core-g2/model.mjs', import.meta.url));
 
 const BRACKET = T.ADAPTER_PYTH_PUSH_V2;         // 1, experimental
 const MINCAP  = T.ADAPTER_PYTH_MIN_CAPTURE_V2;  // 2, mainnet-class
