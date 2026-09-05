@@ -23,6 +23,15 @@ call npm -v >> deploy_check.txt 2>&1
 
 where node >nul 2>nul
 if errorlevel 1 goto :nonode
+
+REM  A folder deploy ships the WORKING TREE, not a commit, so an uncommitted
+REM  tree puts bytes live that exist in no commit and can never be reviewed,
+REM  reproduced or rolled back to. The check is a node script on purpose:
+REM  batch is the one thing nobody here can run, and a gate nobody can run is
+REM  not a gate. Escape hatch is RATCHET_DEPLOY_DIRTY=1, set nowhere in the repo.
+echo  Checking the working tree against a commit...
+node scripts/check-clean-tree.mjs >> deploy_check.txt 2>&1
+if errorlevel 1 goto :dirtytree
 echo  Running the same release gate used by CI...
 call npm test >> deploy_check.txt 2>&1
 if errorlevel 1 goto :testfail
@@ -123,6 +132,16 @@ echo  DEPLOY FINISHED BUT LIVE RELEASE VERIFICATION FAILED.
 echo  Read deploy_check.txt before calling this release live.
 echo  ============================================================
 
+:dirtytree
+echo  ============================================================
+echo  DEPLOY STOPPED - the working tree does not match a commit.
+echo  A folder deploy would publish bytes that are in no commit.
+echo  The uncommitted paths are listed in deploy_check.txt.
+echo  Commit or stash them, then run this again. To deploy a dirty
+echo  tree deliberately: set RATCHET_DEPLOY_DIRTY=1 first.
+echo  Nothing was sent to production.
+echo  ============================================================
+goto :end
 :end
 echo.
 echo  (window stays open - close it yourself when done)
