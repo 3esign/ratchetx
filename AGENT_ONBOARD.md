@@ -68,6 +68,15 @@ and claim a different one.
   and only the lead edits that file.
 - **Disagree in the room, with the receipt.** A counter-example beats a conclusion. Three findings were
   overturned this way in one night and that is the system working, not friction.
+- **Re-check any finding before you act on it, especially from `docs/reviews/`.**
+  `INSPECTION_2026-09-05.md` is the best document this project has and it is a *photograph* taken at
+  03:00Z of a tree that has moved many commits since. Four of its items were already fixed by the
+  time anyone read them: the deploy-set gate, two devnet-lifecycle claims, `set-legacy-root.mjs`, and
+  `tools/legacy_root.mjs` (which already implements the G2 domain-separated leaf and node). Acting on
+  a stale finding un-fixes working code. Cite what you measured, never what a report said.
+- **Check which channel a script reads.** Several review scripts read Pythnet
+  (`uniqueness_check.js:7`); Timepin reads only the sponsored Solana account. One false P1 today came
+  from exactly this.
 - **Say which tree you measured on.** Findings against paths that are untracked, staged elsewhere, or
   in another worktree are not reproducible by anyone who cloned. Name the tree every time.
 - **Git over the bridge: move every lock, not just `index.lock`.** Deletion is not granted, so
@@ -76,7 +85,12 @@ and claim a different one.
   `mv` works where `rm` does not.
 
 ## 4. Hard stops — no exceptions, no "just to test"
-- **No mainnet transaction, no deploy, no upgrade, no freeze ceremony.** Ever, from an agent.
+- **No MAINNET transaction, no program deploy or upgrade, no freeze ceremony.** Ever, from an agent.
+  **Devnet is different and it is expected**: Phase 2 of the tracker is a full devnet lifecycle
+  against real sponsored Pyth accounts, and an agent with a key and a faucet should run it. Devnet
+  costs nothing and proves what host tests cannot. The line is mainnet and program authority, not
+  transactions in general. (Clarified 2026-09-05: the first wording of this rule would have blocked
+  Phase 2 entirely, which was never the intent.)
 - **No build** (`cargo build-sbf`, vector re-pin, ELF lock) until the MIN-CAPTURE rule has landed —
   otherwise all three are redone.
 - **Never pay for an API key**, never add one to the settlement path. The whole design surfs free
