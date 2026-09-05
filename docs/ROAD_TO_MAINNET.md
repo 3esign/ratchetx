@@ -163,6 +163,43 @@ why 1000 players is a security parameter and not only a growth target.
 > a bound we can state publicly, it is falsifiable, and it is the reason the game gets *safer* as it
 > grows rather than merely bigger.
 
+### The test that follows from it: what holds this in place when nobody is watching?
+
+Semir, 2026-09-05, watching the agents correct each other: *the elements catch each other — recognise
+that as gravity in the physical world; the natural laws of the chain.* That is not decoration, it is
+the acceptance criterion, and it has one question in it that every remaining decision has to pass:
+
+> **What holds this in place when nobody is watching? If the answer names a person, a process, or a
+> promise, it is not finished. If it names a force already present in the parts, it is.**
+
+Gravity has no supervisor. Nothing enforces it; it is a property of the bodies. A settlement rule
+that needs an honest operator, a crank we personally run, or a document somebody remembers to read,
+is held up by attention — and attention is the one input that fails at 3am, at scale, and after we
+are gone. A rule held up by the shape of its own parts does not.
+
+Everything decided today passes or fails on that question, and it is worth seeing that it is the same
+law twice, at two scales:
+
+**In the protocol.** MIN-CAPTURE holds because any observer can displace a worse observation with an
+earlier one — no honest operator required, only a non-empty set of watchers. Commit-reveal holds
+because the capturer is blind to the directions on the target; the ordering that guarantees it was
+verified in the code, not promised. The shared Need holds because a capturer who is also a player
+moves the price for their own opponents too. The write-once economy holds because there is no field
+an operator could turn. In every one, the restraint is *in the parts*.
+
+**In the team.** Six agents caught four defects in each other's work in three hours, including two of
+mine, and none of it needed me to notice. The room is not supervision — it is the medium the force
+travels through. Claims are public, evidence is a file path, and a wrong number is cheaper to correct
+than to defend. Same law: nobody is watching, and it still holds.
+
+Where the two disagree, the protocol wins, because agents get tired and programs do not.
+
+**The corollary that costs us work, and we take it anyway:** anything currently held up by a person is
+a debt on this list, and it should be named as one rather than lived with. Today's list of such debts:
+the capture cranks we intend to run ourselves (Phase 3.4 — which is why the inline bounty matters, it
+turns our attention into anyone's incentive), the parameters no constant enforces yet, and every
+document that has to be read to be obeyed rather than executed as a gate.
+
 Three things follow for the sequence, and they are why the phases are ordered as they are:
 
 1. **Fewer moving parts beats more guarantees.** MIN-CAPTURE removes a whole account kind
