@@ -73,6 +73,27 @@ function peakSequential(rows, which) {
   return worst;
 }
 
+// ORDER IS FREE MONEY, AND THE CHEAP ORDER IS THE ONE NOBODY PICKS.
+//
+// The peak a payer must HOLD is: everything already deployed (permanent, locked)
+// plus the current program's own peak (which includes its buffer). Deploying the
+// LARGEST program first means its buffer is funded while nothing else is locked
+// yet; deploying it last means paying for it on top of everything.
+//
+// For this pair that is 14.12 SOL against 16.74 - 2.62 SOL, for choosing an
+// order. On devnet that is a faucet handing out two at a time, so it is not an
+// abstraction: it is one and a bit fewer rounds of asking.
+//
+// The permanent cost is identical either way. Nothing is traded for this.
+export function cheapestOrder(rows, which = 'exact') {
+  const byLargestFirst = [...rows].sort((a, b) => b[which].permanent - a[which].permanent);
+  return {
+    order: byLargestFirst.map(r => r.name),
+    peak: peakSequential(byLargestFirst, which),
+    worstPeak: peakSequential([...byLargestFirst].reverse(), which),
+  };
+}
+
 const arg = (name, fallback = null) => {
   const i = process.argv.indexOf(`--${name}`);
   if (i < 0) return fallback;
@@ -93,9 +114,11 @@ export async function main({ connectionFactory } = {}) {
   }
   if (b.missing.length) console.log(`\nNOT DEPLOYABLE: missing ${b.missing.join(', ')}`);
 
+  const cheap = cheapestOrder(b.rows, 'exact');
   console.log('\ncost, exact fit (--max-len equal to the program):');
   console.log(`  permanent            ${sol(b.exact.permanent)} SOL`);
-  console.log(`  peak, one at a time  ${sol(b.exact.peakSequential)} SOL`);
+  console.log(`  peak, one at a time  ${sol(cheap.peak)} SOL   DEPLOY IN THIS ORDER: ${cheap.order.join(' then ')}`);
+  console.log(`  (the other order costs ${sol(cheap.worstPeak)} SOL at peak for the same permanent total)`);
   console.log('\ncost, one upgrade of headroom (--max-len twice the program):');
   console.log(`  permanent            ${sol(b.headroom.permanent)} SOL`);
   console.log(`  peak, one at a time  ${sol(b.headroom.peakSequential)} SOL`);
@@ -109,7 +132,13 @@ export async function main({ connectionFactory } = {}) {
   if (!rpc) { console.log('\nno --rpc given, so no balance was read'); return b; }
   if (!connectionFactory) throw new Error('--rpc needs a connection factory; run this as a CLI');
   const { assertSendable } = await import('../g2-crank/cluster.mjs');
-  const connection = connectionFactory(rpc);
+  // AWAITED. The CLI below hands main an ASYNC factory - it imports web3 before
+  // it can build a Connection - so an unawaited call handed assertSendable a
+  // Promise, whose getGenesisHash is undefined, and the cluster guard refused
+  // every real invocation with "could not read the genesis hash". Found by a
+  // reviewer's test that exercised the actual CLI path rather than a stub, which
+  // is the only shape that could have caught it.
+  const connection = await connectionFactory(rpc);
   const cluster = await assertSendable(connection);
   console.log(`\ncluster: ${cluster.name}`);
   if (!payer) { console.log('no --payer <pubkey> given, so no balance was read'); return b; }

@@ -16,7 +16,7 @@ import {
   rentExempt, deploymentCost, sizeOfProgramData, sizeOfBuffer,
   ACCOUNT_STORAGE_OVERHEAD, LAMPORTS_PER_BYTE_YEAR, EXEMPTION_YEARS, SIZE_OF_PROGRAM,
 } from '../ops/g2-deploy/rent.mjs';
-import { findArtifacts, budget } from '../ops/g2-deploy/preflight.mjs';
+import { findArtifacts, budget, main, cheapestOrder } from '../ops/g2-deploy/preflight.mjs';
 
 let checks = 0;
 const eq = (a, b, msg) => { checks += 1; assert.equal(a, b, msg); };
@@ -80,6 +80,22 @@ eq((b.exact.peakSequential / SOL).toFixed(2), '16.74', 'exact-fit peak changed')
 eq((b.headroom.peakSequential / SOL).toFixed(2), '26.42', 'headroom peak changed');
 eq((b.headroom.permanent / SOL).toFixed(2), '19.36', 'permanent cost changed');
 
+// ---- the cheap order, which is the one nobody picks -------------------------
+// The peak is what is already locked plus the current program's own buffer, so
+// the LARGEST program must go first: deploying it last pays for its buffer on
+// top of everything else. The permanent total is identical either way, so this
+// is 2.62 SOL for choosing an order - on devnet, more than one fewer round of
+// asking a faucet that hands out two at a time.
+{
+  const c = cheapestOrder(b.rows, 'exact');
+  eq(c.order.join(','), 'core,timepin', 'the cheapest order is not largest-first');
+  ok(c.peak < c.worstPeak, 'order does not change the peak, so the recommendation is meaningless');
+  eq((c.peak / SOL).toFixed(2), '14.12', 'the cheap order peak changed');
+  eq((c.worstPeak / SOL).toFixed(2), '16.74', 'the expensive order peak changed');
+  eq(budget(arts).exact.permanent, budget([arts[1], arts[0]]).exact.permanent,
+    'reordering changed the PERMANENT cost, which would mean this is a trade rather than free');
+}
+
 // ---- a missing artifact is reported, never counted as free ------------------
 const partial = budget([arts[0], { name: 'core', missing: true }]);
 ok(partial.missing.includes('core'), 'a missing artifact was not reported');
@@ -94,6 +110,29 @@ try {
   const one = findArtifacts(tmp);
   eq(one.find(a => a.name === 'timepin').bytes, 11, 'the artifact walk did not find or size the file');
   ok(one.find(a => a.name === 'core').missing, 'an absent core was not reported missing');
+
+  // The CLI creates its connection asynchronously; exercise that real main path
+  // against this cache without opening a network connection or loading a signer.
+  const savedArgv = process.argv, savedLog = console.log;
+  let factoryRpc = null, genesisRead = false;
+  try {
+    process.argv = [process.execPath, 'test_deploy_preflight.mjs',
+      '--cache-root', tmp, '--rpc', 'mock://devnet'];
+    console.log = () => {};
+    const measured = await main({ connectionFactory: async rpc => {
+      factoryRpc = rpc;
+      return { getGenesisHash: async () => {
+        genesisRead = true;
+        return 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
+      } };
+    } });
+    eq(factoryRpc, 'mock://devnet', 'main did not pass the requested RPC to the factory');
+    ok(genesisRead, 'main did not identify the resolved connection before continuing');
+    eq(measured.rows[0].bytes, 11, 'the async connection path lost the measured artifact');
+  } finally {
+    process.argv = savedArgv;
+    console.log = savedLog;
+  }
 
   // TWO copies of one program in a content-addressed cache means two different
   // builds are present and nothing can say which one would be deployed.
