@@ -167,8 +167,56 @@ for (const [constName, structName] of [
     + 'compile and no host suite in either crate can see it.');
 }
 
+// --- 7. the two spec validators must agree, not merely coexist ---------------
+// Both programs validate the SAME EvidenceSpec: Timepin at registration
+// (lib.rs validate_spec), Core when it authenticates the account
+// (foreign_timepin.rs validate_spec_shape). Nothing links them. Measured
+// 2026-09-05 at exact-SBF tier, they DISAGREED, and the disagreement was not a
+// wrong value - it was unsatisfiable: for ADAPTER_PYTH_MIN_CAPTURE_V2, Timepin
+// requires max_pre_target_gap_seconds == 0 and Core required it > 0. No spec
+// existed that both would accept, so no economy could be registered on the
+// mainnet-class adapter at all, and Core's own MIN-CAPTURE branch was
+// unreachable code. Program log, RegisterRuleset:
+//   AnchorError ... foreign_timepin.rs:606. Error Code: BadEvidenceSpec (6037)
+// These four checks are the shape of that agreement, not its exact spelling.
+const shape = /fn validate_spec_shape[\s\S]*?\n}/.exec(foreign);
+ok(shape, 'foreign_timepin.rs must still have validate_spec_shape - it is what gates every foreign spec');
+const shapeBody = shape[0];
+const tpSpec = /pub fn validate_spec[\s\S]*?\n}/.exec(tpLib);
+ok(tpSpec, 'the timepin crate must still have validate_spec');
+const tpBody = tpSpec[0];
+
+ok(!/spec\.adapter\s*==\s*1\b/.test(shapeBody),
+  'Core\'s validate_spec_shape hardcodes `spec.adapter == 1`. Timepin accepts ADAPTER_PYTH_PUSH_V2 and '
+  + 'ADAPTER_PYTH_MIN_CAPTURE_V2 (lib.rs validate_spec), so Core refuses every mainnet-class spec and its own '
+  + 'MIN-CAPTURE branch can never be reached. Name the adapters instead of the literal.');
+ok(shapeBody.includes('ADAPTER_PYTH_MIN_CAPTURE_V2'),
+  'Core\'s validate_spec_shape never mentions ADAPTER_PYTH_MIN_CAPTURE_V2, so it cannot be applying the '
+  + 'adapter-dependent rules Timepin applies. The two validators must agree about which specs exist.');
+
+// The pre-gap rule is adapter-dependent in Timepin. If Core states it
+// unconditionally in either direction, one adapter is refused.
+const tpPinsPreGap = /max_pre_target_gap_seconds\s*==\s*0/.test(tpBody);
+ok(tpPinsPreGap,
+  'the timepin crate no longer pins max_pre_target_gap_seconds to zero for adapter 2 - if that rule moved, '
+  + 'this section and Core\'s mirror of it must move with it');
+ok(/max_pre_target_gap_seconds\s*==\s*0/.test(shapeBody),
+  'Timepin pins max_pre_target_gap_seconds to ZERO under ADAPTER_PYTH_MIN_CAPTURE_V2 but Core\'s '
+  + 'validate_spec_shape never tests for zero. Core therefore rejects every spec Timepin accepts on the '
+  + 'mainnet-class adapter. The two rules must be the same rule.');
+
+// R2 lives in Timepin. Core authenticates the same spec and must not accept one
+// Timepin would have refused.
+const tpHasLagGrid = /max_post_target_lag_seconds\s*<\s*args\.target_grid_seconds/.test(tpBody);
+if (tpHasLagGrid) {
+  ok(/max_post_target_lag_seconds\s*<\s*spec\.target_grid_seconds/.test(shapeBody),
+    'R2 enforces lag < grid in Timepin (validate_spec) but Core\'s validate_spec_shape accepts any lag. A spec '
+    + 'Timepin would refuse can still be authenticated by Core, which is the same class of disagreement as the '
+    + 'pre-gap one: one print settling two targets in one program and not the other.');
+}
+
 if (drift.length) console.log('  DRIFT: ' + drift.join(' | '));
 console.log(`PASS  foreign timepin ABI: ${checks} checks - every account length, the field order of the `
-  + 'Need view, the three seeds and all three discriminators are compared ACROSS the two crates. The lengths '
+  + 'Need view, the three seeds, all three discriminators and the two spec validators are compared ACROSS the two crates. The lengths '
   + 'and seeds are parsed from the source that owns them and the discriminators are DERIVED from the struct '
   + 'names, so nothing here is a copy that can go stale');
