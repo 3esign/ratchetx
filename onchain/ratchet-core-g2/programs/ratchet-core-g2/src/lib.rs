@@ -953,6 +953,7 @@ pub mod ratchet_core_g2 {
             score_day,
             player,
             rank_shard,
+            ctx.accounts.player.key(),
         )?;
         initialize_or_authenticate_rank_shard(
             &mut ctx.accounts.rank_shard,
@@ -1111,6 +1112,7 @@ pub mod ratchet_core_g2 {
             score_day,
             player,
             rank_shard,
+            ctx.accounts.delegate.key(),
         )?;
         initialize_or_authenticate_rank_shard(
             &mut ctx.accounts.rank_shard,
@@ -1275,6 +1277,7 @@ pub mod ratchet_core_g2 {
             score_day,
             player,
             rank_shard,
+            ctx.accounts.player.key(),
         )?;
         initialize_or_authenticate_rank_shard(
             &mut ctx.accounts.rank_shard,
@@ -1450,6 +1453,7 @@ pub mod ratchet_core_g2 {
             score_day,
             player,
             rank_shard,
+            ctx.accounts.delegate.key(),
         )?;
         initialize_or_authenticate_rank_shard(
             &mut ctx.accounts.rank_shard,
@@ -2301,6 +2305,21 @@ pub mod ratchet_core_g2 {
             xp_awarded: gained,
             result_hash: ctx.accounts.shot.terminal_hash,
         });
+        Ok(())
+    }
+
+    /// Return a finished day's rent. Permissionless on purpose: a player has no
+    /// reason to come back and close yesterday, so somebody else has to be able
+    /// to, and the refund address is fixed in the account so a caller cannot
+    /// redirect it. `accepted > 0 && terminal == accepted` is the whole
+    /// precondition - every shot that ever bound this day has terminalized -
+    /// and it is a count the program already maintained before M2 touched it.
+    pub fn close_player_day(ctx: Context<ClosePlayerDay>) -> Result<()> {
+        let player_day = &ctx.accounts.player_day;
+        require!(
+            player_day.accepted > 0 && player_day.terminal == player_day.accepted,
+            CoreG2Error::PlayerDayStillReferenced
+        );
         Ok(())
     }
 
@@ -3444,6 +3463,27 @@ pub struct RevealDelegatedShot<'info> {
 }
 
 #[derive(Accounts)]
+pub struct ClosePlayerDay<'info> {
+    pub actor: Signer<'info>,
+    /// CHECK: constrained to the address recorded in the account itself, which is
+    /// the only address this may ever refund.
+    #[account(mut, address = player_day.rent_payer)]
+    pub rent_payer: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        close = rent_payer,
+        seeds = [
+            PLAYER_DAY_SEED,
+            player_day.economy_hash.as_ref(),
+            player_day.day.to_le_bytes().as_ref(),
+            player_day.player.as_ref(),
+        ],
+        bump = player_day.bump,
+    )]
+    pub player_day: Box<Account<'info, PlayerDay>>,
+}
+
+#[derive(Accounts)]
 pub struct ForfeitShot<'info> {
     #[account(mut)]
     pub actor: Signer<'info>,
@@ -4038,6 +4078,10 @@ fn initialize_or_authenticate_player_day(
     day: i64,
     player: Pubkey,
     rank_shard: u8,
+    // Whoever actually funds the account on THIS path - the player on the direct
+    // seals, the delegate on the delegated ones - because that is who close_player_day
+    // refunds, and it is the only address it will ever refund.
+    rent_payer: Pubkey,
 ) -> Result<()> {
     require_exact_len(&player_day.to_account_info(), PlayerDay::LEN)?;
     if player_day.schema == 0 {
@@ -4051,6 +4095,7 @@ fn initialize_or_authenticate_player_day(
             accepted: 0,
             terminal: 0,
             xp: 0,
+            rent_payer,
         });
     }
     authenticate_player_day(player_day, economy_hash, day, player, rank_shard)
@@ -4981,6 +5026,8 @@ pub enum CoreG2Error {
     WrongDelegateAuthority,
     #[msg("reload page is not the canonical page containing the next reload nonce")]
     WrongReloadHistoryPage,
+    #[msg("this day still has shots that have not terminalized")]
+    PlayerDayStillReferenced,
 }
 
 #[cfg(test)]
