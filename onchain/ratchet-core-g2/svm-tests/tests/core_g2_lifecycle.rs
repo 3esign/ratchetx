@@ -286,6 +286,73 @@ fn read_hash(data: &[u8], offset: usize) -> [u8; 32] {
     data[offset..offset + 32].try_into().unwrap()
 }
 
+// HISTORY PAGE: THE ROWS ARE GONE, AND THESE THREE OFFSETS REPLACE THEM.
+//
+// M3 removed the per-shot ShotResult rows from HistoryPage - that is the whole
+// point of the M3 gate row, that a page no longer locks rent for sixteen shots.
+// The account is now a fixed 118 bytes: 8 discriminator, schema, bump,
+// economy_hash, player, page_index, pending_count at 83, terminal_mask at 84,
+// and a rolling results_root at 86.
+//
+// Two assertions in this file still read a 165-byte ShotResult at offset 88.
+// One of them indexed 120..153 of a 118-byte account and panicked; the other
+// read the second byte of results_root and compared it to a row count. Both were
+// written against a layout that no longer exists, and both are among the five
+// harness fixtures that stopped the exact-SBF suite on 2026-09-05. NEITHER IS A
+// PROGRAM DEFECT.
+//
+// The replacement is stronger than what it replaces. The old asserts compared
+// raw row bytes inside the account; these rebuild the row exactly as
+// ShotResult::from_terminal_shot builds it, hash it under the row domain with
+// the nonce, and fold it into the chain under the chain domain - so the DOMAINS
+// and the CHAINING are pinned too, and a change to either is caught here rather
+// than at the first replay somebody tries to verify.
+const HISTORY_TERMINAL_MASK_OFFSET: usize = 84;
+const HISTORY_RESULTS_ROOT_OFFSET: usize = 86;
+const HISTORY_ROW_DOMAIN: &[u8] = b"rcx-core:history-row:g2\0";
+const HISTORY_CHAIN_DOMAIN: &[u8] = b"rcx-core:history-chain:g2\0";
+
+// Borsh over a fixed-size struct is field order, little-endian, no length
+// prefixes. The assert on the total length is the guard: if ShotResult ever
+// gains or loses a field, this stops here instead of hashing a shorter buffer
+// into a root that then disagrees for a reason nobody can see.
+#[allow(clippy::too_many_arguments)]
+fn shot_result_bytes(
+    ruleset_hash: &[u8; 32],
+    proof_material: &[u8; 32],
+    state: u8,
+    void_reason: u8,
+    stake: u64,
+    sealed_ts: i64,
+    entry_target_ts: i64,
+    exit_target_ts: i64,
+    side: u8,
+    p_bps: u16,
+    delegate: &Pubkey,
+    game_result_hash: &[u8; 32],
+) -> Vec<u8> {
+    let mut out = Vec::with_capacity(SHOT_RESULT_LEN);
+    out.extend_from_slice(ruleset_hash);
+    out.extend_from_slice(proof_material);
+    out.push(state);
+    out.push(void_reason);
+    out.extend_from_slice(&stake.to_le_bytes());
+    out.extend_from_slice(&sealed_ts.to_le_bytes());
+    out.extend_from_slice(&entry_target_ts.to_le_bytes());
+    out.extend_from_slice(&exit_target_ts.to_le_bytes());
+    out.push(side);
+    out.extend_from_slice(&p_bps.to_le_bytes());
+    out.extend_from_slice(delegate.as_ref());
+    out.extend_from_slice(game_result_hash);
+    assert_eq!(out.len(), SHOT_RESULT_LEN);
+    out
+}
+
+fn history_root_after(previous_root: &[u8; 32], nonce: u64, row: &[u8]) -> [u8; 32] {
+    let row_hash = hash_parts(&[HISTORY_ROW_DOMAIN, &nonce.to_le_bytes(), row]);
+    hash_parts(&[HISTORY_CHAIN_DOMAIN, previous_root, &row_hash])
+}
+
 fn schema_seed() -> [u8; 2] {
     SCHEMA.to_le_bytes()
 }
@@ -893,6 +960,29 @@ impl World {
         assert_eq!(canonical.len(), 214);
         let hash = hash_parts(&[TIMEPIN_SPEC_DOMAIN, &canonical]);
         let key = spec_pda(&hash);
+
+        // THE SPEC IS GLOBAL; THE ECONOMY IS NOT.
+        //
+        // spec_pda is derived from the spec HASH alone, so two economies built on
+        // the same evidence policy resolve to the same account. A test that
+        // bootstraps a second economy therefore reaches this helper with the spec
+        // ALREADY REGISTERED, and the second register_evidence_spec failed - the
+        // fifth of the five harness fixtures that stopped the exact-SBF suite on
+        // 2026-09-05, and like the other four it is not a program defect. Timepin
+        // is right to refuse a second initialisation of the same account.
+        //
+        // Returning the existing spec is not the same as skipping the check: what
+        // is already there is verified against what would have been written, so a
+        // spec registered from DIFFERENT policy bytes still fails here rather
+        // than being silently accepted.
+        if let Some(existing) = self.svm.get_account(&key) {
+            assert_eq!(existing.owner, timepin_program());
+            assert_eq!(existing.data.len(), 262);
+            assert_eq!(&existing.data[8..142], &policy);
+            assert_eq!(read_hash(&existing.data, 142), policy_hash);
+            return (hash, policy_hash, key);
+        }
+
         let registered_slot = self.svm.get_sysvar::<Clock>().slot;
         let mut args = hash.to_vec();
         args.extend_from_slice(&canonical);
@@ -2582,8 +2672,16 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
     assert_eq!(read_i64(&sealed.data, 262), day);
     let pending_history = world.svm.get_account(&history_key).unwrap();
     assert_eq!(pending_history.data.len(), HISTORY_BASE_LEN);
-    assert_eq!(read_u32(&pending_history.data, 83), 1);
-    assert_eq!(pending_history.data[87], 0);
+    assert_eq!(pending_history.data[83], 1);
+    assert_eq!(read_u16(&pending_history.data, HISTORY_TERMINAL_MASK_OFFSET), 0);
+    // Nothing terminal yet, so the chain has never been folded: the root is the
+    // seed. read_u32 at 83 stood here and it read pending_count, terminal_mask
+    // and the first byte of the root as one number - correct only while the last
+    // three bytes happened to be zero.
+    assert_eq!(
+        read_hash(&pending_history.data, HISTORY_RESULTS_ROOT_OFFSET),
+        [0; 32]
+    );
 
     // A dust-funded canonical PDA cannot veto sponsor initialization.
     world.put_empty_system_account(work_key, 17);
@@ -2650,7 +2748,16 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
     assert_eq!(read_hash(&awaiting.data, 475), exit.message_hash);
     assert_eq!(read_hash(&awaiting.data, 507), exit.result_hash);
     assert_eq!(awaiting.data[567], 1);
-    assert_eq!(read_i64(&awaiting.data, 584), exit_target + 300);
+    // reveal_deadline_ts, and the literal 300 was the OLD lag's arithmetic:
+    // capture_deadline + reveal_window was exit_target + 120 + 60 + 120 when the
+    // lag was 120. At lag 59 it is exit_target + 59 + 60 + 120 = +239, which is
+    // why this read 1800000599 against an expectation of 1800000660. Derived now,
+    // from the same two constants Timepin uses, so it moves with the lag - and it
+    // is the same expression score_day() already uses twenty lines up.
+    assert_eq!(
+        read_i64(&awaiting.data, 584),
+        exit_target + CAPTURE_DEADLINE_OFFSET + REVEAL_WINDOW as i64
+    );
     assert_eq!(&awaiting.data[604..636], worker.pubkey().as_ref());
     assert_ne!(&awaiting.data[716..748], &[0; 32]);
     assert_eq!(&awaiting.data[748..780], &[0; 32]);
@@ -2679,25 +2786,8 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
 
     let history = world.svm.get_account(&history_key).unwrap();
     assert_eq!(history.data.len(), HISTORY_BASE_LEN);
-    assert_eq!(read_u32(&history.data, 83), 1);
-    assert_eq!(history.data[87], 1);
-    let result = 88;
-    assert_eq!(&history.data[result..result + 32], &kernel.ruleset_hash);
-    assert_eq!(&history.data[result + 32..result + 64], &salt);
-    assert_eq!(
-        (history.data[result + 64], history.data[result + 65]),
-        (4, 0)
-    );
-    assert_eq!(read_u64(&history.data, result + 66), stake);
-    assert_eq!(read_i64(&history.data, result + 74), NOW);
-    assert_eq!(read_i64(&history.data, result + 82), entry_target);
-    assert_eq!(read_i64(&history.data, result + 90), exit_target);
-    assert_eq!(history.data[result + 98], side);
-    assert_eq!(read_u16(&history.data, result + 99), p_bps);
-    assert_eq!(
-        &history.data[result + 101..result + 133],
-        Pubkey::default().as_ref()
-    );
+    assert_eq!(history.data[83], 1);
+    assert_eq!(read_u16(&history.data, HISTORY_TERMINAL_MASK_OFFSET), 1);
     let expected_game_hash = expected_game_result_hash(
         &kernel.economy_hash,
         &player.pubkey(),
@@ -2720,9 +2810,29 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
         6,
         day,
     );
+    // Revealed, so proof_material is the SALT. Every field the removed row used
+    // to be checked byte by byte is still checked - it is inside the bytes that
+    // are hashed here - and the domains and the chaining are checked too.
     assert_eq!(
-        read_hash(&history.data, result + 133),
-        expected_game_hash,
+        read_hash(&history.data, HISTORY_RESULTS_ROOT_OFFSET),
+        history_root_after(
+            &[0; 32],
+            nonce,
+            &shot_result_bytes(
+                &kernel.ruleset_hash,
+                &salt,
+                4,
+                0,
+                stake,
+                NOW,
+                entry_target,
+                exit_target,
+                side,
+                p_bps,
+                &Pubkey::default(),
+                &expected_game_hash,
+            ),
+        ),
         "compact row must bind both authenticated Timepin terminal hashes"
     );
 
@@ -2877,16 +2987,8 @@ fn equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe
 
     let history = world.svm.get_account(&history_key).unwrap();
     assert_eq!(history.data.len(), HISTORY_BASE_LEN);
-    assert_eq!(history.data[87], 1);
-    let result = 88;
-    assert_eq!(&history.data[result + 32..result + 64], &commit);
-    assert_eq!(
-        (history.data[result + 64], history.data[result + 65]),
-        (5, 5)
-    );
-    assert_eq!(read_u64(&history.data, result + 66), stake);
-    assert_eq!(history.data[result + 98], 0);
-    assert_eq!(read_u16(&history.data, result + 99), 0);
+    // Nonce 0 is slot 0, so exactly bit 0 is set and nothing else is.
+    assert_eq!(read_u16(&history.data, HISTORY_TERMINAL_MASK_OFFSET), 1);
     let expected_game_hash = expected_game_result_hash(
         &kernel.economy_hash,
         &player.pubkey(),
@@ -2909,7 +3011,28 @@ fn equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe
         0,
         day,
     );
-    assert_eq!(read_hash(&history.data, result + 133), expected_game_hash);
+    // Voided, so proof_material is the COMMIT: the salt was never revealed.
+    assert_eq!(
+        read_hash(&history.data, HISTORY_RESULTS_ROOT_OFFSET),
+        history_root_after(
+            &[0; 32],
+            nonce,
+            &shot_result_bytes(
+                &kernel.ruleset_hash,
+                &commit,
+                5,
+                5,
+                stake,
+                NOW,
+                entry_target,
+                exit_target,
+                0,
+                0,
+                &Pubkey::default(),
+                &expected_game_hash,
+            ),
+        )
+    );
 
     let ledger = world
         .svm
@@ -3377,26 +3500,19 @@ fn delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionle
         delegated_history.data.len(),
         HISTORY_BASE_LEN
     );
-    let first_result = 88;
-    assert_eq!(
-        (
-            delegated_history.data[first_result + 64],
-            delegated_history.data[first_result + 65],
-        ),
-        (4, 0)
-    );
-    assert_eq!(
-        &delegated_history.data[first_result + 101..first_result + 133],
-        delegate.pubkey().as_ref()
-    );
-    assert_eq!(
-        read_hash(&delegated_history.data, first_result + 133),
-        expected_game_result_hash(
+    assert_eq!(read_u16(&delegated_history.data, HISTORY_TERMINAL_MASK_OFFSET), 1);
+    // &salt STOOD WHERE &commit STANDS NOW, and it was wrong for a reason the
+    // out-of-bounds panic three lines above had been hiding: this argument is the
+    // COMMIT. game_result_hash hashes compact_result_commit, which for a revealed
+    // shot re-derives the commitment from the salt rather than hashing the salt.
+    // The two other sites in this file that check a revealed row both pass
+    // &commit, and both of those pass today.
+    let expected_delegated_game_hash = expected_game_result_hash(
             &kernel.economy_hash,
             &player.pubkey(),
             nonce,
             &kernel.ruleset_hash,
-            &salt,
+            &commit,
             stake,
             NOW,
             entry_target,
@@ -3412,7 +3528,28 @@ fn delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionle
             1,
             6,
             day,
-        )
+        );
+    assert_eq!(
+        read_hash(&delegated_history.data, HISTORY_RESULTS_ROOT_OFFSET),
+        history_root_after(
+            &[0; 32],
+            nonce,
+            &shot_result_bytes(
+                &kernel.ruleset_hash,
+                &salt,
+                4,
+                0,
+                stake,
+                NOW,
+                entry_target,
+                exit_target,
+                side,
+                p_bps,
+                &delegate.pubkey(),
+                &expected_delegated_game_hash,
+            ),
+        ),
+        "a delegated revealed row must carry the delegate that finished it"
     );
 
     // A direct second Shot proves the distinct PendingEntry -> expiry -> VOID
@@ -3464,23 +3601,18 @@ fn delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionle
         .is_none());
 
     let history = world.svm.get_account(&history_key).unwrap();
-    assert_eq!(
-        history.data.len(),
-        HISTORY_BASE_LEN + 2 * (1 + SHOT_RESULT_LEN)
-    );
-    assert_eq!(read_u32(&history.data, 83), 2);
-    assert_eq!(history.data[253], 1);
-    let second_result = 254;
-    assert_eq!(
-        (
-            history.data[second_result + 64],
-            history.data[second_result + 65],
-        ),
-        (5, 1)
-    );
-    assert_eq!(
-        read_hash(&history.data, second_result + 133),
-        expected_game_result_hash(
+    // THE PAGE DOES NOT GROW ANY MORE. This assertion used to read
+    // HISTORY_BASE_LEN + 2 * (1 + SHOT_RESULT_LEN) - the account expanding by a
+    // row per terminal shot, which is exactly the rent behaviour M3 removed. The
+    // second row does not enlarge the account; it folds into the same 32-byte
+    // root, and that is the whole saving.
+    assert_eq!(history.data.len(), HISTORY_BASE_LEN);
+    assert_eq!(history.data[83], 2);
+    // Slot 0 from nonce 0 and slot 1 from rejected_nonce 1: both bits, and the
+    // mask is what makes terminalise-once enforceable now that there are no rows
+    // to look at.
+    assert_eq!(read_u16(&history.data, HISTORY_TERMINAL_MASK_OFFSET), 0b11);
+    let expected_rejected_game_hash = expected_game_result_hash(
             &kernel.economy_hash,
             &player.pubkey(),
             rejected_nonce,
@@ -3501,6 +3633,47 @@ fn delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionle
             0,
             0,
             pending_day,
+        );
+    // ORDER IS PART OF THE CLAIM. The root is a chain, not a set: nonce 0 was
+    // terminalised first and rejected_nonce 1 second, so folding them the other
+    // way round produces a different root and this assertion says so.
+    let root_after_first = history_root_after(
+        &[0; 32],
+        nonce,
+        &shot_result_bytes(
+            &kernel.ruleset_hash,
+            &salt,
+            4,
+            0,
+            stake,
+            NOW,
+            entry_target,
+            exit_target,
+            side,
+            p_bps,
+            &delegate.pubkey(),
+            &expected_delegated_game_hash,
+        ),
+    );
+    assert_eq!(
+        read_hash(&history.data, HISTORY_RESULTS_ROOT_OFFSET),
+        history_root_after(
+            &root_after_first,
+            rejected_nonce,
+            &shot_result_bytes(
+                &kernel.ruleset_hash,
+                &pending_commit,
+                5,
+                1,
+                stake,
+                seal_now,
+                pending_entry_target,
+                pending_exit_target,
+                0,
+                0,
+                &Pubkey::default(),
+                &expected_rejected_game_hash,
+            ),
         )
     );
 }
@@ -3532,7 +3705,14 @@ fn observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless() {
         .unwrap();
     let sealed_ts = world.svm.get_sysvar::<Clock>().unix_timestamp;
     assert_eq!(sealed_ts, entry_target + CAPTURE_DEADLINE_OFFSET);
-    let exit_target = sealed_ts + 300;
+    // TARGETS ARE MULTIPLES OF THE GRID, and sealed_ts is not one: it is an
+    // entry target plus capture_deadline_offset. With the old offset of 180 that
+    // sum landed back on a 60-second boundary by luck; at 119 it does not, and
+    // OpenNeed refused it with TargetMisaligned. Rounded up to the next boundary
+    // at least 300 seconds out, so the arithmetic is stated rather than lucky.
+    let grid = SPEC_GRID as i64;
+    let exit_target = (sealed_ts + 300 + grid - 1).div_euclid(grid) * grid;
+    assert!(exit_target > sealed_ts && exit_target % grid == 0);
     let day = score_day(exit_target);
     world
         .open_timepin_need(&player, kernel.spec_hash, exit_target)
@@ -3592,15 +3772,8 @@ fn observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless() {
 
     let history = world.svm.get_account(&history_key).unwrap();
     assert_eq!(history.data.len(), HISTORY_BASE_LEN);
-    assert_eq!(history.data[87], 1);
-    let result = 88;
-    assert_eq!(
-        (history.data[result + 64], history.data[result + 65]),
-        (5, 3)
-    );
-    assert_eq!(
-        read_hash(&history.data, result + 133),
-        expected_game_result_hash(
+    assert_eq!(read_u16(&history.data, HISTORY_TERMINAL_MASK_OFFSET), 1);
+    let expected_expired_game_hash = expected_game_result_hash(
             &kernel.economy_hash,
             &player.pubkey(),
             nonce,
@@ -3621,6 +3794,28 @@ fn observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless() {
             0,
             0,
             day,
+        );
+    // Voided by an expired exit: proof_material is the commit, side and p_bps
+    // are zero, and no delegate finished it.
+    assert_eq!(
+        read_hash(&history.data, HISTORY_RESULTS_ROOT_OFFSET),
+        history_root_after(
+            &[0; 32],
+            nonce,
+            &shot_result_bytes(
+                &kernel.ruleset_hash,
+                &commit,
+                5,
+                3,
+                stake,
+                sealed_ts,
+                entry_target,
+                exit_target,
+                0,
+                0,
+                &Pubkey::default(),
+                &expected_expired_game_hash,
+            ),
         )
     );
 }
