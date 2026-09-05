@@ -1,5 +1,76 @@
 # What it costs, who pays, and how the machine feeds itself
 
+## Core G2 rent correction - 2026-09-04
+
+This section supersedes the prototype account-size table below for the current
+Core G2 release candidate. The rent baselines and slopes were queried from the
+official devnet and mainnet-beta RPC on 2026-09-04; they are dated observations,
+not timeless protocol constants, and must be queried again before a funded
+release.
+
+The current compact layout must report one-shot, normal-repeat and full-page cases separately so the shared page overhead is never hidden:
+
+| Core G2 state | bytes | devnet lamports | mainnet-beta lamports |
+| --- | ---: | ---: | ---: |
+| empty `HistoryPage` | 87 | 1,092,200 | 1,361,595 |
+| one terminal result | 253 | 1,935,480 | 2,412,873 |
+| full 16-result page | 2,743 | 14,584,680 | 18,182,043 |
+| one packed work record | 193 | - | 2,032,893 |
+| full 48-record work page | 5,175 | 26,939,240 | 33,583,899 |
+| transient `Shot` | 780 | 4,612,640 | 5,750,364 |
+| one packed reload record | 138 | 1,351,280 | 1,684,578 |
+| full 32-record reload page | 1,719 | 9,382,760 | 11,697,051 |
+
+After the page exists, each compact terminal slot adds **1,051,278 lamports (0.001051278 SOL)** at the observed mainnet-beta rate. A first isolated work
+record costs more than a standalone receipt because it creates the shared page;
+packing becomes cheaper from the second record onward. All rent remains a
+refundable account deposit. Transaction fees, priority fees and compute-unit
+consumption require executed transactions and are not inferred from these rent
+quotes.
+
+> **The three `HistoryPage` rows above are superseded by M3 (2026-09-05).** They
+> are kept because the saving is only legible against them. See the next
+> section; the work, shot and reload rows are unaffected.
+
+## Superseded 2026-09-05: the history page stopped growing (M3)
+
+`HistoryPage` no longer stores terminal rows. It keeps a rolling commitment over
+them — `pending_count`, `terminal_mask`, `results_root` — and the rows
+themselves are emitted as `ShotArchived` events. The account is allocated once
+and never resized.
+
+| `HistoryPage` | bytes | devnet lamports | mainnet-beta lamports |
+| --- | ---: | ---: | ---: |
+| before M3, empty | 87 | 1,092,200 | 1,361,595 |
+| before M3, one result | 253 | 1,935,480 | 2,412,873 |
+| before M3, full 16 results | 2,743 | 14,584,680 | 18,182,043 |
+| **after M3, any contents** | **118** | **1,249,680** | **1,557,918** |
+
+The number that moves is not the page, it is the **per-shot** figure. Archiving
+a shot used to add 166 bytes of permanent rent — the 1,051,278 lamports quoted
+above, per shot, never returned while the page lived. **It is now zero**, not
+smaller: there is no growth to fund, so `archive_terminal_shot` has nothing to
+charge for and the whole transient `Shot` rent goes back to the payer instead of
+being topped up out of. On a full page M3 frees **16,624,125 lamports**.
+
+Two things this does *not* say, because both were tempting and both are false:
+
+- A full page does **not** cost less than one pre-M3 marginal slot. Solana
+  charges 810,624 lamports of per-account overhead before a single byte is
+  stored, so the fixed page is 1,557,918 against a 1,051,278 marginal. What is
+  true is that a page holding sixteen shots now costs less than a pre-M3 page
+  holding one.
+- The rows are not gone, they are **outside the account**. The page proves they
+  were not altered; it no longer stores them. An off-chain reader that has the
+  events recomputes `results_root` and gets the same value, and the archived
+  terminalisation sequence is dense and 1-based so an omitted row is detectable
+  rather than merely unprovable.
+
+These sizes are derived from `state.rs` by `test/test_core_g2_cost.mjs` rather
+than written down here twice — the previous version of that test priced the page
+from JavaScript literals, stayed green through M3, and certified a layout that
+no longer existed.
+
 **Measured 2026-09-03 from the program's own constants.** Reproduce with
 `node tools/onchain_cost.mjs`; the numbers are pinned to `lib.rs` by
 `test/test_onchain_cost.mjs`, so a change to an account layout fails the test
@@ -134,6 +205,36 @@ resolve it, where 20 seconds cannot.
 
 This is also why the slow feeds are the comfortable ones: at 870 seconds the
 ring covers 15.5 hours and nothing outruns it but the 24-hour horizon.
+
+## Resolved 2026-09-04: SOL is faster than the poll, again
+
+The 20-second run could not resolve SOL. A five-second run over eight hours
+could not either: **5,435 distinct publish times across 5,516 polls**, median
+gap 5 seconds. Writes still track polls one-for-one, so the true cadence is at
+or below five seconds and remains unresolved — it is simply now known to be
+*fast*, not merely faster than 60s.
+
+Take five seconds as an upper bound on the interval. The ring holds 64
+observations, so it covers **at most 5.3 minutes**:
+
+**Every horizon the game sells outruns the ring.** Not the 6h and 24h as the
+original table said, and not "the 30m too" as the correction said — all seven,
+including the five-minute flash.
+
+`bind_crossing` is therefore not an edge-case instruction. It is on the critical
+path of **every single shot**, and the crank levy has to be sized for one bind
+per shot as the floor rather than the exception. The cost table's checkpoint
+figures stand, but the bind figures were never in it.
+
+There is one anomaly worth recording rather than smoothing over. The minimum
+observed gap for SOL is **-121 seconds**: `publish_time` moved *backwards*
+between two reads. The likely cause is read skew rather than a chain rollback —
+a load-balanced RPC serving a slightly older account state from a different
+node — but the consequence is the same either way and it is not academic: **a
+crank that reads a load-balanced endpoint can see stale account state and act on
+it.** Any cranker deciding whether a crossing still needs binding should read at
+`finalized`, or read twice, rather than trusting a single `confirmed` response
+from a pooled endpoint.
 
 ## The principle: find the ground in the chain
 
