@@ -1682,6 +1682,63 @@ mod tests {
         (0..grid).all(|c| some_target_is_openable(lead, ahead, grid, 1_000_000 + c))
     }
 
+    /// Candidate 1 of the lead's four, capture_grace versus lag, and the honest
+    /// answer is that arithmetic gives ONE bound and no more: grace > 0, which
+    /// validate_spec already enforces. The right MAGNITUDE of grace is how long a
+    /// transaction takes to land, which no amount of arithmetic will tell us -
+    /// that one really is a measurement, and the shape to measure is landing
+    /// latency and not feed cadence.
+    ///
+    /// What the investigation did find is worth a test rather than a comment.
+    /// `validate_decision_fields` bounds the print TWICE and the two bounds are
+    /// the SAME condition:
+    ///     post_lag <= spec.max_post_target_lag_seconds   (publish <= target + lag)
+    ///     publish_time <= need.source_deadline_ts
+    /// because `authenticate_need` re-derives the deadlines and REQUIRES
+    /// need.source_deadline_ts == target + lag (lib.rs, CorruptSourceDeadline).
+    /// Every capture path authenticates the Need first, so SourceAfterDeadline is
+    /// unreachable through the program.
+    ///
+    /// That is harmless redundancy today and a trap tomorrow: if anyone gives
+    /// `derive_deadlines` a source grace of its own, the two bounds diverge in
+    /// silence and the WEAKER one quietly becomes the settlement rule. This test
+    /// fails the moment they stop agreeing, and says which one moved.
+    #[test]
+    fn the_source_deadline_is_the_lag_restated_and_not_a_second_bound() {
+        let spec = min_capture_spec();
+        for target in [0i64, 60, 1_800, 1_000_000, 1_788_608_400] {
+            let (source, capture) =
+                crate::derive_deadlines(&spec, target).expect("deadlines derive");
+            assert_eq!(
+                source,
+                target + i64::from(spec.max_post_target_lag_seconds),
+                "source_deadline stopped being target + lag: the post_lag bound and the \
+                 source_deadline bound have diverged, and the weaker one is now the rule"
+            );
+            assert_eq!(
+                capture,
+                source + i64::from(spec.capture_grace_seconds),
+                "capture_deadline stopped being source_deadline + grace"
+            );
+            assert!(
+                capture > source,
+                "grace must leave a non-empty window after the last admissible print, \
+                 or that print can never be captured"
+            );
+            // The equivalence itself, walked rather than argued.
+            for publish in (target - 2)..=(source + 2) {
+                let within_lag =
+                    publish - target <= i64::from(spec.max_post_target_lag_seconds);
+                let within_deadline = publish <= source;
+                assert_eq!(
+                    within_lag && publish >= target,
+                    within_deadline && publish >= target,
+                    "the two bounds disagree at publish_time {publish} for target {target}"
+                );
+            }
+        }
+    }
+
     #[test]
     fn the_open_window_must_span_a_whole_grid_or_the_game_stops_for_part_of_it() {
         for grid in [30i64, 60, 300] {
