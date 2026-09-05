@@ -32,6 +32,9 @@ import { fileURLToPath } from 'node:url';
 import {
   summarize, percentile, gameFeeds, sourceAddressFor, auditManifest,
 } from '../onchain/rcx-timepin-v2/scripts/cadence-sampler.mjs';
+import {
+  ADAPTER_PYTH_PUSH_V2, ADAPTER_PYTH_MIN_CAPTURE_V2,
+} from '../onchain/rcx-timepin/model-v2.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
@@ -367,6 +370,18 @@ check(() => {
       assert.ok(Number.isFinite(lag) && lag > 0,
         `${row.symbol}: maxPostTargetLagSeconds is not a positive number (${JSON.stringify(row.maxPostTargetLagSeconds)})`);
     }
+    // The adapter byte selects the settlement predicate. MIN_CAPTURE_SPEC 1.2 says
+    // "pick the number, STATE IT IN THE ROOM", the rule owner stated 2 at 11:59Z,
+    // and model-v2.mjs now exports ADAPTER_PYTH_MIN_CAPTURE_V2 = 2 in git. A
+    // manifest carrying any other value does not merely disagree with the room:
+    // validateEvidenceSpec refuses it with BAD_ADAPTER, so a spec registered from
+    // it cannot register at all - and adapter is inside the spec hash, so the
+    // wrong byte is a different, permanent EvidenceSpec PDA.
+    const adapter = proposedLag(manifestData.evidenceSpecTemplate?.adapter);
+    assert.ok([ADAPTER_PYTH_PUSH_V2, ADAPTER_PYTH_MIN_CAPTURE_V2].includes(adapter),
+      `evidenceSpecTemplate.adapter is ${adapter}; the only adapters the model accepts are ` +
+      `${ADAPTER_PYTH_PUSH_V2} (strict bracket, experimental) and ${ADAPTER_PYTH_MIN_CAPTURE_V2} ` +
+      '(MIN-CAPTURE). "adapter 3" was used informally in the room last night and never committed.');
     assert.ok((manifestData.feeds ?? []).length > 0, 'a manifest with no feeds is not a draft, it is a stub');
     assert.ok(!/"tag"\s*:\s*"D"/.test(JSON.stringify(manifestData)),
       'a row still tagged D is undecided; promote it back to the proposal rather than shipping the tag');
