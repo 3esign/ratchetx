@@ -20,7 +20,26 @@ declare_id!("C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp");
 
 pub const SCHEMA_VERSION: u16 = 2;
 pub const SCHEMA_SEED: [u8; 2] = SCHEMA_VERSION.to_le_bytes();
+// Adapter 1: the strict bracket `prev_publish_time < T <= publish_time`.
+// EXPERIMENTAL from 2026-09-05 and NOT for a mainnet-class registration. It is
+// honest only against a source that delivers every aggregate; the sponsored
+// PriceUpdateV2 account is not one. Measured against the real feed it bracketed
+// 0 of 25 minute-aligned targets, because the pusher posts on its own schedule
+// (~5 s SOL/BTC, ~52 s ETH/BONK/PUMP/JUP/WIF) at a drifting phase.
 pub const ADAPTER_PYTH_PUSH_V2: u8 = 1;
+// Adapter 2: MIN-CAPTURE. The admissible print for target T is the one with the
+// smallest publish_time such that publish_time >= T. See docs/MIN_CAPTURE_SPEC.md.
+//
+// The two predicates look like a strict and a relaxed form of one rule. They are
+// not, and they must never be unified. On a full-aggregate source the strict `<`
+// on the left is the only thing excluding intra-second repeats -- messages with
+// pub == prev == T that genuinely differ in price, conf and ema (measured: 20 of
+// 98 keys carried up to three). Under `publish_time >= T` all of those tie at the
+// minimum and the tie-break falls to the submitter. MIN-CAPTURE is safe from this
+// ONLY because the sponsored PDA it is pinned to holds one message at a time
+// (measured: 235 consecutive sponsored writes, 235 distinct publish times, zero
+// duplicates). Change the pin and you change which predicate is safe.
+pub const ADAPTER_PYTH_MIN_CAPTURE_V2: u8 = 2;
 pub const VERIFICATION_FULL: u8 = 1;
 pub const EVIDENCE_SPEC_SEED: &[u8] = b"evidence_spec";
 pub const NEED_SEED: &[u8] = b"need";
@@ -422,7 +441,7 @@ pub fn evidence_spec_hash(canonical: &[u8; EVIDENCE_SPEC_CANONICAL_LEN]) -> [u8;
 pub fn validate_spec(args: &EvidenceSpecArgs) -> Result<()> {
     require!(args.schema == SCHEMA_VERSION, TimepinV2Error::WrongSchema);
     require!(
-        args.adapter == ADAPTER_PYTH_PUSH_V2,
+        args.adapter == ADAPTER_PYTH_PUSH_V2 || args.adapter == ADAPTER_PYTH_MIN_CAPTURE_V2,
         TimepinV2Error::WrongAdapter
     );
     require_keys_eq!(
@@ -453,10 +472,23 @@ pub fn validate_spec(args: &EvidenceSpecArgs) -> Result<()> {
             && args.max_target_ahead_seconds <= MAX_TARGET_AHEAD_SECS,
         TimepinV2Error::BadTargetAhead
     );
-    require!(
-        args.max_pre_target_gap_seconds > 0 && args.max_pre_target_gap_seconds <= MAX_GAP_SECS,
-        TimepinV2Error::BadPreTargetGap
-    );
+    // The two adapters pin this same field in OPPOSITE directions, so each is
+    // refused carrying the other's value. Under MIN-CAPTURE prev_publish_time is
+    // not part of the predicate, so a non-zero bound would be a dead number living
+    // inside canonical_policy_bytes and therefore inside every spec hash, where it
+    // would mislead every later reader. The field cannot be dropped for the same
+    // reason -- it is hashed -- so it is pinned to zero instead.
+    if args.adapter == ADAPTER_PYTH_MIN_CAPTURE_V2 {
+        require!(
+            args.max_pre_target_gap_seconds == 0,
+            TimepinV2Error::BadPreTargetGap
+        );
+    } else {
+        require!(
+            args.max_pre_target_gap_seconds > 0 && args.max_pre_target_gap_seconds <= MAX_GAP_SECS,
+            TimepinV2Error::BadPreTargetGap
+        );
+    }
     require!(
         args.max_post_target_lag_seconds > 0 && args.max_post_target_lag_seconds <= MAX_GAP_SECS,
         TimepinV2Error::BadPostTargetLag

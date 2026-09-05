@@ -8,6 +8,15 @@ use anchor_lang::prelude::*;
 use solana_sha256_hasher::hashv;
 
 pub const TIMEPIN_SCHEMA_V2: u16 = 2;
+// Core is a FOREIGN reader: it does not depend on the rcx-timepin-v2 crate, so
+// the adapter bytes are re-declared here and MUST match that crate's lib.rs
+// exactly. If they drift, Core and Timepin disagree about which price settles a
+// shot -- it settles in one program and voids in the other. Nothing at compile
+// time can catch that across two crates, so it is policed by
+// test/test_client_model_parity.mjs, which reads every ADAPTER_ constant out of
+// all three files and requires one value per name.
+pub const ADAPTER_PYTH_PUSH_V2: u8 = 1;
+pub const ADAPTER_PYTH_MIN_CAPTURE_V2: u8 = 2;
 pub const NEED_OPEN: u8 = 0;
 pub const NEED_CANDIDATE: u8 = 1;
 pub const NEED_FINAL: u8 = 2;
@@ -375,21 +384,36 @@ pub fn validate_record_against_spec(
         price_message_hash(record) == record.message_hash,
         TimepinConsumerError::WrongMessageHash
     );
-    require!(
-        record.prev_publish_time < target_ts && target_ts <= record.publish_time,
-        TimepinConsumerError::DoesNotBracketTarget
-    );
-    let pre_gap = target_ts
-        .checked_sub(record.prev_publish_time)
-        .ok_or(TimepinConsumerError::TimestampOverflow)?;
+    // Must stay byte-for-byte the same decision as
+    // rcx-timepin-v2 lifecycle.rs::validate_decision_fields. If Core and Timepin
+    // disagree, a shot settles in one and voids in the other. The JS mirrors of
+    // both are covered by test/test_client_model_parity.mjs.
+    if spec.adapter == ADAPTER_PYTH_MIN_CAPTURE_V2 {
+        // MIN-CAPTURE: the earliest print at or after the target.
+        // prev_publish_time is not part of the predicate and
+        // max_pre_target_gap_seconds is pinned to zero at registration.
+        require!(
+            record.publish_time >= target_ts,
+            TimepinConsumerError::PublishBeforeTarget
+        );
+    } else {
+        require!(
+            record.prev_publish_time < target_ts && target_ts <= record.publish_time,
+            TimepinConsumerError::DoesNotBracketTarget
+        );
+        let pre_gap = target_ts
+            .checked_sub(record.prev_publish_time)
+            .ok_or(TimepinConsumerError::TimestampOverflow)?;
+        require!(
+            pre_gap <= i64::from(spec.max_pre_target_gap_seconds),
+            TimepinConsumerError::PreTargetGapTooLarge
+        );
+    }
+    // Shared by both adapters.
     let post_lag = record
         .publish_time
         .checked_sub(target_ts)
         .ok_or(TimepinConsumerError::TimestampOverflow)?;
-    require!(
-        pre_gap <= i64::from(spec.max_pre_target_gap_seconds),
-        TimepinConsumerError::PreTargetGapTooLarge
-    );
     require!(
         post_lag <= i64::from(spec.max_post_target_lag_seconds),
         TimepinConsumerError::PostTargetLagTooLarge
@@ -541,6 +565,11 @@ pub enum TimepinConsumerError {
     CaptureOutsideWindow,
     #[msg("Candidate publication time is implausibly ahead of its capture")]
     OracleTimeInFuture,
+    // APPENDED AT THE TAIL ON PURPOSE. Anchor assigns error codes by declaration
+    // order, so moving this next to DoesNotBracketTarget renumbers every variant
+    // below it and breaks anything mapping a numeric code.
+    #[msg("Candidate publication time is before the target")]
+    PublishBeforeTarget,
 }
 #[derive(AnchorSerialize, AnchorDeserialize, Clone, Copy, Debug, Default, PartialEq, Eq)]
 pub struct EvidenceSpecV2View {

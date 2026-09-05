@@ -156,18 +156,36 @@ test('the Core model reaches the same verdict as the Timepin model, on the same 
 
 // ------------------------------------------------------------ JS <-> Rust
 
-test('every adapter constant Rust declares has the same name and value in JS', () => {
-  // The join with the half that needs a compiler. It cannot go red today, and it
-  // goes red the moment the two sides pick different numbers for the same rule —
-  // which is the failure this whole file exists to make impossible.
-  const rust = fs.readFileSync(
-    path.join(repo, 'onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs'), 'utf8');
-  const declared = [...rust.matchAll(/pub const (ADAPTER_[A-Z0-9_]+)\s*:\s*u8\s*=\s*(\d+)\s*;/g)]
-    .map(m => [m[1], Number(m[2])]);
-  assert.ok(declared.length > 0, 'lib.rs declares no adapter constants — did the file move?');
-  for (const [name, value] of declared) {
+test('all four declarations of every adapter constant agree', () => {
+  // The join with the half that needs a compiler, and the one thing NOTHING at
+  // compile time can catch: Core G2 is a FOREIGN reader of Timepin. It does not
+  // depend on that crate, so it re-declares the adapter bytes, and two crates
+  // that disagree here settle a shot in one program and void it in the other.
+  // No compiler sees across that boundary. This does.
+  const RUST = [
+    'onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs',
+    'onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs',
+  ];
+  const declared = [];
+  for (const rel of RUST) {
+    const src = fs.readFileSync(path.join(repo, rel), 'utf8');
+    const found = [...src.matchAll(/pub const (ADAPTER_[A-Z0-9_]+)\s*:\s*u8\s*=\s*(\d+)\s*;/g)]
+      .map(m => [m[1], Number(m[2]), rel]);
+    assert.ok(found.length > 0, `${rel} declares no adapter constants — did the file move?`);
+    declared.push(...found);
+  }
+  // Every Rust declaration must match the JS model, name for name and value for value.
+  for (const [name, value, rel] of declared) {
     assert.equal(T[name], value,
-      `${name} is ${value} in lib.rs but ${T[name]} in model-v2.mjs`);
+      `${name} is ${value} in ${rel} but ${T[name]} in model-v2.mjs`);
+  }
+  // And the two crates must not disagree with each other about a shared name.
+  const byName = new Map();
+  for (const [name, value, rel] of declared) {
+    if (byName.has(name)) {
+      assert.equal(byName.get(name)[0], value,
+        `${name} is ${byName.get(name)[0]} in ${byName.get(name)[1]} but ${value} in ${rel}`);
+    } else byName.set(name, [value, rel]);
   }
   // And the values JS knows must be distinct, so an adapter byte names one rule.
   const js = Object.entries(T).filter(([k]) => /^ADAPTER_/.test(k)).map(([, v]) => v);

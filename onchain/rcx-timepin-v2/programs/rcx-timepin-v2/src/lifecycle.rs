@@ -15,9 +15,9 @@ use solana_sha256_hasher::hashv;
 
 use crate::{
     authenticate_generation_accounts, authenticate_need, authenticate_spec_account,
-    validate_need_shape, EvidenceSpecV2, TimepinNeedV2, TimepinV2Error, EVIDENCE_SPEC_SEED,
-    NEED_AMBIGUOUS, NEED_CANDIDATE, NEED_EXPIRED, NEED_FINAL, NEED_OPEN, NEED_SEED, SCHEMA_SEED,
-    SCHEMA_VERSION,
+    validate_need_shape, EvidenceSpecV2, TimepinNeedV2, TimepinV2Error,
+    ADAPTER_PYTH_MIN_CAPTURE_V2, EVIDENCE_SPEC_SEED, NEED_AMBIGUOUS, NEED_CANDIDATE, NEED_EXPIRED,
+    NEED_FINAL, NEED_OPEN, NEED_SEED, SCHEMA_SEED, SCHEMA_VERSION,
 };
 
 pub const CANDIDATE_SEED: &[u8] = b"candidate";
@@ -1168,22 +1168,35 @@ fn validate_decision_fields(
     need: &TimepinNeedV2,
     candidate: &CandidateV2,
 ) -> Result<()> {
-    require!(
-        candidate.prev_publish_time < need.target_ts && need.target_ts <= candidate.publish_time,
-        TimepinLifecycleError::DoesNotBracketTarget
-    );
-    let pre_gap = need
-        .target_ts
-        .checked_sub(candidate.prev_publish_time)
-        .ok_or(TimepinLifecycleError::TimestampOverflow)?;
+    if spec.adapter == ADAPTER_PYTH_MIN_CAPTURE_V2 {
+        // MIN-CAPTURE: the earliest print at or after the target. finalize picks
+        // the minimum over everything submitted, so admissibility here is only
+        // "not before the target". prev_publish_time is not part of the predicate
+        // and max_pre_target_gap_seconds is pinned to zero at registration.
+        require!(
+            candidate.publish_time >= need.target_ts,
+            TimepinLifecycleError::PublishBeforeTarget
+        );
+    } else {
+        require!(
+            candidate.prev_publish_time < need.target_ts
+                && need.target_ts <= candidate.publish_time,
+            TimepinLifecycleError::DoesNotBracketTarget
+        );
+        let pre_gap = need
+            .target_ts
+            .checked_sub(candidate.prev_publish_time)
+            .ok_or(TimepinLifecycleError::TimestampOverflow)?;
+        require!(
+            pre_gap <= i64::from(spec.max_pre_target_gap_seconds),
+            TimepinLifecycleError::PreTargetGapTooLarge
+        );
+    }
+    // Shared by both adapters: this bound is what keeps either rule finite.
     let post_lag = candidate
         .publish_time
         .checked_sub(need.target_ts)
         .ok_or(TimepinLifecycleError::TimestampOverflow)?;
-    require!(
-        pre_gap <= i64::from(spec.max_pre_target_gap_seconds),
-        TimepinLifecycleError::PreTargetGapTooLarge
-    );
     require!(
         post_lag <= i64::from(spec.max_post_target_lag_seconds),
         TimepinLifecycleError::PostTargetLagTooLarge
@@ -1542,6 +1555,14 @@ pub enum TimepinLifecycleError {
     WrongAccountDiscriminator,
     #[msg("immutable account differs from compiled constants")]
     ImmutableAccountMismatch,
+    // APPENDED HERE ON PURPOSE, and it must stay at the tail. Anchor assigns
+    // error codes by declaration order, so moving this up next to its relatives
+    // (DoesNotBracketTarget, PreTargetGapTooLarge) silently renumbers every
+    // variant below it -- every client mapping a numeric code, every vector and
+    // every test asserting a number. Reading out of place is the cost of not
+    // breaking them.
+    #[msg("signed publication is before the target")]
+    PublishBeforeTarget,
 }
 
 #[cfg(test)]
