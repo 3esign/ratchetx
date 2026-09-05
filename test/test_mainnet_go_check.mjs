@@ -22,9 +22,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 
-const GATE = path.resolve(new URL('../tools/mainnet-go-check.mjs', import.meta.url).pathname);
+const GATE = fileURLToPath(new URL('../tools/mainnet-go-check.mjs', import.meta.url));
 const runIn = cwd => spawnSync(process.execPath, [GATE], { cwd, encoding: 'utf8', timeout: 120_000 });
 // "  R3  GO       the reveal deadline ..." -> the id, for any row that says GO.
 const goRows = out => [...out.matchAll(/^\s{2}(\w+)\s+GO\s/gm)].map(m => m[1]);
@@ -61,7 +62,7 @@ test('the gate refuses to be run from outside the repository', t => {
 });
 
 test('in the real tree the gate still answers, and answers about all of its rows', () => {
-  const repo = path.resolve(new URL('..', import.meta.url).pathname);
+  const repo = fileURLToPath(new URL('..', import.meta.url));
   const r = runIn(repo);
   assert.ok(r.stdout.includes('MAINNET GATE'), 'it runs where it is meant to run');
   const rows = [...r.stdout.matchAll(/^\s{2}(\w+)\s+(GO|PENDING|NO-GO)\s/gm)].map(m => m[1]);

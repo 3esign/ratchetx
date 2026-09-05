@@ -25,13 +25,14 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { inspectDeployInput } from '../scripts/check-deploy-input.mjs';
 
 const DATE = '2026-09-08';
 // Any of these on the same line marks the mention as historical.
 const CANCELLED = /cancell?ed|superseded|no longer|not scheduled|no freeze is scheduled|historical|retired|withdrawn|never executed/i;
 
-const repo = path.resolve(new URL('..', import.meta.url).pathname);
+const repo = fileURLToPath(new URL('..', import.meta.url));
 const { files } = inspectDeployInput(repo);
 assert.ok(files.length > 0, 'the deploy set is empty - check-deploy-input could not enumerate it');
 

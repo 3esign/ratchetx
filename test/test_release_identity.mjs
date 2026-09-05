@@ -22,7 +22,13 @@ const read = p => fs.readFileSync(at(p), 'utf8');
 const { RELEASE } = require('../lib/release.js');
 ok(/^h\d+-\d{4}-\d{2}-\d{2}$/.test(RELEASE), `the release marker has the agreed shape (${RELEASE})`);
 const deploy = read('DEPLOY.cmd');
-ok(/call npm test/.test(deploy), 'the one-command deploy runs the complete release gate first');
+const { scripts } = JSON.parse(read('package.json'));
+ok(/^call npm run test:release(?:[ \t]+>>[^\r\n]*)?\r?\nif errorlevel 1 goto :testfail$/m.test(deploy),
+  'the one-command deploy runs the complete release gate and stops on failure');
+ok(scripts['test:release'] === 'npm test && npm run test:private-restore',
+  'release checks require the portable suite followed by the mandatory private restore');
+ok(scripts['test:private-restore'] === 'node --test --test-reporter=tap test/private/test_supabase_final_snapshot_restore.mjs',
+  'the private release check executes the historical-backup restore test');
 ok(/require\('\.\/lib\/release\.js'\)\.RELEASE/.test(deploy),
   'the deploy verifies production against the shared release marker');
 ok(!/"v":"h\d+-\d{4}-\d{2}-\d{2}"/.test(deploy),

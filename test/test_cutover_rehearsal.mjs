@@ -25,6 +25,21 @@ const require = createRequire(import.meta.url);
 process.env.RATCHET_MINT = process.env.RATCHET_MINT || 'FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump';
 delete process.env.RX_MIGRATION_FREEZE;
 
+// State also asks for display-only token metadata. Keep that request inside
+// this rehearsal: real fetch + forced shutdown crashed Windows Node24 after
+// every assertion had passed. Count rejected requests because the runtime may
+// catch a metadata failure; an attempted network escape must still fail here.
+const metadataUrl = 'https://frontend-api-v3.pump.fun/coins/' + process.env.RATCHET_MINT;
+let metadataFetches = 0, unexpectedNetworkCalls = 0;
+globalThis.fetch = async (url, options = {}) => {
+  if (String(url) !== metadataUrl || (options.method || 'GET') !== 'GET') {
+    unexpectedNetworkCalls++;
+    throw new Error('UNEXPECTED_NETWORK_CALL_IN_CUTOVER_REHEARSAL');
+  }
+  metadataFetches++;
+  return { ok:true, status:200, json:async () => ({ usd_market_cap:123456 }) };
+};
+
 const pricesPath = require.resolve('../lib/prices.js');
 const burnPath = require.resolve('../lib/burn.js');
 const gamePath = require.resolve('../api/game.js');
@@ -254,7 +269,10 @@ ok(true, `every one of the ${Object.keys(a.accounts).length} proofs re-verified 
     'act 7: the largest claim clears the true total and would fail an understated one');
 }
 
+ok(metadataFetches === 1, 'OFFLINE: state consumed the deterministic metadata fixture once');
+ok(unexpectedNetworkCalls === 0, 'OFFLINE: no unexpected network request escaped the fixtures');
+
 console.log(fails
   ? `\nFAIL  cutover rehearsal: ${fails} of ${checks} checks failed`
   : `\nPASS  cutover rehearsal: ${checks} checks — freeze, drain, snapshot, root; conserved, complete, deterministic, bound`);
-process.exit(fails ? 1 : 0);
+process.exitCode = fails ? 1 : 0;
