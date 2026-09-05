@@ -319,7 +319,13 @@ check(() => {
     console.log('  maxPostTargetLagSeconds below the measured p99 first-print lag.');
     return;
   }
-  const rows = auditManifest(JSON.parse(readFileSync(MANIFEST, 'utf8')), found?.data);
+  const manifestData = JSON.parse(readFileSync(MANIFEST, 'utf8'));
+  if (manifestData.status && manifestData.status.startsWith('DRAFT')) {
+    console.log(`  gate ARMED AND INERT: manifest is DRAFT.`);
+    console.log(`  measurement present: ${found ? found.path : 'none'}`);
+    return;
+  }
+  const rows = auditManifest(manifestData, found?.data);
   for (const r of rows)
     console.log(`  ${r.symbol.padEnd(5)} lag=${r.maxPostTargetLagSeconds}s >= measured p99 ${r.measuredP99}s over ${r.targets} targets`);
 }, 'the manifest in this tree, when there is one');
