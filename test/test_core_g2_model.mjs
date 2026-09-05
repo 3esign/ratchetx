@@ -699,6 +699,13 @@ eq(deriveTimepinEvidenceSpecPda(timepinProgram, evidenceSpecHash),
 
 const fixedGameProgram =
   new PublicKey('ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL').toBuffer();
+eq(legacyLeafHash({
+  programId: fixedGameProgram, clusterGenesisHash: Buffer.alloc(32, 3),
+  migrationId: Buffer.alloc(32, 5), snapshotHash: Buffer.alloc(32, 1),
+  cutoverSlot: 42n, player: Buffer.alloc(32, 4), credits: 10n, xp: 20n,
+}).toString('hex'),
+  '66447337f898b26ff78b1125b9050ee305ec718bbb50c7182e903d6cc6555aa2',
+  'legacy_leaf matches the Rust fixed vector for the deployed G2 identity');
 const fixedGameEconomy = Buffer.alloc(32, 11);
 const fixedGamePlayer = Buffer.alloc(32, 42);
 const fixedGameSalt = Buffer.alloc(32, 21);
