@@ -1,0 +1,1201 @@
+{
+  "schema": 1,
+  "createdAt": "2026-09-05T20:35:03.486Z",
+  "scope": "Read-only cross-platform Timepin ELF byte and disassembly comparison; not build provenance, execution, semantic equivalence or mainnet acceptance",
+  "program": "rcx_timepin_v2",
+  "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+  "method": {
+    "elfParser": "Bounds-checked ELF64 little-endian table parser; unsafe 64-bit integers, extended/invalid table shapes, bad names and out-of-bounds file-backed data rejected",
+    "inspectionTools": {
+      "platformToolsDirectory": "v1.56",
+      "readelf": {
+        "path": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\llvm-readelf.exe",
+        "sha256": "7230d7f83dd4ad7a2cb14141ff127cd136dd1746622ae81b67089150f191b1fc",
+        "version": {
+          "executable": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\llvm-readelf.exe",
+          "args": [
+            "--version"
+          ],
+          "exit": 0,
+          "signal": null,
+          "stdout": "LLVM (http://llvm.org/):\n  LLVM version 20.1.7-rust-dev\n  Optimized build.\n",
+          "stderr": "",
+          "stdoutSha256": "171545be3cee71257911f631b22ac68d6e2ef9d53624c37e50a6831e59a4bf3e",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      },
+      "objdump": {
+        "path": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\llvm-objdump.exe",
+        "sha256": "43034bd4af5bd96fe0fdbf6f2f58db58e52624f0f65e6c64d466491b6fed2910",
+        "version": {
+          "executable": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\llvm-objdump.exe",
+          "args": [
+            "--version"
+          ],
+          "exit": 0,
+          "signal": null,
+          "stdout": "LLVM (http://llvm.org/):\n  LLVM version 20.1.7-rust-dev\n  Optimized build.\n\n\n  Registered Targets:\n    aarch64    - AArch64 (little endian)\n    aarch64_32 - AArch64 (little endian ILP32)\n    aarch64_be - AArch64 (big endian)\n    arm64      - ARM64 (little endian)\n    arm64_32   - ARM64 (little endian ILP32)\n    bpf        - BPF (host endian)\n    bpfeb      - BPF (big endian)\n    bpfel      - BPF (little endian)\n    sbf        - SBF new (little endian)\n    x86        - 32-bit X86: Pentium-Pro and above\n    x86-64     - 64-bit X86: EM64T and AMD64\n",
+          "stderr": "",
+          "stdoutSha256": "339efd6a20c39f42a681de8b1409bbc1e2c3aaa366f7713520b071e375d37dc8",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        }
+      }
+    },
+    "artifactRehashAfterInspection": true,
+    "artifactWrites": false,
+    "executionOrBuildPerformed": false
+  },
+  "artifacts": {
+    "linux": {
+      "path": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\_to_delete\\public-timepin-linux\\2b907fd86ca801dde001257d2112aa31f585d694e22c5f056ea561f75956d581\\rcx_timepin_v2.so",
+      "size": 377376,
+      "sha256": "2b907fd86ca801dde001257d2112aa31f585d694e22c5f056ea561f75956d581",
+      "expectedTupleMatched": true,
+      "header": {
+        "class": 2,
+        "data": 1,
+        "version": 1,
+        "osAbi": 0,
+        "abiVersion": 0,
+        "type": 3,
+        "machine": 247,
+        "elfVersion": 1,
+        "entry": 4295136520,
+        "entryHex": "0x100029508",
+        "programHeaderOffset": 64,
+        "sectionHeaderOffset": 377120,
+        "flags": 3,
+        "flagsHex": "0x3",
+        "headerSize": 64,
+        "programHeaderEntrySize": 56,
+        "programHeaderCount": 3,
+        "sectionHeaderEntrySize": 64,
+        "sectionHeaderCount": 4,
+        "sectionNameIndex": 3
+      },
+      "programHeaders": [
+        {
+          "index": 0,
+          "type": 1,
+          "flags": 4,
+          "offset": 232,
+          "virtualAddress": 0,
+          "physicalAddress": 0,
+          "fileSize": 36896,
+          "memorySize": 36896,
+          "alignment": 8
+        },
+        {
+          "index": 1,
+          "type": 1,
+          "flags": 1,
+          "offset": 37128,
+          "virtualAddress": 4294967296,
+          "physicalAddress": 4294967296,
+          "fileSize": 339960,
+          "memorySize": 339960,
+          "alignment": 8
+        },
+        {
+          "index": 2,
+          "type": 0,
+          "flags": 0,
+          "offset": 0,
+          "virtualAddress": 0,
+          "physicalAddress": 0,
+          "fileSize": 0,
+          "memorySize": 0,
+          "alignment": 0
+        }
+      ],
+      "sections": [
+        {
+          "index": 0,
+          "nameOffset": 0,
+          "type": 0,
+          "flags": 0,
+          "flagsHex": "0x0",
+          "address": 0,
+          "addressHex": "0x0",
+          "offset": 0,
+          "size": 0,
+          "link": 0,
+          "info": 0,
+          "alignment": 0,
+          "entrySize": 0,
+          "name": "",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "index": 1,
+          "nameOffset": 17,
+          "type": 1,
+          "flags": 51,
+          "flagsHex": "0x33",
+          "address": 0,
+          "addressHex": "0x0",
+          "offset": 232,
+          "size": 36896,
+          "link": 0,
+          "info": 0,
+          "alignment": 8,
+          "entrySize": 0,
+          "name": ".rodata",
+          "sha256": "d81d3effd520809bf98a8c7652a7d32c986e3f35f6ba7f24e1757e1039f91463"
+        },
+        {
+          "index": 2,
+          "nameOffset": 1,
+          "type": 1,
+          "flags": 6,
+          "flagsHex": "0x6",
+          "address": 4294967296,
+          "addressHex": "0x100000000",
+          "offset": 37128,
+          "size": 339960,
+          "link": 0,
+          "info": 0,
+          "alignment": 8,
+          "entrySize": 0,
+          "name": ".text",
+          "sha256": "5b78c26a16d0962bb5b0a5becee30a3e04180eed1e7b54737fe7f0673a7cf85b"
+        },
+        {
+          "index": 3,
+          "nameOffset": 7,
+          "type": 3,
+          "flags": 0,
+          "flagsHex": "0x0",
+          "address": 0,
+          "addressHex": "0x0",
+          "offset": 377088,
+          "size": 25,
+          "link": 0,
+          "info": 0,
+          "alignment": 1,
+          "entrySize": 0,
+          "name": ".shstrtab",
+          "sha256": "d33478a1c1aa517ecac5f20b53e46e7f4c28ca5d429bf7cd69cc58adba22c9a4"
+        }
+      ],
+      "rodata": {
+        "printableRunMinimumBytes": 8,
+        "pathStringSelection": "ASCII runs containing .rs, .cargo, drive prefix or source-path markers; adjacent printable binary/string bytes may be included",
+        "pathStrings": [
+          {
+            "sectionOffset": 258,
+            "fileOffset": 490,
+            "text": "+3<*;:src/lib.rs"
+          },
+          {
+            "sectionOffset": 280,
+            "fileOffset": 512,
+            "text": "/home/runner/work/platform-tools/platform-tools/out/rust/library/std/src/io/impls.rs"
+          },
+          {
+            "sectionOffset": 408,
+            "fileOffset": 640,
+            "text": "library/alloc/src/fmt.rs"
+          },
+          {
+            "sectionOffset": 472,
+            "fileOffset": 704,
+            "text": "library/alloc/src/string.rs"
+          },
+          {
+            "sectionOffset": 504,
+            "fileOffset": 736,
+            "text": "src/accounts/signer.rs"
+          },
+          {
+            "sectionOffset": 600,
+            "fileOffset": 832,
+            "text": "src/de/read.rs"
+          },
+          {
+            "sectionOffset": 616,
+            "fileOffset": 848,
+            "text": "src/bpf_writer.rs"
+          },
+          {
+            "sectionOffset": 640,
+            "fileOffset": 872,
+            "text": "/home/runner/.cargo/registry/src/index.crates.io-1949cf8c6b5b557f/hashbrown-0.15.4/src/raw/mod.rs"
+          },
+          {
+            "sectionOffset": 744,
+            "fileOffset": 976,
+            "text": "library/alloc/src/raw_vec/mod.rs"
+          },
+          {
+            "sectionOffset": 784,
+            "fileOffset": 1016,
+            "text": "library/core/src/num/flt2dec/strategy/grisu.rs"
+          },
+          {
+            "sectionOffset": 832,
+            "fileOffset": 1064,
+            "text": "src/error.rs"
+          },
+          {
+            "sectionOffset": 848,
+            "fileOffset": 1080,
+            "text": "src/de/mod.rs"
+          },
+          {
+            "sectionOffset": 864,
+            "fileOffset": 1096,
+            "text": "library/core/src/unicode/printable.rs"
+          },
+          {
+            "sectionOffset": 904,
+            "fileOffset": 1136,
+            "text": "src/syscalls.rs"
+          },
+          {
+            "sectionOffset": 944,
+            "fileOffset": 1176,
+            "text": "src/internal.rs"
+          },
+          {
+            "sectionOffset": 960,
+            "fileOffset": 1192,
+            "text": "/home/runner/work/platform-tools/platform-tools/out/rust/library/alloc/src/string.rs"
+          },
+          {
+            "sectionOffset": 1048,
+            "fileOffset": 1280,
+            "text": "/home/runner/work/platform-tools/platform-tools/out/rust/library/alloc/src/slice.rs"
+          },
+          {
+            "sectionOffset": 1136,
+            "fileOffset": 1368,
+            "text": "library/core/src/num/bignum.rs"
+          },
+          {
+            "sectionOffset": 1176,
+            "fileOffset": 1408,
+            "text": "library/core/src/str/mod.rs"
+          },
+          {
+            "sectionOffset": 1208,
+            "fileOffset": 1440,
+            "text": "src/accounts/unchecked_account.rs"
+          },
+          {
+            "sectionOffset": 1248,
+            "fileOffset": 1480,
+            "text": "src/price_update.rs"
+          },
+          {
+            "sectionOffset": 1272,
+            "fileOffset": 1504,
+            "text": "src/accounts/program.rs"
+          },
+          {
+            "sectionOffset": 1296,
+            "fileOffset": 1528,
+            "text": "/home/runner/work/platform-tools/platform-tools/out/rust/library/alloc/src/collections/btree/navigate.rs"
+          },
+          {
+            "sectionOffset": 1408,
+            "fileOffset": 1640,
+            "text": "library/core/src/num/flt2dec/strategy/dragon.rs"
+          },
+          {
+            "sectionOffset": 1456,
+            "fileOffset": 1688,
+            "text": "library/core/src/fmt/mod.rs"
+          },
+          {
+            "sectionOffset": 1488,
+            "fileOffset": 1720,
+            "text": "src/accounts/account.rs"
+          },
+          {
+            "sectionOffset": 1512,
+            "fileOffset": 1744,
+            "text": "programs/rcx-timepin-v2/src/lib.rs"
+          },
+          {
+            "sectionOffset": 1552,
+            "fileOffset": 1784,
+            "text": "src/config.rs"
+          },
+          {
+            "sectionOffset": 1568,
+            "fileOffset": 1800,
+            "text": "programs/rcx-timepin-v2/src/lifecycle.rs"
+          },
+          {
+            "sectionOffset": 1616,
+            "fileOffset": 1848,
+            "text": "src/ser/mod.rs"
+          },
+          {
+            "sectionOffset": 1680,
+            "fileOffset": 1912,
+            "text": "library/core/src/num/flt2dec/mod.rs"
+          },
+          {
+            "sectionOffset": 1720,
+            "fileOffset": 1952,
+            "text": "/home/runner/work/platform-tools/platform-tools/out/rust/library/alloc/src/raw_vec/mod.rs"
+          },
+          {
+            "sectionOffset": 1816,
+            "fileOffset": 2048,
+            "text": "library/core/src/num/diy_float.rs"
+          },
+          {
+            "sectionOffset": 3296,
+            "fileOffset": 3528,
+            "text": "programs/rcx-timepin-v2/src/lifecycle.rswork_page"
+          },
+          {
+            "sectionOffset": 3368,
+            "fileOffset": 3600,
+            "text": "programs/rcx-timepin-v2/src/lib.rs"
+          },
+          {
+            "sectionOffset": 10656,
+            "fileOffset": 10888,
+            "text": "src/config.rs"
+          },
+          {
+            "sectionOffset": 10680,
+            "fileOffset": 10912,
+            "text": "Unexpected variant tag: src/price_update.rs"
+          }
+        ]
+      },
+      "inspection": {
+        "readelf": {
+          "executable": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\llvm-readelf.exe",
+          "args": [
+            "--file-header",
+            "--program-headers",
+            "--sections",
+            "--wide",
+            "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\_to_delete\\public-timepin-linux\\2b907fd86ca801dde001257d2112aa31f585d694e22c5f056ea561f75956d581\\rcx_timepin_v2.so"
+          ],
+          "exit": 0,
+          "signal": null,
+          "stdout": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00\n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              DYN (Shared object file)\n  Machine:                           EM_BPF\n  Version:                           0x1\n  Entry point address:               0x100029508\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          377120 (bytes into file)\n  Flags:                             0x3\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         3\n  Size of section headers:           64 (bytes)\n  Number of section headers:         4\n  Section header string table index: 3\nThere are 4 section headers, starting at offset 0x5c120:\n\nSection Headers:\n  [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al\n  [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0\n  [ 1] .rodata           PROGBITS        0000000000000000 0000e8 009020 00 WAMS  0   0  8\n  [ 2] .text             PROGBITS        0000000100000000 009108 052ff8 00  AX  0   0  8\n  [ 3] .shstrtab         STRTAB          0000000000000000 05c100 000019 00      0   0  1\nKey to Flags:\n  W (write), A (alloc), X (execute), M (merge), S (strings), I (info),\n  L (link order), O (extra OS processing required), G (group), T (TLS),\n  C (compressed), x (unknown), o (OS specific), E (exclude),\n  R (retain), p (processor specific)\n\nElf file type is DYN (Shared object file)\nEntry point 0x100029508\nThere are 3 program headers, starting at offset 64\n\nProgram Headers:\n  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align\n  LOAD           0x0000e8 0x0000000000000000 0x0000000000000000 0x009020 0x009020 R   0x8\n  LOAD           0x009108 0x0000000100000000 0x0000000100000000 0x052ff8 0x052ff8   E 0x8\n  NULL           0x000000 0x0000000000000000 0x0000000000000000 0x000000 0x000000     0x0\n\n Section to Segment mapping:\n  Segment Sections...\n   00     .rodata \n   01     .text \n   02     \n   None   .shstrtab \n",
+          "stderr": "",
+          "stdoutSha256": "0596761b3ed2a4de54f79bdc7ffc4a6af08ee0d8025ca32200754328afa99508",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "disassembly": {
+          "executable": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\llvm-objdump.exe",
+          "args": [
+            "--disassemble",
+            "--no-show-raw-insn",
+            "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\_to_delete\\public-timepin-linux\\2b907fd86ca801dde001257d2112aa31f585d694e22c5f056ea561f75956d581\\rcx_timepin_v2.so"
+          ],
+          "exit": 0,
+          "signal": null,
+          "stdoutBytes": 1420089,
+          "stdoutSha256": "4a47c978143de30f72b1fe3ba0363579aa1a224297aeceb3b542127098834c18",
+          "stderr": "",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "decodedInstructionCount": 40306,
+          "mnemonicHistogram": {
+            "mov64": 9592,
+            "ldxdw": 5124,
+            "jeq": 1532,
+            "lddw": 2189,
+            "call": 3147,
+            "stxdw": 4978,
+            "ja": 1608,
+            "exit": 675,
+            "jlt": 271,
+            "add64": 3696,
+            "sub64": 178,
+            "and64": 489,
+            "stb": 256,
+            "jne": 942,
+            "stdw": 1040,
+            "ldxw": 522,
+            "ldxh": 161,
+            "stxh": 122,
+            "stxw": 346,
+            "ldxb": 670,
+            "stxb": 499,
+            "sth": 66,
+            "xor64": 96,
+            "jge": 193,
+            "arsh64": 67,
+            "callx": 78,
+            "or64": 219,
+            "rsh64": 392,
+            "stw": 349,
+            "lsh64": 347,
+            "mul64": 92,
+            "jle": 89,
+            "neg64": 34,
+            "jgt": 121,
+            "jsge": 22,
+            "div64": 16,
+            "jslt": 31,
+            "jsgt": 35,
+            "jsle": 22
+          },
+          "instructionSpanHistogram": {
+            "8": 38117,
+            "16": 2189
+          },
+          "unknownInstructionCount": 0,
+          "mnemonicSequenceSha256": "2e2e9f9b0d5ce7704dc4a490283ed31714e5639adf95888ff8477eea73a1480b",
+          "instructionTextSequenceSha256": "6314c9eff205029530e2b96d19763733e00849b86a87beb063c1701c528f09a4"
+        }
+      }
+    },
+    "windows": {
+      "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+      "size": 375944,
+      "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+      "expectedTupleMatched": true,
+      "header": {
+        "class": 2,
+        "data": 1,
+        "version": 1,
+        "osAbi": 0,
+        "abiVersion": 0,
+        "type": 3,
+        "machine": 247,
+        "elfVersion": 1,
+        "entry": 4295136520,
+        "entryHex": "0x100029508",
+        "programHeaderOffset": 64,
+        "sectionHeaderOffset": 375688,
+        "flags": 3,
+        "flagsHex": "0x3",
+        "headerSize": 64,
+        "programHeaderEntrySize": 56,
+        "programHeaderCount": 3,
+        "sectionHeaderEntrySize": 64,
+        "sectionHeaderCount": 4,
+        "sectionNameIndex": 3
+      },
+      "programHeaders": [
+        {
+          "index": 0,
+          "type": 1,
+          "flags": 4,
+          "offset": 232,
+          "virtualAddress": 0,
+          "physicalAddress": 0,
+          "fileSize": 36896,
+          "memorySize": 36896,
+          "alignment": 8
+        },
+        {
+          "index": 1,
+          "type": 1,
+          "flags": 1,
+          "offset": 37128,
+          "virtualAddress": 4294967296,
+          "physicalAddress": 4294967296,
+          "fileSize": 338528,
+          "memorySize": 338528,
+          "alignment": 8
+        },
+        {
+          "index": 2,
+          "type": 0,
+          "flags": 0,
+          "offset": 0,
+          "virtualAddress": 0,
+          "physicalAddress": 0,
+          "fileSize": 0,
+          "memorySize": 0,
+          "alignment": 0
+        }
+      ],
+      "sections": [
+        {
+          "index": 0,
+          "nameOffset": 0,
+          "type": 0,
+          "flags": 0,
+          "flagsHex": "0x0",
+          "address": 0,
+          "addressHex": "0x0",
+          "offset": 0,
+          "size": 0,
+          "link": 0,
+          "info": 0,
+          "alignment": 0,
+          "entrySize": 0,
+          "name": "",
+          "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        {
+          "index": 1,
+          "nameOffset": 17,
+          "type": 1,
+          "flags": 51,
+          "flagsHex": "0x33",
+          "address": 0,
+          "addressHex": "0x0",
+          "offset": 232,
+          "size": 36896,
+          "link": 0,
+          "info": 0,
+          "alignment": 8,
+          "entrySize": 0,
+          "name": ".rodata",
+          "sha256": "2ef300c2795cab4be168207b84598cdbde1807d6fdd0fe545fd3356675ccd423"
+        },
+        {
+          "index": 2,
+          "nameOffset": 1,
+          "type": 1,
+          "flags": 6,
+          "flagsHex": "0x6",
+          "address": 4294967296,
+          "addressHex": "0x100000000",
+          "offset": 37128,
+          "size": 338528,
+          "link": 0,
+          "info": 0,
+          "alignment": 8,
+          "entrySize": 0,
+          "name": ".text",
+          "sha256": "1e1aeb4e03740c4bbd24e3e9c9c491791560d6d0ec08f04a7388631bc454094c"
+        },
+        {
+          "index": 3,
+          "nameOffset": 7,
+          "type": 3,
+          "flags": 0,
+          "flagsHex": "0x0",
+          "address": 0,
+          "addressHex": "0x0",
+          "offset": 375656,
+          "size": 25,
+          "link": 0,
+          "info": 0,
+          "alignment": 1,
+          "entrySize": 0,
+          "name": ".shstrtab",
+          "sha256": "d33478a1c1aa517ecac5f20b53e46e7f4c28ca5d429bf7cd69cc58adba22c9a4"
+        }
+      ],
+      "rodata": {
+        "printableRunMinimumBytes": 8,
+        "pathStringSelection": "ASCII runs containing .rs, .cargo, drive prefix or source-path markers; adjacent printable binary/string bytes may be included",
+        "pathStrings": [
+          {
+            "sectionOffset": 304,
+            "fileOffset": 536,
+            "text": "D:\\a\\platform-tools\\platform-tools\\c\\out\\rust\\library\\alloc\\src\\slice.rs"
+          },
+          {
+            "sectionOffset": 384,
+            "fileOffset": 616,
+            "text": "src\\config.rs"
+          },
+          {
+            "sectionOffset": 400,
+            "fileOffset": 632,
+            "text": "library\\core\\src\\num\\flt2dec\\mod.rs"
+          },
+          {
+            "sectionOffset": 440,
+            "fileOffset": 672,
+            "text": "src\\accounts\\program.rs"
+          },
+          {
+            "sectionOffset": 464,
+            "fileOffset": 696,
+            "text": "programs\\rcx-timepin-v2\\src\\lifecycle.rs"
+          },
+          {
+            "sectionOffset": 544,
+            "fileOffset": 776,
+            "text": "src\\internal.rs"
+          },
+          {
+            "sectionOffset": 592,
+            "fileOffset": 824,
+            "text": "library\\alloc\\src\\fmt.rs"
+          },
+          {
+            "sectionOffset": 624,
+            "fileOffset": 856,
+            "text": "src\\accounts\\account.rs"
+          },
+          {
+            "sectionOffset": 688,
+            "fileOffset": 920,
+            "text": "src\\price_update.rs"
+          },
+          {
+            "sectionOffset": 712,
+            "fileOffset": 944,
+            "text": "library\\core\\src\\num\\flt2dec\\strategy\\dragon.rs"
+          },
+          {
+            "sectionOffset": 760,
+            "fileOffset": 992,
+            "text": "src\\bpf_writer.rs"
+          },
+          {
+            "sectionOffset": 784,
+            "fileOffset": 1016,
+            "text": "library\\core\\src\\unicode\\printable.rs"
+          },
+          {
+            "sectionOffset": 824,
+            "fileOffset": 1056,
+            "text": "D:\\a\\platform-tools\\platform-tools\\c\\out\\rust\\library\\alloc\\src\\collections\\btree\\navigate.rs"
+          },
+          {
+            "sectionOffset": 920,
+            "fileOffset": 1152,
+            "text": "library\\core\\src\\num\\flt2dec\\strategy\\grisu.rs"
+          },
+          {
+            "sectionOffset": 968,
+            "fileOffset": 1200,
+            "text": "src\\accounts\\unchecked_account.rs"
+          },
+          {
+            "sectionOffset": 1008,
+            "fileOffset": 1240,
+            "text": "library\\core\\src\\str\\mod.rs"
+          },
+          {
+            "sectionOffset": 1064,
+            "fileOffset": 1296,
+            "text": "src\\error.rs"
+          },
+          {
+            "sectionOffset": 1080,
+            "fileOffset": 1312,
+            "text": "library\\core\\src\\num\\diy_float.rs"
+          },
+          {
+            "sectionOffset": 1128,
+            "fileOffset": 1360,
+            "text": "C:\\Users\\runneradmin\\.cargo\\registry\\src\\index.crates.io-1949cf8c6b5b557f\\hashbrown-0.15.4\\src\\raw\\mod.rs"
+          },
+          {
+            "sectionOffset": 1240,
+            "fileOffset": 1472,
+            "text": "library\\alloc\\src\\string.rs"
+          },
+          {
+            "sectionOffset": 1272,
+            "fileOffset": 1504,
+            "text": "D:\\a\\platform-tools\\platform-tools\\c\\out\\rust\\library\\alloc\\src\\string.rs"
+          },
+          {
+            "sectionOffset": 1352,
+            "fileOffset": 1584,
+            "text": "src\\lib.rs"
+          },
+          {
+            "sectionOffset": 1368,
+            "fileOffset": 1600,
+            "text": "src\\de\\mod.rs"
+          },
+          {
+            "sectionOffset": 1384,
+            "fileOffset": 1616,
+            "text": "src\\accounts\\signer.rs"
+          },
+          {
+            "sectionOffset": 1408,
+            "fileOffset": 1640,
+            "text": "library\\core\\src\\fmt\\mod.rs"
+          },
+          {
+            "sectionOffset": 1440,
+            "fileOffset": 1672,
+            "text": "D:\\a\\platform-tools\\platform-tools\\c\\out\\rust\\library\\alloc\\src\\raw_vec\\mod.rs"
+          },
+          {
+            "sectionOffset": 1520,
+            "fileOffset": 1752,
+            "text": "D:\\a\\platform-tools\\platform-tools\\c\\out\\rust\\library\\std\\src\\io\\impls.rs"
+          },
+          {
+            "sectionOffset": 1600,
+            "fileOffset": 1832,
+            "text": "programs\\rcx-timepin-v2\\src\\lib.rs"
+          },
+          {
+            "sectionOffset": 1640,
+            "fileOffset": 1872,
+            "text": "src\\ser\\mod.rs"
+          },
+          {
+            "sectionOffset": 1704,
+            "fileOffset": 1936,
+            "text": "src\\syscalls.rs"
+          },
+          {
+            "sectionOffset": 1720,
+            "fileOffset": 1952,
+            "text": "library\\core\\src\\num\\bignum.rs"
+          },
+          {
+            "sectionOffset": 1752,
+            "fileOffset": 1984,
+            "text": "src\\de\\read.rs"
+          },
+          {
+            "sectionOffset": 1768,
+            "fileOffset": 2000,
+            "text": "library\\alloc\\src\\raw_vec\\mod.rs"
+          },
+          {
+            "sectionOffset": 3248,
+            "fileOffset": 3480,
+            "text": "programs\\rcx-timepin-v2\\src\\lifecycle.rswork_page"
+          },
+          {
+            "sectionOffset": 3320,
+            "fileOffset": 3552,
+            "text": "programs\\rcx-timepin-v2\\src\\lib.rs"
+          },
+          {
+            "sectionOffset": 10608,
+            "fileOffset": 10840,
+            "text": "src\\config.rs"
+          },
+          {
+            "sectionOffset": 10632,
+            "fileOffset": 10864,
+            "text": "Unexpected variant tag: src\\price_update.rs"
+          }
+        ]
+      },
+      "inspection": {
+        "readelf": {
+          "executable": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\llvm-readelf.exe",
+          "args": [
+            "--file-header",
+            "--program-headers",
+            "--sections",
+            "--wide",
+            "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so"
+          ],
+          "exit": 0,
+          "signal": null,
+          "stdout": "ELF Header:\n  Magic:   7f 45 4c 46 02 01 01 00 00 00 00 00 00 00 00 00\n  Class:                             ELF64\n  Data:                              2's complement, little endian\n  Version:                           1 (current)\n  OS/ABI:                            UNIX - System V\n  ABI Version:                       0\n  Type:                              DYN (Shared object file)\n  Machine:                           EM_BPF\n  Version:                           0x1\n  Entry point address:               0x100029508\n  Start of program headers:          64 (bytes into file)\n  Start of section headers:          375688 (bytes into file)\n  Flags:                             0x3\n  Size of this header:               64 (bytes)\n  Size of program headers:           56 (bytes)\n  Number of program headers:         3\n  Size of section headers:           64 (bytes)\n  Number of section headers:         4\n  Section header string table index: 3\nThere are 4 section headers, starting at offset 0x5bb88:\n\nSection Headers:\n  [Nr] Name              Type            Address          Off    Size   ES Flg Lk Inf Al\n  [ 0]                   NULL            0000000000000000 000000 000000 00      0   0  0\n  [ 1] .rodata           PROGBITS        0000000000000000 0000e8 009020 00 WAMS  0   0  8\n  [ 2] .text             PROGBITS        0000000100000000 009108 052a60 00  AX  0   0  8\n  [ 3] .shstrtab         STRTAB          0000000000000000 05bb68 000019 00      0   0  1\nKey to Flags:\n  W (write), A (alloc), X (execute), M (merge), S (strings), I (info),\n  L (link order), O (extra OS processing required), G (group), T (TLS),\n  C (compressed), x (unknown), o (OS specific), E (exclude),\n  R (retain), p (processor specific)\n\nElf file type is DYN (Shared object file)\nEntry point 0x100029508\nThere are 3 program headers, starting at offset 64\n\nProgram Headers:\n  Type           Offset   VirtAddr           PhysAddr           FileSiz  MemSiz   Flg Align\n  LOAD           0x0000e8 0x0000000000000000 0x0000000000000000 0x009020 0x009020 R   0x8\n  LOAD           0x009108 0x0000000100000000 0x0000000100000000 0x052a60 0x052a60   E 0x8\n  NULL           0x000000 0x0000000000000000 0x0000000000000000 0x000000 0x000000     0x0\n\n Section to Segment mapping:\n  Segment Sections...\n   00     .rodata \n   01     .text \n   02     \n   None   .shstrtab \n",
+          "stderr": "",
+          "stdoutSha256": "66fb09e61fc75fc1363449616c0503b6b1583570b4ae6b050a74b2a14e331834",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+        },
+        "disassembly": {
+          "executable": "C:\\Users\\treed\\.cache\\solana\\v1.56\\platform-tools\\llvm\\bin\\llvm-objdump.exe",
+          "args": [
+            "--disassemble",
+            "--no-show-raw-insn",
+            "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so"
+          ],
+          "exit": 0,
+          "signal": null,
+          "stdoutBytes": 1413586,
+          "stdoutSha256": "9ca0a54a8783cb0e90d1038fb26c776d40756d657f9a3af3c5295da795341c34",
+          "stderr": "",
+          "stderrSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+          "decodedInstructionCount": 40131,
+          "mnemonicHistogram": {
+            "mov64": 9515,
+            "ldxdw": 5102,
+            "jeq": 1509,
+            "lddw": 2185,
+            "call": 3137,
+            "stxdw": 4961,
+            "ja": 1597,
+            "exit": 674,
+            "jlt": 271,
+            "add64": 3686,
+            "sub64": 175,
+            "and64": 490,
+            "stb": 256,
+            "jne": 929,
+            "ldxw": 522,
+            "stdw": 1040,
+            "ldxh": 161,
+            "stxh": 122,
+            "stxw": 346,
+            "ldxb": 670,
+            "stxb": 507,
+            "sth": 66,
+            "xor64": 96,
+            "jge": 195,
+            "arsh64": 67,
+            "callx": 78,
+            "or64": 227,
+            "rsh64": 400,
+            "stw": 349,
+            "lsh64": 347,
+            "mul64": 90,
+            "jle": 89,
+            "neg64": 32,
+            "jgt": 114,
+            "jsge": 22,
+            "div64": 16,
+            "jslt": 31,
+            "jsgt": 35,
+            "jsle": 22
+          },
+          "instructionSpanHistogram": {
+            "8": 37946,
+            "16": 2185
+          },
+          "unknownInstructionCount": 0,
+          "mnemonicSequenceSha256": "e6a71ebeeb9ba7380447607f7977079a81b9c84026e5c01c32cca21efc8796e2",
+          "instructionTextSequenceSha256": "83041750880d3b4156eefeda11e34dae3e4fdbddc04d10690787e44560c66035"
+        }
+      }
+    }
+  },
+  "comparison": {
+    "wholeFile": {
+      "equal": false,
+      "linuxBytes": 377376,
+      "windowsBytes": 375944,
+      "linuxMinusWindowsBytes": 1432,
+      "sameOffsetMismatchedBytesWithinOverlap": 93566,
+      "unpairedTrailingBytes": 1432,
+      "firstSameOffsetByteDifference": 40,
+      "commonPrefixBytes": 40,
+      "commonSuffixBytes": 38,
+      "comparisonLimit": "Same-offset byte comparison is not function- or relocation-aligned."
+    },
+    "headerDifferences": [
+      {
+        "field": "sectionHeaderOffset",
+        "linux": 377120,
+        "windows": 375688
+      }
+    ],
+    "sections": [
+      {
+        "name": "",
+        "linuxSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "windowsSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "equal": true,
+        "linuxBytes": 0,
+        "windowsBytes": 0,
+        "linuxMinusWindowsBytes": 0,
+        "sameOffsetMismatchedBytesWithinOverlap": 0,
+        "unpairedTrailingBytes": 0,
+        "firstSameOffsetByteDifference": null,
+        "commonPrefixBytes": 0,
+        "commonSuffixBytes": 0,
+        "comparisonLimit": "Same-offset byte comparison is not function- or relocation-aligned."
+      },
+      {
+        "name": ".rodata",
+        "linuxSha256": "d81d3effd520809bf98a8c7652a7d32c986e3f35f6ba7f24e1757e1039f91463",
+        "windowsSha256": "2ef300c2795cab4be168207b84598cdbde1807d6fdd0fe545fd3356675ccd423",
+        "equal": false,
+        "linuxBytes": 36896,
+        "windowsBytes": 36896,
+        "linuxMinusWindowsBytes": 0,
+        "sameOffsetMismatchedBytesWithinOverlap": 24236,
+        "unpairedTrailingBytes": 0,
+        "firstSameOffsetByteDifference": 264,
+        "commonPrefixBytes": 264,
+        "commonSuffixBytes": 6,
+        "comparisonLimit": "Same-offset byte comparison is not function- or relocation-aligned."
+      },
+      {
+        "name": ".text",
+        "linuxSha256": "5b78c26a16d0962bb5b0a5becee30a3e04180eed1e7b54737fe7f0673a7cf85b",
+        "windowsSha256": "1e1aeb4e03740c4bbd24e3e9c9c491791560d6d0ec08f04a7388631bc454094c",
+        "equal": false,
+        "linuxBytes": 339960,
+        "windowsBytes": 338528,
+        "linuxMinusWindowsBytes": 1432,
+        "sameOffsetMismatchedBytesWithinOverlap": 69198,
+        "unpairedTrailingBytes": 1432,
+        "firstSameOffsetByteDifference": 52,
+        "commonPrefixBytes": 52,
+        "commonSuffixBytes": 8,
+        "comparisonLimit": "Same-offset byte comparison is not function- or relocation-aligned."
+      },
+      {
+        "name": ".shstrtab",
+        "linuxSha256": "d33478a1c1aa517ecac5f20b53e46e7f4c28ca5d429bf7cd69cc58adba22c9a4",
+        "windowsSha256": "d33478a1c1aa517ecac5f20b53e46e7f4c28ca5d429bf7cd69cc58adba22c9a4",
+        "equal": true,
+        "linuxBytes": 25,
+        "windowsBytes": 25,
+        "linuxMinusWindowsBytes": 0,
+        "sameOffsetMismatchedBytesWithinOverlap": 0,
+        "unpairedTrailingBytes": 0,
+        "firstSameOffsetByteDifference": null,
+        "commonPrefixBytes": 25,
+        "commonSuffixBytes": 0,
+        "comparisonLimit": "Same-offset byte comparison is not function- or relocation-aligned."
+      }
+    ],
+    "relocationSections": {
+      "linux": [],
+      "windows": []
+    },
+    "code": {
+      "linuxDecodedInstructions": 40306,
+      "windowsDecodedInstructions": 40131,
+      "mnemonicCountDifferences": [
+        {
+          "mnemonic": "add64",
+          "linux": 3696,
+          "windows": 3686
+        },
+        {
+          "mnemonic": "and64",
+          "linux": 489,
+          "windows": 490
+        },
+        {
+          "mnemonic": "call",
+          "linux": 3147,
+          "windows": 3137
+        },
+        {
+          "mnemonic": "exit",
+          "linux": 675,
+          "windows": 674
+        },
+        {
+          "mnemonic": "ja",
+          "linux": 1608,
+          "windows": 1597
+        },
+        {
+          "mnemonic": "jeq",
+          "linux": 1532,
+          "windows": 1509
+        },
+        {
+          "mnemonic": "jge",
+          "linux": 193,
+          "windows": 195
+        },
+        {
+          "mnemonic": "jgt",
+          "linux": 121,
+          "windows": 114
+        },
+        {
+          "mnemonic": "jne",
+          "linux": 942,
+          "windows": 929
+        },
+        {
+          "mnemonic": "lddw",
+          "linux": 2189,
+          "windows": 2185
+        },
+        {
+          "mnemonic": "ldxdw",
+          "linux": 5124,
+          "windows": 5102
+        },
+        {
+          "mnemonic": "mov64",
+          "linux": 9592,
+          "windows": 9515
+        },
+        {
+          "mnemonic": "mul64",
+          "linux": 92,
+          "windows": 90
+        },
+        {
+          "mnemonic": "neg64",
+          "linux": 34,
+          "windows": 32
+        },
+        {
+          "mnemonic": "or64",
+          "linux": 219,
+          "windows": 227
+        },
+        {
+          "mnemonic": "rsh64",
+          "linux": 392,
+          "windows": 400
+        },
+        {
+          "mnemonic": "stxb",
+          "linux": 499,
+          "windows": 507
+        },
+        {
+          "mnemonic": "stxdw",
+          "linux": 4978,
+          "windows": 4961
+        },
+        {
+          "mnemonic": "sub64",
+          "linux": 178,
+          "windows": 175
+        }
+      ],
+      "textAtSameAddressChanges": 18003,
+      "mnemonicAtSameAddressChanges": 13483,
+      "firstChangedDisassemblyAtSameAddress": [
+        {
+          "addressHex": "0x100000030",
+          "linux": "lddw r3, 0x6810",
+          "windows": "lddw r3, 0x67e0",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x100000070",
+          "linux": "call 0x7469",
+          "windows": "call 0x7430",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x1000000d8",
+          "linux": "call 0x9bd0",
+          "windows": "call 0x9b1d",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x100000120",
+          "linux": "call 0x9bc7",
+          "windows": "call 0x9b14",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x100000190",
+          "linux": "call 0x868",
+          "windows": "call 0x7fc",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x1000001b0",
+          "linux": "call 0x864",
+          "windows": "call 0x7f8",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x1000001d8",
+          "linux": "call 0xa338",
+          "windows": "call 0xa285",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x100000230",
+          "linux": "call 0x854",
+          "windows": "call 0x7e8",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x100000250",
+          "linux": "call 0x850",
+          "windows": "call 0x7e4",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x100000278",
+          "linux": "call 0xa324",
+          "windows": "call 0xa271",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x1000002e8",
+          "linux": "call 0xa316",
+          "windows": "call 0xa263",
+          "sameMnemonic": true
+        },
+        {
+          "addressHex": "0x100000310",
+          "linux": "call 0xc96",
+          "windows": "call 0xcc9",
+          "sameMnemonic": true
+        }
+      ],
+      "firstChangedMnemonicAtSameAddress": [
+        {
+          "addressHex": "0x100000920",
+          "linux": "stxdw [r10 - 0xf78], r2",
+          "windows": "ldxdw r2, [r1 + 0x0]"
+        },
+        {
+          "addressHex": "0x100000930",
+          "linux": "ldxdw r1, [r1 + 0x8]",
+          "windows": "stxdw [r10 - 0xfb8], r1"
+        },
+        {
+          "addressHex": "0x100000940",
+          "linux": "stxdw [r10 - 0xf88], r2",
+          "windows": "mov64 r1, r10"
+        },
+        {
+          "addressHex": "0x100000948",
+          "linux": "mov64 r1, r10",
+          "windows": "add64 r1, -0x1000"
+        },
+        {
+          "addressHex": "0x100000950",
+          "linux": "add64 r1, -0x1000",
+          "windows": "mov64 r2, r10"
+        },
+        {
+          "addressHex": "0x100000958",
+          "linux": "mov64 r2, r10",
+          "windows": "add64 r2, -0xfc0"
+        },
+        {
+          "addressHex": "0x100000960",
+          "linux": "add64 r2, -0xf88",
+          "windows": "call 0x466b"
+        },
+        {
+          "addressHex": "0x100000968",
+          "linux": "call 0x47d5",
+          "windows": "ldxdw r2, [r10 - 0xff0]"
+        },
+        {
+          "addressHex": "0x100000980",
+          "linux": "ldxdw r1, [r10 - 0x1000]",
+          "windows": "lddw r4, -0x8000000000000000"
+        },
+        {
+          "addressHex": "0x100000990",
+          "linux": "stxdw [r6 + 0x10], r8",
+          "windows": "jne r3, r4, +0x11 <.text+0xa20>"
+        },
+        {
+          "addressHex": "0x1000009a0",
+          "linux": "stdw [r6 + 0x0], 0x0",
+          "windows": "stxdw [r6 + 0x8], r1"
+        },
+        {
+          "addressHex": "0x1000009a8",
+          "linux": "ja +0x14 <.text+0xa50>",
+          "windows": "stxdw [r6 + 0x0], r4"
+        }
+      ]
+    },
+    "findings": [
+      "The actual input hashes and sizes match the supplied Linux and Windows artifact tuples; the artifacts are not byte-identical.",
+      "Both ELF files are ELF64 little-endian EM_BPF DYN with e_flags 0x3 and the same entry address. Their section-header offsets and .text sizes differ.",
+      "Both .rodata sections have equal byte length but different hashes, ordering and host-specific source-path strings.",
+      "The Linux .text section is 1432 bytes longer. Disassembly and mnemonic distributions differ, so these are not solely .rodata string-byte differences.",
+      "Neither artifact has a REL or RELA section or a symbol-table section. Absolute/relative addresses and constants are already embedded; this comparison cannot identify every changed operand as a relocation."
+    ],
+    "limits": [
+      "Linux/Windows labels and build origin were supplied with the files. This receipt verifies the bytes, not independent equality of source snapshots, dependency resolution, compiler binaries or build environment.",
+      "LLVM disassembly uses the default decoder for the ELF machine with no custom CPU override; results describe that decoder output.",
+      "Same-address or same-index differences can reflect code placement and shifts. Different mnemonic counts establish a decoded instruction-population difference, not a behavioral defect or proof of equivalence.",
+      "No relocation normalization, function matching, source mapping, formal equivalence proof, SVM execution or compute-unit measurement was performed.",
+      "Host-path strings are one measured contributor. No claim is made that path remapping alone will reproduce either artifact or eliminate code differences.",
+      "Use a single declared canonical build environment and regenerate identity-bound vectors and execution receipts against the selected final artifact hash."
+    ]
+  }
+}
