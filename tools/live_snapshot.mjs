@@ -22,7 +22,35 @@
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import crypto from 'node:crypto';
 import readline from 'node:readline';
+
+export const SNAPSHOT_TOOL_VERSION = '2026-09-05.2';
+
+/** sha256 of a file, as the hex string written into the sibling .sha256. */
+export function sha256File(file) {
+  return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+}
+
+/** How many rows would change if they were parsed and re-serialised.
+ *  This is not paranoia: JSON.parse/stringify silently rounds any integer past
+ *  2^53 (9007199254740993 becomes ...992) and rewrites number formatting, so a
+ *  digest taken over re-serialised rows is a digest of something the store never
+ *  held. We keep the raw strings and we COUNT the drift rather than hide it. */
+export function fidelityReport(rows) {
+  let reserialised = 0, unparsable = 0;
+  const examples = [];
+  for (const [key, value, , raw] of rows) {
+    if (typeof raw !== 'string') continue;
+    let round;
+    try { round = JSON.stringify(value); } catch { unparsable++; continue; }
+    if (round !== raw) {
+      reserialised++;
+      if (examples.length < 5) examples.push(key);
+    }
+  }
+  return { reserialised, unparsable, examples };
+}
 
 const clean = v => String(v || '').replace(/[\x00-\x1f\x7f]/g, '').trim();
 
@@ -81,7 +109,10 @@ export async function readRows(redis, keys, { chunk = 100, now = Date.now() } = 
       // -1 no expiry, -2 gone. Anything positive becomes an absolute instant,
       // because a relative TTL written into a file stops being true immediately.
       const expiresAt = Number.isFinite(ms) && ms > 0 ? new Date(now + ms).toISOString() : null;
-      rows.push([key, value, expiresAt]);
+      // Fourth element is the RAW store string, byte for byte. Existing readers
+      // destructure the first three and are unaffected; the archive keeps what
+      // the store actually returned rather than our re-serialisation of it.
+      rows.push([key, value, expiresAt, typeof raw === 'string' ? raw : JSON.stringify(raw)]);
     });
   }
   return rows;
@@ -124,12 +155,95 @@ if (invoked) {
     const root = privateRoot();
     fs.mkdirSync(root, { recursive: true });
     const stamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const file = path.join(root, 'legacy-kv-' + stamp + '.ndjson');
-    fs.writeFileSync(file, rows.map(r => JSON.stringify(r)).join('\n') + '\n');
+    const takenAt = new Date().toISOString();
 
+    // The reader's file keeps its exact three-element shape.
+    const file = path.join(root, 'legacy-kv-' + stamp + '.ndjson');
+    fs.writeFileSync(file, rows.map(r => JSON.stringify([r[0], r[1], r[2]])).join('\n') + '\n');
+
+    // The archive's file keeps the store's own bytes. Deliberately NOT named
+    // legacy-kv-*: legacy_root.mjs picks the newest file matching that prefix,
+    // and it must never pick this one up as a source.
+    const rawFile = path.join(root, 'legacy-raw-' + stamp + '.ndjson');
+    fs.writeFileSync(rawFile, rows.map(r => JSON.stringify([r[0], r[3], r[2]])).join('\n') + '\n');
+
+    const fileSha = sha256File(file);
+    const rawSha = sha256File(rawFile);
+    fs.writeFileSync(file + '.sha256', fileSha + '  ' + path.basename(file) + '\n');
+    fs.writeFileSync(rawFile + '.sha256', rawSha + '  ' + path.basename(rawFile) + '\n');
+
+    // A snapshot with no chain anchor is still a snapshot, but it is not a
+    // MOMENT. If an RPC is reachable we pin one; if not we say so out loud
+    // rather than writing a file that looks anchored and is not.
+    let chainAnchor = null;
+    const rpc = clean(process.env.SOLANA_RPC_URL);
+    if (rpc) {
+      try {
+        const call = async (method, params = []) => {
+          const r = await fetch(rpc, {
+            method: 'POST',
+            headers: { 'content-type': 'application/json' },
+            body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }),
+          });
+          const j = await r.json();
+          if (j.error) throw new Error(JSON.stringify(j.error).slice(0, 120));
+          return j.result;
+        };
+        chainAnchor = {
+          finalizedSlot: await call('getSlot', [{ commitment: 'finalized' }]),
+          genesisHash: await call('getGenesisHash'),
+          rpc,
+        };
+      } catch (e) {
+        chainAnchor = { error: String(e && e.message || e).slice(0, 200), rpc };
+      }
+    }
+
+    const fidelity = fidelityReport(rows);
     const c = census(rows);
+    const manifest = {
+      tool: 'live_snapshot.mjs',
+      toolVersion: SNAPSHOT_TOOL_VERSION,
+      takenAt,
+      readerFile: path.basename(file),
+      readerSha256: fileSha,
+      rawFile: path.basename(rawFile),
+      rawSha256: rawSha,
+      rowCount: rows.length,
+      census: c,
+      fidelity,
+      chainAnchor,
+      migrationId: clean(process.env.RATCHET_MIGRATION_ID) || null,
+      note: 'rawFile holds the store bytes verbatim; readerFile is the three-element shape legacy_root.mjs consumes. Digests are over the files as written.',
+    };
+    const manifestFile = path.join(root, 'legacy-snapshot-' + stamp + '.manifest.json');
+    fs.writeFileSync(manifestFile, JSON.stringify(manifest, null, 2) + '\n');
+
     console.log('');
     console.log('  wrote ' + file);
+    console.log('  wrote ' + rawFile + '   (store bytes verbatim)');
+    console.log('  wrote ' + manifestFile);
+    console.log('  sha256 reader  ' + fileSha);
+    console.log('  sha256 raw     ' + rawSha);
+    if (fidelity.reserialised) {
+      console.log('');
+      console.log('  NOTE: ' + fidelity.reserialised + ' row(s) do not survive parse+stringify byte-exact.');
+      console.log('  The raw file is authoritative for those rows. Examples: ' + fidelity.examples.join(', '));
+    }
+    if (!chainAnchor) {
+      console.log('');
+      console.log('  NOT ANCHORED: no SOLANA_RPC_URL, so this snapshot records a wall-clock');
+      console.log('  time and not a chain moment. Set SOLANA_RPC_URL and re-run if the');
+      console.log('  snapshot is going to become a migration root.');
+    } else if (chainAnchor.error) {
+      console.log('');
+      console.log('  NOT ANCHORED: the RPC refused (' + chainAnchor.error + ').');
+    } else {
+      console.log('  anchored at finalized slot ' + chainAnchor.finalizedSlot);
+    }
+    if (!manifest.migrationId) {
+      console.log('  no RATCHET_MIGRATION_ID set - the manifest records null, decide it before any root.');
+    }
     console.log('  player rows          ' + String(c.players).padStart(7));
     console.log('  of those, demo       ' + String(c.demo).padStart(7) + '   excluded from any root');
     console.log('  open shots           ' + String(c.openShots).padStart(7));
