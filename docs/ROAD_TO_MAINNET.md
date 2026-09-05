@@ -230,6 +230,15 @@ Until all three exist, **nobody deletes anything.** MIN-CAPTURE lands as specifi
 No step is "done" without its exit evidence in git. A DONE without a commit hash is a draft.
 
 ### Phase 0 — today, no build required, nothing blocks it
+
+> **Status 2026-09-05 12:10Z.** 0.1 DONE and committed (`d7c9162`), but the exit is not reached: the
+> corrected copy is in git and **not on the live site** — that needs a push and a redeploy, which is
+> Semir's and nobody else's, and the old promise expires Monday. 0.2 DONE (`0a166f5`) after Opus B
+> refuted the first "closed" ruling; 0.4 DONE (`0a166f5`); 0.5 DONE (`04d3192`, all 120 evidence
+> files tracked — before it, every evidence pointer in this file resolved to a path a clean checkout
+> would erase). 0.3 the tool is fixed and tested (`b0ba8d2`) but **the snapshot has not been taken**:
+> it needs the store credentials, which only Semir has.
+
 | # | Item | Exit evidence |
 | --- | --- | --- |
 | 0.1 | **DONE 2026-09-05.** **Public promise** (Fable B8): README:104,215 + `llms.txt`:18,104 + `docs/AGENT_STATE.json`:31-33 → "no freeze is scheduled; authority retained while the on-chain successor is built; a future ceremony will be registered in advance." | diff merged; live surfaces re-fetched |
