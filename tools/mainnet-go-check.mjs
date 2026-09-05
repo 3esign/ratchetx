@@ -167,10 +167,33 @@ check('M1', 'the Need can be closed and its rent returned', () => {
              : 'no close path and no fields - 1,225 SOL/year locked permanently at a 1-minute grid' };
 }, 'Opus A');
 
-check('M2', 'PlayerDay no longer creates one account per player per day', () => {
+check('M2', 'a finished PlayerDay can be closed and its rent returned', () => {
+  // Corrected 2026-09-05 15:1xZ, on Opus B's refutation, and this is the fourth
+  // and last row of mine with this shape. The old condition was !/PLAYER_DAY_SEED/
+  // - it asked for the SEED to disappear, and the seed must survive: Shot.score_day
+  // is frozen at seal and authenticated on every late path, so deleting the per-day
+  // account makes every shot that crosses midnight permanently unrevealable. The
+  // row could only go green by breaking the program, exactly like the old M3 and
+  // the old R3.
+  //
+  // The TITLE was wrong too, not only the check. The rent was the defect; the
+  // account never was. So the condition is the one I already applied to M1 once I
+  // stopped believing two field names: can lamports actually leave? Verified in
+  // lib.rs - close_player_day requires accepted > 0 && terminal == accepted, and
+  // ClosePlayerDay carries close = rent_payer with address = player_day.rent_payer,
+  // so the refund can only ever reach whoever paid it. Nobody privileged has to
+  // call it.
+  //
+  // 0.600 SOL/year is derived, not typed: PlayerDay::LEN 132 + 8 discriminator
+  // = 140 bytes, (128 + 140) * 6333 = 1,697,244 lamports per account per day.
   const s = mustRead(C + 'lib.rs');
-  const gone = !/PLAYER_DAY_SEED/.test(s);
-  return { ok: gone, pending: !gone, detail: gone ? 'PLAYER_DAY_SEED gone' : '0.527 SOL/year charged to every daily player' };
+  const canClose = /pub fn close_player_day/.test(s);
+  const refundsPayer = /close\s*=\s*rent_payer/.test(s) && /address\s*=\s*player_day\.rent_payer/.test(s);
+  if (!canClose) return { ok: false, pending: true,
+    detail: 'no close_player_day instruction - the day account is funded once and never returns its rent' };
+  if (!refundsPayer) return { ok: false, pending: true,
+    detail: 'close_player_day exists but the close recipient is not pinned to player_day.rent_payer - the refund can be steered' };
+  return { ok: true, detail: 'close_player_day closes to the recorded rent_payer once every accepted shot is terminal' };
 }, 'Opus B');
 
 check('M3', 'HistoryPage/WorkPage do not lock rent per sixteen shots', () => {

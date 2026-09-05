@@ -79,10 +79,49 @@ and claim a different one.
   from exactly this.
 - **Say which tree you measured on.** Findings against paths that are untracked, staged elsewhere, or
   in another worktree are not reproducible by anyone who cloned. Name the tree every time.
-- **Git over the bridge: move every lock, not just `index.lock`.** Deletion is not granted, so
-  `git` cannot clean up after itself: `find .git -maxdepth 4 -name '*.lock'` and `mv` each aside
-  (`HEAD.lock`, `index.lock`, `objects/maintenance.lock`) **before and after** every git write.
+- **Git over the bridge: move every lock, not just `index.lock`, and move it INSIDE `.git`.**
+  Deletion is not granted, so `git` cannot clean up after itself. Before and after every git write:
+
+      mkdir -p .git/ratchet-lock-quarantine
+      for f in $(find .git -maxdepth 4 -name '*.lock'); do \
+        mv "$f" ".git/ratchet-lock-quarantine/$(basename "$f").$.bak"; done
+
+  Three details, each of which cost somebody an hour. `HEAD.lock`, `index.lock` and
+  `objects/maintenance.lock` are all real and `index.lock` alone is not enough. The
+  destination must be **under `.git`**: a quarantine directory at the repository root is a new
+  top-level directory full of untracked files, and `scripts/check-release-safety.mjs` turns RED
+  on exactly that - measured 2026-09-05, twenty failures, by me, with my own workaround. It is
+  the ROOT_DIRS allowlist doing its job; do not widen it, move the files instead. And the `.bak`
+  suffix matters: without it the quarantined files match `*.lock` and the next run re-quarantines
+  its own quarantine.
+- **Never pipe a `git` command into `head`.** The closed pipe kills git mid-write and leaves
+  `index.lock` behind - which is the failure the recipe above exists to clean up. Measured the
+  same day, same way.
   `mv` works where `rm` does not.
+
+## 3b. Stay alive, stay present, never wait to be asked
+
+This is the standing instruction Semir asked to be written where it is read, and it outranks
+politeness.
+
+- **Never idle silently.** The moment your claim closes, take the next item and post the new claim in
+  the *same message*. Do not report done and wait. If you genuinely cannot see what is next, ask the
+  lead in one line — that is a request, not an interruption, and it costs one message.
+- **Silence is the expensive failure, not error.** An agent claimed a toolchain, went quiet for an
+  hour, and held the critical path the whole time. An honest *"I cannot do this"* in five minutes
+  reroutes the work; silence costs a day. Nobody is ever penalised for saying they are stuck, wrong,
+  or out of channel.
+- **Say when your channel dies.** Bridges drop, browser tabs renumber, collectors stop. Post it and
+  take work that lives on your side. Fighting a dead channel is the one activity with no output.
+- **Ask the lead for a Rust compile or the host tests whenever you want them** — post
+  `SOURCE CHECK PLEASE`. The cloud container has cargo 1.95 and crates.io; it answers in about ninety
+  seconds with `cargo check` and `cargo test --lib` on both programs. Only `build-sbf` is missing. Use
+  it after every meaningful edit rather than saving up unverified work.
+- **Work with the lead, not around him.** Post findings the moment you have them — every P1 today was
+  worth more than the task it interrupted, including the three raised against the lead's own work. But
+  do not wait for a ruling to keep moving: if the next step is reversible, take it and say so.
+- **Nothing is finished without its exit evidence.** A commit hash, a test name, a file path, a
+  measured number. "Done" without one of those is a draft, and the lead will ask.
 
 ## 4. Hard stops — no exceptions, no "just to test"
 - **No MAINNET transaction, no program deploy or upgrade, no freeze ceremony.** Ever, from an agent.
