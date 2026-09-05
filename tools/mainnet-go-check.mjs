@@ -488,6 +488,92 @@ check('B3', 'the release safety gate is green', () => {
                               : 'gate exited ' + r.status + ' with no FAIL line - read its output directly' };
 }, 'Opus B');
 
+// ---- the game ---------------------------------------------------------------
+// Added 2026-09-05 21:2xZ. Until now every row on this board was about two Rust
+// crates, and both are nearly finished. NONE OF THEM ASKED WHETHER ANYBODY CAN
+// PLAY. Measured tonight, and the result is not close:
+//
+//   grep for TransactionInstruction / sendTransaction / sendRawTransaction across
+//   every .mjs and .js outside node_modules and test: ZERO HITS.
+//   onchain/ratchet-core-g2/client/client-v2.mjs exports constants, account
+//   sizes, discriminators and decoders. It builds no instruction and sends
+//   nothing.
+//   index.html:921 is `const API='/api/game'` - the live page talks to the
+//   legacy server, not to a program.
+//   ops/ contains one thing, heartbeat-worker. No settle, no capture, no reveal.
+//
+// So the two programs could be perfect, deployed and frozen, and the game would
+// not run: no player could seal, and nobody would crank settlement. A gate that
+// reported 3 of 19 while that was true was measuring the engine and calling it
+// the car. These rows will stay red for a while. That is what they are for.
+
+// The G2 scan both L rows use. Defined once so they cannot drift apart, and it
+// EXCLUDES this file: the first version matched its own regex strings and
+// counted the gate itself as a sending path.
+const G2_SCAN = `
+  const fs = require('fs'), path = require('path');
+  const skip = new Set(['node_modules', '.git', 'target', 'test', '_to_delete', 'archive']);
+  const rows = [];
+  (function walk(d) {
+    for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+      if (e.isDirectory()) { if (!skip.has(e.name)) walk(path.join(d, e.name)); continue; }
+      if (!/\\.(mjs|js)$/.test(e.name)) continue;
+      const f = path.join(d, e.name);
+      if (f.includes('mainnet-go-check')) continue;
+      const t = fs.readFileSync(f, 'utf8');
+      if (!/ratchet[-_]core[-_]g2|coreG2|CoreG2/.test(t)) continue;
+      rows.push({ f,
+        build: /TransactionInstruction/.test(t),
+        send: /send(Raw)?Transaction|sendAndConfirm/.test(t),
+        crank: /settle_final|settleFinal|capture_first|captureFirst/.test(t) });
+    }
+  })('.');
+  console.log(JSON.stringify(rows));
+`;
+
+check('L1', 'a G2 shot can be SENT, not merely encoded', () => {
+  // CORRECTED 2026-09-05 21:3xZ, an hour after I wrote it, because the first
+  // version of this row went GREEN while I was telling Semir the opposite.
+  //
+  // Two mistakes, both mine. The claim came from a grep that TIMED OUT and
+  // printed nothing, and I read the silence as "no hits" - the exact failure this
+  // gate has a rule against, committed by the person who wrote the rule. And the
+  // row itself asked whether ANYTHING in the repository sends a transaction: v1
+  // and devnet cranks do, so it answered yes about a program this row is not
+  // about.
+  //
+  // Measured properly, scoped to files that mention G2 at all: client-v2.mjs
+  // DOES build instructions and does know sealing. What no G2 file does is SEND.
+  // A builder with no sender and no keeper is the real gap, and it is narrower
+  // and duller than what I first said.
+  const r = spawnSync('node', ['-e', G2_SCAN], { encoding: 'utf8', timeout: 120000 });
+  if (r.status !== 0) return { ok: false, pending: true, detail: 'the G2 scan did not run - no verdict' };
+  const rows = JSON.parse((r.stdout || '[]').trim() || '[]');
+  const senders = rows.filter(x => x.send && x.build);
+  return { ok: senders.length > 0, pending: senders.length === 0,
+    detail: senders.length
+      ? `sealing path: ${senders.map(x => x.f).join(', ')}`
+      : 'no G2 file both builds an instruction and sends it. client-v2.mjs builds and encodes a seal but '
+      + 'never sends; index.html:921 still calls /api/game, the legacy server. Replace this row with a '
+      + 'devnet signature once one exists - a sender that has never sent is still not a game.' };
+}, 'lead');
+
+check('L2', 'settlement is cranked by something that exists', () => {
+  // capture_first, finalize and settle_final are permissionless BY DESIGN, which
+  // means somebody must actually call them. Permissionless is not automatic. The
+  // v1 and devnet trees have cranks; G2 has none, and an uncranked shot voids at
+  // its capture deadline. A game that always refunds is not a game.
+  const r = spawnSync('node', ['-e', G2_SCAN], { encoding: 'utf8', timeout: 120000 });
+  if (r.status !== 0) return { ok: false, pending: true, detail: 'the G2 scan did not run - no verdict' };
+  const rows = JSON.parse((r.stdout || '[]').trim() || '[]');
+  const cranks = rows.filter(x => x.crank && x.send);
+  return { ok: cranks.length > 0, pending: cranks.length === 0,
+    detail: cranks.length
+      ? `cranked by: ${cranks.map(x => x.f).join(', ')}`
+      : 'no G2 file both names a settlement instruction and sends a transaction. ops/ holds one '
+      + 'heartbeat-worker. v1 and devnet cranks exist and are not this program.' };
+}, 'lead');
+
 // ---- the public record ----------------------------------------------------
 check('X1', 'no surface still promises the 2026-09-08 revocation', () => {
   const files = ['README.md', 'llms.txt', 'docs/AGENT_STATE.json', 'docs/FREEZE.md'];
