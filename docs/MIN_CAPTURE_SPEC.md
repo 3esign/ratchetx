@@ -97,6 +97,49 @@ only one `validate_spec` accepts for a mainnet-class registration, and name both
 `docs/SETTLEMENT.md`. Pick the number, state it in the room, and use the same number in `model.mjs`
 and the vectors.
 
+## 1.3 What is true without any measurement — and the invariant we are missing
+
+A 24-hour run tells us how **alive** the game is. It cannot tell us what is **true** of it. Those are
+different questions and only one of them needs to wait.
+
+**Safety needs no measured number.** Who picks the price? The smallest `publish_time`. That follows
+from the predicate and the tie-break, not from cadence, and no measurement can strengthen or weaken
+it. Everything the run at 12:47Z established — 442 of 442, p99 lag of 4 s and 51–52 s — is about
+liveness: how many targets *find* a print. Useful, and not load-bearing for correctness.
+
+**And one property that IS decided by arithmetic, the moment a spec is registered:**
+
+> A print is admissible for target `T` iff `T <= publish_time <= T + lag`.
+> It therefore serves two consecutive targets `T` and `T + grid` iff `T + grid <= publish_time`,
+> i.e. **iff `lag >= grid`**.
+> So **`max_post_target_lag_seconds < target_grid_seconds` is necessary and sufficient for every
+> print to belong to at most one target.**
+
+Proved exhaustively in `lifecycle.rs` tests (`lag_below_grid_is_exactly_the_condition_for_unique_target_assignment`),
+for grids 30, 60 and 300, over every lag value. No sample can establish this and no sample can
+refute it.
+
+**The gap: `validate_spec` does not enforce it.** `max_post_target_lag_seconds` is bounded only by
+`> 0 && <= MAX_GAP_SECS`, and is never related to `target_grid_seconds` (`lib.rs`, the
+`BadPostTargetLag` require). So a spec with `grid = 60, lag = 120` registers today, and in it one
+print settles two different targets — a shot on 12:00:00 and a shot on 12:01:00 can resolve at the
+same price. That is not a theft path, but it silently collapses two rounds of the game into one, and
+it is permanent for that economy.
+
+**Add:** `require!(args.max_post_target_lag_seconds < args.target_grid_seconds, BadPostTargetLag)`
+for the MIN-CAPTURE adapter. It costs one line, needs no data, and it turns a parameter anyone could
+get wrong into one the program refuses to accept wrong.
+
+The measured numbers then land *inside* a bound the program already guarantees: SOL/BTC p99 of 4 s
+against a 60 s grid is comfortable; the slow five at 51–52 s against a 60 s grid fit, but only just —
+which is itself an argument for a larger grid on those feeds rather than a larger lag.
+
+**This is the shape to look for elsewhere.** Before measuring a parameter, ask what relation between
+parameters the program could simply refuse to accept. Candidates nobody has checked yet:
+`capture_grace` versus `lag`, `max_target_ahead` versus `grid` (how many targets may be open at
+once), `min_open_lead` versus `max_future_skew` (can a Need be opened for a target the clock has
+already passed?), and `reveal_window` versus the full `lag + grace` chain.
+
 ## 2. The storage change — and why it is part of the rule, not a follow-up
 
 Today the candidate lives in its own PDA at `[CANDIDATE_SEED, need, expected_message_hash]`
