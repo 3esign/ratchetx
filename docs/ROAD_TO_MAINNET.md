@@ -294,6 +294,17 @@ No step is "done" without its exit evidence in git. A DONE without a commit hash
 
 ### Phase 1 — the rule (single owner, one Rust editor at a time)
 
+> **Status 2026-09-05 12:45Z.** The predicate is IN and adapter-gated (`lifecycle.rs:1177` for
+> MIN-CAPTURE, the strict bracket kept in the `else`), both JS models carry it, and the rule has
+> tests for the first time: **20 Timepin + 25 Core host tests, all green**, executed in the cloud
+> container (`cargo test --lib`). Still open in Phase 1: the inline observation in the Need,
+> `replace_if_better`, the narrowed `AMBIGUOUS`, `finalize >= capture_deadline_ts`, and moving the
+> reward to finalize. Spec §7 items 3, 5 and 7 are blocked on that code existing, not on time.
+>
+> **Anyone can now get a Rust compile and the host tests in about ninety seconds** — the cloud
+> container has cargo 1.95 and crates.io; only `build-sbf` is missing. Ask the lead. This was
+> discovered at 12:27Z after the team spent the morning assuming the toolchain was Windows-only.
+>
 > **Implementation spec: `docs/MIN_CAPTURE_SPEC.md` (written 2026-09-05, owner Opus A).** It carries
 > three things found by reading the code rather than reasoning about it: `finalize` must require
 > `clock >= capture_deadline_ts` or the rule degenerates back into a chooser; the candidate PDA is
