@@ -215,6 +215,33 @@ if (tpHasLagGrid) {
     + 'pre-gap one: one print settling two targets in one program and not the other.');
 }
 
+// --- 8. close the triangle: the JS model is a third opinion ------------------
+// model.mjs is the executable mirror the clients and most of the JS suites run
+// against. It declares the same three account lengths a THIRD time.
+// test_model_mirrors_source.mjs (Opus C, 7568cb3) compares the model to the
+// TIMEPIN crate. Nothing compared it to CORE, and nothing compared Core to
+// Timepin until this file. Measured 2026-09-05: model 276, Timepin 276, Core
+// 132. Two of the three agreed and the one that runs on chain did not.
+const model = fs.readFileSync(new URL('../onchain/ratchet-core-g2/model.mjs', import.meta.url), 'utf8');
+const modelLen = (name) => {
+  const m = new RegExp(`export const ${name}\\s*=\\s*(\\d+)\\s*;`).exec(model);
+  return m ? Number(m[1]) : null;
+};
+for (const [modelName, coreName] of [
+  ['TIMEPIN_NEED_ACCOUNT_LEN', 'NEED_ACCOUNT_LEN'],
+  ['TIMEPIN_EVIDENCE_SPEC_ACCOUNT_LEN', 'EVIDENCE_SPEC_ACCOUNT_LEN'],
+  ['TIMEPIN_CANDIDATE_ACCOUNT_LEN', 'CANDIDATE_ACCOUNT_LEN'],
+]) {
+  const inModel = modelLen(modelName);
+  const inCore = foreignLen(coreName);
+  ok(inModel !== null, `model.mjs must declare ${modelName}`);
+  ok(inCore, `foreign_timepin.rs must declare ${coreName}`);
+  eq(inModel, inCore.total,
+    `${modelName} is ${inModel} in model.mjs but ${coreName} is ${inCore.total} in foreign_timepin.rs. `
+    + 'These describe the same account. The model is what clients and the JS suites decode with; the Rust is '
+    + 'what runs on chain. When they disagree the model stays green and the transaction fails.');
+}
+
 if (drift.length) console.log('  DRIFT: ' + drift.join(' | '));
 console.log(`PASS  foreign timepin ABI: ${checks} checks - every account length, the field order of the `
   + 'Need view, the three seeds, all three discriminators and the two spec validators are compared ACROSS the two crates. The lengths '
