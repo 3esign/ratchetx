@@ -172,7 +172,7 @@ module.exports = async (req, res) => {
           `${SOLSCAN}/token/${MINT}`);
         push('freeze', info.freezeAuthority == null ? 'green' : 'red',
           'Token account-freeze authority revoked',
-          info.freezeAuthority == null ? 'no RCX account can ever be frozen by anyone — this is the SPL freeze authority on the mint, and it is not the 2026-09-08 program freeze, which is the line below'
+          info.freezeAuthority == null ? 'no RCX account can ever be frozen by anyone — this is the SPL freeze authority on the mint; program upgrade authority is checked separately below'
                                        : `STILL SET: ${info.freezeAuthority}`,
           `${SOLSCAN}/token/${MINT}`);
 
@@ -270,12 +270,12 @@ module.exports = async (req, res) => {
         ? 'program 23k3…ZEEX is executable and owns the SOL FeedClock checked now · a player may seal a SOL shot on-chain without changing game XP · server settlement remains canonical during the soak period · upgrade authority is retained during that period · this program is not the floor vault'
         : 'program 23k3…ZEEX was deployed from the reproducible v2 binary with first-checkpoint crossing, confidence and disjoint void-deadline rules; the feature stays optional until the configured program, cluster, RPC and clock all verify',
       'https://solscan.io/account/' + MAINNET_SEAL_V2);
-    // The freeze promised for 2026-09-08 is a fact on the chain, so it belongs on this
-    // page as a line that flips by itself rather than as a sentence we update by hand.
+    // Program upgrade authority is a chain fact, so this line reflects the current
+    // account state. The previous ceremony was cancelled; no freeze is scheduled.
     // ProgramData is findProgramAddress([programId], BPFLoaderUpgradeab1e11111111111111111111111);
     // its layout is u32 enum(3) · u64 slot · Option<Pubkey>, so byte 12 says whether an
     // authority exists and bytes 13..45 are that key. Compared as raw bytes on purpose —
-    // no base58 decoder has to be trusted for the one claim the whole ceremony rests on.
+    // no base58 decoder has to be trusted for the authority comparison.
     if (SEAL_PROGRAM_ID === MAINNET_SEAL_V2 && SEAL_CLUSTER === 'mainnet-beta' && SEAL_RPC_URL) {
       try {
         const pr = await fetch(SEAL_RPC_URL, { method:'POST', headers:{'content-type':'application/json'},
@@ -289,11 +289,11 @@ module.exports = async (req, res) => {
           const link = 'https://solscan.io/account/' + SEAL_PROGRAMDATA;
           if (raw[12] === 0) {
             push('progauth', 'green', 'Program upgrade authority revoked — v2 is immutable',
-              'the deployed bytes of 23k3…ZEEX can never be changed again, by anyone, including us · revocation was announced in writing on 2026-08-25 for 2026-09-08 and this line turned itself green',
+              'the ProgramData account reports no upgrade authority · the deployed bytes of 23k3…ZEEX can no longer be upgraded',
               link);
           } else if (raw.subarray(13, 45).toString('hex') === DECLARED_AUTHORITY_HEX) {
-            push('progauth', 'grey', 'Program upgrade authority retained until 2026-09-08',
-              'AAaU3oyrcmy6GDGxcSUEgg4uUag4pF9jwL2rThB49gks still holds it, which is exactly what docs/FREEZE.md says it should during the soak · this line turns green by itself when the authority is revoked, and stays grey if the promise is not kept',
+            push('progauth', 'grey', 'Program upgrade authority retained — no freeze is scheduled',
+              'AAaU3oyrcmy6GDGxcSUEgg4uUag4pF9jwL2rThB49gks still holds it · the previous ceremony was cancelled and no revocation date is scheduled · this line reflects the authority read from the ProgramData account',
               link);
           } else {
             push('progauth', 'red', 'Program upgrade authority is NOT the declared key',
