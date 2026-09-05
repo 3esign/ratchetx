@@ -434,37 +434,62 @@ check('I2', 'Core admits the canonical adapter - asked of a compiler, not of tex
 
 // ---- the build ------------------------------------------------------------
 check('B1', 'the built artifacts are NEWER THAN THE SOURCE and carry the right identity', () => {
-  // A file existing is not a build. The first version of this check said GO on
-  // artifacts from the previous day, one of which is the 414,264-byte US517 build
-  // that nobody holds a key for. A gate that goes green on a stale artifact is
-  // worse than no gate.
-  const pairs = [
-    ['onchain/rcx-timepin-v2/target/deploy/rcx_timepin_v2.so',
-     ['onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs',
-      'onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs'],
-     'C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp'],
-    ['onchain/ratchet-core-g2/target/deploy/ratchet_core_g2.so',
-     ['onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs',
-      'onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs',
-      'onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs'],
-     'ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL'],
-  ];
-  const problems = [];
-  for (const [so, sources, id] of pairs) {
-    if (!fs.existsSync(so)) { problems.push(`${so.split('/').pop()} MISSING`); continue; }
-    const built = fs.statSync(so).mtimeMs;
-    const newest = Math.max(...sources.filter(f => fs.existsSync(f)).map(f => fs.statSync(f).mtimeMs));
-    if (built < newest) {
-      const hrs = ((newest - built) / 3600000).toFixed(1);
-      problems.push(`${so.split('/').pop()} is ${hrs}h OLDER than its source`);
-      continue;
-    }
-    const r = spawnSync('node', ['tools/verify-artifact.mjs', so, id],
-      { encoding: 'utf8', timeout: 60000, env: { ...process.env, EXPECT_SBPF: '3' } });
-    if (r.status !== 0) problems.push(`${so.split('/').pop()} fails verify-artifact for ${id.slice(0, 8)}…`);
+  // Rewritten 2026-09-05 23:5xZ. This row used to compare FILE MTIMES between
+  // target/deploy/*.so and a hand-listed set of .rs files. Three things were
+  // wrong with that and only the first was obvious.
+  //
+  // It read target/, which is a build directory anyone can touch, rather than
+  // the content-addressed cache the release path actually deploys from. It
+  // listed the source files by hand, so a new .rs file was invisible to it. And
+  // a timestamp is not a proof: touch the .so and the row goes green over a
+  // binary built from anything at all.
+  //
+  // tools/check-g2-artifacts.mjs answers the real question. It reads the build
+  // receipt, hashes EVERY source file the receipt recorded and refuses if any
+  // has changed since, verifies each artifact's sha256 and size, reads the
+  // program id out of the ELF, refuses the keyless US517 placeholder by name,
+  // and pins SBPF v3. It also refuses a receipt whose own status is FAIL - which
+  // it did NOT do until 4acc689, and which is the only reason this row may point
+  // at it now. I verified that refusal myself against the failing receipt rather
+  // than taking the commit message for it.
+  //
+  // THE CACHE ROOT IS NEVER GUESSED. The artifacts are content-addressed under a
+  // directory that differs per machine, so this row takes G2_ARTIFACT_CACHE when
+  // it is set and otherwise lets the tool use its own default. If neither holds
+  // the pair, the row is PENDING and says which roots were tried - it does not
+  // go looking, because a gate that finds artifacts by searching is a gate that
+  // can be pointed at the wrong ones.
+  const tried = [];
+  const attempt = (args, label) => {
+    tried.push(label);
+    const r = spawnSync('node', ['tools/check-g2-artifacts.mjs', ...args], { encoding: 'utf8', timeout: 180000 });
+    let verdict = null;
+    try { verdict = JSON.parse(r.stdout || '{}'); } catch { /* non-JSON output is a failure, handled below */ }
+    return { ok: r.status === 0 && verdict && verdict.verdict === 'PASS', verdict, raw: r };
+  };
+
+  const configured = process.env.G2_ARTIFACT_CACHE;
+  let result = configured
+    ? attempt(['--cache-root', configured], `G2_ARTIFACT_CACHE=${configured}`)
+    : { ok: false, verdict: null };
+  if (!result.ok) {
+    const fallback = attempt([], "the tool's default cache");
+    if (fallback.ok) result = fallback;
+    else if (!configured) result = fallback;
   }
-  return { ok: problems.length === 0, pending: problems.length > 0,
-           detail: problems.length ? problems.join('; ') + ' - run BUILD_G2.cmd' : 'both artifacts newer than source and identity-verified at SBPF v3' };
+
+  if (result.ok) {
+    const v = result.verdict;
+    const ids = Object.entries(v.artifacts || {}).map(([k, a]) => `${k} ${a.sha256.slice(0, 12)}…`).join(', ');
+    return { ok: true, detail: `receipt ${v.receiptStatus}, source unchanged since the build, SBPF v3, ${ids}` };
+  }
+  const why = result.verdict
+    ? `verdict ${result.verdict.verdict}, receipt ${result.verdict.receiptStatus || '(unread)'}`
+      + (result.verdict.failure ? `: ${String(result.verdict.failure).slice(0, 160)}` : '')
+    : (result.raw && (result.raw.stderr || result.raw.stdout) || '').trim().split('\n').slice(-1)[0].slice(0, 200);
+  return { ok: false, pending: true,
+           detail: `${why} - tried ${tried.join(' and ')}. Set G2_ARTIFACT_CACHE to the content-addressed `
+                 + 'artifact cache, or run BUILD_G2.cmd to produce one.' };
 }, 'build owner');
 
 check('B2', 'the golden vectors re-pin to the current source', () => {
