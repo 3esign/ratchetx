@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "status": "DRAFT - NOT APPROVED BY THE OWNER, MUST NOT BE REGISTERED",
+  "status": "DRAFT - THREE OF FOUR CLAUSES SETTLED, PROGRAM IDENTITY UNRESOLVED, MUST NOT BE REGISTERED",
   "author": "Fable 2026-09-05",
   "cluster": {
     "name": "mainnet-beta",
@@ -54,7 +54,7 @@
     "schema": 2,
     "entryMode": 2,
     "targetGridSeconds": 300,
-    "minOpenLeadSeconds": 30,
+    "minOpenLeadSeconds": 60,
     "maxEntryAgeSeconds": 0,
     "bandNumerator": 0,
     "bandDenominator": 1,
@@ -248,13 +248,29 @@
       "note": "At grid 60 this was 1,500 simultaneous open targets, a number flagged as unjustified when the manifest was first drafted. The grid decision reduced it fivefold without anyone editing it."
     }
   },
-  "knownMismatches": [
-    {
-      "id": "LEAD-30-60",
-      "what": "rulesetTemplate.minOpenLeadSeconds is 30 while evidenceSpecTemplate.minOpenLeadSeconds is 60.",
-      "whyItMatters": "They govern different gates but they meet: the ruleset decides when a player may open a shot, the evidence spec decides when a Need may be opened for the target. If a shot can be opened at a lead the Need cannot, the shot has no evidence to settle against.",
-      "status": "UNRESOLVED - flagged, not silently reconciled. An economic parameter is not changed by whoever notices it.",
-      "owner": "GeminiForge to trace both to source; Semir to decide if they must differ."
+  "approval": {
+    "approvedBy": "Semir Poturak",
+    "approvedAt": "2026-09-05",
+    "approvalStatement": "ANV; sve ostaje kako je; lead 60 na oba; traka ostaje iskljucena",
+    "approvalStatementOriginal": "\u201eANV; sve ostaje kako je; lead 60 na oba; traka ostaje isklju\u010dena\u201c",
+    "whatEachClauseSettled": {
+      "ANV": "WITHDRAWN BY THE OWNER THE SAME EVENING, and the withdrawal is the record. He said 'stani - ne znam za ovaj key' and then 'nisam siguran': the word ANV in his sentence was NOT a claim about custody. I had already moved declare_id! and sixteen other declaring files to ANV and written here that custody decided it. That sentence was MY inference presented as his statement, which is precisely what this manifest is not allowed to contain. All seventeen files are reverted to the identity the source declares and the question is open, assigned to CodexAstra.",
+      "sve ostaje kako je": "Every economic number is unchanged: burn 700 / podium 300 per mille, podium curve 500/300/200, hit payout 17/10, stake 100 to 1,000,000,000, maxOpen 5, revealWindowSeconds 3600, settleXp 1 plus base XP 10/11/12/14/16/20/24 across the seven horizons, rankShardCount 16, cleanupBondLamports 50,000.",
+      "lead 60 na oba": "rulesetTemplate.minOpenLeadSeconds moves 30 to 60 to match evidenceSpecTemplate.minOpenLeadSeconds. They were 30 and 60, and a shot openable at a lead the Need is not openable at has no evidence to settle against. The LEAD-30-60 mismatch is closed by this clause.",
+      "traka ostaje iskljucena": "bandNumerator 0, bandDenominator 1. The confidence band stays OFF, so a shot voids only on exact equality and any movement at all is a hit. Pyth's confidence interval is deliberately not consulted. This is a decision, not a default, and it was put to the owner as one."
+    },
+    "notCoveredByThisApproval": [
+      "the first mainnet transaction, which needs a separate explicit instruction",
+      "the build (B1) and the golden vectors (B2)"
+    ],
+    "identityUnresolved": {
+      "sourceDeclares": "cGfHiC6Kgg3FpFZvgwGcswsCRtp4aBP2fzuXRQPizuN",
+      "manifestNames": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+      "theOnlyQuestion": "Which candidate has a KEYPAIR FILE. A deploy needs the file; an account visible in a wallet is not enough.",
+      "evidenceFound": "ratchetx/RATCHET_CORE_KEYGEN_REPORT.txt, 2026-09-02 02:24:35: 'PROGRAM KEYPAIR WRITTEN: D:\\\\keys\\\\ratchet-core-program.json / PUBLIC KEY (program id): 6sJn9CfSwD3Jt8V6vYyHq5hYmLKdDmaTgqwHY5czpPBv'. That is NEITHER candidate - it is the v1 core id, and it is the only keypair file this repository has a written record of.",
+      "alsoKnown": "An earlier named-key derivation reported ANV at the G2 target key and no cGf match among the eleven named keypairs IN THE REPOSITORY. That scan covered the repository only.",
+      "neitherIsDeployed": "Astra's 01:27Z review found ANV absent from mainnet and devnet, and cGf with no program account on either. Nothing on chain references either id, so a THIRD option is fully open: generate a fresh keypair and use its id. Cost of that option is zero.",
+      "consequenceOfMoving": "Every PDA derived from the program id moves, and with it commitment_hash, game_result_hash, completion_result_hash and reload_route_memo. economy_hash and ruleset_hash do NOT move - neither binds a core program id."
     }
-  ]
+  }
 }
