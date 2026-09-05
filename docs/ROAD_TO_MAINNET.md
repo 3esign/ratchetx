@@ -10,6 +10,44 @@ A green compile or model run is never a GO.
 
 ---
 
+## 0. The gate, as of 2026-09-05 15:00Z — **5 of 14 blocking, NO-GO**
+
+Run it, do not read it: `node tools/mainnet-go-check.mjs`. It answers NO by default and it is the
+only answer to "are we done" that anybody here is allowed to give.
+
+| | row | state | owner |
+|---|---|---|---|
+| C1 | both programs COMPILE from the source in this tree | **GO** | whoever last touched a .rs |
+| C2 | the host test suites are green, ABI pins included | PENDING | Opus A (2 Timepin pins) |
+| R1 | MIN-CAPTURE predicate is in lifecycle.rs | **GO** | Opus A |
+| R2 | lag < grid is ENFORCED, not merely proved | **GO** | Opus A |
+| R3 | the reveal deadline is set at settlement, not at seal | **GO** | Opus A |
+| M1 | the Need can be closed and its rent returned | PENDING | Opus A |
+| M2 | a finished PlayerDay can be closed and its rent returned | **GO** | Opus B |
+| M3 | HistoryPage/WorkPage do not lock rent per sixteen shots | **GO** | Opus C |
+| P1 | the economy manifest is approved, not a draft | PENDING | **Semir** |
+| P2 | every feed has lag = grid - 1 | **GO** | Opus B |
+| B1 | artifacts NEWER THAN SOURCE, right identity, SBPF v3 | PENDING | build owner |
+| B2 | golden vectors re-pin to the current source | PENDING | build owner, then Opus A |
+| B3 | the release safety gate is green | **GO** | Opus B |
+| X1 | no surface still promises the 2026-09-08 revocation | **GO** | Semir |
+
+**C1 and C2 were added 2026-09-05 after this gate reported GO on M3 while the Core crate was six
+errors red.** Every row under the rule and the money reads source *text*; text that does not compile
+is not a program. A downgrade pass now strips GO from R1, R2, R3, M1, M2 and M3 whenever C1 is not
+GO. The evidence is a hash-bound receipt (`tools/compile-receipt.mjs`, `docs/receipts/`), because
+the machine agents run the gate on has no Rust toolchain and no network to install one, and the
+machine that has one does not hold the repository. Move one byte and the receipt describes a
+different program and counts for nothing.
+
+**Three rows of mine had the same defect and all three are corrected:** the old M3 asked for
+`HISTORY_PAGE_CAP` to disappear, the old R3 for `fn fixed_reveal_deadline` to disappear, the old M2
+for `PLAYER_DAY_SEED` to disappear. Each of those must survive; each row could only go green by
+breaking the program. The replacement in all three cases tests the thing whose **presence** is the
+fix. If a fourth is found, it is found the same way: ask what the row would force somebody to delete.
+
+---
+
 ## 1. Where we actually are (verified, not asserted)
 
 | Surface | State | Evidence |
