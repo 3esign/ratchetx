@@ -2891,11 +2891,13 @@ export class RatchetCoreG2Model {
     if (pending > HISTORY_PAGE_CAP || (mask >>> pending) !== 0)
       fail('INVALID_HISTORY_PAGE');
     bytes32(page.resultsRoot, 'page.resultsRoot');
-    // An empty page has the zero root, and a page with any terminal row does
-    // not: the fold is over a non-empty domain, so it cannot land back on zero
-    // by construction rather than by luck.
-    if ((mask === 0) !== bytes32(page.resultsRoot, 'page.resultsRoot')
-      .equals(ZERO32)) fail('INVALID_HISTORY_PAGE');
+    // NOTE, deliberately NOT a check here: "an empty page has the zero root and
+    // a page with terminal rows does not" is true, but state.rs
+    // validate_contents does not test it, and a mirror that REJECTS states the
+    // program ACCEPTS is not a mirror - it is a second opinion that can fail on
+    // a page the chain is perfectly happy with. The property is covered where it
+    // belongs, in audit(), which replays the fold and proves the exact root
+    // rather than merely that it is non-zero.
     const pda = deriveHistoryPagePda(
       this.#programId, page.economyHash, page.player, page.pageIndex,
     );

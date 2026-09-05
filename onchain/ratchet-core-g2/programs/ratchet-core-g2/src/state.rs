@@ -3460,6 +3460,72 @@ mod tests {
         assert_eq!(serialized_len(&page), HistoryPage::LEN);
     }
 
+    /// THE SIXTEENTH SLOT, ON ITS OWN, BECAUSE AN OFF-BY-ONE HERE PROVES NOTHING.
+    ///
+    /// validate_contents used to check the mask with `terminal_mask >> pending_count`
+    /// on a u16. pending_count reaches HISTORY_PAGE_CAP, which is 16, and a u16
+    /// shifted right by 16 is an OVERFLOW SHIFT. This workspace sets
+    /// overflow-checks = true (Cargo.toml:6), so that line PANICKED - not
+    /// errored, panicked - the moment a page filled. Every full page would have
+    /// been bricked: no further append, and no terminalisation of any shot
+    /// already in it, permanently and silently, for exactly the players who play
+    /// the most.
+    ///
+    /// The fix widens the shift to u32, which is defined at 16 and where
+    /// pending_count can never reach 32. This test exercises the shift at
+    /// EXACTLY CAP - not CAP-1, which is defined for a u16 and proves nothing -
+    /// and it asserts the boundary explicitly rather than relying on a loop
+    /// bound elsewhere in the file being read correctly.
+    ///
+    /// To see it fail: change `(self.terminal_mask as u32) >> (self.pending_count
+    /// as u32)` back to `self.terminal_mask >> self.pending_count` and run this
+    /// test. It panics with "attempt to shift right with overflow".
+    #[test]
+    fn validate_contents_does_not_overflow_shift_on_a_full_page() {
+        let player = Pubkey::new_from_array([43; 32]);
+        let economy_hash = [13; 32];
+        let page_index = 0;
+        let (_page_key, bump) = history_page_pda(&economy_hash, &player, page_index);
+        let mut page = HistoryPage::default();
+        page.initialize(bump, economy_hash, player, page_index);
+
+        // Walk up to the cap one slot at a time, checking the shift at EVERY
+        // width, so the boundary cannot be missed by an off-by-one in a loop.
+        for nonce in 0..HISTORY_PAGE_CAP as u64 {
+            assert_eq!(page.append_pending(nonce).unwrap(), nonce as usize);
+            assert!(page.validate_contents().is_ok());
+        }
+
+        // THE BOUNDARY, asserted rather than assumed.
+        assert_eq!(page.pending_count as usize, HISTORY_PAGE_CAP);
+        assert_eq!(page.pending_count, 16);
+
+        // The shift at exactly CAP, with the mask empty...
+        assert!(page.validate_contents().is_ok());
+        // ...and with EVERY bit set, which is the widest value the mask can hold
+        // and the one where `>> 16` had to be defined rather than merely lucky.
+        page.terminal_mask = u16::MAX;
+        assert_eq!(page.terminal_count(), 16);
+        assert!(page.validate_contents().is_ok());
+        assert_eq!(serialized_len(&page), HistoryPage::LEN);
+
+        // And the check still REJECTS what it exists to reject: a bit above the
+        // slots appended. Widening the shift must not have widened what passes.
+        page.terminal_mask = 0;
+        page.pending_count = 15;
+        page.terminal_mask = 1 << 15;
+        assert!(page.validate_contents().is_err());
+        page.pending_count = 16;
+        assert!(page.validate_contents().is_ok());
+
+        // The paths that call validate_contents are the ones that would have
+        // aborted, so exercise them at the cap too rather than the predicate
+        // alone: a full page still refuses a seventeenth append with an ERROR.
+        page.terminal_mask = 0;
+        assert!(page.append_pending(HISTORY_PAGE_CAP as u64).is_err());
+        assert_eq!(page.pending_count as usize, HISTORY_PAGE_CAP);
+    }
+
     #[test]
     fn compact_result_reconstructs_commit_and_binds_only_game_facts() {
         let player = Pubkey::new_from_array([42; 32]);
