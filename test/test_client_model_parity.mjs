@@ -388,3 +388,147 @@ test('Ruleset parity', () => {
   const modelBuf = encodeRuleset(args, economy);
   assert.ok(Buffer.compare(Buffer.from(clientBuf), modelBuf) === 0);
 });
+
+test('MIN-CAPTURE minimum selection (later print must not win)', () => {
+  const PROGRAM_ID = Buffer.alloc(32, 1);
+  const ACTOR_A = Buffer.alloc(32, 2);
+  const ACTOR_B = Buffer.alloc(32, 3);
+  const TARGET = 1_800_001_200n;
+  const OPENED = TARGET - 60n;
+
+  const receiverConfigData = Buffer.alloc(370);
+  crypto.createHash('sha256').update('account:Config').digest().subarray(0, 8)
+    .copy(receiverConfigData, 0);
+  receiverConfigData.fill(11, 8, 40); // governance authority
+  receiverConfigData[40] = 0; // no pending governance authority
+  Buffer.alloc(32, 4).copy(receiverConfigData, 41); // pinned Wormhole program
+  receiverConfigData.writeUInt32LE(0, 73); // empty data-source vector
+  receiverConfigData.writeBigUInt64LE(0n, 77); // fee
+  receiverConfigData[85] = 1; // minimum signatures
+  const LIVE_SPEC = {
+    ...fullSpec(MINCAP), registeredSlot: 1000n,
+    receiverConfigHash: crypto.createHash('sha256').update(receiverConfigData).digest(),
+  };
+
+  const MESSAGE_A = {
+    feedId: LIVE_SPEC.feedId,
+    price: 12_345_678n,
+    conf: 12_345n,
+    exponent: -6,
+    publishTime: TARGET,
+    prevPublishTime: TARGET - 60n,
+    emaPrice: 12_345_678n,
+    emaConf: 12_345n,
+    postedSlot: 1010n,
+  };
+
+  const MESSAGE_B = { ...MESSAGE_A, price: 12_345_679n, conf: 12_346n };
+
+  function source(message = MESSAGE_A) {
+    const buf = Buffer.alloc(134);
+    crypto.createHash('sha256').update('account:PriceUpdateV2').digest().subarray(0, 8)
+      .copy(buf, 0);
+    buf.set(T.derivePushSourcePda(LIVE_SPEC).address, 8);
+    buf[40] = T.VERIFICATION_FULL;
+    buf.set(message.feedId, 41);
+    buf.writeBigInt64LE(message.price, 73);
+    buf.writeBigUInt64LE(message.conf, 81);
+    buf.writeInt32LE(message.exponent, 89);
+    buf.writeBigInt64LE(message.publishTime, 93);
+    buf.writeBigInt64LE(message.prevPublishTime, 101);
+    buf.writeBigInt64LE(message.emaPrice, 109);
+    buf.writeBigUInt64LE(message.emaConf, 117);
+    buf.writeBigUInt64LE(message.postedSlot, 125);
+    return {
+      key: T.derivePushSourcePda(LIVE_SPEC).address,
+      owner: LIVE_SPEC.receiverProgram,
+      executable: false,
+      data: buf
+    };
+  }
+
+  const loaderProgramAccountData = (progData) => {
+    const out = Buffer.alloc(36);
+    out.writeUInt32LE(2, 0); // Program
+    out.set(progData, 4);
+    return out;
+  };
+  const loaderProgramdataAccountData = (slot) => {
+    const out = Buffer.alloc(45);
+    out.writeUInt32LE(3, 0); // ProgramData
+    out.writeBigUInt64LE(slot, 4);
+    return out;
+  };
+
+  const loader = new web3.PublicKey('BPFLoaderUpgradeab1e11111111111111111111111').toBytes();
+  const generation = {
+    receiverProgram: LIVE_SPEC.receiverProgram,
+    receiverProgramExecutable: true,
+    receiverProgramOwner: loader,
+    receiverProgramAccountData: loaderProgramAccountData(Buffer.alloc(32, 98)),
+    receiverProgramdata: Buffer.alloc(32, 98),
+    receiverProgramdataOwner: loader,
+    receiverProgramdataExecutable: false,
+    receiverProgramdataAccountData: loaderProgramdataAccountData(LIVE_SPEC.receiverProgramdataSlot),
+    receiverConfigKey: T.deriveReceiverConfigPda(LIVE_SPEC.receiverProgram).address,
+    receiverConfigOwner: LIVE_SPEC.receiverProgram,
+    receiverConfigExecutable: false,
+    receiverConfigData,
+    wormholeProgram: LIVE_SPEC.wormholeProgram,
+    wormholeProgramExecutable: true,
+    wormholeProgramOwner: loader,
+    wormholeProgramAccountData: loaderProgramAccountData(Buffer.alloc(32, 99)),
+    wormholeProgramdata: Buffer.alloc(32, 99),
+    wormholeProgramdataOwner: loader,
+    wormholeProgramdataExecutable: false,
+    wormholeProgramdataAccountData: loaderProgramdataAccountData(LIVE_SPEC.wormholeProgramdataSlot),
+  };
+
+  const context = () => ({ unixTimestamp: TARGET, slot: 1100n, generation });
+  const fresh = () => T.createNeed(LIVE_SPEC, TARGET, OPENED, PROGRAM_ID);
+
+  const MSG_T = MESSAGE_A;
+  const MSG_LATE = { ...MESSAGE_A, publishTime: TARGET + 1n, price: 12_345_679n };
+  const MSG_T_B = MESSAGE_B;
+
+  let need = fresh();
+  let page = T.createWorkPage(PROGRAM_ID, need.address);
+  page = T.reserveWork(page, need, T.WORK_KIND_FIRST_CAPTURE, 0, PROGRAM_ID).page;
+  page = T.reserveWork(page, need, T.WORK_KIND_TERMINALIZE, 1, PROGRAM_ID).page;
+
+  // 1. minimum selection (later print must not win)
+  let first = T.captureNeed(LIVE_SPEC, need, source(MSG_T), context(), ACTOR_A, PROGRAM_ID, page);
+  let conflict = T.captureNeed(LIVE_SPEC, first.need, source(MSG_LATE), { ...context(), candidateA: first.candidate }, ACTOR_B, PROGRAM_ID, first.workPage);
+  assert.equal(conflict.code, 'NOT_BETTER_THAN_CURRENT', 'minimum selection (later print must not win)');
+
+  // 2. replacement (an earlier admissible print must displace a later one)
+  need = fresh();
+  first = T.captureNeed(LIVE_SPEC, need, source(MSG_LATE), context(), ACTOR_B, PROGRAM_ID, page);
+  conflict = T.captureNeed(LIVE_SPEC, first.need, source(MSG_T), { ...context(), candidateA: first.candidate }, ACTOR_A, PROGRAM_ID, first.workPage);
+  assert.equal(conflict.code, 'REPLACED', 'replacement (an earlier admissible print must displace a later one)');
+
+  // 3. The combined capture API treats a valid retry as a successful no-op.
+  // DUPLICATE_MUST_USE_FIRST_CAPTURE belongs to the conflict-only instruction.
+  need = fresh();
+  first = T.captureNeed(LIVE_SPEC, need, source(MSG_T), context(), ACTOR_A, PROGRAM_ID, page);
+  const beforeDuplicate = structuredClone({
+    need: first.need, candidate: first.candidate, workPage: first.workPage,
+  });
+  conflict = T.captureNeed(LIVE_SPEC, first.need, source(MSG_T), { ...context(), candidateA: first.candidate }, ACTOR_B, PROGRAM_ID, first.workPage);
+  assert.equal(conflict.code, 'DUPLICATE', 'duplicate (same message hash twice is not ambiguity)');
+  assert.equal(conflict.ok, true, 'a valid duplicate succeeds');
+  assert.equal(conflict.changed, false, 'a duplicate reports no state transition');
+  assert.equal(conflict.need.state, 'Candidate', 'a duplicate does not terminalize as ambiguous');
+  assert.deepEqual(structuredClone({
+    need: conflict.need, candidate: conflict.candidate, workPage: conflict.workPage,
+  }), beforeDuplicate, 'duplicate preserves the full Need, selected candidate and work receipts');
+  assert.deepEqual(structuredClone({
+    need: first.need, candidate: first.candidate, workPage: first.workPage,
+  }), beforeDuplicate, 'duplicate does not mutate its input state');
+
+  // 4. genuine ambiguity (two distinct prints with the same publish_time)
+  need = fresh();
+  first = T.captureNeed(LIVE_SPEC, need, source(MSG_T), context(), ACTOR_A, PROGRAM_ID, page);
+  conflict = T.captureNeed(LIVE_SPEC, first.need, source(MSG_T_B), { ...context(), candidateA: first.candidate }, ACTOR_B, PROGRAM_ID, first.workPage);
+  assert.equal(conflict.code, 'AMBIGUOUS', 'genuine ambiguity (two distinct prints with the same publish_time)');
+});
