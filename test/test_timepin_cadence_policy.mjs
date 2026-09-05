@@ -37,6 +37,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const root = join(here, '..');
 const MANIFEST = join(root, 'releases', 'g2-mainnet-economy.json');
 const CADENCE_DIR = join(root, 'docs', 'reviews', 'cadence');
+const RATIONALE = join(root, 'releases', 'g2-mainnet-economy.rationale.md');
 const PROPOSAL = join(root, 'docs', 'reviews', 'fable-2026-09-05', 'g2-mainnet-economy.proposal.json');
 
 let checks = 0;
@@ -227,6 +228,9 @@ check(() => {
 
 // --- the gate ----------------------------------------------------------------
 
+const proposedLag = value =>
+  (value && typeof value === 'object') ? Number(value.proposed) : Number(value);
+
 const latestSummary = () => {
   if (!existsSync(CADENCE_DIR)) return null;
   const files = readdirSync(CADENCE_DIR).filter(f => f.endsWith('.summary.json')).sort();
@@ -320,9 +324,52 @@ check(() => {
     return;
   }
   const manifestData = JSON.parse(readFileSync(MANIFEST, 'utf8'));
-  if (manifestData.status && manifestData.status.startsWith('DRAFT')) {
-    console.log(`  gate ARMED AND INERT: manifest is DRAFT.`);
+  if (String(manifestData.status ?? '').startsWith('DRAFT')) {
+    // The lead's 12:00Z ruling: "while status is DRAFT it asserts SHAPE ONLY -
+    // fields present, types right, no placeholder zeros where a number is
+    // required". SHAPE ONLY is not NOTHING. A DRAFT branch that returns without
+    // asserting anything is a gate disarmed by one string, which is the failure
+    // this repository already has seven of in tools/p6-canary; and the string
+    // that disarms it is written by the same agent who writes the manifest.
+    console.log('  manifest is DRAFT: measurement check inert, SHAPE checks live.');
     console.log(`  measurement present: ${found ? found.path : 'none'}`);
+
+    assert.match(String(manifestData.status), /NOT APPROVED/i,
+      'a DRAFT manifest must say in its own status that it is NOT APPROVED by the owner, ' +
+      'because the next reader of this file is somebody deciding whether to register from it');
+
+    // The P0 the lead ruled on at 12:00Z, encoded so it cannot silently regress:
+    // these are the LEAD's proposed values under a tracker heading that reads
+    // "Decisions only Semir takes (no agent may set these)". A file that says the
+    // owner proposed them is a file somebody registers from without asking him.
+    const ownerClaim = /(semir|owner)['\u2019]?s? (proposed|chosen|approved|decided)/i;
+    assert.ok(!ownerClaim.test(JSON.stringify(manifestData)),
+      'an unapproved manifest must not attribute its values to the owner');
+    if (existsSync(RATIONALE)) {
+      const rationale = readFileSync(RATIONALE, 'utf8');
+      const hits = rationale.split('\n').filter(l => ownerClaim.test(l));
+      assert.equal(hits.length, 0,
+        `${hits.length} line(s) of the rationale attribute these numbers to the owner, who has ` +
+        'not seen them. Replace "Semir\'s proposed value" with "lead proposal, tracker section 4 ' +
+        `item 2, NOT APPROVED". First: ${hits[0]?.trim().slice(0, 120)}`);
+    }
+
+    for (const row of manifestData.feeds ?? []) {
+      assert.ok(row.symbol, 'every feed row names its symbol');
+      assert.match(String(row.feedId ?? ''), /^[0-9a-f]{64}$/, `${row.symbol}: feedId is 32 hex bytes`);
+      assert.ok(row.sponsoredAccount, `${row.symbol}: names its sponsored account`);
+      // A one-character typo in a feed id derives to a real-looking address for an
+      // account that does not exist. On a write-once manifest that is discovered
+      // on mainnet, by a player, as a permanently dead feed.
+      assert.equal(row.sponsoredAccount, sourceAddressFor(row.feedId).toBase58(),
+        `${row.symbol}: sponsoredAccount must equal the derivation from its own feedId`);
+      const lag = proposedLag(row.maxPostTargetLagSeconds);
+      assert.ok(Number.isFinite(lag) && lag > 0,
+        `${row.symbol}: maxPostTargetLagSeconds is not a positive number (${JSON.stringify(row.maxPostTargetLagSeconds)})`);
+    }
+    assert.ok((manifestData.feeds ?? []).length > 0, 'a manifest with no feeds is not a draft, it is a stub');
+    assert.ok(!/"tag"\s*:\s*"D"/.test(JSON.stringify(manifestData)),
+      'a row still tagged D is undecided; promote it back to the proposal rather than shipping the tag');
     return;
   }
   const rows = auditManifest(manifestData, found?.data);
