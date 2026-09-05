@@ -220,22 +220,72 @@ check('P1', 'the economy manifest is approved, not a draft', () => {
   return { ok: !draft, pending: draft, detail: draft ? 'status is DRAFT - NOT APPROVED BY THE OWNER' : 'approved' };
 }, 'Semir');
 
-check('P2', 'every feed has lag = grid - 1 and no feed violates lag < grid', () => {
-  const s = read(MANIFEST);
-  if (!s) return { ok: false, detail: 'manifest missing' };
-  const j = JSON.parse(s);
-  const bad = [];
-  const walk = (node, path) => {
-    if (!node || typeof node !== 'object') return;
-    const grid = node.targetGridSeconds ?? node.target_grid_seconds;
-    const lagNode = node.maxPostTargetLagSeconds ?? node.max_post_target_lag_seconds;
-    const lag = (lagNode && typeof lagNode === 'object') ? (lagNode.proposed ?? lagNode.value) : lagNode;
-    if (typeof grid === 'number' && typeof lag === 'number' && lag >= grid) bad.push(`${path}: lag ${lag} >= grid ${grid}`);
-    for (const [k, v] of Object.entries(node)) walk(v, path ? path + '.' + k : k);
-  };
-  walk(j, '');
-  return { ok: bad.length === 0, detail: bad.length ? bad.join('; ') : 'no feed violates lag < grid' };
+check('P2', 'every feed has lag = grid - 1, asked of every feed by name', () => {
+  // Rewritten 2026-09-05 17:0xZ. Opus B proved the old row could not fail: it
+  // flagged a node only when grid and lag were numbers ON THE SAME NODE, and in
+  // this manifest the grid lives on the templates while the lag lives on each
+  // feed. NO NODE CARRIES BOTH. He instrumented the walker - 0 comparisons over 7
+  // feeds - then set WIF to lag 6000 against grid 60, a hundred times the legal
+  // maximum, and the row still printed 'no feed violates lag < grid'. The row's
+  // own title also promised an EQUALITY to grid - 1 that appeared nowhere in its
+  // code. It was correct all day for no reason, which is indistinguishable from
+  // working until the manifest changes - and this is the row guarding the one
+  // parameter the manifest itself calls the only lever left.
+  //
+  // It is now a spawned test, which is the only row shape that has survived
+  // today. That test was verified RED on four mutated manifests (lag 6000, lag 30,
+  // lag deleted, grid deleted) before it was believed green, and a MISSING value
+  // fails there rather than passing.
+  const r = spawnSync('node', ['test/test_manifest_lag_is_grid_minus_one.mjs'], { encoding: 'utf8', timeout: 60000 });
+  const tail = ((r.stdout || '') + (r.stderr || '')).trim().split('\n').slice(-2).join(' ').slice(0, 300);
+  return { ok: r.status === 0, detail: r.status === 0 ? 'lag = grid - 1 for every feed, grid read once from the templates' : tail };
 }, 'Opus B');
+
+// ---- the seam -------------------------------------------------------------
+// Added 2026-09-05 17:0xZ, and these are the two most important rows on this
+// board. Both programs compile. Both host suites pass. C1 and C2 can read GO
+// while NO SHOT CAN BE SEALED OR SETTLED AT ALL, because nothing anywhere was
+// comparing the two crates to each other. Opus B proved both at exact-SBF tier on
+// real transactions (docs/reviews/opusb-2026-09-05/EXACT_SBF_FIRST_RUN.md); I
+// re-read both in source before writing these rows.
+//
+// A gate that says "9 of 14 green" about two programs that cannot exchange a
+// single account is worse than no gate. That is what this one said at 16:51.
+
+check('I1', 'Core can actually READ a Need that a real Timepin writes', () => {
+  // Core: NEED_ACCOUNT_LEN = 8 + 124 = 132 (foreign_timepin.rs:26), and
+  // decode_exact requires an EQUAL length (:115-117), with payload.is_empty()
+  // below it forbidding a longer account even if the length passed. Timepin:
+  // TimepinNeedV2::LEN = 268, so the account is 276. Seven Core paths load a
+  // Need - seal at lib.rs:920 :926 :1078 :1084 :1250 :1425, settle at :1725 -
+  // and on chain every one of them fails with BadTimepinLength (6002).
+  const r = spawnSync('node', ['test/test_foreign_timepin_abi.mjs'], { encoding: 'utf8', timeout: 60000 });
+  const out = (r.stdout || '') + (r.stderr || '');
+  const why = /CROSS-CRATE ABI DRIFT: [^\n]*/.exec(out);
+  return { ok: r.status === 0, pending: r.status !== 0,
+           detail: r.status === 0 ? 'the cross-crate account ABI agrees in every checked class'
+                                  : (why ? why[0].slice(0, 400) : 'test/test_foreign_timepin_abi.mjs is RED') };
+}, 'Opus A + Opus B (one seam, two owners - agree who moves)');
+
+check('I2', 'Core accepts the adapter this project actually settled on', () => {
+  // The canonical rule is MIN-CAPTURE, ADAPTER_PYTH_MIN_CAPTURE_V2 = 2, measured
+  // 442/442. Core's validate_spec_shape hardcodes 'spec.adapter == 1' - the
+  // strict-bracket adapter we abandoned at 11.1 % - and additionally requires
+  // max_pre_target_gap_seconds > 0, while Timepin PINS that field to zero for
+  // adapter 2 (lib.rs:573-579, because under MIN-CAPTURE prev_publish_time is not
+  // in the predicate and a non-zero bound would be a dead number inside every
+  // spec hash). The two validators are mutually exclusive: no economy can be
+  // registered on the mainnet adapter, and Core's own MIN-CAPTURE branch is
+  // unreachable. Proved on a real RegisterRuleset transaction.
+  const s = mustRead(C + 'foreign_timepin.rs');
+  const pinnedToOne = /spec\.adapter\s*==\s*1\b/.test(s);
+  const gapMustBePositive = /spec\.max_pre_target_gap_seconds\s*>\s*0/.test(s);
+  const problems = [];
+  if (pinnedToOne) problems.push('validate_spec_shape requires spec.adapter == 1, so adapter 2 (MIN-CAPTURE, the canonical rule) can never register');
+  if (gapMustBePositive) problems.push('validate_spec_shape requires max_pre_target_gap_seconds > 0, which Timepin pins to 0 for adapter 2 - mutually exclusive');
+  return { ok: problems.length === 0, pending: problems.length > 0,
+           detail: problems.length ? problems.join('; ') : 'Core admits the canonical adapter and agrees with Timepin on the pre-target gap' };
+}, 'Opus A');
 
 // ---- the build ------------------------------------------------------------
 check('B1', 'the built artifacts are NEWER THAN THE SOURCE and carry the right identity', () => {
@@ -310,7 +360,7 @@ check('X1', 'no surface still promises the 2026-09-08 revocation', () => {
 // This is the rule I owed the room after M3 reported GO on a red crate: the gate
 // may not say GO on anything that depends on the program existing, until the
 // program exists. The rows below all assert something about compiled behaviour.
-const SOURCE_ROWS = ['R1', 'R2', 'R3', 'M1', 'M2', 'M3'];
+const SOURCE_ROWS = ['R1', 'R2', 'R3', 'M1', 'M2', 'M3', 'I2'];
 const c1 = results.find(r => r.id === 'C1');
 if (c1 && c1.state !== 'GO') {
   for (const r of results) {
