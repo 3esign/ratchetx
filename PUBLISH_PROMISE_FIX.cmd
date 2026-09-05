@@ -34,16 +34,24 @@ echo ============================================================
 echo.
 echo publish_promise %date% %time%> "%REPORT%"
 
-echo [1/6] Preparing a clean worktree on main ...
+echo [1/6] Fetching, then preparing a clean worktree on ORIGIN/main ...
+REM  Never build this from the LOCAL main ref. Measured 2026-09-05: local main was
+REM  dc65065 while origin/main was 039580b - FORTY-TWO COMMITS BEHIND. A worktree
+REM  built from the local ref would gate a stale tree and then be rejected at push
+REM  as non-fast-forward, and the obvious "fix" for that rejection is --force,
+REM  which would roll production main back 42 commits including a player-facing
+REM  correction. Found by Opus A before this script ever ran.
+call git fetch origin >> "%REPORT%" 2>&1
+if errorlevel 1 goto :fetchfail
 if exist "%WT%" (
   echo   reusing %WT%
   pushd "%WT%"
   call git fetch origin >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
-  call git checkout main >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
+  call git checkout --detach origin/main >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
   call git reset --hard origin/main >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
   popd
 ) else (
-  call git worktree add "%WT%" main >> "%REPORT%" 2>&1
+  call git worktree add --detach "%WT%" origin/main >> "%REPORT%" 2>&1
   if errorlevel 1 goto :wtfail
 )
 
@@ -69,7 +77,8 @@ if errorlevel 1 goto :gatefail
 echo   gate passed on a clean tree.
 
 echo [5/6] Pushing main ...
-call git push origin main >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
+REM  HEAD:main because the worktree is detached at origin/main plus the pick.
+call git push origin HEAD:main >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
 if errorlevel 1 goto :pushfail
 
 echo [6/6] Deploying the site from this clean tree ...
@@ -111,10 +120,26 @@ echo.
 echo  GATE FAILED ON A CLEAN TREE. That is a real failure, not a
 echo  local mess - nothing was pushed or deployed. Read %REPORT%.
 goto :end
+:fetchfail
+echo  COULD NOT FETCH ORIGIN. Nothing was created, nothing was pushed.
+echo  This script refuses to work from a local ref - see the comment at step 1.
+goto :end
 :pushfail
 popd
 echo.
-echo  PUSH FAILED - probably credentials. Nothing was deployed.
+echo  ============================================================
+echo  PUSH FAILED. Nothing was deployed.
+echo.
+echo  DO NOT ADD --force. If the message says non-fast-forward,
+echo  something moved on origin/main since the fetch two minutes
+echo  ago - re-run this script, which starts by fetching again.
+echo  A forced push here would roll production main backwards and
+echo  revert player-facing corrections. There is no --force in this
+echo  file and there must never be one.
+echo.
+echo  If the message is about credentials, that is the other case,
+echo  and it is fixed by logging in - not by forcing.
+echo  ============================================================
 goto :end
 :deployfail
 popd
