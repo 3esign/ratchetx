@@ -32,12 +32,68 @@ export const ACCOUNT_SIZE = Object.freeze({
   HistoryPage: 118,
 });
 
-export const INSTRUCTION_DISCRIMINATOR = Object.freeze({
-  register_evidence_spec: '8668d270eff95e77',
-  open_need: 'a4821105a5fcd669',
+// EVERY INSTRUCTION BOTH PROGRAMS EXPOSE, not the five this client happened to
+// need. Measured 2026-09-05: Core declares 26 instructions and Timepin 9, and
+// this table had FIVE - register_evidence_spec, open_need, open_ledger,
+// open_history_page, seal_forward. All five are on the way IN. Nothing here knew
+// how to settle, reveal, forfeit, capture or finalize, so a player could enter a
+// shot that nothing in this repository could ever resolve.
+//
+// Anchor derives an instruction discriminator as sha256("global:" + name)[0..8].
+// These are written out rather than computed at load because the client must work
+// where SHA-256 is async, but they are NOT trusted: test_client_covers_every_instruction.mjs
+// re-derives every entry from its own key AND reads the #[program] block of both
+// crates, so a name that drifts or an instruction that is added without the client
+// learning about it fails there. The table cannot be wrong in silence.
+export const CORE_INSTRUCTION = Object.freeze({
+  register_economy: '910213263a5cd182',
+  register_ruleset: 'de7c09f372f4ff75',
   open_ledger: '3667bde8ecfb772a',
   open_history_page: '3ddcedb625accff2',
+  open_reload_page: '0ce3780b152a1749',
+  open_work_page: '9efdadb53034bc10',
+  open_work_manifest: 'e2efc3ece315c9a3',
+  reserve_work: 'b9476c8bdcd345b7',
+  reload_rcx: 'be1b36fd75a5a7a1',
+  finalize_day: '584dfa993992a1c6',
+  claim_legacy: 'f1f728c0d5acb159',
+  grant_delegate: 'faa96ed929a061b8',
+  revoke_delegate: '8e42627e663c5ca3',
   seal_forward: '8a4a00f1f67f89fe',
+  seal_forward_delegated: '2aee51112039de65',
+  seal_observed: 'c9a434da358c1c92',
+  seal_observed_delegated: 'd87f7819e549bd63',
+  activate_entry: 'dcb50aadf1eff487',
+  void_pending_entry: '398b3c572c4e99ed',
+  settle_final: 'b2466bdb076752bb',
+  finalize_resolved_void: '16239970dfd50b24',
+  void_active_shot: '9e161959ebcde3cb',
+  reveal: '09233bbea7f94c73',
+  reveal_delegated: '04fef8332a2dd20a',
+  close_player_day: '73aa94b09acc7a1a',
+  forfeit: '509aed9ef4c69a09',
+});
+
+export const TIMEPIN_INSTRUCTION = Object.freeze({
+  register_evidence_spec: '8668d270eff95e77',
+  open_need: 'a4821105a5fcd669',
+  open_work_manifest: 'e2efc3ece315c9a3',
+  open_work_page: '9efdadb53034bc10',
+  reserve_work: 'b9476c8bdcd345b7',
+  capture_first: '0e54cde37305fa4b',
+  capture_conflict: 'd5552dd458e413b3',
+  finalize: 'ab3dda387f730cd9',
+  expire: 'f353cd3a39c9f792',
+});
+
+// Kept for the callers that already import it. It is the old five, unchanged, so
+// nothing that used it breaks; new code should reach for the two tables above.
+export const INSTRUCTION_DISCRIMINATOR = Object.freeze({
+  register_evidence_spec: TIMEPIN_INSTRUCTION.register_evidence_spec,
+  open_need: TIMEPIN_INSTRUCTION.open_need,
+  open_ledger: CORE_INSTRUCTION.open_ledger,
+  open_history_page: CORE_INSTRUCTION.open_history_page,
+  seal_forward: CORE_INSTRUCTION.seal_forward,
 });
 
 export const ACCOUNT_DISCRIMINATOR = Object.freeze({
