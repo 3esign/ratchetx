@@ -1,0 +1,280 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>RatchetX — shot view, design reference</title>
+<style>
+:root{
+  --bg:#08090b; --card:#111319; --card2:#171a20; --line:rgba(191,161,99,.14);
+  --ink:#f4f1ea; --ink2:#a8a7a2; --dim:#6f716f;
+  --gold:#d8ac52; --goldD:#85692f;
+  --ice:#8eb9c8; --iceD:#3f5c68; --red:#df6b67; --grn:#63bb8a;
+  --sans:ui-sans-serif,-apple-system,"Segoe UI",Inter,system-ui,sans-serif;
+  --mono:ui-monospace,"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;
+  --u:8px;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.6 var(--sans);
+  -webkit-font-smoothing:antialiased;padding:calc(var(--u)*5) calc(var(--u)*3) calc(var(--u)*10)}
+.wrap{max-width:940px;margin:0 auto}
+
+/* ── header ─────────────────────────────────────────────────────── */
+header{display:flex;align-items:center;gap:calc(var(--u)*2);flex-wrap:wrap;
+  padding-bottom:calc(var(--u)*3);border-bottom:1px solid var(--line);margin-bottom:calc(var(--u)*5)}
+.mark{display:flex;align-items:center;gap:10px;font:700 17px/1 var(--sans);letter-spacing:.02em}
+.mark svg{width:26px;height:26px;flex:none}
+/* The devnet stamp: a calibration mark, not a warning. */
+.stamp{font:700 10px/1 var(--mono);letter-spacing:.16em;color:var(--ice);
+  border:1px solid var(--iceD);border-radius:3px;padding:6px 9px;background:rgba(142,185,200,.06);cursor:help}
+.ids{margin-left:auto;text-align:right;font:500 10.5px/1.7 var(--mono);color:var(--dim)}
+.ids a{color:var(--ice);text-decoration:none;border-bottom:1px solid rgba(142,185,200,.25)}
+.ids a:hover{border-bottom-color:var(--ice)}
+
+/* ── depth 1: the sentence ──────────────────────────────────────── */
+.verdict{font:400 15px/1.25 var(--sans);letter-spacing:.14em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:calc(var(--u)*2)}
+.sentence{font:400 26px/1.45 var(--sans);color:var(--ink);max-width:33em;margin:0 0 calc(var(--u)*2)}
+.sentence b{font-weight:600;color:var(--gold)}
+.sentence .num{font-family:var(--mono);font-weight:500;color:var(--ice);font-size:.92em}
+.outcome{display:inline-flex;align-items:center;gap:9px;font:600 12px/1 var(--mono);
+  letter-spacing:.12em;padding:8px 12px;border-radius:4px;border:1px solid}
+.outcome.hit{color:var(--grn);border-color:rgba(99,187,138,.35);background:rgba(99,187,138,.07)}
+.dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+
+/* ── depth 2: the axis ──────────────────────────────────────────── */
+section{margin-top:calc(var(--u)*6)}
+h2{font:600 11px/1 var(--mono);letter-spacing:.18em;text-transform:uppercase;color:var(--dim);
+  margin:0 0 calc(var(--u)*2.5);display:flex;align-items:center;gap:12px}
+h2::after{content:"";flex:1;height:1px;background:var(--line)}
+.axis{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:calc(var(--u)*3)}
+.axis svg{width:100%;height:220px;display:block;overflow:visible}
+.axis-legend{display:flex;gap:calc(var(--u)*3);flex-wrap:wrap;margin-top:calc(var(--u)*2.5);
+  font:500 11px/1 var(--mono);color:var(--dim)}
+.axis-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:7px;vertical-align:-1px}
+
+/* ── depth 3: the fields ────────────────────────────────────────── */
+.groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:calc(var(--u)*2)}
+.group{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:calc(var(--u)*2.5)}
+.group h3{font:600 10.5px/1 var(--mono);letter-spacing:.16em;text-transform:uppercase;
+  color:var(--goldD);margin:0 0 calc(var(--u)*2)}
+dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:9px calc(var(--u)*2);align-items:baseline}
+dt{font:400 12px/1.5 var(--sans);color:var(--dim);white-space:nowrap}
+dd{margin:0;font:500 12.5px/1.5 var(--mono);color:var(--ice);text-align:right;
+  overflow-wrap:anywhere;font-variant-numeric:tabular-nums}
+dd.game{color:var(--gold)}
+dd.ours{color:var(--ink2);font-family:var(--sans);font-size:12px}
+a.chain{color:inherit;text-decoration:none;border-bottom:1px solid rgba(142,185,200,.22)}
+a.chain:hover{border-bottom-color:var(--ice)}
+
+/* ── depth 4: the bytes ─────────────────────────────────────────── */
+details{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:calc(var(--u)*2)}
+summary{cursor:pointer;font:600 11px/1 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--dim)}
+summary:hover{color:var(--ice)}
+pre{margin:calc(var(--u)*2) 0 0;padding:calc(var(--u)*2);background:#0b0d10;border:1px solid var(--line);
+  border-radius:6px;overflow-x:auto;font:500 11.5px/1.8 var(--mono);color:var(--ink2)}
+pre .k{color:var(--ice)}
+.note{font:400 12.5px/1.7 var(--sans);color:var(--dim);max-width:60em;margin-top:calc(var(--u)*2)}
+footer{margin-top:calc(var(--u)*8);padding-top:calc(var(--u)*3);border-top:1px solid var(--line);
+  font:400 12px/1.7 var(--sans);color:var(--dim)}
+footer b{color:var(--ink2);font-weight:600}
+</style>
+<div class="wrap">
+
+<header>
+  <div class="mark">
+    <svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
+      <circle cx="16" cy="16" r="12.5" stroke="#d8ac52" stroke-width="1.4"/>
+      <circle cx="16" cy="16" r="7.5" stroke="#d8ac52" stroke-opacity=".45"/>
+      <path d="M16 1.5v4M16 26.5v4M1.5 16h4M26.5 16h4M5.7 5.7l2.8 2.8M23.5 23.5l2.8 2.8M26.3 5.7l-2.8 2.8M8.5 23.5l-2.8 2.8"
+            stroke="#d8ac52" stroke-width="1.5" stroke-linecap="round"/>
+      <circle cx="16" cy="16" r="2.2" fill="#d8ac52"/>
+      <path d="M18.2 10.3l3.7 2.2-3.7 2.2" stroke="#d8ac52" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+    <span>RatchetX</span>
+  </div>
+  <span class="stamp" title="Devnet. The game, the programs and the proofs are identical to mainnet; the tokens are test tokens with no value.">DEVNET</span>
+  <div class="ids">
+    core <a class="chain" href="https://explorer.solana.com/address/ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL?cluster=devnet">ANVGVtDr…FW8JEwbL</a><br>
+    timepin <a class="chain" href="https://explorer.solana.com/address/C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp?cluster=devnet">C8wwxUGm…hsRjJkYp</a>
+  </div>
+</header>
+
+<!-- DEPTH 1 ─ the sentence -->
+<div class="verdict">Shot #0 · SOL · settled</div>
+<p class="sentence">You said <b>UP</b> on SOL between <span class="num">14:05:00</span> and
+<span class="num">14:10:00</span> UTC. It went from <span class="num">142.3106</span> to
+<span class="num">142.8842</span>. You were right.</p>
+<span class="outcome hit"><span class="dot"></span>HIT · 65% CONFIDENCE · +18 XP</span>
+
+<!-- DEPTH 2 ─ the shape -->
+<section>
+  <h2>The shape of it</h2>
+  <div class="axis">
+    <svg viewBox="0 0 860 220" role="img" aria-label="Price between the entry and exit targets, with confidence bands">
+      <defs>
+        <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#8eb9c8" stop-opacity=".16"/>
+          <stop offset="1" stop-color="#8eb9c8" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+
+      <!-- the window the rules allow: [target, target+lag] -->
+      <rect x="120" y="18" width="86" height="150" fill="#d8ac52" opacity=".05"/>
+      <rect x="640" y="18" width="86" height="150" fill="#d8ac52" opacity=".05"/>
+
+      <!-- baseline -->
+      <line x1="40" y1="168" x2="820" y2="168" stroke="#2a2d33" stroke-width="1"/>
+
+      <!-- the path between the two prices -->
+      <path d="M120 116 C 260 104, 380 132, 500 96 S 660 74, 640 78" fill="none"
+            stroke="#8eb9c8" stroke-width="1.6" opacity=".55"/>
+      <path d="M120 116 C 260 104, 380 132, 500 96 S 660 74, 640 78 L640 168 L120 168 Z" fill="url(#fill)"/>
+
+      <!-- confidence bands, drawn to scale rather than described -->
+      <line x1="120" y1="108" x2="120" y2="124" stroke="#8eb9c8" stroke-width="6" opacity=".28"/>
+      <line x1="640" y1="70" x2="640" y2="86" stroke="#8eb9c8" stroke-width="6" opacity=".28"/>
+
+      <!-- the two prints -->
+      <circle cx="120" cy="116" r="4.5" fill="#8eb9c8"/>
+      <circle cx="640" cy="78" r="4.5" fill="#8eb9c8"/>
+
+      <!-- the four moments -->
+      <g font-family="ui-monospace,monospace" font-size="10.5" letter-spacing=".08em">
+        <g fill="#6f716f">
+          <line x1="60" y1="18" x2="60" y2="168" stroke="#2a2d33" stroke-dasharray="2 4"/>
+          <text x="60" y="188" text-anchor="middle">SEALED</text>
+          <text x="60" y="202" text-anchor="middle" fill="#4a4d52">14:03:41</text>
+        </g>
+        <g fill="#d8ac52">
+          <line x1="120" y1="18" x2="120" y2="168" stroke="#85692f" stroke-dasharray="2 4"/>
+          <text x="120" y="188" text-anchor="middle">ENTRY</text>
+          <text x="120" y="202" text-anchor="middle" fill="#85692f">14:05:00</text>
+          <line x1="640" y1="18" x2="640" y2="168" stroke="#85692f" stroke-dasharray="2 4"/>
+          <text x="640" y="188" text-anchor="middle">EXIT</text>
+          <text x="640" y="202" text-anchor="middle" fill="#85692f">14:10:00</text>
+        </g>
+        <g fill="#6f716f">
+          <line x1="790" y1="18" x2="790" y2="168" stroke="#2a2d33" stroke-dasharray="2 4"/>
+          <text x="790" y="188" text-anchor="middle">REVEAL BY</text>
+          <text x="790" y="202" text-anchor="middle" fill="#4a4d52">14:16:19</text>
+        </g>
+        <g fill="#8eb9c8" font-size="11.5">
+          <text x="132" y="112">142.3106</text>
+          <text x="652" y="74">142.8842</text>
+        </g>
+      </g>
+    </svg>
+    <div class="axis-legend">
+      <span><i style="background:#8eb9c8"></i>oracle print &amp; its confidence band</span>
+      <span><i style="background:rgba(216,172,82,.35)"></i>admissible window · target + 299s</span>
+      <span><i style="background:#2a2d33"></i>our timestamps</span>
+    </div>
+  </div>
+</section>
+
+<!-- DEPTH 3 ─ the fields -->
+<section>
+  <h2>Every field the chain holds</h2>
+  <div class="groups">
+
+    <div class="group">
+      <h3>The seal</h3>
+      <dl>
+        <dt>player</dt><dd><a class="chain" href="#">wJYFx75h…w881rKz</a></dd>
+        <dt>nonce</dt><dd class="game">0</dd>
+        <dt>stake</dt><dd class="game">300 credits</dd>
+        <dt>commitment</dt><dd>119b3e7b…25fccfc9</dd>
+        <dt>revealed salt</dt><dd>7f2a10c4…9b31de08</dd>
+        <dt>sealed at</dt><dd>14:03:41 UTC</dd>
+      </dl>
+    </div>
+
+    <div class="group">
+      <h3>The rules it was sealed under</h3>
+      <dl>
+        <dt>economy</dt><dd><a class="chain" href="#">fc48abc7…fedd61c4</a></dd>
+        <dt>ruleset</dt><dd><a class="chain" href="#">a48816b8…e79f81dd</a></dd>
+        <dt>evidence spec</dt><dd><a class="chain" href="#">04fff562…859c8515</a></dd>
+        <dt>grid</dt><dd class="game">300 s</dd>
+        <dt>admissible lag</dt><dd class="game">299 s</dd>
+        <dt>adapter</dt><dd class="ours">MIN-CAPTURE v2</dd>
+      </dl>
+    </div>
+
+    <div class="group">
+      <h3>Entry — where the price came from</h3>
+      <dl>
+        <dt>need</dt><dd><a class="chain" href="#">7AviUf9n…4D57HmyE</a></dd>
+        <dt>price</dt><dd>142.3106</dd>
+        <dt>confidence</dt><dd>± 0.0417</dd>
+        <dt>exponent</dt><dd>−8</dd>
+        <dt>publish time</dt><dd>14:05:02</dd>
+        <dt>message hash</dt><dd>b41c9df0…07ad3e52</dd>
+      </dl>
+    </div>
+
+    <div class="group">
+      <h3>Exit — where the price came from</h3>
+      <dl>
+        <dt>need</dt><dd><a class="chain" href="#">Bdk DZhs4…c84EXMK</a></dd>
+        <dt>price</dt><dd>142.8842</dd>
+        <dt>confidence</dt><dd>± 0.0392</dd>
+        <dt>exponent</dt><dd>−8</dd>
+        <dt>publish time</dt><dd>14:10:01</dd>
+        <dt>message hash</dt><dd>2ce7a118…f5b90c4a</dd>
+      </dl>
+    </div>
+
+    <div class="group">
+      <h3>The call and the outcome</h3>
+      <dl>
+        <dt>side</dt><dd class="game">UP</dd>
+        <dt>stated confidence</dt><dd class="game">65%</dd>
+        <dt>outcome</dt><dd>UP</dd>
+        <dt>hit</dt><dd>yes</dd>
+        <dt>xp awarded</dt><dd class="game">18</dd>
+        <dt>void reason</dt><dd class="ours">none</dd>
+      </dl>
+    </div>
+
+    <div class="group">
+      <h3>Who settled it, and the seals</h3>
+      <dl>
+        <dt>resolver</dt><dd><a class="chain" href="#">68Yg7JqW…f19ZZbA2</a></dd>
+        <dt>settled at</dt><dd>14:10:44 · slot 493801122</dd>
+        <dt>resolution hash</dt><dd>d90b4417…ac21f7e6</dd>
+        <dt>terminal hash</dt><dd>5e1fb8a2…30cc94b1</dd>
+      </dl>
+    </div>
+
+  </div>
+</section>
+
+<!-- DEPTH 4 ─ the bytes -->
+<section>
+  <h2>Check it yourself</h2>
+  <details>
+    <summary>The account, as bytes — and the command that re-reads it</summary>
+<pre><span class="k">$</span> solana account BQqP6EmYY8E6rJYnxgdYuCpcWasHWV7gqDPmJF4Vtzrq \
+    --url https://api.devnet.solana.com --output json
+
+<span class="k">shot pda</span>      BQqP6EmYY8E6rJYnxgdYuCpcWasHWV7gqDPmJF4Vtzrq
+<span class="k">owner</span>        ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL
+<span class="k">length</span>       780 bytes
+<span class="k">offset 212</span>   state = 4 (Revealed)
+<span class="k">offset 246</span>   entry_target_ts = 1788653100
+<span class="k">offset 254</span>   exit_target_ts  = 1788653400
+<span class="k">offset 716</span>   resolution_hash = d90b4417…ac21f7e6</pre>
+    <p class="note">Nothing on this page came from our server. Every value above is a
+    field of one account, at a byte offset the program defines, on a chain whose genesis
+    hash the page checked before it drew a single link.</p>
+  </details>
+</section>
+
+<footer>
+  <b>Design reference, not a live page.</b> The identifiers — program ids, economy,
+  ruleset, evidence spec, ledger, shot PDA, price account, grid and lag — are the real
+  values from the devnet bootstrap of 2026-09-06. The prices, timestamps and outcome are
+  illustrative, and stay illustrative until the first shot actually settles. Nothing here
+  should be screenshotted as a result.
+</footer>
+
+</div>
