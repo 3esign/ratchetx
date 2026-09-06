@@ -1,0 +1,295 @@
+{
+  "schema": 1,
+  "clusterGenesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programs": {
+    "core": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+    "timepin": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp"
+  },
+  "payer": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+  "sourceManifestSha256": "c9adadb7c7ad7d7a6ffa9100378153abdf3ef9cf496a958d58dfdbf7b570f3bb",
+  "economyHash": "fc48abc784516fa5cd30a4b4220ef2adbf4d079b9bfad72e75830737fedd61c4",
+  "rulesetHash": "a48816b847c6179f7fab9b4835c26321d9a1c0a577d63bce502d51bbe79f81dd",
+  "commitment": "119b3e7b0d1f695cfaaaad8c9e3e05f07269d2c20403534ed4557eb025fccfc9",
+  "bootstrapReceiptSha256": "edf5d2c382559785af6e01759540a106967705908d457c9ab3461e8026d3e70c",
+  "steps": [
+    {
+      "step": "register_evidence_spec",
+      "ok": true,
+      "signature": "gzAzkr3HgKVwqXxPbEzz2XRu2WQwUa4FQeQqijFsKrb8NAvv1CkVZkpnZTuuQ9ED1vJ1yrdZW5YCTaUyQGxdq5s",
+      "readBack": {
+        "evidence": true,
+        "address": "HVYVUm4B4rr8XRG1iEs4WBQEh8eBrwpGYcbLa5K4xP2u",
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "dataLen": 262,
+        "dataSha256": "2253b557bef5676b8b6719dbee67bdecb29b1f2a7b654813f01aaac03e2183c3"
+      }
+    },
+    {
+      "step": "register_economy",
+      "ok": true,
+      "signature": "47Y5nNxns5pGjdxErWEaAy6Wn8Cahco9E77tPN3YsZzKycPKVXncbGVwe1ErKf4MDizVeJRD7npL6h4eEhNTZ1bE",
+      "readBack": {
+        "evidence": true,
+        "address": "AJZwZTs2bN9ryFmCHaW3NnjK3hinvaMCvmWSJwK1pfNr",
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "dataLen": 415,
+        "dataSha256": "de83bfcefefba9c1f0d50fde0ecba2abdd9f78f20e01089f1200a24a6e43d007"
+      }
+    },
+    {
+      "step": "register_ruleset",
+      "ok": true,
+      "signature": "3urYxiRdRsFPdFEWP8PuJVGWGyRMfgXxzFTqMPi49kvAyUf3Qe7yKdP7vQCee9jFuZ6dy2FkbcQUXV61eVMxke43",
+      "readBack": {
+        "evidence": true,
+        "address": "4ZHe6oQQoHsj7HoRaRnBzDgChebumeu28QUAjsfopbS1",
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "dataLen": 206,
+        "dataSha256": "c24fdee0aa52cdcd856aa0075bc764c8dabc3191e11e2772183b44fa4ed0fce4"
+      }
+    },
+    {
+      "step": "claim_legacy",
+      "ok": true,
+      "signature": "1yxPSDAqmh9v1FadwznRtifcVjbefuxubUWfqn7kg1PdzezwK8vdGZ9iLUCejPn94nBhGNAmEqsSiig3mPUD2on",
+      "readBack": {
+        "evidence": true,
+        "address": "68Yg7JqWtYzDj2CEQgUR84yT6WJEp1J6xkZ9f19ZZbA2",
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "dataLen": 285,
+        "dataSha256": "0cc7b528cae0ffb5c8fd1d7bad8b04e96481b763ded2a53224ec944d4d7510d4"
+      }
+    },
+    {
+      "step": "open_history_page",
+      "ok": true,
+      "signature": "3YFniaHRTRbb3UxkpgTAfSvTaaXMPRXN9UZeQ6gUses4YD9rpf1ggY7ReQDGRVPq4y1WebxbgMynvTWYvELRvV8a",
+      "readBack": {
+        "evidence": true,
+        "address": "646QrSprAEJwfiiJfDhtX6QkXjBQdbrZYAkWCGdtaSdR",
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "dataLen": 118,
+        "dataSha256": "ba7014f2aa0147bfead62d6e9b32e87f13caffdc725d5374e458fd61077bcd8b"
+      }
+    },
+    {
+      "step": "open_need_entry",
+      "ok": true,
+      "signature": "266NQVVr9hqyLKtRUgeoi5KKoiK6QgfTWUunqzr35Tt2im8C3ferXqHQQgwFQug23sWBQ6hd1JoVNo1PPM1ZnQSN",
+      "readBack": {
+        "evidence": true,
+        "address": "E8gsWpgBzyABAiUGuHijhDpmRoc1t9F2QdvevT1JUQus",
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "dataLen": 168,
+        "dataSha256": "64983275a8474ecb1f876855fb992bb2e11a7992fe0372ea779191a9d1a6b913"
+      }
+    },
+    {
+      "step": "open_need_exit",
+      "ok": true,
+      "signature": "2g5LvmCoc55Y648m1GYFSq68isbuUdYH99ca2MyRyDJHkAdhk5M2rEgkB6QAjSjVrjb2pwzYUmUHQ6U1MooU24eU",
+      "readBack": {
+        "evidence": true,
+        "address": "FY7iMh1cKomSgWhThmWRhr8sxFSWJCvFwBuwS3b9Stxq",
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "dataLen": 168,
+        "dataSha256": "1659e127bf66866796c08945d4ccbad4405f4a0912f28e9268ebb9887dc4bd98"
+      }
+    },
+    {
+      "step": "seal_forward",
+      "ok": true,
+      "signature": "2DZj1cgqK677r3uT6xf5HV9cdTm4rLBa7a5j3MvtMLLFK5KEv6ppFvsAVTKP53FUYUQDEhC5yYL8WLsQ2ioUqfw",
+      "readBack": {
+        "evidence": true,
+        "address": "BQqP6EmYY8E6rJYnxgdYuCpcWasHWV7gqDPmJF4Vtzrq",
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "dataLen": 780,
+        "dataSha256": "fe7122dcabac748ca5c9147bb200575ea80a3080059ffa19332445f4975e69ae"
+      }
+    },
+    {
+      "step": "capture_first_entry",
+      "ok": true,
+      "signature": "54GjmsLdwzXuUfmjbMo4xhVZLhZNjvh6i3iWcaGJ1Et9JQNwaLfRXmrvUG7JjdQKA1QJjtQkM2o1uCzFbueiUoow",
+      "transaction": {
+        "signature": "54GjmsLdwzXuUfmjbMo4xhVZLhZNjvh6i3iWcaGJ1Et9JQNwaLfRXmrvUG7JjdQKA1QJjtQkM2o1uCzFbueiUoow",
+        "slot": 493811617,
+        "feeLamports": 5000,
+        "logsSha256": "924af70294b770e3f4427fb3cb12c69a59950a430d1ef993b4b7c98aae378b38",
+        "commitment": "confirmed"
+      },
+      "readBack": {
+        "evidence": true,
+        "need": "E8gsWpgBzyABAiUGuHijhDpmRoc1t9F2QdvevT1JUQus",
+        "state": "Candidate",
+        "candidate": "BN5s9R1eohXhtgXhMW4RtHDQR5pgAdae6wRFMMvgbw1D",
+        "messageHash": "23a4f7cb6732dc970be63b89ce448629a733a4f529919860f197b8727e95aa44",
+        "price": "10333275188",
+        "conf": "1586427",
+        "exponent": -8,
+        "publishTime": "1788656170",
+        "postedSlot": "493811600",
+        "captureSlot": "493811617",
+        "captureTs": "1788656182"
+      }
+    },
+    {
+      "step": "capture_first_exit",
+      "ok": true,
+      "signature": "4AzuwtuznPKv4RFzqw3tPMiBKkDgAbP8vMu77jBmb78SNtwusbc1JFAi9Tp2WHRgPjhaDsargMYopjrnTGdVepm",
+      "transaction": {
+        "signature": "4AzuwtuznPKv4RFzqw3tPMiBKkDgAbP8vMu77jBmb78SNtwusbc1JFAi9Tp2WHRgPjhaDsargMYopjrnTGdVepm",
+        "slot": 493813509,
+        "feeLamports": 5000,
+        "logsSha256": "c956c525f8bd1fdc0b9f21e4a14844e6eba20f92f0d1fd61a8fb6465f4b8447f",
+        "commitment": "confirmed"
+      },
+      "readBack": {
+        "evidence": true,
+        "need": "FY7iMh1cKomSgWhThmWRhr8sxFSWJCvFwBuwS3b9Stxq",
+        "state": "Candidate",
+        "candidate": "FZtXrPjo5A9yxRFQDQs3o391Jh2NraUxasUKU8rhE1hS",
+        "messageHash": "0841e3c4565be8750a8cda322c62984caa4cb4b2bc81603ef06eba2a12b197e4",
+        "price": "10332500025",
+        "conf": "861630",
+        "exponent": -8,
+        "publishTime": "1788656483",
+        "postedSlot": "493813491",
+        "captureSlot": "493813509",
+        "captureTs": "1788656497"
+      }
+    },
+    {
+      "step": "finalize_entry",
+      "ok": true,
+      "signature": "41sPv9TYh4E4DddyorCvEzTx8xcV9rCGkj4e3dZsBZY67SJCjdMZEcZ2ScWaxP74w9HcrtBpgJsY9AgvnDbPuiEJ",
+      "transaction": {
+        "signature": "41sPv9TYh4E4DddyorCvEzTx8xcV9rCGkj4e3dZsBZY67SJCjdMZEcZ2ScWaxP74w9HcrtBpgJsY9AgvnDbPuiEJ",
+        "slot": 493818352,
+        "feeLamports": 5000,
+        "logsSha256": "c405e7ad44ca3def2103b2c583f982c68eb214ffd8141c5a7d598ec322aeb3b6",
+        "commitment": "confirmed"
+      },
+      "readBack": {
+        "evidence": true,
+        "need": "E8gsWpgBzyABAiUGuHijhDpmRoc1t9F2QdvevT1JUQus",
+        "state": "Final",
+        "candidateHash": "23a4f7cb6732dc970be63b89ce448629a733a4f529919860f197b8727e95aa44",
+        "clockSlot": "493818357"
+      }
+    },
+    {
+      "step": "activate_entry",
+      "ok": true,
+      "signature": "5QHSZndW5PVrWcyomt6JmmKBHHY8yMG4jZJtfJqHKP8JtKrfc6zYHMyo8HiCmc1LTnH2QpEeePGeBteCJfy3U3Zc",
+      "transaction": {
+        "signature": "5QHSZndW5PVrWcyomt6JmmKBHHY8yMG4jZJtfJqHKP8JtKrfc6zYHMyo8HiCmc1LTnH2QpEeePGeBteCJfy3U3Zc",
+        "slot": 493818362,
+        "feeLamports": 5000,
+        "logsSha256": "6755a15b18c66517df87a217e7633ce53a054ccae846fc3119c3da69f6e14cd9",
+        "commitment": "confirmed"
+      },
+      "readBack": {
+        "evidence": true,
+        "shot": "BQqP6EmYY8E6rJYnxgdYuCpcWasHWV7gqDPmJF4Vtzrq",
+        "state": 2,
+        "messageHash": "23a4f7cb6732dc970be63b89ce448629a733a4f529919860f197b8727e95aa44",
+        "revealDeadlineTs": "1788661199"
+      }
+    },
+    {
+      "step": "finalize_exit",
+      "ok": true,
+      "signature": "BCWJMf9UeCLUPvZb6jo4eUPTy9EDRF7F1NwS85mHxU1bzyfPLJyZREETzRgL6v3Fbe3kQUFxyaT5bwLuyxquVad",
+      "transaction": {
+        "signature": "BCWJMf9UeCLUPvZb6jo4eUPTy9EDRF7F1NwS85mHxU1bzyfPLJyZREETzRgL6v3Fbe3kQUFxyaT5bwLuyxquVad",
+        "slot": 493820145,
+        "feeLamports": 5000,
+        "logsSha256": "c40f92764c16d23736e561dfdf150394c3ad34753e1684d9d6f5b23f50cadd0c",
+        "commitment": "confirmed"
+      },
+      "readBack": {
+        "evidence": true,
+        "need": "FY7iMh1cKomSgWhThmWRhr8sxFSWJCvFwBuwS3b9Stxq",
+        "state": "Final",
+        "candidateHash": "0841e3c4565be8750a8cda322c62984caa4cb4b2bc81603ef06eba2a12b197e4",
+        "clockSlot": "493820146"
+      }
+    },
+    {
+      "step": "settle_final",
+      "ok": true,
+      "signature": "2dTTsXH59exK2Yeayt6zNTqRooQaqewxoqJU3o7J8KqzqcYfAwa6HtkRQm3tphhLHHWJDiUfoLAC8zGRWTbYuEDf",
+      "transaction": {
+        "signature": "2dTTsXH59exK2Yeayt6zNTqRooQaqewxoqJU3o7J8KqzqcYfAwa6HtkRQm3tphhLHHWJDiUfoLAC8zGRWTbYuEDf",
+        "slot": 493820150,
+        "feeLamports": 5000,
+        "logsSha256": "3819a51569a9cf56388b1c256fa1b52bb83dc6acc01a03098f2b6db9c495558d",
+        "commitment": "confirmed"
+      },
+      "readBack": {
+        "evidence": true,
+        "shot": "BQqP6EmYY8E6rJYnxgdYuCpcWasHWV7gqDPmJF4Vtzrq",
+        "state": 3,
+        "messageHash": "0841e3c4565be8750a8cda322c62984caa4cb4b2bc81603ef06eba2a12b197e4",
+        "revealDeadlineTs": "1788661201"
+      }
+    },
+    {
+      "step": "reveal",
+      "ok": true,
+      "signature": "41SRjy1VzX81YtsjeDmuGLpdtYUpN3cAzE2oNGx5KVExwRmj2ovG1Xw3sj1wmvLvKLYb6egYxjYnukbY224YAFmU",
+      "transaction": {
+        "signature": "41SRjy1VzX81YtsjeDmuGLpdtYUpN3cAzE2oNGx5KVExwRmj2ovG1Xw3sj1wmvLvKLYb6egYxjYnukbY224YAFmU",
+        "slot": 493820155,
+        "feeLamports": 5000,
+        "logsSha256": "0c96d6019789249ca2e7ef2d6f35868e643c21bad2a6984271d4686ea1752b99",
+        "commitment": "confirmed"
+      },
+      "readBack": {
+        "evidence": true,
+        "outcome": "MISS",
+        "voidReason": null,
+        "refundCredits": "0",
+        "credits": "9900",
+        "xp": "1",
+        "gameResultHash": "c6517e9386cd6f92fd42d5bfe125f82c17b9564bdc71e5451fd918cbce9d47bb",
+        "rowHash": "652355c23b1eac097aa866564dcd2464cd4ab7a68073b2955290b35ac00d5c46",
+        "resultsRoot": "bcaf1f78758ede82d5503ab3f50a65b23c61da35a7a26a33361227edcca8cee7",
+        "shotClosed": true,
+        "accounts": [
+          {
+            "address": "68Yg7JqWtYzDj2CEQgUR84yT6WJEp1J6xkZ9f19ZZbA2",
+            "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+            "dataLen": 285,
+            "dataSha256": "057989a2eebf584fbc07f53c61f996a395a9adff326da7e9b62c584325a90d9a"
+          },
+          {
+            "address": "646QrSprAEJwfiiJfDhtX6QkXjBQdbrZYAkWCGdtaSdR",
+            "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+            "dataLen": 118,
+            "dataSha256": "d038aa7d15f3a0b00f79e5a3253afe7dd86b4622b3b8d74924f079dfb626400f"
+          }
+        ]
+      }
+    }
+  ],
+  "status": "COMPLETED",
+  "createdAt": "2026-09-06T00:52:59.002Z",
+  "updatedAt": "2026-09-06T01:20:02.736Z",
+  "landed": 15,
+  "sealSignature": "2DZj1cgqK677r3uT6xf5HV9cdTm4rLBa7a5j3MvtMLLFK5KEv6ppFvsAVTKP53FUYUQDEhC5yYL8WLsQ2ioUqfw",
+  "settleSignature": "2dTTsXH59exK2Yeayt6zNTqRooQaqewxoqJU3o7J8KqzqcYfAwa6HtkRQm3tphhLHHWJDiUfoLAC8zGRWTbYuEDf",
+  "result": {
+    "outcome": "MISS",
+    "voidReason": null,
+    "refundCredits": "0",
+    "credits": "9900",
+    "xp": "1",
+    "gameResultHash": "c6517e9386cd6f92fd42d5bfe125f82c17b9564bdc71e5451fd918cbce9d47bb",
+    "rowHash": "652355c23b1eac097aa866564dcd2464cd4ab7a68073b2955290b35ac00d5c46",
+    "resultsRoot": "bcaf1f78758ede82d5503ab3f50a65b23c61da35a7a26a33361227edcca8cee7",
+    "shotClosed": true
+  }
+}

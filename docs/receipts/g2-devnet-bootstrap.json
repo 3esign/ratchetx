@@ -1,8 +1,8 @@
 {
   "schema": 1,
-  "status": "PREPARED",
+  "status": "SEALED",
   "scope": "DEVNET_TEST_ECONOMY_ONLY; admission, not capture/settlement evidence",
-  "generatedAt": "2026-09-06T00:23:16.135Z",
+  "generatedAt": "2026-09-06T00:49:05.260Z",
   "clusterGenesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
   "programs": {
     "core": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
@@ -756,7 +756,22 @@
     "maxPostTargetLagSeconds": 299,
     "captureGraceSeconds": 900,
     "mustObserveBothNeedsConcurrently": true,
-    "needs": []
+    "needs": [
+      {
+        "kind": "entry",
+        "address": "E8gsWpgBzyABAiUGuHijhDpmRoc1t9F2QdvevT1JUQus",
+        "targetTs": "1788656100",
+        "sourceDeadlineTs": "1788656399",
+        "captureDeadlineTs": "1788657299"
+      },
+      {
+        "kind": "exit",
+        "address": "FY7iMh1cKomSgWhThmWRhr8sxFSWJCvFwBuwS3b9Stxq",
+        "targetTs": "1788656400",
+        "sourceDeadlineTs": "1788656699",
+        "captureDeadlineTs": "1788657599"
+      }
+    ]
   },
   "steps": [
     {
@@ -818,7 +833,44 @@
         "dataLen": 118,
         "dataSha256": "ba7014f2aa0147bfead62d6e9b32e87f13caffdc725d5374e458fd61077bcd8b"
       }
+    },
+    {
+      "step": "open_need_entry",
+      "ok": true,
+      "signature": "266NQVVr9hqyLKtRUgeoi5KKoiK6QgfTWUunqzr35Tt2im8C3ferXqHQQgwFQug23sWBQ6hd1JoVNo1PPM1ZnQSN",
+      "readBack": {
+        "evidence": true,
+        "address": "E8gsWpgBzyABAiUGuHijhDpmRoc1t9F2QdvevT1JUQus",
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "dataLen": 168,
+        "dataSha256": "64983275a8474ecb1f876855fb992bb2e11a7992fe0372ea779191a9d1a6b913"
+      }
+    },
+    {
+      "step": "open_need_exit",
+      "ok": true,
+      "signature": "2g5LvmCoc55Y648m1GYFSq68isbuUdYH99ca2MyRyDJHkAdhk5M2rEgkB6QAjSjVrjb2pwzYUmUHQ6U1MooU24eU",
+      "readBack": {
+        "evidence": true,
+        "address": "FY7iMh1cKomSgWhThmWRhr8sxFSWJCvFwBuwS3b9Stxq",
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "dataLen": 168,
+        "dataSha256": "1659e127bf66866796c08945d4ccbad4405f4a0912f28e9268ebb9887dc4bd98"
+      }
+    },
+    {
+      "step": "seal_forward",
+      "ok": true,
+      "signature": "2DZj1cgqK677r3uT6xf5HV9cdTm4rLBa7a5j3MvtMLLFK5KEv6ppFvsAVTKP53FUYUQDEhC5yYL8WLsQ2ioUqfw",
+      "readBack": {
+        "evidence": true,
+        "address": "BQqP6EmYY8E6rJYnxgdYuCpcWasHWV7gqDPmJF4Vtzrq",
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "dataLen": 780,
+        "dataSha256": "fe7122dcabac748ca5c9147bb200575ea80a3080059ffa19332445f4975e69ae"
+      }
     }
   ],
-  "landed": 5
+  "landed": 8,
+  "sealSignature": "2DZj1cgqK677r3uT6xf5HV9cdTm4rLBa7a5j3MvtMLLFK5KEv6ppFvsAVTKP53FUYUQDEhC5yYL8WLsQ2ioUqfw"
 }

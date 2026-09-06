@@ -2,7 +2,7 @@
 
 Owner direction, 2026-09-06 local: complete the whole game on devnet, including the website and real transaction evidence; revisit mainnet funding later. Both accepted programs were deployed to devnet using faucet SOL. No mainnet transaction, account reset, freeze, token distribution or key movement was performed.
 
-## Current result: both programs deployed
+## Current result: programs deployed; first full devnet game complete
 
 Owner confirmed two 5-SOL devnet faucet sends to the dedicated payer. The funded dry run passed, then the exact accepted Core and Timepin pair deployed successfully; runner exit 0. Full on-chain ProgramData payloads matched the accepted ELF bytes and SHA-256, with expected loader ownership, exact capacity and designated upgrade authority. Build-source hold was released after both readbacks.
 
@@ -13,7 +13,7 @@ Finalized balance after deployment: **2.926672920 devnet SOL**. Structured evide
 
 Independent finalized verification also passed using direct RPC without the deployment runner: full ELF bytes, loader states, authority/capacity and actual DeployWithMaxDataLen instruction fields. Evidence: docs/receipts/g2-devnet-independent-readback-20260906.json. The complete deployment changes and evidence landed in native commit 88344a1, exactly 13 owned paths. Retained public binary copies now also exist outside the site tree at ../g2-release-artifacts/devnet-20260906, with a SHA manifest; previous caches were preserved.
 
-The funding refusal below is historical and resolved. Build, B1, and deployment are complete. Actual bootstrap/claim/observer/game settlement plus website integration remain; the deployment signatures do not prove L1/L2 gameplay. Lead owns the callable bootstrap path and has the exact existing-protocol claim route; Astra 2/Gemini own site integration. Do not rerun the fresh-deployment command against these now-existing programs.
+The funding refusal below is historical and resolved. Build, B1, deployment, bootstrap/claim and L1 admission are complete. CodexAstra completed the L1/L2 executor and independent terminal evidence; Astra 2 owns the complete website integration; Lead owns production snapshot reconciliation and remaining release coordination. Do not rerun the fresh-deployment command against these now-existing programs.
 
 ## Confirmed deployment payer
 
@@ -68,4 +68,12 @@ Historical command used for this successful deployment (do not rerun against exi
 
 Use Node 22.20.0 on the Windows build host. Omit --execute for the dry run. The runner refuses an existing program rather than silently upgrading or resuming, and verifies actual Program/ProgramData ownership, authority, exact capacity and complete deployed ELF bytes after each successful send. It does not log potentially sensitive raw CLI failure output or close buffers indiscriminately.
 
-Build/B1 and devnet program deployment are complete. Fresh-ledger credits, live bootstrap/observer/settlement signatures and the website flow remain separate outstanding work. A bootstrap plan alone is not a sent transaction; a fresh ledger starts with zero credits and requires the existing claim_legacy path with a valid devnet-bound nonzero root/proof before a funded seal. Lead owns that bootstrap path; Astra 2 and Gemini own website integration. Mainnet remains deferred.
+## Complete first game, independently finalized
+
+At 2026-09-06T01:20:02.736Z the actual first devnet run completed all 15 setup/game steps through reveal and Shot closure. The independent checker passed at 2026-09-06T01:21:50.931Z, validating native transaction signatures, both oracle Candidate preimages and finalizations, exact archive/game/history hashes and full player accounting. Outcome MISS: 9900 credits, 1 XP, locked/reserved/open zero. Remaining dedicated payer balance was 2.908330240 devnet SOL at finalized slot 493820764.
+
+Fixed public first-game evidence: docs/receipts/g2-devnet-first-shot-nonce0-20260906.json. Independent raw-account/transaction proof: docs/receipts/g2-devnet-terminal-independent-20260906.json. The current rolling gate receipt is releases/g2-devnet-run.json; preserve the fixed archive when a later run replaces it.
+
+The real executor passes 17 focused offline tests, and the separate verifier passes 41 offline checks plus the actual finalized run. The agreed grid 300, lag 299 and grace 900 were unchanged. The verified first game does not certify live negative-path coverage, arbitrary-player credit enrollment, a persistent public keeper or the published website.
+
+The authoritative current owner/status handoff is docs/DEVNET_CHECKPOINT_20260906.md. Astra 2 owns website/browser publication and chain/archive display. Lead owns public enrollment, assigning the existing generic crank wiring to one owner, production snapshot reconciliation and remaining release acceptance. Mainnet remains deferred; no additional funding/address request is needed for this devnet work.

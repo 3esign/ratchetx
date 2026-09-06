@@ -1,0 +1,579 @@
+{
+  "schema": 1,
+  "status": "PASS",
+  "scope": "Independent finalized DEVNET first admission only; current PendingEntry Shot and debit verified. No capture, settlement, reveal, or mainnet acceptance.",
+  "generatedAt": "2026-09-06T00:56:55.966Z",
+  "rpc": "https://api.devnet.solana.com",
+  "clusterGenesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programs": {
+    "core": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+    "timepin": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp"
+  },
+  "payer": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+  "sourceReceipt": "docs/receipts/g2-devnet-bootstrap.json",
+  "sourceReceiptSha256": "edf5d2c382559785af6e01759540a106967705908d457c9ab3461e8026d3e70c",
+  "sourceManifestSha256": "c9adadb7c7ad7d7a6ffa9100378153abdf3ef9cf496a958d58dfdbf7b570f3bb",
+  "commitment": "finalized",
+  "accountContextSlot": 493811742,
+  "clock": {
+    "slot": "493811742",
+    "nowTs": "1788656203"
+  },
+  "transactionsSent": false,
+  "privateStateRead": false,
+  "assertions": {
+    "transactionCount": 3,
+    "allSignaturesFinalizedAndCryptographicallyVerified": true,
+    "allCompiledInstructionMessagesExact": true,
+    "immutableAccountOwnerLengthDiscriminatorSchemaPdaAndHashes": true,
+    "shotState": "PendingEntry",
+    "shotNonce": "0",
+    "stake": "100",
+    "credits": "9900",
+    "legacyCredits": "10000",
+    "lockedCredits": "100",
+    "reservedPayoutCredits": "170",
+    "reservedXp": "11",
+    "xp": "0",
+    "nextShotNonce": "1",
+    "open": 1,
+    "historyPendingCount": 1,
+    "historyTerminalMask": 0,
+    "historyRoot": "0000000000000000000000000000000000000000000000000000000000000000",
+    "bothNeedOwnersPdasTargetsDeadlinesVerified": true,
+    "firstEligibleGridTargetVerified": true
+  },
+  "sealTiming": {
+    "method": "Recovered Shot.sealedTs is written directly from Clock::get().unix_timestamp by seal_forward; exact target is ceil((sealedTs+60)/300)*300. No wall-clock or block-time approximation is used for this assertion.",
+    "sealedTs": "1788655744",
+    "entryTargetTs": "1788656100",
+    "exitTargetTs": "1788656400",
+    "revealDeadlineTs": "1788661199",
+    "scoreDay": "20702",
+    "expected": {
+      "entryTargetTs": "1788656100",
+      "exitTargetTs": "1788656400",
+      "sourceDeadlineTs": "1788656699",
+      "captureDeadlineTs": "1788657599",
+      "revealDeadlineTs": "1788661199",
+      "scoreDay": "20702"
+    }
+  },
+  "needs": {
+    "entryNeed": {
+      "address": "E8gsWpgBzyABAiUGuHijhDpmRoc1t9F2QdvevT1JUQus",
+      "state": 1,
+      "targetTs": "1788656100",
+      "sourceDeadlineTs": "1788656399",
+      "captureDeadlineTs": "1788657299",
+      "candidateAHash": "23a4f7cb6732dc970be63b89ce448629a733a4f529919860f197b8727e95aa44",
+      "candidateBHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "openRefs": 0,
+      "rentPayer": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz"
+    },
+    "exitNeed": {
+      "address": "FY7iMh1cKomSgWhThmWRhr8sxFSWJCvFwBuwS3b9Stxq",
+      "state": 0,
+      "targetTs": "1788656400",
+      "sourceDeadlineTs": "1788656699",
+      "captureDeadlineTs": "1788657599",
+      "candidateAHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "candidateBHash": "0000000000000000000000000000000000000000000000000000000000000000",
+      "openRefs": 0,
+      "rentPayer": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz"
+    }
+  },
+  "accounts": {
+    "evidenceSpec": {
+      "address": "HVYVUm4B4rr8XRG1iEs4WBQEh8eBrwpGYcbLa5K4xP2u",
+      "dataSha256": "2253b557bef5676b8b6719dbee67bdecb29b1f2a7b654813f01aaac03e2183c3",
+      "raw": {
+        "data": [
+          "XkwZ8SdBRuQCAAIMt/p6XaYo+6ypmuqZ97873DaJaGAqv0FNToulZ7uwvwxKnLGfnvwlOf5pAjXY6bUC785My+HyJnNL/3oTjNJsAADvDYtv2izrpB2hXUCV0do5Kg0vjtDGx7wPTPrIwoC1bQEsAQAAPAAAAJBfAQAAAAAAKwEAAIQDAAAeAPQCyAAAACu3YIvT60URmY13XXTxYXXGoteqluvm+Vj7+9GauobotyxwGwAAAAAjp6Gc9gwf2o8HAyP7jxAToyhRsJIft7KsCFmQy/qjevELCtx4aPRVZlepBfcURc7sQgesd9fFwrdi3xOUZkuHoixwGwAAAABWyG4dAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1981200,
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "rentEpoch": 18446744073709552000,
+        "space": 262
+      }
+    },
+    "economy": {
+      "address": "AJZwZTs2bN9ryFmCHaW3NnjK3hinvaMCvmWSJwK1pfNr",
+      "dataSha256": "de83bfcefefba9c1f0d50fde0ecba2abdd9f78f20e01089f1200a24a6e43d007",
+      "raw": {
+        "data": [
+          "CUdd/5i7qpoCAP/8SKvHhFFvpc0wpLQiDvKtv00Hm5v61y51gwc3/t1hxAIApXnAT7yH/XLNpKLYGQvlr8+0vIQWp24Un7MYmAWgewkCAM5Z21CA/CxtO898qQcS08Ll5sKPJ/Dfu5lTvbCJTAOrR30RIxspC9k0tq2/meYtQBnzOheqmsS+j5URg6+Jz/0nId22fwzaYTPIz6QjFBpVzcWdh9S0LqUPJDftFw9gU1XB6mRaksNi3377y93OdkEIdlzC3bXi4AgVjIFR6m0dRshuHQAAAAABAAAAECcAAAAAAAAAAAAAAAAAAMup/dZlIXmA6foACQrz/vh4gCaZG16RMZORDxRIlgVZMQDWDnGV1SRpbEIb8cAbyeRpjuYaKK8z7UqLBI3Qr+Rwvwbd9uHudY/eGEJdvORszdq2GvxNg7kNJ/69+SjYoYv8BkBCDwAAAAAAvAIsAfQBLAHIABCAUQEAEQAAAAAAAAAKAAAAAAAAAAEAAAAAAAAAZAAAAAAAAAAAypo7AAAAAAUAUMMAAAAAAAAQDgAAgFEBAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2758440,
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "rentEpoch": 18446744073709552000,
+        "space": 415
+      }
+    },
+    "ruleset": {
+      "address": "4ZHe6oQQoHsj7HoRaRnBzDgChebumeu28QUAjsfopbS1",
+      "dataSha256": "c24fdee0aa52cdcd856aa0075bc764c8dabc3191e11e2772183b44fa4ed0fce4",
+      "raw": {
+        "data": [
+          "e1yIpqDs+LQCAP+kiBa4R8YXn3+rm0g1wmMh2aHApXfWO85QLVG755+B3QIA/Eirx4RRb6XNMKS0Ig7yrb9NB5ub+tcudYMHN/7dYcQE//Vi+WH1+IQE/UE6YwSK0srNrFyBTT4t0DbChZyFFSu3YIvT60URmY13XXTxYXXGoteqluvm+Vj7+9Gauobo7w2Lb9os66QdoV1AldHaOSoNL47Qxse8D0z6yMKAtW0CLAEAACwBAAA8AAAAAAAAAAAAAAABAAAACgAAAAAAAAA=",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1696720,
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "rentEpoch": 18446744073709552000,
+        "space": 206
+      }
+    },
+    "ledger": {
+      "address": "68Yg7JqWtYzDj2CEQgUR84yT6WJEp1J6xkZ9f19ZZbA2",
+      "dataSha256": "213e318ce4ed2e3f87209b01df4c4b08fd7c8db21282e958a4a6c376f8bc9cd2",
+      "raw": {
+        "data": [
+          "2ODaAUN2adUCAPv8SKvHhFFvpc0wpLQiDvKtv00Hm5v61y51gwc3/t1hxA3pMeyxvr+zxNQFOmxazyxqV7zgsxy0+GG4YHpc8OMBrCYAAAAAAABkAAAAAAAAAAAAAAAAAAAAECcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAqgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAsAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 2098040,
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "rentEpoch": 18446744073709552000,
+        "space": 285
+      }
+    },
+    "historyPage": {
+      "address": "646QrSprAEJwfiiJfDhtX6QkXjBQdbrZYAkWCGdtaSdR",
+      "dataSha256": "330269369a4c2876850e7fd20cefb4d22e40ab5323b6b4943c3d9d4c1ab441ac",
+      "raw": {
+        "data": [
+          "Kw0ln5xA20QCAP/8SKvHhFFvpc0wpLQiDvKtv00Hm5v61y51gwc3/t1hxA3pMeyxvr+zxNQFOmxazyxqV7zgsxy0+GG4YHpc8OMBAAAAAAAAAAABAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1249680,
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "rentEpoch": 18446744073709552000,
+        "space": 118
+      }
+    },
+    "shot": {
+      "address": "BQqP6EmYY8E6rJYnxgdYuCpcWasHWV7gqDPmJF4Vtzrq",
+      "dataSha256": "fe7122dcabac748ca5c9147bb200575ea80a3080059ffa19332445f4975e69ae",
+      "raw": {
+        "data": [
+          "4aKoEs/B8WsCAP/8SKvHhFFvpc0wpLQiDvKtv00Hm5v61y51gwc3/t1hxKSIFrhHxheff6ubSDXCYyHZocCld9Y7zlAtUbvnn4HdDekx7LG+v7PE1AU6bFrPLGpXvOCzHLT4Ybhgelzw4wEN6THssb6/s8TUBTpsWs8sale84LMctPhhuGB6XPDjAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARmz57DR9pXPqqrYyePgXwcmnSwgQDU07UVX6wJfzPyQIBAGQAAAAAAAAAUMMAAAAAAAAKAAAAAAAAAIC4nGoAAAAA5LmcagAAAAAQu5xqAAAAAN5QAAAAAAAADcMgE/I7SRKJhqCeH93UzQIgjFrqGueZLRRN4IZYT8h+1/w2Z30RUEJe2kiHssP4aMHv+QK0QVLP79nzIajdaXoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADPzZxqAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 4662640,
+        "owner": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+        "rentEpoch": 18446744073709552000,
+        "space": 780
+      }
+    },
+    "entryNeed": {
+      "address": "E8gsWpgBzyABAiUGuHijhDpmRoc1t9F2QdvevT1JUQus",
+      "dataSha256": "16865d9d5b64c3cbaee6c5d373ebaf32c7fc9568f1deb8ba51e675eea176e713",
+      "raw": {
+        "data": [
+          "4fjMghAVWGwCAP4BBP/1Yvlh9fiEBP1BOmMEitLKzaxcgU0+LdA2woWchRXkuZxqAAAAAA+7nGoAAAAAk76cagAAAAAjpPfLZzLclwvmO4nORIYppzOk9SmRmGDxl7hyfpWqRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA3pMeyxvr+zxNQFOmxazyxqV7zgsxy0+GG4YHpc8OMB",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1503680,
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "rentEpoch": 18446744073709552000,
+        "space": 168
+      }
+    },
+    "exitNeed": {
+      "address": "FY7iMh1cKomSgWhThmWRhr8sxFSWJCvFwBuwS3b9Stxq",
+      "dataSha256": "1659e127bf66866796c08945d4ccbad4405f4a0912f28e9268ebb9887dc4bd98",
+      "raw": {
+        "data": [
+          "4fjMghAVWGwCAP8ABP/1Yvlh9fiEBP1BOmMEitLKzaxcgU0+LdA2woWchRUQu5xqAAAAADu8nGoAAAAAv7+cagAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA3pMeyxvr+zxNQFOmxazyxqV7zgsxy0+GG4YHpc8OMB",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1503680,
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "rentEpoch": 18446744073709552000,
+        "space": 168
+      }
+    },
+    "clock": {
+      "address": "SysvarC1ock11111111111111111111111111111111",
+      "dataSha256": "da94b54dc153ae802570eb93d2fd85868f5863431817786bd1dc9313fc8f02e5",
+      "raw": {
+        "data": [
+          "HvhuHQAAAAAuo5xqAAAAAHcEAAAAAAAAeAQAAAAAAABLupxqAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1169280,
+        "owner": "Sysvar1111111111111111111111111111111111111",
+        "rentEpoch": 18446744073709552000,
+        "space": 40
+      }
+    }
+  },
+  "signatureStatuses": {
+    "context": {
+      "apiVersion": "4.3.0-beta.3",
+      "slot": 493811785
+    },
+    "value": [
+      {
+        "confirmationStatus": "finalized",
+        "confirmations": null,
+        "err": null,
+        "slot": 493808958,
+        "status": {
+          "Ok": null
+        }
+      },
+      {
+        "confirmationStatus": "finalized",
+        "confirmations": null,
+        "err": null,
+        "slot": 493808963,
+        "status": {
+          "Ok": null
+        }
+      },
+      {
+        "confirmationStatus": "finalized",
+        "confirmations": null,
+        "err": null,
+        "slot": 493808968,
+        "status": {
+          "Ok": null
+        }
+      }
+    ]
+  },
+  "transactions": [
+    {
+      "step": "open_need_entry",
+      "signature": "266NQVVr9hqyLKtRUgeoi5KKoiK6QgfTWUunqzr35Tt2im8C3ferXqHQQgwFQug23sWBQ6hd1JoVNo1PPM1ZnQSN",
+      "slot": 493808958,
+      "blockTime": 1788655742,
+      "feeLamports": 5000,
+      "computeUnitsConsumed": 27294,
+      "signatureVerified": true,
+      "exactCompiledMessageVerified": true,
+      "messageSha256": "de011f3d5aacb180a9203e83274b35be9e70590161a913b2f15d365c0fd1bb3f",
+      "raw": {
+        "blockTime": 1788655742,
+        "meta": {
+          "computeUnitsConsumed": 27294,
+          "costUnits": 28722,
+          "err": null,
+          "fee": 5000,
+          "innerInstructions": [
+            {
+              "index": 0,
+              "instructions": [
+                {
+                  "accounts": [
+                    0,
+                    1
+                  ],
+                  "data": "111185VzQwkuBaqY8BFPqdLmY3k3nYG7sLcb1ZpxffD1jzdndTou2NySfQqQxq5UNnYseQ",
+                  "programIdIndex": 2,
+                  "stackHeight": 2
+                }
+              ]
+            }
+          ],
+          "loadedAddresses": {
+            "readonly": [],
+            "writable": []
+          },
+          "logMessages": [
+            "Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]",
+            "Program log: Instruction: OpenNeed",
+            "Program 11111111111111111111111111111111 invoke [2]",
+            "Program 11111111111111111111111111111111 success",
+            "Program data: iXhVzm2QZQzDIBPyO0kSiYagnh/d1M0CIIxa6hrnmS0UTeCGWE/IfgT/9WL5YfX4hAT9QTpjBIrSys2sXIFNPi3QNsKFnIUV5LmcagAAAAAPu5xqAAAAAJO+nGoAAAAADekx7LG+v7PE1AU6bFrPLGpXvOCzHLT4Ybhgelzw4wEB",
+            "Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 27294 of 200000 compute units",
+            "Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp success"
+          ],
+          "postBalances": [
+            2915355160,
+            1503680,
+            1,
+            833120,
+            1981200
+          ],
+          "postTokenBalances": [],
+          "preBalances": [
+            2916863840,
+            0,
+            1,
+            833120,
+            1981200
+          ],
+          "preTokenBalances": [],
+          "rewards": [],
+          "status": {
+            "Ok": null
+          }
+        },
+        "slot": 493808958,
+        "transaction": [
+          "ATZonHSv1yKWwS31xhrM9hsrBopoXBWwp9qoRJAxqFV6wj+9wPU2PW0G18wFfU+WcEFZKX0nzP+oXkuJJghsyQMBAAMFDekx7LG+v7PE1AU6bFrPLGpXvOCzHLT4Ybhgelzw4wHDIBPyO0kSiYagnh/d1M0CIIxa6hrnmS0UTeCGWE/IfgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAApXnAT7yH/XLNpKLYGQvlr8+0vIQWp24Un7MYmAWgewn1CtxIFWzVrA0llM0aaqZPhT/I0UWpFJA2KrXrhZD7DuSBQ01wEYSMFypf+ixDOr5E4h4pQVkHvQg9ctoU55OLAQMEAAQBAjCkghEFpfzWaQT/9WL5YfX4hAT9QTpjBIrSys2sXIFNPi3QNsKFnIUV5LmcagAAAAA=",
+          "base64"
+        ],
+        "transactionIndex": 5,
+        "version": "legacy"
+      }
+    },
+    {
+      "step": "open_need_exit",
+      "signature": "2g5LvmCoc55Y648m1GYFSq68isbuUdYH99ca2MyRyDJHkAdhk5M2rEgkB6QAjSjVrjb2pwzYUmUHQ6U1MooU24eU",
+      "slot": 493808963,
+      "blockTime": 1788655743,
+      "feeLamports": 5000,
+      "computeUnitsConsumed": 25790,
+      "signatureVerified": true,
+      "exactCompiledMessageVerified": true,
+      "messageSha256": "e563cadafa065f41f5c8b8771c52a3feefe4c17338b0d268b6644650735f8394",
+      "raw": {
+        "blockTime": 1788655743,
+        "meta": {
+          "computeUnitsConsumed": 25790,
+          "costUnits": 27218,
+          "err": null,
+          "fee": 5000,
+          "innerInstructions": [
+            {
+              "index": 0,
+              "instructions": [
+                {
+                  "accounts": [
+                    0,
+                    1
+                  ],
+                  "data": "111185VzQwkuBaqY8BFPqdLmY3k3nYG7sLcb1ZpxffD1jzdndTou2NySfQqQxq5UNnYseQ",
+                  "programIdIndex": 2,
+                  "stackHeight": 2
+                }
+              ]
+            }
+          ],
+          "loadedAddresses": {
+            "readonly": [],
+            "writable": []
+          },
+          "logMessages": [
+            "Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]",
+            "Program log: Instruction: OpenNeed",
+            "Program 11111111111111111111111111111111 invoke [2]",
+            "Program 11111111111111111111111111111111 success",
+            "Program data: iXhVzm2QZQzX/DZnfRFQQl7aSIeyw/howe/5ArRBUs/v2fMhqN1pegT/9WL5YfX4hAT9QTpjBIrSys2sXIFNPi3QNsKFnIUVELucagAAAAA7vJxqAAAAAL+/nGoAAAAADekx7LG+v7PE1AU6bFrPLGpXvOCzHLT4Ybhgelzw4wEB",
+            "Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 25790 of 200000 compute units",
+            "Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp success"
+          ],
+          "postBalances": [
+            2913846480,
+            1503680,
+            1,
+            833120,
+            1981200
+          ],
+          "postTokenBalances": [],
+          "preBalances": [
+            2915355160,
+            0,
+            1,
+            833120,
+            1981200
+          ],
+          "preTokenBalances": [],
+          "rewards": [],
+          "status": {
+            "Ok": null
+          }
+        },
+        "slot": 493808963,
+        "transaction": [
+          "AVO2tQK8TLIKXb4DTTvf2kfpCJHLZ21MQk2J19/toU4cgK5s59o+ayxb0nIXQZg8If/YOmSqRYwXNj5E5gWRSQEBAAMFDekx7LG+v7PE1AU6bFrPLGpXvOCzHLT4Ybhgelzw4wHX/DZnfRFQQl7aSIeyw/howe/5ArRBUs/v2fMhqN1pegAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAApXnAT7yH/XLNpKLYGQvlr8+0vIQWp24Un7MYmAWgewn1CtxIFWzVrA0llM0aaqZPhT/I0UWpFJA2KrXrhZD7Dtlrn00ClkJrttiA8IIYucRW9qC8cDEh1R/PBwCOjhaZAQMEAAQBAjCkghEFpfzWaQT/9WL5YfX4hAT9QTpjBIrSys2sXIFNPi3QNsKFnIUVELucagAAAAA=",
+          "base64"
+        ],
+        "transactionIndex": 2,
+        "version": "legacy"
+      }
+    },
+    {
+      "step": "seal_forward",
+      "signature": "2DZj1cgqK677r3uT6xf5HV9cdTm4rLBa7a5j3MvtMLLFK5KEv6ppFvsAVTKP53FUYUQDEhC5yYL8WLsQ2ioUqfw",
+      "slot": 493808968,
+      "blockTime": 1788655744,
+      "feeLamports": 5000,
+      "computeUnitsConsumed": 91049,
+      "signatureVerified": true,
+      "exactCompiledMessageVerified": true,
+      "messageSha256": "3a549783e52f9e275f4e28cc130313cb6dade137740e6e89eea8c7facc7da351",
+      "raw": {
+        "blockTime": 1788655744,
+        "meta": {
+          "computeUnitsConsumed": 91049,
+          "costUnits": 93843,
+          "err": null,
+          "fee": 5000,
+          "innerInstructions": [
+            {
+              "index": 0,
+              "instructions": [
+                {
+                  "accounts": [
+                    0,
+                    4
+                  ],
+                  "data": "11112CjH2MjA1UtSDswkzLvJSkFL4gCbsgiR8h9va2Nzvgk1obEuSexjoMd7XJY2HRX5jL",
+                  "programIdIndex": 6,
+                  "stackHeight": 2
+                },
+                {
+                  "accounts": [
+                    0,
+                    1
+                  ],
+                  "data": "11116tTmHjHVPRNewQgPKpvLdxYUStNJNdUNqX9AfLttwaShFrbeWx4LGUSnT92FJNjo1Y",
+                  "programIdIndex": 6,
+                  "stackHeight": 2
+                },
+                {
+                  "accounts": [
+                    0,
+                    5
+                  ],
+                  "data": "11112BuAhu4zXm3SqqkcQf8rHVbrQNgfnU9pi8jfcHCRYKsjUfRt6btV3rEaa6KZLU3Xgi",
+                  "programIdIndex": 6,
+                  "stackHeight": 2
+                },
+                {
+                  "accounts": [
+                    0,
+                    5
+                  ],
+                  "data": "3Bxs4EN9fHrenk9m",
+                  "programIdIndex": 6,
+                  "stackHeight": 2
+                }
+              ]
+            }
+          ],
+          "loadedAddresses": {
+            "readonly": [],
+            "writable": []
+          },
+          "logMessages": [
+            "Program ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL invoke [1]",
+            "Program log: Instruction: SealForward",
+            "Program 11111111111111111111111111111111 invoke [2]",
+            "Program 11111111111111111111111111111111 success",
+            "Program 11111111111111111111111111111111 invoke [2]",
+            "Program 11111111111111111111111111111111 success",
+            "Program 11111111111111111111111111111111 invoke [2]",
+            "Program 11111111111111111111111111111111 success",
+            "Program 11111111111111111111111111111111 invoke [2]",
+            "Program 11111111111111111111111111111111 success",
+            "Program data: uWZhtLyVY9Gar+6qxPJuw1UJLetquvpWs2j3YU+GM8hRvkvmtt7O5g3pMeyxvr+zxNQFOmxazyxqV7zgsxy0+GG4YHpc8OMB/Eirx4RRb6XNMKS0Ig7yrb9NB5ub+tcudYMHN/7dYcSkiBa4R8YXn3+rm0g1wmMh2aHApXfWO85QLVG755+B3QAAAAAAAAAAZAAAAAAAAAAC5LmcagAAAAAQu5xqAAAAAN5QAAAAAAAAz82cagAAAAA=",
+            "Program ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL consumed 91049 of 200000 compute units",
+            "Program ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL success"
+          ],
+          "postBalances": [
+            2906212120,
+            1605280,
+            1249680,
+            2098040,
+            1361440,
+            4662640,
+            1,
+            1696720,
+            2758440,
+            833120,
+            1503680,
+            1503680
+          ],
+          "postTokenBalances": [],
+          "preBalances": [
+            2913846480,
+            0,
+            1249680,
+            2098040,
+            0,
+            0,
+            1,
+            1696720,
+            2758440,
+            833120,
+            1503680,
+            1503680
+          ],
+          "preTokenBalances": [],
+          "rewards": [],
+          "status": {
+            "Ok": null
+          }
+        },
+        "slot": 493808968,
+        "transaction": [
+          "AQEMlnLG/20NLydnnDcpWDk+gS0QAdou1Dj1i8GSxxMGT5pYA0vpxOLFmwdEyaBEIe3lLN6jKU75zInH/sjixQoBAAYMDekx7LG+v7PE1AU6bFrPLGpXvOCzHLT4Ybhgelzw4wE0PLp/LbIdtP4l44RMXZ21JEv6i4uzdfBG00DdN71E10sVS6sP+HUC8RJg34yVayO+cDualHXO5OiNkNyY+5zcTDlQhOUI6lEpcYy2O284dkT8TrmOIyAPHBKtNJ3vf9OZkOtQfuU5z5n2kvbh1tGhJvW/GghCPMCeG9BE2+4wTJqv7qrE8m7DVQkt62q6+lazaPdhT4YzyFG+S+a23s7mAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA02HYQY2Mh5bLuxRUySB4qAViEj/UAMiQQMFdqzS1c6oo5TV/AqNEZNoeOfx6ByWUnzAZl1Xky7dKZTZwN1gHjizpXVkYtGVbqXMVyE7MxAvspcgjes6YejRhRGZPNYxfDIBPyO0kSiYagnh/d1M0CIIxa6hrnmS0UTeCGWE/Iftf8Nmd9EVBCXtpIh7LD+GjB7/kCtEFSz+/Z8yGo3Wl6rFrjRFZLu0oRsmQI3E+q+vlspDIGRZItklI5LiKcZdcBCQsACAcDBAECBQoLBkiKSgDx9n+J/gAAAAAAAAAAEZs+ew0faVz6qq2Mnj4F8HJp0sIEA1NO1FV+sCX8z8lkAAAAAAAAAOS5nGoAAAAA3lAAAAAAAAA=",
+          "base64"
+        ],
+        "transactionIndex": 23,
+        "version": "legacy"
+      }
+    }
+  ],
+  "requests": [
+    {
+      "method": "getGenesisHash",
+      "attempt": 0,
+      "httpStatus": 200,
+      "responseSha256": "9d0f36530a5526131672857c8ff1d2b6dbcbab3e18f347161fc36b2c3a0825c3",
+      "at": "2026-09-06T00:56:47.943Z"
+    },
+    {
+      "method": "getMultipleAccounts",
+      "attempt": 0,
+      "httpStatus": 200,
+      "responseSha256": "daa77b35c2d7bda3f83628b176a0ce7855fd6109cd08c634d9dac796356f873f",
+      "at": "2026-09-06T00:56:49.492Z"
+    },
+    {
+      "method": "getSignatureStatuses",
+      "attempt": 0,
+      "httpStatus": 200,
+      "responseSha256": "0b8c2be1f7c3484536a5cf6921bbf42bc839f07e5465b8dd9f4419076eaecc21",
+      "at": "2026-09-06T00:56:51.086Z"
+    },
+    {
+      "method": "getTransaction",
+      "attempt": 0,
+      "httpStatus": 200,
+      "responseSha256": "cb51449978edd7447d3a2028bfb82d15cc2abc48275fe35ee53de384c0eb4a9c",
+      "at": "2026-09-06T00:56:52.637Z"
+    },
+    {
+      "method": "getTransaction",
+      "attempt": 0,
+      "httpStatus": 200,
+      "responseSha256": "df7ddeeb31ba20c30211323a23c8071fe6f051311beedd399f762e9c4116fcdf",
+      "at": "2026-09-06T00:56:54.390Z"
+    },
+    {
+      "method": "getTransaction",
+      "attempt": 0,
+      "httpStatus": 200,
+      "responseSha256": "03ae3e0a828b66d9eb4679c01cd13ac2b5d159e0c4cfd62bb67121dd41042612",
+      "at": "2026-09-06T00:56:55.954Z"
+    }
+  ]
+}

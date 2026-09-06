@@ -1,0 +1,282 @@
+{
+  "schema": 1,
+  "status": "PASS",
+  "scope": "Independent finalized DEVNET entry capture only; Candidate/Need/message preimage and exact signed transaction verified. No claim of earliest print globally, finalization, settlement, or mainnet acceptance.",
+  "generatedAt": "2026-09-06T01:03:31.602Z",
+  "rpc": "https://api.devnet.solana.com",
+  "clusterGenesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programs": {
+    "core": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+    "timepin": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp"
+  },
+  "payer": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+  "sourceBootstrapReceipt": "docs/receipts/g2-devnet-bootstrap.json",
+  "sourceBootstrapReceiptSha256": "edf5d2c382559785af6e01759540a106967705908d457c9ab3461e8026d3e70c",
+  "sourcePlayReceiptSnapshotSha256": "33c5c9abcc8031a0140c1e55cbca248afdd7f87797b665076eca9900f033f6ee",
+  "sourceCaptureRecordSha256": "291dbf092c4b5da5ac97e4cc09d1f3a9efd1381f65d955dfdb62cad1e0ac9576",
+  "sourceCaptureRecord": {
+    "step": "capture_first_entry",
+    "ok": true,
+    "signature": "54GjmsLdwzXuUfmjbMo4xhVZLhZNjvh6i3iWcaGJ1Et9JQNwaLfRXmrvUG7JjdQKA1QJjtQkM2o1uCzFbueiUoow",
+    "transaction": {
+      "signature": "54GjmsLdwzXuUfmjbMo4xhVZLhZNjvh6i3iWcaGJ1Et9JQNwaLfRXmrvUG7JjdQKA1QJjtQkM2o1uCzFbueiUoow",
+      "slot": 493811617,
+      "feeLamports": 5000,
+      "logsSha256": "924af70294b770e3f4427fb3cb12c69a59950a430d1ef993b4b7c98aae378b38",
+      "commitment": "confirmed"
+    },
+    "readBack": {
+      "evidence": true,
+      "need": "E8gsWpgBzyABAiUGuHijhDpmRoc1t9F2QdvevT1JUQus",
+      "state": "Candidate",
+      "candidate": "BN5s9R1eohXhtgXhMW4RtHDQR5pgAdae6wRFMMvgbw1D",
+      "messageHash": "23a4f7cb6732dc970be63b89ce448629a733a4f529919860f197b8727e95aa44",
+      "price": "10333275188",
+      "conf": "1586427",
+      "exponent": -8,
+      "publishTime": "1788656170",
+      "postedSlot": "493811600",
+      "captureSlot": "493811617",
+      "captureTs": "1788656182"
+    }
+  },
+  "commitment": "finalized",
+  "accountContextSlot": 493814140,
+  "transactionsSent": false,
+  "privateStateRead": false,
+  "liveOracleAccountRead": false,
+  "assertions": {
+    "signatureFinalizedAndCryptographicallyVerified": true,
+    "exactCompiledCaptureMessage": true,
+    "canonicalSourceAddress": true,
+    "candidateCreatedInThisTransaction": true,
+    "candidateLength": 119,
+    "needLength": 168,
+    "ownerDiscriminatorSchemaPdaBindings": true,
+    "needCandidateAEqualsPinnedExpectedHash": true,
+    "candidateHashPreimageMatches": true,
+    "modelValidationAndIndependentRawPreimageAgree": true,
+    "changedPriceNegativeControlRejected": true,
+    "captureSlotEqualsTransactionSlot": true,
+    "publicationCaptureAndPostedSlotBounds": true,
+    "eventNeedHashActorStateMatches": true
+  },
+  "message": {
+    "hash": "23a4f7cb6732dc970be63b89ce448629a733a4f529919860f197b8727e95aa44",
+    "preimageHex": "7263782d74696d6570696e3a707974682d70726963652d6d6573736167653a763200ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d3444e96702000000fb34180000000000f8ffffff2aba9c6a0000000029ba9c6a00000000b4bf0d680200000007980f0000000000",
+    "preimageByteLength": 118,
+    "layout": "UTF8 rcx-timepin:pyth-price-message:v2\\0 | feedId32 | pricei64 | confu64 | exponenti32 | publishTimei64 | prevPublishTimei64 | emaPricei64 | emaConfu64 (LE integers). Reconstructed from permanent Candidate fields and immutable spec feed.",
+    "sourceAddress": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+    "historicalSourceRawAccountBytesRetained": false,
+    "limitation": "The moving source account was not fetched or compared. Full/source-owner/write-authority/generation admission was enforced by the successful pinned on-chain capture instruction; this independent proof verifies the stored message preimage and exact supplied source address."
+  },
+  "candidate": {
+    "address": "BN5s9R1eohXhtgXhMW4RtHDQR5pgAdae6wRFMMvgbw1D",
+    "price": "10333275188",
+    "conf": "1586427",
+    "exponent": -8,
+    "publishTime": "1788656170",
+    "prevPublishTime": "1788656169",
+    "emaPrice": "10335666100",
+    "emaConf": "1021959",
+    "postedSlot": "493811600",
+    "captureSlot": "493811617",
+    "captureTs": "1788656182"
+  },
+  "need": {
+    "address": "E8gsWpgBzyABAiUGuHijhDpmRoc1t9F2QdvevT1JUQus",
+    "state": "Candidate",
+    "targetTs": "1788656100",
+    "sourceDeadlineTs": "1788656399",
+    "captureDeadlineTs": "1788657299",
+    "candidateAHash": "23a4f7cb6732dc970be63b89ce448629a733a4f529919860f197b8727e95aa44"
+  },
+  "event": {
+    "discriminator": "327feec466e7afc4",
+    "disposition": 1,
+    "state": 1,
+    "base64": "Mn/uxGbnr8TDIBPyO0kSiYagnh/d1M0CIIxa6hrnmS0UTeCGWE/IfiOk98tnMtyXC+Y7ic5EhimnM6T1KZGYYPGXuHJ+lapEDekx7LG+v7PE1AU6bFrPLGpXvOCzHLT4Ybhgelzw4wEBAQ=="
+  },
+  "accounts": {
+    "evidenceSpec": {
+      "address": "HVYVUm4B4rr8XRG1iEs4WBQEh8eBrwpGYcbLa5K4xP2u",
+      "dataSha256": "2253b557bef5676b8b6719dbee67bdecb29b1f2a7b654813f01aaac03e2183c3",
+      "raw": {
+        "data": [
+          "XkwZ8SdBRuQCAAIMt/p6XaYo+6ypmuqZ97873DaJaGAqv0FNToulZ7uwvwxKnLGfnvwlOf5pAjXY6bUC785My+HyJnNL/3oTjNJsAADvDYtv2izrpB2hXUCV0do5Kg0vjtDGx7wPTPrIwoC1bQEsAQAAPAAAAJBfAQAAAAAAKwEAAIQDAAAeAPQCyAAAACu3YIvT60URmY13XXTxYXXGoteqluvm+Vj7+9GauobotyxwGwAAAAAjp6Gc9gwf2o8HAyP7jxAToyhRsJIft7KsCFmQy/qjevELCtx4aPRVZlepBfcURc7sQgesd9fFwrdi3xOUZkuHoixwGwAAAABWyG4dAAAAAA==",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1981200,
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "rentEpoch": 18446744073709552000,
+        "space": 262
+      }
+    },
+    "entryNeed": {
+      "address": "E8gsWpgBzyABAiUGuHijhDpmRoc1t9F2QdvevT1JUQus",
+      "dataSha256": "16865d9d5b64c3cbaee6c5d373ebaf32c7fc9568f1deb8ba51e675eea176e713",
+      "raw": {
+        "data": [
+          "4fjMghAVWGwCAP4BBP/1Yvlh9fiEBP1BOmMEitLKzaxcgU0+LdA2woWchRXkuZxqAAAAAA+7nGoAAAAAk76cagAAAAAjpPfLZzLclwvmO4nORIYppzOk9SmRmGDxl7hyfpWqRAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA3pMeyxvr+zxNQFOmxazyxqV7zgsxy0+GG4YHpc8OMB",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1503680,
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "rentEpoch": 18446744073709552000,
+        "space": 168
+      }
+    },
+    "candidate": {
+      "address": "BN5s9R1eohXhtgXhMW4RtHDQR5pgAdae6wRFMMvgbw1D",
+      "dataSha256": "05bff5ba7ccf1b392c8dbc01672a606a26c162ad04ac53aed54e58935df8543b",
+      "raw": {
+        "data": [
+          "3N9BCLNxX08CAPzDIBPyO0kSiYagnh/d1M0CIIxa6hrnmS0UTeCGWE/IfjRE6WcCAAAA+zQYAAAAAAD4////KrqcagAAAAApupxqAAAAALS/DWgCAAAAB5gPAAAAAACQ924dAAAAAKH3bh0AAAAANrqcagAAAAA=",
+          "base64"
+        ],
+        "executable": false,
+        "lamports": 1254760,
+        "owner": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+        "rentEpoch": 18446744073709552000,
+        "space": 119
+      }
+    }
+  },
+  "signatureStatuses": {
+    "context": {
+      "apiVersion": "4.3.0-beta.3",
+      "slot": 493814181
+    },
+    "value": [
+      {
+        "confirmationStatus": "finalized",
+        "confirmations": null,
+        "err": null,
+        "slot": 493811617,
+        "status": {
+          "Ok": null
+        }
+      }
+    ]
+  },
+  "transaction": {
+    "signature": "54GjmsLdwzXuUfmjbMo4xhVZLhZNjvh6i3iWcaGJ1Et9JQNwaLfRXmrvUG7JjdQKA1QJjtQkM2o1uCzFbueiUoow",
+    "slot": 493811617,
+    "feeLamports": 5000,
+    "computeUnitsConsumed": 70000,
+    "messageSha256": "4eb9de00492f1344307c17de78f9c28d9ef0ca5aef214bc44c3521d29ff6257c",
+    "raw": {
+      "blockTime": 1788656182,
+      "meta": {
+        "computeUnitsConsumed": 70000,
+        "costUnits": 72290,
+        "err": null,
+        "fee": 5000,
+        "innerInstructions": [
+          {
+            "index": 0,
+            "instructions": [
+              {
+                "accounts": [
+                  0,
+                  2
+                ],
+                "data": "11114paTewUfPjYmmhiZcXE9SznWbZAVrCryJJiTtJr5zNs4A3TtMFSSeQNa8HEyTLVE4x",
+                "programIdIndex": 4,
+                "stackHeight": 2
+              }
+            ]
+          }
+        ],
+        "loadedAddresses": {
+          "readonly": [],
+          "writable": []
+        },
+        "logMessages": [
+          "Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp invoke [1]",
+          "Program log: Instruction: CaptureFirst",
+          "Program 11111111111111111111111111111111 invoke [2]",
+          "Program 11111111111111111111111111111111 success",
+          "Program data: Mn/uxGbnr8TDIBPyO0kSiYagnh/d1M0CIIxa6hrnmS0UTeCGWE/IfiOk98tnMtyXC+Y7ic5EhimnM6T1KZGYYPGXuHJ+lapEDekx7LG+v7PE1AU6bFrPLGpXvOCzHLT4Ybhgelzw4wEBAQ==",
+          "Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp consumed 70000 of 200000 compute units",
+          "Program C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp success"
+        ],
+        "postBalances": [
+          2904952360,
+          0,
+          1254760,
+          1503680,
+          1,
+          2902577520,
+          1823520,
+          4566685680,
+          833120,
+          3466080,
+          1141440,
+          1981200,
+          1141440
+        ],
+        "postTokenBalances": [],
+        "preBalances": [
+          2906212120,
+          0,
+          0,
+          1503680,
+          1,
+          2902577520,
+          1823520,
+          4566685680,
+          833120,
+          3466080,
+          1141440,
+          1981200,
+          1141440
+        ],
+        "preTokenBalances": [],
+        "rewards": [],
+        "status": {
+          "Ok": null
+        }
+      },
+      "slot": 493811617,
+      "transaction": [
+        "Acrjmgxc+6fHFC6h8P5pcbh67yuuuMgTM3DArCIyXIJSqLYFYQaztc2PCV8ta6YogpwmdW8oR9/6DnU9xyPvzwIBAAkNDekx7LG+v7PE1AU6bFrPLGpXvOCzHLT4Ybhgelzw4wEeM9emQ7249oCKkh50LPHs2CBaLW+RdaR6KbCpoCEwYpn7kQ9kNGzSvsJBYVjCZSRCikymddW5czMvbEQDcNOEwyAT8jtJEomGoJ4f3dTNAiCMWuoa55ktFE3ghlhPyH4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACTB2bxTDoCoYCAsEKyv1013tkqpNkNJ8dgXufw6JIMqW7EVsA3SCOqsnypr7Vi2hsh93PUuba3xWHAiQzIWns2BMsnvj+VC5mZrT8/wOsWLfIaQNyInplRVFcaabYzbH6V5wE+8h/1yzaSi2BkL5a/PtLyEFqduFJ+zGJgFoHsJ7llaw94GHU+B4G8ptpqClNpzzgHD7MQ2zpG0pWJkWw3xCwrceGj0VWZXqQX3FEXO7EIHrHfXxcK3Yt8TlGZLh/UK3EgVbNWsDSWUzRpqpk+FP8jRRakUkDYqteuFkPsODLf6el2mKPusqZrqmfe/O9w2iWhgKr9BTU6LpWe7sL8IN8QPqdaFj2/+F8vFaSk+4O3Gtq0rclgWcrN6twX1OwEIDAALAwIMBQkKBwYBBCgOVM3jcwX6SyOk98tnMtyXC+Y7ic5EhimnM6T1KZGYYPGXuHJ+lapE",
+        "base64"
+      ],
+      "transactionIndex": 11,
+      "version": "legacy"
+    }
+  },
+  "requests": [
+    {
+      "method": "getGenesisHash",
+      "attempt": 0,
+      "httpStatus": 200,
+      "responseSha256": "9d0f36530a5526131672857c8ff1d2b6dbcbab3e18f347161fc36b2c3a0825c3",
+      "at": "2026-09-06T01:03:26.670Z"
+    },
+    {
+      "method": "getMultipleAccounts",
+      "attempt": 0,
+      "httpStatus": 200,
+      "responseSha256": "378ec19cf2b94c2ad8c0baa1ed5eb647134d36f4c844ba023851226906c6cd23",
+      "at": "2026-09-06T01:03:28.223Z"
+    },
+    {
+      "method": "getSignatureStatuses",
+      "attempt": 0,
+      "httpStatus": 200,
+      "responseSha256": "fc84f5e5b0ee6b98d67aed60a208cee33c255ece63e961af10b3569697c3cfe3",
+      "at": "2026-09-06T01:03:29.843Z"
+    },
+    {
+      "method": "getTransaction",
+      "attempt": 0,
+      "httpStatus": 200,
+      "responseSha256": "654dd70c004d4b973abcdfa72dc00b58c060922849a76a38b725c026f8d9f293",
+      "at": "2026-09-06T01:03:31.384Z"
+    }
+  ]
+}
