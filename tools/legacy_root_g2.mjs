@@ -118,6 +118,42 @@ export function foldProof(leaf, proof) {
   return proof.reduce((node, sibling) => legacyNode(node, sibling), leaf);
 }
 
+// THE SNAPSHOT HASH, by the canonical layout the devnet bootstrap declares
+// (docs/receipts/g2-devnet-bootstrap.json, legacySnapshot.canonical_snapshot_layout).
+// It is 140 bytes of header plus 48 per row, and it is what binds the whole
+// population into every individual leaf: change one player's credits and every
+// other player's proof stops verifying, which is what stops a snapshot being
+// quietly edited after publication.
+//
+// Rows are sorted by RAW PLAYER BYTES, not by base58 text. Those two orders are
+// not the same - base58 sorts by an alphabet, bytes sort numerically - and using
+// the wrong one produces a hash nobody else reproduces.
+export const SNAPSHOT_DOMAIN = Buffer.from('rcx-core:legacy-snapshot:g2\0', 'latin1');
+export const SNAPSHOT_FORMAT_VERSION = 2;
+
+const u16le = v => { const b = Buffer.alloc(2); b.writeUInt16LE(v); return b; };
+const u32le = v => { const b = Buffer.alloc(4); b.writeUInt32LE(v); return b; };
+
+export function canonicalSnapshot({ programId, clusterGenesisHash, migrationId, cutoverSlot, rows }) {
+  const sorted = [...rows].sort((a, z) => Buffer.compare(b32(a.player, 'player'), b32(z.player, 'player')));
+  const parts = [
+    SNAPSHOT_DOMAIN,
+    u16le(SNAPSHOT_FORMAT_VERSION),
+    b32(programId, 'programId'),
+    u16le(CORE_SCHEMA_VERSION),
+    b32(clusterGenesisHash, 'clusterGenesisHash'),
+    b32(migrationId, 'migrationId'),
+    u64le(cutoverSlot),
+    u32le(sorted.length),
+  ];
+  for (const r of sorted) parts.push(b32(r.player, 'player'), u64le(r.credits), u64le(r.xp));
+  return { bytes: Buffer.concat(parts), rows: sorted };
+}
+
+export function snapshotHash(args) {
+  return sha256(canonicalSnapshot(args).bytes);
+}
+
 export function buildAirdrop({ accounts, programId, clusterGenesisHash, migrationId, snapshotHash, cutoverSlot }) {
   const entries = Object.entries(accounts);
   if (entries.length === 0) throw new Error('no accounts in the snapshot');

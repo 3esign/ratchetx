@@ -7,8 +7,10 @@
 // the failure is found here rather than by a player whose claim reverts.
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
 import {
   legacyLeaf, legacyNode, buildLegacyTree, foldProof, buildAirdrop, bs58Decode,
+  canonicalSnapshot, snapshotHash,
   LEGACY_LEAF_DOMAIN, LEGACY_NODE_DOMAIN, CORE_SCHEMA_SEED, MAX_MERKLE_PROOF,
 } from '../tools/legacy_root_g2.mjs';
 
@@ -140,6 +142,47 @@ assert.throws(() => buildLegacyTree([]), /not a tree/, 'an empty tree was built;
   // And the cluster changes it, at the whole-tree level too.
   ok(buildAirdrop({ ...base, clusterGenesisHash: MAINNET, accounts }).root !== a.root,
     'the airdrop root is identical on two different chains');
+}
+
+// ---- THE GOLDEN VECTOR: A ROOT THE CHAIN ITSELF ACCEPTED --------------------
+// docs/receipts/g2-devnet-bootstrap.json records a legacy snapshot whose root was
+// used in a claim_legacy transaction that LANDED on devnet on 2026-09-06. If this
+// implementation reproduces that snapshot hash and that root byte for byte, then
+// two independent implementations agree AND one of them has been accepted by the
+// program. That is the strongest evidence available without spending another
+// transaction, and it is why this test is worth more than all the synthetic ones
+// above put together.
+{
+  const path = new URL('../docs/receipts/g2-devnet-bootstrap.json', import.meta.url);
+  const snap = JSON.parse(fs.readFileSync(path, 'utf8')).legacySnapshot;
+  const rows = snap.claims.map(c => ({
+    player: Buffer.from(c.player_hex, 'hex'),
+    credits: BigInt(c.credits),
+    xp: BigInt(c.xp),
+  }));
+  const args = {
+    programId: bs58Decode(snap.core_program_id),
+    clusterGenesisHash: snap.cluster_genesis_hash,
+    migrationId: snap.migration_id,
+    cutoverSlot: snap.legacy_cutover_slot,
+    rows,
+  };
+
+  eq(canonicalSnapshot(args).bytes.length, snap.canonical_snapshot_byte_length,
+    'the canonical snapshot is a different length than the format declares');
+  eq(snapshotHash(args).toString('hex'), snap.legacy_snapshot_hash,
+    'THE SNAPSHOT HASH DOES NOT MATCH THE ONE A LANDED claim_legacy USED. Two implementations of the same '
+    + 'canonical layout disagree, and the chain has already accepted the other one.');
+
+  const leaves = canonicalSnapshot(args).rows.map(r => legacyLeaf({
+    programId: args.programId, clusterGenesisHash: args.clusterGenesisHash,
+    migrationId: args.migrationId, snapshotHash: snap.legacy_snapshot_hash,
+    cutoverSlot: args.cutoverSlot, player: r.player, credits: r.credits, xp: r.xp,
+  }));
+  eq(buildLegacyTree(leaves).root.toString('hex'), snap.legacy_root,
+    'THE ROOT DOES NOT MATCH THE ONE THE PROGRAM ACCEPTED. Every claim proof this tool generates would be '
+    + 'refused on chain.');
+  eq(leaves[0].toString('hex'), snap.claims[0].leaf, 'the leaf hash does not match the one in the landed claim');
 }
 
 console.log(`ok - G2's tree is not V1's, and a devnet root cannot be replayed on mainnet (${checks} checks)`);
