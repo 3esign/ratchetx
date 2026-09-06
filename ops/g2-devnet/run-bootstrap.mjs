@@ -9,6 +9,7 @@
 // kind of loop actually goes wrong - continuing past a failure, sending a step
 // twice, or reporting success because the last step happened to work.
 import { STEPS, reachableToday } from './bootstrap-plan.mjs';
+import { checkRunReceipt } from './receipt.mjs';
 
 export class StepFailed extends Error {
   constructor(step, index, reason) {
@@ -24,6 +25,9 @@ export async function runBootstrap({
   ctx = {},
   log = console.log,
   stopOnFailure = true,
+  clusterGenesis = null,
+  programs = null,
+  writeReceipt = null,     // (receipt) -> void; the caller decides where it lands
 } = {}) {
   if (typeof build !== 'function') throw new TypeError('runBootstrap needs a build function');
   if (typeof send !== 'function') throw new TypeError('runBootstrap needs a send function');
@@ -66,6 +70,9 @@ export async function runBootstrap({
     transcript.push({
       step: step.ix, index, ok: landed,
       signature: result && result.signature ? result.signature : null,
+      // Carried through rather than reconstructed: the receipt must record the
+      // read-back the sender actually performed, not a note that one happened.
+      readBack: result && result.evidence ? result.evidence : null,
       phase: 'send',
       reason: landed ? null
         : (result && result.reason)
@@ -85,12 +92,48 @@ export async function runBootstrap({
   }
 
   const landed = transcript.filter(t => t.ok && !t.skipped);
-  return {
+  const result = {
     transcript,
     landed: landed.length,
     attempted: plan.length,
     // The gate row asks for a SEAL that was sent. Naming it explicitly means the
     // answer does not depend on counting.
     sealSignature: (transcript.find(t => t.step === 'seal_forward' && t.ok) || {}).signature || null,
+    settleSignature: (transcript.find(t => t.step === 'settle_final' && t.ok) || {}).signature || null,
   };
+
+  // THE RECEIPT IS WRITTEN BY THE RUN, NOT BY A PERSON. L1 and L2 read
+  // releases/g2-devnet-run.json, and the whole reason they do is so that nobody
+  // has to edit a gate row to make it green.
+  //
+  // It is CHECKED before it is handed over. A run that produces a receipt its own
+  // checker refuses has found a bug in one of the two, and writing it anyway would
+  // hide which - the same reason compile-receipt.mjs validates its own output.
+  if (writeReceipt) {
+    const receipt = {
+      schema: 1,
+      clusterGenesis,
+      programs: programs || undefined,
+      generatedAt: new Date().toISOString(),
+      steps: transcript.map(t => ({
+        step: t.step,
+        ok: Boolean(t.ok && !t.skipped),
+        skipped: t.skipped || undefined,
+        signature: t.signature || undefined,
+        readBack: t.readBack || (t.ok && !t.skipped ? { evidence: true } : undefined),
+        reason: t.reason || undefined,
+      })),
+      landed: result.landed,
+      sealSignature: result.sealSignature || undefined,
+      settleSignature: result.settleSignature || undefined,
+    };
+    const verdict = checkRunReceipt(receipt);
+    if (!verdict.ok) {
+      throw new Error('the run produced a receipt its own checker refuses, so one of the two is wrong and '
+        + 'writing it would hide which: ' + verdict.problems.join('; '));
+    }
+    writeReceipt(receipt);
+    result.receipt = receipt;
+  }
+  return result;
 }

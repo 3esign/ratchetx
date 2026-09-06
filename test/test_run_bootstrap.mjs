@@ -145,4 +145,53 @@ for (const [args, what] of [[{ send: () => landed('s') }, 'build'], [{ build: ()
     `runBootstrap ran without a ${what} function`);
 }
 
+// ---- the receipt the run writes, and the one it refuses to write ------------
+// L1 and L2 read releases/g2-devnet-run.json. If a run could write a receipt its
+// own checker rejects, the gate would be reading something nobody validated.
+const DEVNET = 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG';
+const PROGRAMS = {
+  core: 'ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL',
+  timepin: 'C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp',
+};
+const sig = n => String(n).repeat(87).slice(0, 87);
+
+{
+  let written = null;
+  const r = await runBootstrap({
+    build: s => ({ ix: s.ix }),
+    send: (i, s, idx) => ({ sent: true, signature: sig((idx % 8) + 2), evidence: { evidence: true, problems: [] } }),
+    clusterGenesis: DEVNET, programs: PROGRAMS,
+    writeReceipt: rec => { written = rec; },
+    log: quiet,
+  });
+  ok(written, 'a run with writeReceipt produced no receipt');
+  eq(written.clusterGenesis, DEVNET, 'the receipt does not name the chain it ran on by genesis hash');
+  eq(written.landed, r.landed, 'the receipt disagrees with the run about how many steps landed');
+  ok(written.steps.every(s => !s.ok || s.readBack),
+    'a step is marked ok in the receipt with no read-back carried through from the sender');
+  eq(written.sealSignature, r.sealSignature, 'the receipt seal signature is not the run seal signature');
+}
+
+// A run that cannot produce a VALID receipt must refuse to write one rather than
+// write a broken one: otherwise the failure surfaces later, in the gate, as a
+// receipt nobody can trace.
+{
+  let written = null, err = null;
+  try {
+    await runBootstrap({
+      build: s => ({ ix: s.ix }),
+      send: () => ({ sent: true, signature: sig(3), evidence: { evidence: true, problems: [] } }),
+      clusterGenesis: '5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d', // mainnet
+      programs: PROGRAMS,
+      writeReceipt: rec => { written = rec; },
+      log: quiet,
+    });
+  } catch (e) { err = e; }
+  checks += 1;
+  assert.ok(err && /its own checker refuses/.test(err.message),
+    'A RUN AGAINST MAINNET WROTE A RECEIPT. The checker refuses mainnet, so writing it anyway would hide '
+    + 'which of the two is wrong.');
+  eq(written, null, 'the refused receipt was handed over anyway');
+}
+
 console.log(`ok - the sequence stops at the first step that did not land, and a signature is not landing (${checks} checks)`);
