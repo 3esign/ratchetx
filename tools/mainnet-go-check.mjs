@@ -11,6 +11,7 @@
 import fs from 'node:fs';
 import { spawnSync } from 'node:child_process';
 import { CRATES, verifyCrate } from './compile-receipt.mjs';
+import { sealEvidence, settleEvidence } from '../ops/g2-devnet/receipt.mjs';
 
 const R = 'onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/';
 const C = 'onchain/ratchet-core-g2/programs/ratchet-core-g2/src/';
@@ -583,6 +584,29 @@ const G2_SCAN = `
   console.log(JSON.stringify(rows));
 `;
 
+// THE DEVNET RUN RECEIPT, which is what L1 and L2 actually want.
+//
+// Both rows used to end with "replace this row with a devnet signature once one
+// exists". That is a HAND EDIT TO A GATE, and a gate that has to be edited to go
+// green is the thing this file was written to stop being. So the run writes what
+// it did and these rows read it.
+//
+// ops/g2-devnet/receipt.mjs does the checking, and it refuses every shape of lie
+// this project has already been told: a cluster named rather than identified by
+// genesis hash, a signature standing in for a read-back, a summary that
+// disagrees with the list it summarises, a prose string where a signature
+// belongs, and a run against a program the manifest does not name.
+const RUN_RECEIPT = 'releases/g2-devnet-run.json';
+const readRunReceipt = () => {
+  const raw = read(RUN_RECEIPT);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch (e) { return { __malformed: e.message }; }
+};
+const EXPECT_PROGRAMS = { expect: { programs: {
+  core: 'ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL',
+  timepin: 'C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp',
+} } };
+
 check('L1', 'a G2 shot can be SENT, not merely encoded', () => {
   // CORRECTED 2026-09-05 21:3xZ, an hour after I wrote it, because the first
   // version of this row went GREEN while I was telling Semir the opposite.
@@ -598,6 +622,20 @@ check('L1', 'a G2 shot can be SENT, not merely encoded', () => {
   // DOES build instructions and does know sealing. What no G2 file does is SEND.
   // A builder with no sender and no keeper is the real gap, and it is narrower
   // and duller than what I first said.
+  // A run receipt, if one exists, answers this row directly and outranks any
+  // amount of reading source: the question is whether a shot WAS sent, and only
+  // a run can say that.
+  const receipt = readRunReceipt();
+  if (receipt && !receipt.__malformed) {
+    const ev = sealEvidence(receipt, EXPECT_PROGRAMS);
+    if (ev.ok) return { ok: true, detail: `seal sent on devnet: ${ev.signature}, and the Shot account read back` };
+    return { ok: false, pending: true,
+             detail: `${RUN_RECEIPT} exists but does not evidence a seal: ${ev.problems.join('; ')}` };
+  }
+  if (receipt && receipt.__malformed) {
+    return { ok: false, pending: true, detail: `${RUN_RECEIPT} is not valid JSON (${receipt.__malformed}) - a receipt that cannot be read is not a receipt` };
+  }
+
   const r = spawnSync('node', ['-e', G2_SCAN], { encoding: 'utf8', timeout: 120000 });
   if (r.status !== 0) return { ok: false, pending: true, detail: 'the G2 scan did not run - no verdict' };
   const rows = JSON.parse((r.stdout || '[]').trim() || '[]');
@@ -615,6 +653,13 @@ check('L2', 'settlement is cranked by something that exists', () => {
   // means somebody must actually call them. Permissionless is not automatic. The
   // v1 and devnet trees have cranks; G2 has none, and an uncranked shot voids at
   // its capture deadline. A game that always refunds is not a game.
+  const receipt = readRunReceipt();
+  if (receipt && !receipt.__malformed) {
+    const ev = settleEvidence(receipt, EXPECT_PROGRAMS);
+    if (ev.ok) return { ok: true, detail: `settlement cranked on devnet: ${ev.signature}` };
+    return { ok: false, pending: true,
+             detail: `${RUN_RECEIPT} exists but does not evidence a settlement: ${ev.problems.join('; ')}` };
+  }
   const r = spawnSync('node', ['-e', G2_SCAN], { encoding: 'utf8', timeout: 120000 });
   if (r.status !== 0) return { ok: false, pending: true, detail: 'the G2 scan did not run - no verdict' };
   const rows = JSON.parse((r.stdout || '[]').trim() || '[]');
