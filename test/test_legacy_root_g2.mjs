@@ -84,6 +84,30 @@ for (const n of [1, 2, 3, 4, 5, 7, 8, 17, 33]) {
   ok(tree.proofFor(0).length <= MAX_MERKLE_PROOF, `a ${n}-leaf tree needs a proof longer than the program accepts`);
 }
 
+// ---- THE ODD-NODE RULE IS DUPLICATE-SELF, AND IT IS PINNED ------------------
+// The two candidate rules - duplicate the odd tail, or promote it unhashed -
+// produce DIFFERENT ROOTS on any tree with an odd level. The real snapshot has
+// seventeen leaves, so levels of 17, 9, 5 and 3: four levels where the choice
+// changes the answer. docs/receipts/g2-devnet-bootstrap.json declares
+// duplicate-self as the canonical format, and the 1-leaf bootstrap never
+// exercised an odd level, so nothing on chain settled it. This does.
+{
+  const three = [Buffer.alloc(32, 1), Buffer.alloc(32, 2), Buffer.alloc(32, 3)];
+  const tree = buildLegacyTree(three);
+  const dupRoot = legacyNode(legacyNode(three[0], three[1]), legacyNode(three[2], three[2]));
+  const promoteRoot = legacyNode(legacyNode(three[0], three[1]), three[2]);
+  ok(tree.root.equals(dupRoot),
+    'the odd tail is not duplicated. The canonical format in the devnet bootstrap receipt says '
+    + 'duplicate-self, and a builder that promotes instead produces a different root for the real '
+    + 'seventeen-leaf snapshot - every claim proof would fail.');
+  ok(!dupRoot.equals(promoteRoot),
+    'duplicate-self and promotion produce the SAME root here, which would mean this whole distinction '
+    + 'is moot - check that before deleting this test.');
+  // And the odd leaf's proof must contain itself as its own sibling, or the fold
+  // cannot reproduce the parent the tree built.
+  ok(tree.proofFor(2)[0].equals(three[2]), 'the odd tail proof does not carry itself as its first sibling');
+}
+
 // ---- a forged claim does not fold -------------------------------------------
 {
   const leaves = Array.from({ length: 5 }, (_, i) => Buffer.alloc(32, i + 1));
