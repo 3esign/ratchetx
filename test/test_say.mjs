@@ -4,7 +4,7 @@
 // record against the chain WITHOUT US, and that the sentence never says anything
 // the fields do not support. Both are pure, so both are settled here.
 import assert from 'node:assert/strict';
-import { sentenceFor, saveGame, priceOf, SHOT_STATE, VOID_REASON } from '../lib/g2-text/say.mjs';
+import { sentenceFor, saveGame, priceOf, saveReaderResult, sentenceForResult, SHOT_STATE, VOID_REASON } from '../lib/g2-text/say.mjs';
 
 let checks = 0;
 const ok = (c, msg) => { checks += 1; assert.ok(c, msg); };
@@ -13,13 +13,13 @@ const says = (shot, match, msg, opts) => { checks += 1; assert.match(sentenceFor
 
 const T = 1788653100;
 const base = {
-  state: 4, voidReason: 0, side: 0, hit: 1, pBps: 6500,
+  state: 4, voidReason: 0, side: 1, hit: 1, pBps: 6500,
   entryTargetTs: T, exitTargetTs: T + 300, revealDeadlineTs: T + 659,
   entryPrice: 14231060000n, entryExponent: -8, exitPrice: 14288420000n, exitExponent: -8,
 };
 
 // ---- prices are price AND exponent, never price alone -----------------------
-eq(priceOf(14231060000n, -8), '142.310600', 'the price is not rendered from price x 10^exponent');
+eq(priceOf(14231060000n, -8), '142.31060000', 'the price is not rendered from price x 10^exponent');
 eq(priceOf(null, -8), null, 'a missing price rendered as a number');
 eq(priceOf(14231060000n, null), null, 'a missing exponent rendered as if it were zero');
 ok(!String(priceOf(1n, -8)).includes('e'), 'a small price rendered in exponent notation, which nobody reads');
@@ -31,10 +31,13 @@ ok(!String(priceOf(1n, -8)).includes('e'), 'a small price rendered in exponent n
 // decoration.
 says(base, /You said UP on SOL between 00:05:00 and 00:10:00 UTC\./, 'the winning sentence lost its shape',
   { feed: 'SOL' });
-says(base, /It went from 142\.310600 to 142\.884200/, 'the sentence does not carry both prices');
+says(base, /It went from 142\.31060000 to 142\.88420000/, 'the sentence does not carry both prices');
 says(base, /You were right\.$/, 'a hit does not end by saying so');
 says({ ...base, hit: 0 }, /You were wrong\.$/, 'a miss does not end by saying so');
-says({ ...base, side: 1 }, /You said DOWN/, 'side 1 is not DOWN');
+says({ ...base, side: 0 }, /You said DOWN/, 'source side 0 must be DOWN');
+says({ ...base, side: 77 }, /unknown direction 77/, 'unknown direction must remain unknown');
+eq(priceOf(9223372036854775807n, -8), '92233720368.54775807', 'i64 price must stay exact');
+ok(JSON.stringify(saveGame({ ...base, entryTargetTs: 1788653100n }, { cluster: { name: 'devnet', rpc: 'https://api.devnet.solana.com' }, coreProgramId: 'core', timepinProgramId: 'timepin', shotAddress: 'shot' })).includes('1788653100'), 'actual BigInt times must serialize');
 
 // ---- every void reason has its own arm, in words ----------------------------
 says({ ...base, state: 5, voidReason: 5 }, /exactly the price at the start, to the last decimal/,
@@ -110,4 +113,18 @@ for (const drop of ['cluster', 'coreProgramId', 'timepinProgramId', 'shotAddress
   eq(f.outcome.state, 'unknown(9)', 'an unknown state was given a name it does not have');
 }
 
-console.log(`ok - no default arm, no invented field, and nothing that cannot be re-verified (${checks} checks)`);
+{
+  const snapshot = { kind: 'archive', slot: 493802534,
+    cluster: { name: 'devnet', genesisHash: 'EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG' },
+    addresses: { core: 'ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL', timepin: 'C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp', shot: 'wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz' },
+    checks: { accountIdentity: true, logProvenance: true, resultEconomics: false, historyCommitment: false },
+    receipt: { transaction: { signature: '1'.repeat(88), slot: 493802534 }, provenance: { coreProgram: 'test fixture' },
+      event: { nonce: 0n, player: new Uint8Array(32), result: { state: 4, side: 1, pBps: 6000, stake: 100n } } } };
+  const saved = saveReaderResult(snapshot);
+  eq(saved.format, 'ratchetx-g2-archive', 'closed Shot must use an archive export');
+  ok(!saved.verify.command.includes(' account '), 'archive command cannot fetch the closed Shot');
+  ok(JSON.stringify(saved).includes('"stake":"100"'), 'compact archive integers must serialize exactly');
+  ok(!/were right|were wrong/.test(sentenceForResult(snapshot)), 'archive without hit cannot invent a score');
+  checks++; assert.throws(() => saveReaderResult({ ...snapshot, kind: 'unavailable' }), /missing Shot/);
+}
+console.log(`ok - source direction, exact prices, JSON-safe snapshot and explicit archive limits (${checks} HOST checks)`);
