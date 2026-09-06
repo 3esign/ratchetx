@@ -1,17 +1,6 @@
-//! Manual transaction encodings against the exact final Timepin v2 SBF.
-//! Exercises the terminal lifecycle beyond `capture_first`: a genuine second
-//! observation forcing AMBIGUOUS via `capture_conflict`, `finalize` closing a
-//! CANDIDATE Need after its capture window, and `expire` closing an
-//! unanswered OPEN Need after the same deadline. Mirrors the harness in
-//! `registration_open.rs` so it drops into the same `svm-tests` crate.
-//!
-//! Deliberately does NOT assert `TimepinNeedV2`'s total account length or any
-//! offset past `candidate_b_hash` (byte 132): as of 2026-09-05 the team has an
-//! open, undecided question (ROOM.md, OpusB 16:20Z) about whether the account
-//! grows to 268 bytes for an inline observation or stays at 124 payload bytes
-//! behind `CandidateV2`. Every assertion here only touches the header
-//! (`state` at offset 11, `candidate_a_hash`/`candidate_b_hash` at 68..132),
-//! which is identical either way.
+//! Exact-SBF lifecycle: earlier captures replace later ones; later challengers
+//! roll back; finalize and expiry enforce the capture deadline. Need state and
+//! candidate hashes are checked at their declared account offsets.
 
 use litesvm::LiteSVM;
 use sha2::{Digest, Sha256};
@@ -64,7 +53,6 @@ const HISTORICAL_TIMEPIN_ID: &str = "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx
 const NEED_OPEN: u8 = 0;
 const NEED_CANDIDATE: u8 = 1;
 const NEED_FINAL: u8 = 2;
-const NEED_AMBIGUOUS: u8 = 3;
 const NEED_EXPIRED: u8 = 4;
 
 fn program_id() -> Pubkey {
@@ -617,63 +605,41 @@ impl World {
 }
 
 #[test]
-fn conflict_second_message_terminalizes_ambiguous_and_locks_the_need() {
+fn conflict_total_order_rejects_later_replaces_earlier_and_finalizes() {
     let mut world = World::new();
     let (_args, spec_hash) = world.register_and_open();
     world.set_clock(TARGET, CAPTURE_SLOT);
     let accounts = world.generation_accounts();
 
-    let hash_a = world.put_price_at(12_345_678, REGISTERED_SLOT + 1);
-    world
-        .send(world.capture_first_ix(spec_hash, hash_a, accounts))
-        .unwrap();
+    let hash_a = world.put_price_at(12_345_678, REGISTERED_SLOT + 2);
+    world.send(world.capture_first_ix(spec_hash, hash_a, accounts)).unwrap();
     assert_eq!(world.need_state(&spec_hash), NEED_CANDIDATE);
-
-    // Duplicate through capture_first is fine and does not move the state.
-    world
-        .send(world.capture_first_ix(spec_hash, hash_a, accounts))
-        .unwrap();
-    assert_eq!(world.need_state(&spec_hash), NEED_CANDIDATE);
+    world.send(world.capture_first_ix(spec_hash, hash_a, accounts)).unwrap();
     assert_eq!(world.need_hashes(&spec_hash), (hash_a, [0u8; 32]));
 
-    // A second, genuinely different message through capture_first is refused:
-    // the state machine insists on capture_conflict for that case.
-    let hash_b = world.put_price_at(99_999_999, REGISTERED_SLOT + 2);
-    let error = world
-        .send(world.capture_first_ix(spec_hash, hash_b, accounts))
-        .unwrap_err();
-    assert!(
-        error.contains("a different message must use capture_conflict"),
-        "{error}"
-    );
-    assert_eq!(world.need_state(&spec_hash), NEED_CANDIDATE);
+    let hash_b = world.put_price_at(99_999_999, REGISTERED_SLOT + 3);
+    let error = world.send(world.capture_first_ix(spec_hash, hash_b, accounts)).unwrap_err();
+    assert!(error.contains("a different message must use capture_conflict"), "{error}");
     assert_eq!(world.need_hashes(&spec_hash), (hash_a, [0u8; 32]));
 
-    // The genuine conflict: capture_conflict resolves to AMBIGUOUS and sorts
-    // the two hashes by byte value, independent of arrival order.
-    world
-        .send(world.capture_conflict_ix(spec_hash, hash_a, hash_b, accounts))
-        .unwrap();
-    assert_eq!(world.need_state(&spec_hash), NEED_AMBIGUOUS);
-    let (stored_a, stored_b) = world.need_hashes(&spec_hash);
-    let (expected_a, expected_b) = if hash_a < hash_b {
-        (hash_a, hash_b)
-    } else {
-        (hash_b, hash_a)
-    };
-    assert_eq!((stored_a, stored_b), (expected_a, expected_b));
+    // Equal publication times compare by posted slot: a later print must lose.
+    let error = world.send(world.capture_conflict_ix(spec_hash, hash_a, hash_b, accounts)).unwrap_err();
+    assert!(error.contains("a later print cannot replace an earlier admissible capture"), "{error}");
+    assert_eq!(world.need_state(&spec_hash), NEED_CANDIDATE);
+    assert_eq!(world.need_hashes(&spec_hash), (hash_a, [0u8; 32]));
+    let need_key = need_address(&spec_hash, TARGET).0;
+    assert!(world.svm.get_account(&candidate_address(&need_key, &hash_b).0).is_none());
 
-    // AMBIGUOUS is terminal: neither capture_first nor a fresh capture_conflict
-    // may touch it again.
-    let hash_c = world.put_price_at(55_555_555, REGISTERED_SLOT + 3);
-    let error = world
-        .send(world.capture_first_ix(spec_hash, hash_c, accounts))
-        .unwrap_err();
-    assert!(
-        error.contains("Need is terminal or incompatible with this instruction"),
-        "{error}"
-    );
-    assert_eq!(world.need_state(&spec_hash), NEED_AMBIGUOUS);
+    // An earlier admissible posted slot replaces the incumbent without ambiguity.
+    let hash_c = world.put_price_at(55_555_555, REGISTERED_SLOT + 1);
+    world.send(world.capture_conflict_ix(spec_hash, hash_a, hash_c, accounts)).unwrap();
+    assert_eq!(world.need_state(&spec_hash), NEED_CANDIDATE);
+    assert_eq!(world.need_hashes(&spec_hash), (hash_c, [0u8; 32]));
+
+    world.set_clock(CAPTURE_DEADLINE, CAPTURE_SLOT + 1);
+    world.send(world.finalize_ix(spec_hash, hash_c)).unwrap();
+    assert_eq!(world.need_state(&spec_hash), NEED_FINAL);
+    assert_eq!(world.need_hashes(&spec_hash), (hash_c, [0u8; 32]));
 }
 
 #[test]

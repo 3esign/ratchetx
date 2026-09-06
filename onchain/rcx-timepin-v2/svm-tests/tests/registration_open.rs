@@ -245,6 +245,7 @@ fn receiver_config_data(configured_wormhole: Pubkey) -> Vec<u8> {
 
 #[derive(Clone)]
 struct SpecArgs {
+    adapter: u8,
     shard_id: u16,
     feed: [u8; 32],
     target_grid_seconds: u32,
@@ -257,9 +258,10 @@ struct SpecArgs {
 impl SpecArgs {
     fn canonical(config_data: &[u8]) -> Self {
         Self {
+            adapter: 1,
             shard_id: 0,
             feed: FEED,
-            target_grid_seconds: 60,
+            target_grid_seconds: 300,
             receiver_slot: RECEIVER_GENERATION_SLOT,
             config_hash: hashv(&[config_data]),
             wormhole: wormhole_id(),
@@ -270,7 +272,7 @@ impl SpecArgs {
     fn policy_bytes(&self) -> Vec<u8> {
         let mut out = Vec::with_capacity(134);
         out.extend_from_slice(&SCHEMA.to_le_bytes());
-        out.push(1);
+        out.push(self.adapter);
         out.extend_from_slice(receiver_id().as_ref());
         out.extend_from_slice(push_id().as_ref());
         out.extend_from_slice(&self.shard_id.to_le_bytes());
@@ -279,8 +281,8 @@ impl SpecArgs {
         out.extend_from_slice(&self.target_grid_seconds.to_le_bytes());
         out.extend_from_slice(&30u32.to_le_bytes());
         out.extend_from_slice(&3_600u32.to_le_bytes());
-        out.extend_from_slice(&120u32.to_le_bytes());
-        out.extend_from_slice(&120u32.to_le_bytes());
+        out.extend_from_slice(&(if self.adapter == 2 { 0u32 } else { 120u32 }).to_le_bytes());
+        out.extend_from_slice(&299u32.to_le_bytes());
         out.extend_from_slice(&60u32.to_le_bytes());
         out.extend_from_slice(&5u16.to_le_bytes());
         out.extend_from_slice(&(-12i8).to_le_bytes());
@@ -689,7 +691,7 @@ fn exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts() {
     let (need_key, need_bump) = need_address(&hash, TARGET);
     let need = world.svm.get_account(&need_key).unwrap();
     assert_eq!(need.owner, program_id());
-    assert_eq!(need.data.len(), 132);
+    assert_eq!(need.data.len(), 168);
     assert_eq!(&need.data[..8], &discriminator("account", "TimepinNeedV2"));
     assert_eq!(
         u16::from_le_bytes(need.data[8..10].try_into().unwrap()),
@@ -704,13 +706,15 @@ fn exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts() {
     );
     assert_eq!(
         i64::from_le_bytes(need.data[52..60].try_into().unwrap()),
-        TARGET + 120
+        TARGET + 299
     );
     assert_eq!(
         i64::from_le_bytes(need.data[60..68].try_into().unwrap()),
-        TARGET + 180
+        TARGET + 359
     );
     assert_eq!(&need.data[68..132], &[0u8; 64]);
+    assert_eq!(u32::from_le_bytes(need.data[132..136].try_into().unwrap()), 0);
+    assert_eq!(&need.data[136..168], world.actor.pubkey().as_ref());
 
     let stranger = Keypair::new();
     world
@@ -998,16 +1002,16 @@ fn exact_live_mainnet_snapshot_registers_opens_and_captures() {
     assert_eq!(prev_publish_time, publish_time - 1);
     assert!(posted_slot <= LIVE_SNAPSHOT_SLOT);
 
-    // The exact latest snapshot brackets its own second, not an arbitrary past
-    // minute boundary. A dedicated 1-second policy proves byte/runtime parity;
-    // production minute policies still have to capture immediately after target.
-    let target = publish_time;
+    // Preserve the exact public price bytes and exercise the mainnet MIN-CAPTURE
+    // policy: this print belongs to its 300-second target with lag 299.
+    let target = publish_time.div_euclid(300) * 300;
     let registration_slot = LIVE_RECEIVER_SLOT.max(LIVE_WORMHOLE_SLOT) + 1;
     assert!(registration_slot < posted_slot);
     let args = SpecArgs {
+        adapter: 2,
         shard_id: 0,
         feed: LIVE_SOL_FEED,
-        target_grid_seconds: 1,
+        target_grid_seconds: 300,
         receiver_slot: LIVE_RECEIVER_SLOT,
         config_hash: hashv(&[&config]),
         wormhole: live_wormhole,
@@ -1161,7 +1165,7 @@ fn exact_live_mainnet_snapshot_registers_opens_and_captures() {
         epoch_start_timestamp: target - 1_000,
         epoch: 1,
         leader_schedule_epoch: 1,
-        unix_timestamp: target,
+        unix_timestamp: publish_time,
     });
     let mut capture_data = discriminator("global", "capture_first").to_vec();
     capture_data.extend_from_slice(&message_hash);

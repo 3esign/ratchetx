@@ -1,6 +1,21 @@
 # Devnet first-deployment funding and legacy snapshot handoff
 
-Owner direction, 2026-09-06 local: complete the whole game on devnet, including the website and real transaction evidence; revisit mainnet funding later. No paid deploy, account reset, freeze, token distribution or key movement was performed in this review.
+Owner direction, 2026-09-06 local: complete the whole game on devnet, including the website and real transaction evidence; revisit mainnet funding later. Both accepted programs were deployed to devnet using faucet SOL. No mainnet transaction, account reset, freeze, token distribution or key movement was performed.
+
+## Current result: both programs deployed
+
+Owner confirmed two 5-SOL devnet faucet sends to the dedicated payer. The funded dry run passed, then the exact accepted Core and Timepin pair deployed successfully; runner exit 0. Full on-chain ProgramData payloads matched the accepted ELF bytes and SHA-256, with expected loader ownership, exact capacity and designated upgrade authority. Build-source hold was released after both readbacks.
+
+- Core ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL, ProgramData 6h8VdBWK8rjc8ZaPA64VxpVYRHJ91qRQhQEn4LkVbGfg, deployment slot 493790839. [Finalized deployment transaction](https://explorer.solana.com/tx/PTwri4oMaqHU465grPVKqnLdF8chPLByaiCTJRuESRV4K1i7s5R32fkFBCh7tY8kt7f173E8mB2f8zMoAyRHZ2H?cluster=devnet).
+- Timepin C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp, ProgramData BdkDZhs4MionjYMkmrRkY43VdKTR9XtVo1jbRc84EXMK, deployment slot 493790908. [Finalized deployment transaction](https://explorer.solana.com/tx/a8rx8Gvi15FcK3x7fdEymBWyRP9m96eeFEBewceD23r5LFeChPGPjXTq7aE9Zf34r261XDJKZ6JVSPXPa3HjPXQ?cluster=devnet).
+
+Finalized balance after deployment: **2.926672920 devnet SOL**. Structured evidence: docs/receipts/g2-devnet-deployment-20260906.json; original sanitized runner log: docs/receipts/devnet-deploy-windows-20260906.log. RPC independently returned successful finalized deployment transactions at the same recorded slots. The final deploy instruction fee shown per transaction is not the total upload cost: uploading includes many preceding transactions.
+
+The funding refusal below is historical and resolved. Build, B1, and deployment are complete. Actual bootstrap/claim/observer/game settlement plus website integration remain; the deployment signatures do not prove L1/L2 gameplay. Lead owns the callable bootstrap path and has the exact existing-protocol claim route; Astra 2/Gemini own site integration. Do not rerun the fresh-deployment command against these now-existing programs.
+
+## Confirmed deployment payer
+
+Use **wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz** for this G2 devnet release. Lead created the dedicated signer concurrently with the earlier CLI-default check. Its public key was independently derived with solana-keygen; its file is ignored/untracked. This supersedes the earlier 9R17... address. Select the dedicated signer explicitly for deployment; do not rely on CLI defaults. No key content is included here. Team and owner received this correction at 2026-09-05T23:09:31Z.
 
 ## First deployment funding
 
@@ -31,12 +46,24 @@ RX_MIGRATION_FREEZE stops new stakes while settlement/claims/payouts remain poss
 
 The public /api/snapshot preserves more namespaces but redacts open secrets and reads sequentially. Its restoration path intentionally void-refunds open games; it is not transparent migration. onchain/ratchet-core-g2/legacy-snapshot.mjs already builds G2 credits+XP claim data from reconciled rows plus cutover_slot, cluster_genesis_hash and migration_id. That does not define RCX token entitlements. scripts/airdrop_v2.mjs has a syntax error and is not a ready distribution script. Lead retained snapshot/export ownership; no duplicate export occurred.
 
-## Validation and build result
+## Validation and current handoff
 
-The corrected funding helper and preflight passed 13 rent tests plus 45 preflight checks (14 Node test entries total), zero skips; independent review reran them. Controls include a payer between exact and double-capacity thresholds, RPC failure, wrong cluster, missing artifacts and offline estimates.
+The corrected funding helper and preflight passed 13 rent tests plus 45 preflight checks (14 Node test entries total), zero skips. The deployment runner and plan passed 33 related tests; the final program-key custody-path correction passed 19 focused tests. Independent reviews found no blocker in these owned changes.
 
-A fresh canonical Windows --ci build produced both unchanged artifact hashes above, passed strict verifiers and Timepin vector --check, then stopped on Timepin conflict_finalize_expire (3 passed, 1 failed). The failing test expects obsolete AMBIGUOUS behavior after the accepted S1 total-order rule. The current receipt remains FAIL. Previously delivered fixture proposal 4c6ca11 covers the policy alignment; Lead was notified. This review does not certify devnet readiness.
+A fresh canonical Windows build with --ci completed successfully on 2026-09-05 at approximately 23:44 UTC: both exact artifacts above were rebuilt, ELF/identity/SHA verifiers passed, Timepin vector --check passed, Timepin ran 14 tests (4 conflict, 6 malformed-state, 4 registration) and Core ran 16 tests, with zero ignored or filtered tests. The three Timepin fixture files now match the accepted S1 total-order rule, valid grid/lag constraints and actual Anchor argument-prefix behavior. No program source or public Pyth fixture bytes changed.
 
-Follow-up: actual corrected preflight CLI on devnet passed with current quotes. The verified existing local fee-payer public key is 9R17sG7w5b4w4DYkXAGAxDGKM4ktAToum3L31VJgkJUy, independently derived with solana address and solana-keygen pubkey against the configured signer; no key was copied or generated. Its observed balance was 1.407959487 devnet SOL. Team and owner received this same address for faucet funding.
+The canonical receipt at docs/receipts/g2-build-artifacts.json is PASS and BUILT, SHA-256 06bdb71f82e53b880a03e3584c7fdc02fd587415ca29c1b3ed11efcec7a1c991. The separate strict checker also returned PASS, receiptStatus PASS and runtimeEvidenceChecked true, saved at docs/receipts/b1-strict-windows-20260906.json. That checker verifies recorded runtime evidence; it does not itself execute the SBF tests. This supersedes the earlier failed Timepin attempt. The separate core-current-source.json remains historical evidence of the earlier Core-only run. CI mode did not run the full JavaScript release gate.
 
-A separate current-source Core exact-SBF run passed all16 tests,0ignored/filtered; source and artifact hashes were checked before/after. Its evidence is core-current-source.json. It does not replace the canonical failed Timepin run or make B1 pass.
+The accepted public artifact copies are under _to_delete/public-build-handoff/<sha256>/<filename>; the canonical build also holds copies in the Windows content-addressed temporary cache recorded by its receipt. Preserve both accepted copies until the deployment handoff is complete. Deployment always rechecks the PASS receipt, current source hashes and exact artifact bytes.
+
+Actual deployment dry run on 2026-09-05 at approximately 23:49 UTC verified devnet genesis through RPC and CLI, the strict PASS receipt, both artifact hashes and the existing program signers. Timepin uses onchain/rcx-timepin-v2/timepin-v2-keypair.json, whose derived public key is C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp. The similarly named target/deploy key derives FNc5ezEgW9Z4vRvgsmgMQV46YQfoMvR8KYuq9A7qU9Ge and is deliberately not used. No signer was generated, copied, moved or published by this work.
+
+The dry run then refused funding: the dedicated wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz payer held 0 lamports. Actual RPC rent was 7.06641208 devnet SOL; required total with the runner's 0.05 SOL fee allowance was 7.11641208 SOL. This allowance is a planning reserve, not a measured transaction charge; gameplay account rent is additional. No deployment transaction was sent. One earlier CLI faucet request failed with a possible rate-limit response.
+
+Historical command used for this successful deployment (do not rerun against existing programs):
+
+    node ops/g2-deploy/deploy-devnet.mjs --cache-root _to_delete/public-build-handoff --payer ops/g2-deploy/keys/devnet-payer.json --execute
+
+Use Node 22.20.0 on the Windows build host. Omit --execute for the dry run. The runner refuses an existing program rather than silently upgrading or resuming, and verifies actual Program/ProgramData ownership, authority, exact capacity and complete deployed ELF bytes after each successful send. It does not log potentially sensitive raw CLI failure output or close buffers indiscriminately.
+
+Build/B1 and devnet program deployment are complete. Fresh-ledger credits, live bootstrap/observer/settlement signatures and the website flow remain separate outstanding work. A bootstrap plan alone is not a sent transaction; a fresh ledger starts with zero credits and requires the existing claim_legacy path with a valid devnet-bound nonzero root/proof before a funded seal. Lead owns that bootstrap path; Astra 2 and Gemini own website integration. Mainnet remains deferred.

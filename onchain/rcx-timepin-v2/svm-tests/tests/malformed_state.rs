@@ -279,8 +279,8 @@ impl SpecArgs {
         out.extend_from_slice(&self.target_grid_seconds.to_le_bytes());
         out.extend_from_slice(&30u32.to_le_bytes());
         out.extend_from_slice(&3_600u32.to_le_bytes());
-        out.extend_from_slice(&120u32.to_le_bytes());
-        out.extend_from_slice(&120u32.to_le_bytes());
+        out.extend_from_slice(&120u32.to_le_bytes()); // max pre-target gap
+        out.extend_from_slice(&(self.target_grid_seconds - 1).to_le_bytes()); // non-overlapping post-target window
         out.extend_from_slice(&60u32.to_le_bytes());
         out.extend_from_slice(&5u16.to_le_bytes());
         out.extend_from_slice(&(-12i8).to_le_bytes());
@@ -652,17 +652,39 @@ fn assert_no_spec(world: &World, args: &SpecArgs) {
         .is_none());
 }
 #[test]
-fn register_fails_with_trailing_bytes() {
+fn register_rejects_truncated_arguments_without_creating_spec() {
     let mut world = World::new();
     let args = SpecArgs::canonical(&world.config_data);
-    let accounts = world.generation_accounts();
-
-    let mut ix = world.register_ix(&args, accounts.clone());
-    ix.data.push(0x00); // Trailing byte
-
+    let mut ix = world.register_ix(&args, world.generation_accounts());
+    ix.data.pop();
     let actor = world.actor.insecure_clone();
     let err = world.send_as(ix, &actor).unwrap_err();
-    assert!(err.contains("InstructionFallbackNotFound") || err.contains("InstructionError"));
+    assert!(err.contains("InstructionDidNotDeserialize"), "{err}");
+    assert_no_spec(&world, &args);
+}
+
+#[test]
+fn register_ignores_trailing_bytes_without_changing_spec() {
+    // Anchor 1.1.2 decodes the complete argument prefix; trailing bytes are not
+    // a rejection rule. Compare actual registered state against canonical input.
+    let mut canonical = World::new();
+    let mut suffixed = World::new();
+    suffixed.actor = canonical.actor.insecure_clone();
+    suffixed.svm.set_account(canonical.actor.pubkey(),
+        canonical.svm.get_account(&canonical.actor.pubkey()).unwrap()).unwrap();
+    let args = SpecArgs::canonical(&canonical.config_data);
+    let control = canonical.register_ix(&args, canonical.generation_accounts());
+    let mut padded = suffixed.register_ix(&args, suffixed.generation_accounts());
+    padded.data.extend_from_slice(&[0x00, 0xa5, 0xff]);
+    let signer = canonical.actor.insecure_clone();
+    canonical.send_as(control, &signer).unwrap();
+    suffixed.send_as(padded, &signer).unwrap();
+    let address = spec_address(&args.spec_hash()).0;
+    let expected = canonical.svm.get_account(&address).unwrap();
+    let actual = suffixed.svm.get_account(&address).unwrap();
+    assert_eq!(actual.owner, program_id());
+    assert_eq!(actual.data, expected.data);
+    assert_eq!(actual.lamports, expected.lamports);
 }
 
 #[test]

@@ -1,0 +1,201 @@
+{
+  "schema": 1,
+  "kind": "g2-devnet-independent-finalized-readback",
+  "status": "PASS",
+  "verifiedAt": "2026-09-06T00:05:22.474Z",
+  "scope": "Independent public RPC verification of deployed program bytes and deployment transactions. No game lifecycle was executed.",
+  "verificationHost": {
+    "platform": "win32",
+    "architecture": "x64",
+    "osRelease": "10.0.26200",
+    "nodeVersion": "v22.20.0",
+    "nodeExecutable": "C:\\Users\\treed\\AppData\\Roaming\\fnm\\node-versions\\v22.20.0\\installation\\node.exe",
+    "workspace": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean"
+  },
+  "rpc": {
+    "url": "https://api.devnet.solana.com",
+    "accountAndTransactionCommitment": "finalized",
+    "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+    "genesisResponseSha256": "9d0f36530a5526131672857c8ff1d2b6dbcbab3e18f347161fc36b2c3a0825c3"
+  },
+  "deploymentReceipt": {
+    "path": "docs\\receipts\\g2-devnet-deployment-20260906.json",
+    "sha256": "d2b6f0d7cedae3c5709a89010ccbae1d21b3d302eef6f90a20f9c9ea15c9f220"
+  },
+  "acceptedBuildReceipt": {
+    "path": "docs\\receipts\\g2-build-artifacts.json",
+    "sha256": "06bdb71f82e53b880a03e3584c7fdc02fd587415ca29c1b3ed11efcec7a1c991",
+    "status": "PASS"
+  },
+  "programs": [
+    {
+      "name": "timepin",
+      "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+      "programDataAddress": "BdkDZhs4MionjYMkmrRkY43VdKTR9XtVo1jbRc84EXMK",
+      "program": {
+        "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "executable": true,
+        "state": 2,
+        "size": 36,
+        "finalizedContextSlot": 493793084,
+        "responseSha256": "be144cbb318a880a98790157997d6e899f03d5732e16f9e88d00b5628676f951"
+      },
+      "programData": {
+        "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "executable": false,
+        "state": 3,
+        "size": 375989,
+        "metadataBytes": 45,
+        "elfCapacityBytes": 375944,
+        "upgradeAuthority": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+        "deploymentSlot": "493790908",
+        "finalizedContextSlot": 493793084,
+        "responseSha256": "2416303ac59f0e8e6f830ac5d9b9e8927dc3098d682251e3a4879a5b444abac0"
+      },
+      "artifact": {
+        "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+        "size": 375944,
+        "localPath": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\_to_delete\\public-build-handoff\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+        "matchesDeploymentReceipt": true,
+        "matchesAcceptedBuildReceipt": true,
+        "fullBytesEqualLocalArtifact": true
+      },
+      "transaction": {
+        "signature": "a8rx8Gvi15FcK3x7fdEymBWyRP9m96eeFEBewceD23r5LFeChPGPjXTq7aE9Zf34r261XDJKZ6JVSPXPa3HjPXQ",
+        "slot": 493790908,
+        "blockTime": 1788652755,
+        "err": null,
+        "feeLamports": 10000,
+        "payer": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+        "loaderInstruction": "DeployWithMaxDataLen",
+        "maxDataLen": 375944,
+        "programAndProgramDataMatch": true,
+        "upgradeAuthority": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+        "rpcCommitment": "finalized",
+        "responseSha256": "d46ca558346924a32edee7d83186f975247facd8ea239f4626c6dd25bef17234",
+        "confirmationStatus": "finalized",
+        "statusResponseSha256": "507e3df55b4d414661c01753babd3767b5e8d438be6e5b86d3d6daaaf572be34"
+      }
+    },
+    {
+      "name": "core",
+      "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+      "programDataAddress": "6h8VdBWK8rjc8ZaPA64VxpVYRHJ91qRQhQEn4LkVbGfg",
+      "program": {
+        "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "executable": true,
+        "state": 2,
+        "size": 36,
+        "finalizedContextSlot": 493793084,
+        "responseSha256": "983de8939173e3b2dff63e53df1228168e8ac9a06975095b5b00cad3fdcebcdc"
+      },
+      "programData": {
+        "owner": "BPFLoaderUpgradeab1e11111111111111111111111",
+        "executable": false,
+        "state": 3,
+        "size": 1014453,
+        "metadataBytes": 45,
+        "elfCapacityBytes": 1014408,
+        "upgradeAuthority": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+        "deploymentSlot": "493790839",
+        "finalizedContextSlot": 493793084,
+        "responseSha256": "7166b5441f02ab8c12f8f293f3514eb9007a67943912f15a80c47a8ca8ea4e29"
+      },
+      "artifact": {
+        "sha256": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d",
+        "size": 1014408,
+        "localPath": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\_to_delete\\public-build-handoff\\a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d\\ratchet_core_g2.so",
+        "matchesDeploymentReceipt": true,
+        "matchesAcceptedBuildReceipt": true,
+        "fullBytesEqualLocalArtifact": true
+      },
+      "transaction": {
+        "signature": "PTwri4oMaqHU465grPVKqnLdF8chPLByaiCTJRuESRV4K1i7s5R32fkFBCh7tY8kt7f173E8mB2f8zMoAyRHZ2H",
+        "slot": 493790839,
+        "blockTime": 1788652743,
+        "err": null,
+        "feeLamports": 10000,
+        "payer": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+        "loaderInstruction": "DeployWithMaxDataLen",
+        "maxDataLen": 1014408,
+        "programAndProgramDataMatch": true,
+        "upgradeAuthority": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+        "rpcCommitment": "finalized",
+        "responseSha256": "773c7bd3fbad7b46294c5c6c8af45bf8479ac69b67be23f3818b6e5f2471b1da",
+        "confirmationStatus": "finalized",
+        "statusResponseSha256": "507e3df55b4d414661c01753babd3767b5e8d438be6e5b86d3d6daaaf572be34"
+      }
+    }
+  ],
+  "rpcEvidence": [
+    {
+      "method": "getGenesisHash",
+      "requestedAt": "2026-09-06T00:05:20.801Z",
+      "receivedAt": "2026-09-06T00:05:21.397Z",
+      "responseSha256": "9d0f36530a5526131672857c8ff1d2b6dbcbab3e18f347161fc36b2c3a0825c3",
+      "responseBytes": 81
+    },
+    {
+      "method": "getSignatureStatuses",
+      "requestedAt": "2026-09-06T00:05:21.408Z",
+      "receivedAt": "2026-09-06T00:05:21.538Z",
+      "responseSha256": "507e3df55b4d414661c01753babd3767b5e8d438be6e5b86d3d6daaaf572be34",
+      "responseBytes": 313
+    },
+    {
+      "method": "getAccountInfo",
+      "requestedAt": "2026-09-06T00:05:21.415Z",
+      "receivedAt": "2026-09-06T00:05:21.756Z",
+      "responseSha256": "be144cbb318a880a98790157997d6e899f03d5732e16f9e88d00b5628676f951",
+      "responseBytes": 306
+    },
+    {
+      "method": "getAccountInfo",
+      "requestedAt": "2026-09-06T00:05:21.417Z",
+      "receivedAt": "2026-09-06T00:05:21.782Z",
+      "responseSha256": "983de8939173e3b2dff63e53df1228168e8ac9a06975095b5b00cad3fdcebcdc",
+      "responseBytes": 306
+    },
+    {
+      "method": "getTransaction",
+      "requestedAt": "2026-09-06T00:05:21.773Z",
+      "receivedAt": "2026-09-06T00:05:21.886Z",
+      "responseSha256": "d46ca558346924a32edee7d83186f975247facd8ea239f4626c6dd25bef17234",
+      "responseBytes": 2062
+    },
+    {
+      "method": "getTransaction",
+      "requestedAt": "2026-09-06T00:05:21.787Z",
+      "receivedAt": "2026-09-06T00:05:22.147Z",
+      "responseSha256": "773c7bd3fbad7b46294c5c6c8af45bf8479ac69b67be23f3818b6e5f2471b1da",
+      "responseBytes": 2061
+    },
+    {
+      "method": "getAccountInfo",
+      "requestedAt": "2026-09-06T00:05:21.771Z",
+      "receivedAt": "2026-09-06T00:05:22.246Z",
+      "responseSha256": "2416303ac59f0e8e6f830ac5d9b9e8927dc3098d682251e3a4879a5b444abac0",
+      "responseBytes": 501587
+    },
+    {
+      "method": "getAccountInfo",
+      "requestedAt": "2026-09-06T00:05:21.786Z",
+      "receivedAt": "2026-09-06T00:05:22.455Z",
+      "responseSha256": "7166b5441f02ab8c12f8f293f3514eb9007a67943912f15a80c47a8ca8ea4e29",
+      "responseBytes": 1352872
+    }
+  ],
+  "unchangedInputs": {
+    "deploymentReceipt": true,
+    "acceptedBuildReceipt": true,
+    "localArtifacts": true
+  },
+  "effects": {
+    "transactionSends": 0,
+    "keyFilesRead": 0,
+    "codeFilesChanged": 0,
+    "createdFiles": [
+      "docs\\receipts\\g2-devnet-independent-readback-20260906.json"
+    ]
+  }
+}
