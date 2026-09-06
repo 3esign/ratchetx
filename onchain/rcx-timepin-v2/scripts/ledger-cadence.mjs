@@ -351,7 +351,7 @@ export async function walkPayer({
   fetchImpl = globalThis.fetch, log = console.log, skipCoverageCheck = false,
 } = {}) {
   const feedTable = feeds ?? gameFeeds();
-  if (!skipCoverageCheck) {
+  if (!skipCoverageCheck && !force) {
     // EVERY feed, not the first one. A payer that posts SOL is not thereby the
     // payer that posts WIF, and a walk that assumes so returns an empty
     // measurement for the feeds it does not cover - which is worse than an error,
