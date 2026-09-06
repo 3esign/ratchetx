@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "scope": "DEVNET_TEST_CREDITS_ONLY",
+  "clusterGenesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "programs": {
+    "core": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+    "timepin": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp"
+  },
+  "economyHash": "fc48abc784516fa5cd30a4b4220ef2adbf4d079b9bfad72e75830737fedd61c4",
+  "rulesetHash": "a48816b847c6179f7fab9b4835c26321d9a1c0a577d63bce502d51bbe79f81dd",
+  "evidenceSpecHash": "04fff562f961f5f88404fd413a63048ad2cacdac5c814d3e2dd036c2859c8515",
+  "market": {
+    "symbol": "SOL"
+  },
+  "watchPlayer": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+  "watchNonce": "0",
+  "legacySnapshot": {
+    "claims": [
+      {
+        "index": 0,
+        "wallet": "wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz",
+        "player_hex": "0de931ecb1bebfb3c4d4053a6c5acf2c6a57bce0b31cb4f861b8607a5cf0e301",
+        "credits": "10000",
+        "xp": "0",
+        "leaf": "2721ddb67f0cda6133c8cfa423141a55cdc59d87d4b42ea50f2437ed170f6053",
+        "proof": []
+      }
+    ]
+  },
+  "registration": [
+    {
+      "step": "register_evidence_spec",
+      "signature": "gzAzkr3HgKVwqXxPbEzz2XRu2WQwUa4FQeQqijFsKrb8NAvv1CkVZkpnZTuuQ9ED1vJ1yrdZW5YCTaUyQGxdq5s"
+    },
+    {
+      "step": "register_economy",
+      "signature": "47Y5nNxns5pGjdxErWEaAy6Wn8Cahco9E77tPN3YsZzKycPKVXncbGVwe1ErKf4MDizVeJRD7npL6h4eEhNTZ1bE"
+    },
+    {
+      "step": "register_ruleset",
+      "signature": "3urYxiRdRsFPdFEWP8PuJVGWGyRMfgXxzFTqMPi49kvAyUf3Qe7yKdP7vQCee9jFuZ6dy2FkbcQUXV61eVMxke43"
+    },
+    {
+      "step": "claim_legacy",
+      "signature": "1yxPSDAqmh9v1FadwznRtifcVjbefuxubUWfqn7kg1PdzezwK8vdGZ9iLUCejPn94nBhGNAmEqsSiig3mPUD2on"
+    },
+    {
+      "step": "open_history_page",
+      "signature": "3YFniaHRTRbb3UxkpgTAfSvTaaXMPRXN9UZeQ6gUses4YD9rpf1ggY7ReQDGRVPq4y1WebxbgMynvTWYvELRvV8a"
+    }
+  ],
+  "preparedAt": "2026-09-06T00:23:16.135Z",
+  "admission": {
+    "enabled": true,
+    "reason": "The live keeper completed a second controller-created game through both Pyth captures, settlement and player reveal. Existing test-credit wallets may seal; no general allocation is open."
+  }
+}

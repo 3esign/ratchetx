@@ -1,0 +1,113 @@
+# Public devnet keeper
+
+The public keeper advances existing RatchetX G2 shots with any operator's own
+Solana fee payer. It can run on an independent machine or host; no Svemir account,
+player key, reveal salt, Bankr API, Supabase or Upstash is used by this entrypoint.
+Use Node **20.18.0 or newer**; Node 22 is recommended. The repository's existing
+locked dependencies are required; this patch adds none. A fresh checkout needs
+the published keeper branch, because the older main branch does not include it:
+
+```text
+git clone --single-branch --branch codex/g2-public-keeper https://github.com/3esign/ratchetx.git
+cd ratchetx
+npm ci --omit=dev
+```
+
+Use the committed lockfile. This is a source distribution, not a claim that an
+operator service or a new website deployment is running.
+
+## Read-only first
+
+From the repository root, choose an operator **public key** and explicit RPC:
+
+```text
+node ops/g2-crank/live.mjs --rpc <DEVNET_RPC_URL> --operator <OPERATOR_PUBLIC_KEY>
+```
+
+Dry-run is the default. It reads and validates chain state and prints the next
+maintenance action, if any. It does not load a keypair, sign, simulate, send or
+write a journal. Add `--watch` to repeat read-only sweeps. A funded operator is
+needed only for sending.
+
+## Sending maintenance
+
+```text
+node ops/g2-crank/live.mjs --rpc <DEVNET_RPC_URL> --operator <OPERATOR_PUBLIC_KEY> --send --keypair <OPERATOR_KEYPAIR_PATH> --journal <NEW_PUBLIC_KEEPER_JOURNAL_PATH> --watch
+```
+
+The named keypair must match the selected public key. Use a dedicated operator
+and a persistent **local** journal directory you control; create its parent
+directory first. No keypair is searched for or inferred. Do not put a keypair in
+the repository or a public/shared folder. The journal contains public maintenance
+transactions and operator/game identities, never a player secret.
+
+Every run validates devnet genesis, the two pinned program addresses and deployed
+program accounts, the configured economy/ruleset/evidence hashes and their actual
+onchain account relationships. Pyth source ownership and generation are still
+checked. Selecting a different operator does not change those pins.
+
+Available actions are 10 public instructions: Timepin `capture_first`, `capture_conflict`, `finalize`, `expire`; Core `activate_entry`, `settle_final`, `void_pending_entry`, `void_active_shot`, `finalize_resolved_void`, `forfeit`. Onchain rules determine eligibility, result and
+destinations. Core rent refunds remain the shot's frozen destination; any cleanup
+bond paid to the actor goes to the selected operator. This command does not seal
+shots, choose a prediction, reveal, issue credits, or distribute RCX.
+
+## Migration and interruption
+
+The old command now needs `--operator`. Its schema-1 bootstrap journal is rejected
+intentionally. Use a separate schema-2 public keeper journal; it binds purpose,
+operator, genesis, both programs and all three game hashes. Do not rename or
+silently upgrade the old journal. First reconcile any old pending signature and
+ensure the old process has stopped before migrating that operator. Updating
+source files does not update a process that is already running.
+
+A single writer lock is acquired **before** the journal is loaded. After an
+unclean exit, inspect the recorded PID and confirm that process has stopped before
+removing its stale `.lock` file. Preserve the journal itself and restart using the
+same operator, path and pins. There is no automatic stale-lock takeover or
+multi-host failover guarantee.
+
+Simulation sends an unsigned transaction. Only after it succeeds are the exact
+signed bytes, signature, blockhash and validity height saved with file fsync and
+atomic rename, before any broadcast. Restart validates the saved signature,
+operator, maintenance instruction, subject and pinned accounts before reuse.
+An uncertain response leaves that transaction pending; retries send the same
+bytes without obtaining another blockhash or signing another operation. Dry-run
+never rebroadcasts even when reading a pending journal.
+
+Confirmed success is an RPC observation, not finality. A confirmed error remains
+pending until it finalizes; only then is it recorded as failed. If a signature is
+unobserved after the RPC's finalized block height passes its validity window, it
+is recorded as **expired-unobserved**, not failed. The next sweep reads current
+onchain accounts before planning anything further. Missing transaction history
+does not prove that an earlier transaction never landed.
+
+Use a filesystem with atomic rename. The file is flushed before rename; POSIX
+also flushes the directory. Node cannot guarantee directory fsync on Windows.
+This is not a claim of recovery from every power-loss, disk or RPC failure.
+
+## Current bounds
+
+This entrypoint retains its devnet safeguards: at most 50 concurrent shots, a
+0.05 SOL balance floor, a 0.25 SOL net-balance decrease guard relative to the
+journal's first run, and fewer than 300 completed/expired-unobserved records
+before preparing another transaction. Refunds and added funds affect the
+net-balance guard; it is not an accounting cap on total lifetime fees.
+
+Permissionless means another operator can submit these same validated public
+actions. It does not guarantee that someone stays online, captures every eligible
+Pyth update, or that a public RPC remains available. Players still need to reveal
+their committed prediction on time; that private reveal dependency is unchanged.
+No independent operator has been claimed live merely because this patch passes
+its local tests.
+
+## Focused offline checks
+
+```text
+node --test test/test_g2_public_keeper.mjs
+```
+
+The fixtures use synthetic signers held only in memory and stub RPC connections.
+They cover operator substitution in all maintained actions, chain/journal
+mismatches, exact signed-byte recovery, persistence failures, and honest handling
+of unobserved expiration. They are not a new devnet transaction or operator
+availability demonstration.
