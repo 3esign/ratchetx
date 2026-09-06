@@ -77,3 +77,5 @@ Fixed public first-game evidence: docs/receipts/g2-devnet-first-shot-nonce0-2026
 The real executor passes 17 focused offline tests, and the separate verifier passes 41 offline checks plus the actual finalized run. The agreed grid 300, lag 299 and grace 900 were unchanged. The verified first game does not certify live negative-path coverage, arbitrary-player credit enrollment, a persistent public keeper or the published website.
 
 The authoritative current owner/status handoff is docs/DEVNET_CHECKPOINT_20260906.md. Astra 2 owns website/browser publication and chain/archive display. Lead owns public enrollment, assigning the existing generic crank wiring to one owner, production snapshot reconciliation and remaining release acceptance. Mainnet remains deferred; no additional funding/address request is needed for this devnet work.
+
+Completed executor/evidence commit: **2b00fc4**, 15 owned files. The post-commit gate passed **21/21**, exit 0, at 2026-09-06T01:26:23.586Z. Exact output is preserved in docs/receipts/g2-devnet-final-gate-20260906.json; public browser acceptance remains separate as described above.

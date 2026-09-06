@@ -15,6 +15,8 @@ The confirmed deployment payer is wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz. T
 - Independent finalized verification PASS at 2026-09-06T01:21:50.931Z: native Ed25519 verification of eight lifecycle transactions, both selected Candidate preimages and Need terminalization events, exact game/row/history hashes, full ledger counters and closed Shot. The public proof retains raw accounts/transactions and RPC provenance.
 - [Final reveal transaction](https://explorer.solana.com/tx/41SRjy1VzX81YtsjeDmuGLpdtYUpN3cAzE2oNGx5KVExwRmj2ovG1Xw3sj1wmvLvKLYb6egYxjYnukbY224YAFmU?cluster=devnet). The browser must use this terminal signature to read the archive; settleSignature is not terminal.
 
+**Delivered in commit 2b00fc4** (15 owned files). The post-commit gate at 2026-09-06T01:26:23.586Z passed **21/21**, exit 0. Exact output: docs/receipts/g2-devnet-final-gate-20260906.json. This used existing source-bound runtime evidence and did not rerun Cargo.
+
 ## Evidence and reviewed code
 
 - docs/receipts/g2-devnet-first-shot-nonce0-20260906.json — fixed first-game receipt, SHA256 dd7cd31c8d110d4ea8ec6b15a452e6dc18b3a32adee4aabe4b025870514d059b.
