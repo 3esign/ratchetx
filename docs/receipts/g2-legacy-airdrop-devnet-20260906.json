@@ -1,0 +1,334 @@
+{
+  "format": "ratchetx-core-g2-legacy-snapshot",
+  "format_version": 2,
+  "hash_algorithm": "sha256",
+  "merkle_pair_order": "unsigned-byte-lexicographic",
+  "merkle_odd_node": "duplicate-self",
+  "core_program_id": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+  "core_schema_version": 2,
+  "cluster_genesis_hash": "ce59db5080fc2c6d3bcf7ca90712d3c2e5e6c28f27f0dfbb9953bdb0894c03ab",
+  "migration_id": "cf5ec198733c9e34559542a4f49a3c1f1d7df00addd9129e556d88ce4927f9f3",
+  "migration_label": "ratchetx legacy players, devnet rehearsal 2026-09-06",
+  "legacy_cutover_slot": 493799494,
+  "legacy_snapshot_hash": "4eb8a6a5ab522ef94fc7ec1060080c2b5310fe917d10442784b968905f038108",
+  "legacy_root": "036447d89929569304321d83ad440b364ea12952df1156619842a4afc756a57a",
+  "legacy_leaf_count": 17,
+  "legacy_total_credits": "4017817",
+  "legacy_total_xp": "20260",
+  "canonical_snapshot_byte_length": 956,
+  "source": {
+    "file": "merkle_tree.json",
+    "v1_root_ignored": "20bda66e57e53f42a69bfdf82d73aca7b7d1d54837a24b5affbea93a70b806f7",
+    "note": "The V1 root and its proofs are recorded and IGNORED. They were built by V1's rule (leaf = sha256(pubkey||credits||xp), no domains) and none of them verifies against G2.",
+    "excluded": {
+      "count": 47,
+      "rule": "lib/verify.js isDemo",
+      "wallets": [
+        "demo-009d2bf7f3be",
+        "demo-06176bdbf297",
+        "demo-1ffa7ee309f4",
+        "demo-22glzg",
+        "demo-301e30592c97",
+        "demo-30c42b1f5e81",
+        "demo-317f26826cf6",
+        "demo-347hmh",
+        "demo-41ea35bc740d",
+        "demo-4t18gs",
+        "demo-53b0a4a20b63",
+        "demo-55fe7753034f",
+        "demo-5a732a3b6cf3",
+        "demo-5c507b03b65d",
+        "demo-61qbsg",
+        "demo-65eae4684290",
+        "demo-7332ed8a540b",
+        "demo-7a746f7c42b1",
+        "demo-7b02481d995c",
+        "demo-7k6bmp",
+        "demo-7pzuzx",
+        "demo-8d81863132cd",
+        "demo-9ap461",
+        "demo-a58c7c",
+        "demo-a7429087221b",
+        "demo-a93843816297",
+        "demo-a94c8f7c78c4",
+        "demo-c1e9b5f75380",
+        "demo-d37e2a46a19c",
+        "demo-d61wu1",
+        "demo-da738cabd5c2",
+        "demo-dfp45m",
+        "demo-e602b16cc610",
+        "demo-e87ac88c1fb4",
+        "demo-fb0a7d041681",
+        "demo-h102",
+        "demo-iqh8lg",
+        "demo-l5eug7",
+        "demo-pf1nop",
+        "demo-s0hpkt",
+        "demo-v7nkqp",
+        "demo-vh6vsa",
+        "demo-wdc49q",
+        "demo-wvzb74",
+        "demo-yl9zeg",
+        "demo-yytds2",
+        "demo-z0gq1h"
+      ]
+    }
+  },
+  "claims": [
+    {
+      "index": 0,
+      "wallet": "bBMzr4cYSyp7gfrVgQnV652sEK8K8FKNNCkdgLufxGp",
+      "player_hex": "08c176c13307a20be5d17307db95f4e72bbb70a09ce55dba958f05ec8c3a8d21",
+      "credits": "630",
+      "xp": "50",
+      "leaf": "a834411de580f3be2af44c54fef523c80c3d322263104402e0662df12f5a03cb",
+      "proof": [
+        "eebc8ab518f77f48aaa16bd35120f1c3eb14e90ebfb0d45bdc72254cda217ab4",
+        "c391d1ed94c4655851383b6a7eb431c9eca327adba5400b970ac4b88ebce226a",
+        "50eda0f589612fa0736120d2bda9c8880d95b7fdd6808084eb37f54e6d458509",
+        "79cbe1efee2ff68a8905e395e244460e9ba7d5d83ace34651161dbd921a9df0e",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 1,
+      "wallet": "2vJaCxeYi43A9YHcaNgJpW6rhXPgV9x5jBy4BLToXRwB",
+      "player_hex": "1c8356d08d839883e26bb59d9cff811f986abe056691167a768f77401a94ce36",
+      "credits": "0",
+      "xp": "0",
+      "leaf": "eebc8ab518f77f48aaa16bd35120f1c3eb14e90ebfb0d45bdc72254cda217ab4",
+      "proof": [
+        "a834411de580f3be2af44c54fef523c80c3d322263104402e0662df12f5a03cb",
+        "c391d1ed94c4655851383b6a7eb431c9eca327adba5400b970ac4b88ebce226a",
+        "50eda0f589612fa0736120d2bda9c8880d95b7fdd6808084eb37f54e6d458509",
+        "79cbe1efee2ff68a8905e395e244460e9ba7d5d83ace34651161dbd921a9df0e",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 2,
+      "wallet": "4hbB8pj84rz1AKY8sEP4hteV3ytZMGY34wzubm8sV8Fw",
+      "player_hex": "36f8ef44c2505fde876e16624d82babcef96c090c7c44fc0922e0f39f805663e",
+      "credits": "5350",
+      "xp": "23",
+      "leaf": "c5c2cbcadd74491062ad0061033c7db2e70ca3396101bf445676faeb0102f79b",
+      "proof": [
+        "29d6b9d378a083de102bd833c60afa936bc6c7b43de69293e471f98db93a9fcc",
+        "a650bf715fb2962ca1658da8da585ba59ac2969c544d16bb31d38a2e960a23bd",
+        "50eda0f589612fa0736120d2bda9c8880d95b7fdd6808084eb37f54e6d458509",
+        "79cbe1efee2ff68a8905e395e244460e9ba7d5d83ace34651161dbd921a9df0e",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 3,
+      "wallet": "4ubVGj8FBgMCVt8eTMYtr27Y4UAT51eNgTfHTu1EZhvi",
+      "player_hex": "3a0c4206ce10a3b826685c418264d44d85e9eecd3902b495923c1af7353f9a9b",
+      "credits": "109497",
+      "xp": "267",
+      "leaf": "29d6b9d378a083de102bd833c60afa936bc6c7b43de69293e471f98db93a9fcc",
+      "proof": [
+        "c5c2cbcadd74491062ad0061033c7db2e70ca3396101bf445676faeb0102f79b",
+        "a650bf715fb2962ca1658da8da585ba59ac2969c544d16bb31d38a2e960a23bd",
+        "50eda0f589612fa0736120d2bda9c8880d95b7fdd6808084eb37f54e6d458509",
+        "79cbe1efee2ff68a8905e395e244460e9ba7d5d83ace34651161dbd921a9df0e",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 4,
+      "wallet": "5G8s7gT8bUWyf5yDMUtsZ6tXYw7nyuBaji79mQ5G4y1r",
+      "player_hex": "3f4f5a0cb848f4b8d23e5edbece91ef11e54d6fd2449824b3587c9c493628eb9",
+      "credits": "0",
+      "xp": "2",
+      "leaf": "d4e6432bc094d3a832d28232a1ec23714f0e49e6a15b6c9b826d9361306dba96",
+      "proof": [
+        "27bbd06fb6a73124eb7d5547c4cb15d7ff1a8080fba3e8367bb54b382b6bc1f4",
+        "546fba079e9133448398bc148d99c800734176dfe85d02ef21cea3a07ebfa580",
+        "6f5db8f5a952c7251812d1fbd77fb1315a963f0ed08bfe70908babafc7fcd97e",
+        "79cbe1efee2ff68a8905e395e244460e9ba7d5d83ace34651161dbd921a9df0e",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 5,
+      "wallet": "5GGCMJB5VxfavcopbSuYpwkXov2fKJ89XpPwF6ct4pAg",
+      "player_hex": "3f57a443ea1f32da0d8130cd7cf14ea889de01f26b11df867cd90f91c1739995",
+      "credits": "4500",
+      "xp": "1",
+      "leaf": "27bbd06fb6a73124eb7d5547c4cb15d7ff1a8080fba3e8367bb54b382b6bc1f4",
+      "proof": [
+        "d4e6432bc094d3a832d28232a1ec23714f0e49e6a15b6c9b826d9361306dba96",
+        "546fba079e9133448398bc148d99c800734176dfe85d02ef21cea3a07ebfa580",
+        "6f5db8f5a952c7251812d1fbd77fb1315a963f0ed08bfe70908babafc7fcd97e",
+        "79cbe1efee2ff68a8905e395e244460e9ba7d5d83ace34651161dbd921a9df0e",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 6,
+      "wallet": "8hD3px8tWV1RWCqmQNUy5ZgnTX93LG51zgnxyRS1fRxa",
+      "player_hex": "724eaa15f633071bf4ac57566747f77833e32ae9d1d6e3d04f24360191193587",
+      "credits": "5000",
+      "xp": "0",
+      "leaf": "fd5709411247a1896032e67782eaead8ae3730d1ea9be4570b1f00436a84b62e",
+      "proof": [
+        "22e886979887f1c0f6b8131eee39b8f227a942c4ffe7b348427c3bec276eb66a",
+        "2fb5fe364f562c08cc14d5116bf839df40c1c208b8585f5ffa5ef50e130025b6",
+        "6f5db8f5a952c7251812d1fbd77fb1315a963f0ed08bfe70908babafc7fcd97e",
+        "79cbe1efee2ff68a8905e395e244460e9ba7d5d83ace34651161dbd921a9df0e",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 7,
+      "wallet": "972sR2Tip3QSTRVCMWJKr1fLAc2gR9viSYD9CjYo6jGy",
+      "player_hex": "7869180288e37a2532bde3f85b44ffaf866efdccc2e052278bc66566bcea738e",
+      "credits": "0",
+      "xp": "0",
+      "leaf": "22e886979887f1c0f6b8131eee39b8f227a942c4ffe7b348427c3bec276eb66a",
+      "proof": [
+        "fd5709411247a1896032e67782eaead8ae3730d1ea9be4570b1f00436a84b62e",
+        "2fb5fe364f562c08cc14d5116bf839df40c1c208b8585f5ffa5ef50e130025b6",
+        "6f5db8f5a952c7251812d1fbd77fb1315a963f0ed08bfe70908babafc7fcd97e",
+        "79cbe1efee2ff68a8905e395e244460e9ba7d5d83ace34651161dbd921a9df0e",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 8,
+      "wallet": "A5mxnvhCWmk4Wn2MPiKcz1n33qjTSQirNg4eP9vcAp1p",
+      "player_hex": "86f2581cac6141b197c89b3c4f714d8998a8758bf3a882b901bde4dc211eb883",
+      "credits": "337459",
+      "xp": "214",
+      "leaf": "9c0d6d7f416fc4966fd8ee2ed639fca97938b5d4a1fcb36068dcbd16acf8a132",
+      "proof": [
+        "4fee783ee4db084596afaedbccc656d432db8f810ffcdbb93affd59fa7f41291",
+        "81e48dad0b461f8b2f78dccb49a9dcb3cff2fc6b86c8170c03ce105eb6156851",
+        "afdf091139f006addbe892a9cda0581116d5ac6251edc12b969b3485656a0c16",
+        "00e6237aefdc2776f20a6270aa304d0cb825c71ec53b3ff4ec593715ee502fd6",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 9,
+      "wallet": "A8umnn8KEQ7Q6XYvMnwVmwNEbvY2GnASuzfFvn9R3zRg",
+      "player_hex": "87bfeaf1ac7f54731a78fda27a31c7ace2e7a623e09c65c916068325d4ae512b",
+      "credits": "10000",
+      "xp": "0",
+      "leaf": "4fee783ee4db084596afaedbccc656d432db8f810ffcdbb93affd59fa7f41291",
+      "proof": [
+        "9c0d6d7f416fc4966fd8ee2ed639fca97938b5d4a1fcb36068dcbd16acf8a132",
+        "81e48dad0b461f8b2f78dccb49a9dcb3cff2fc6b86c8170c03ce105eb6156851",
+        "afdf091139f006addbe892a9cda0581116d5ac6251edc12b969b3485656a0c16",
+        "00e6237aefdc2776f20a6270aa304d0cb825c71ec53b3ff4ec593715ee502fd6",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 10,
+      "wallet": "Bin7BtvpswB6guh4bL39qVTuTaMr5CQ99XqLdUvar4YL",
+      "player_hex": "9f48af4a6ae133cbf03b5e04388ff1e8c7b413af46cb30de2c0b52e74629671d",
+      "credits": "5000",
+      "xp": "0",
+      "leaf": "032d916f308664c13a42c76f7f61072fa85f8b64e35c34b154d6b0f507c3fa95",
+      "proof": [
+        "cf2c0d46d5b7bb8deb39292b3ee03e6018243aec95cc9da097d57a12e833e2d8",
+        "4a78ed8f2aa02ef3b191533df7951bfd114eb41bab0429816dc092f848ffc5ba",
+        "afdf091139f006addbe892a9cda0581116d5ac6251edc12b969b3485656a0c16",
+        "00e6237aefdc2776f20a6270aa304d0cb825c71ec53b3ff4ec593715ee502fd6",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 11,
+      "wallet": "Cmv3G3JCzNb9d76k9JTXeWbtQ8cgjXpjAuAFKWkKGv9c",
+      "player_hex": "aef21547afc26ef03d9b251c632e5e00b6bbbbcd09cb8f36ead1b10afcb931ff",
+      "credits": "5000",
+      "xp": "0",
+      "leaf": "cf2c0d46d5b7bb8deb39292b3ee03e6018243aec95cc9da097d57a12e833e2d8",
+      "proof": [
+        "032d916f308664c13a42c76f7f61072fa85f8b64e35c34b154d6b0f507c3fa95",
+        "4a78ed8f2aa02ef3b191533df7951bfd114eb41bab0429816dc092f848ffc5ba",
+        "afdf091139f006addbe892a9cda0581116d5ac6251edc12b969b3485656a0c16",
+        "00e6237aefdc2776f20a6270aa304d0cb825c71ec53b3ff4ec593715ee502fd6",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 12,
+      "wallet": "DJrqhk7zzjBtfJeQsteDf2typJoiX6NECTgY2Z4Xw9Yk",
+      "player_hex": "b6df78861e58315a92f9416dec07705dc0db29e21f0db7f6221b84652e9f3501",
+      "credits": "0",
+      "xp": "50",
+      "leaf": "0a031a4cfb07c6e80a52eae2a82e7f0890842c6feda3e8a05527334da3a7735b",
+      "proof": [
+        "0cf91b8106337f91557bfd50b98c255efdc97471527763cfe9cc7ef894da1279",
+        "fe2c23127a7d31459f4c536e94575f877317c6d79773e5880af5775423c45b30",
+        "c70e8140d377d0263b24d220f9dd0d622681f99b9e690d468874d404826f7438",
+        "00e6237aefdc2776f20a6270aa304d0cb825c71ec53b3ff4ec593715ee502fd6",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 13,
+      "wallet": "ExtQrxJeSsvWxZADQS7mrpWvqq8w52VRcxLoCbh7cmqV",
+      "player_hex": "cf79016ee4688b7b2932734b93033962cc02ce1b2511963e34f304c644ff4804",
+      "credits": "1812776",
+      "xp": "6610",
+      "leaf": "0cf91b8106337f91557bfd50b98c255efdc97471527763cfe9cc7ef894da1279",
+      "proof": [
+        "0a031a4cfb07c6e80a52eae2a82e7f0890842c6feda3e8a05527334da3a7735b",
+        "fe2c23127a7d31459f4c536e94575f877317c6d79773e5880af5775423c45b30",
+        "c70e8140d377d0263b24d220f9dd0d622681f99b9e690d468874d404826f7438",
+        "00e6237aefdc2776f20a6270aa304d0cb825c71ec53b3ff4ec593715ee502fd6",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 14,
+      "wallet": "FY8pMvgC28364tERyL892tKAPyw3kBoDZpguzDX5g1Kp",
+      "player_hex": "d7fd75d42c26aac7f173737a3ef83cf16edd8cd9a32130fe7697bf47692dc4db",
+      "credits": "5500",
+      "xp": "20",
+      "leaf": "ad75d25d9187358c0952852bb0757a961295b3fbe8ce79b24e3cde36f2a156bb",
+      "proof": [
+        "f7a68828ad1811de306e9b3cef8bd1ed0578ad279e2c145c8cb7c9d36ffaab2c",
+        "54e56acc688ece32bd7f8b207cf07b318e41393eb451c1c3200f16bef636bfb5",
+        "c70e8140d377d0263b24d220f9dd0d622681f99b9e690d468874d404826f7438",
+        "00e6237aefdc2776f20a6270aa304d0cb825c71ec53b3ff4ec593715ee502fd6",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 15,
+      "wallet": "GxnmuZpeU56h2u4YAg1KBASq89epQTyHBdKXrQF55znE",
+      "player_hex": "ed2a0168755336467a035231f37d3325a71dfe3ac125540c6bcf421effffa723",
+      "credits": "8000",
+      "xp": "0",
+      "leaf": "f7a68828ad1811de306e9b3cef8bd1ed0578ad279e2c145c8cb7c9d36ffaab2c",
+      "proof": [
+        "ad75d25d9187358c0952852bb0757a961295b3fbe8ce79b24e3cde36f2a156bb",
+        "54e56acc688ece32bd7f8b207cf07b318e41393eb451c1c3200f16bef636bfb5",
+        "c70e8140d377d0263b24d220f9dd0d622681f99b9e690d468874d404826f7438",
+        "00e6237aefdc2776f20a6270aa304d0cb825c71ec53b3ff4ec593715ee502fd6",
+        "cd807f2f9645d9c719959d0f8de5c83a9f28a93cd47f48528f5e67bc35a8bea3"
+      ]
+    },
+    {
+      "index": 16,
+      "wallet": "HXFDaHyZ3i477z1BakiTWZg9UQN8rcreruuv9ifC1HvM",
+      "player_hex": "f57a7d75720971ece8588bd60a7ebd816793837330e69fbada55327c9fe2fd06",
+      "credits": "1709105",
+      "xp": "13023",
+      "leaf": "94c682b5e9a319bba87923dac614e42b1070c5e6038eaf9a0045172efc1237f0",
+      "proof": [
+        "94c682b5e9a319bba87923dac614e42b1070c5e6038eaf9a0045172efc1237f0",
+        "1adeb17cada5a6aef2f2dfcc0aaf13a9ceb9336c72cea988b1615f739c14cbd4",
+        "2d3248a2d29302094bffd2d0b8d607e104056bc2431aed084f588b5c49c12534",
+        "1e1655944af02245f8ca35a716d243c4a839fbbf7d8b2125a89e0bfb2365a641",
+        "abb3d7eafa2060d28c86e55a09c09726aab839e949724fc603430b1d063ec088"
+      ]
+    }
+  ]
+}
