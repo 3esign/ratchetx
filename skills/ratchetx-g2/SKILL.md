@@ -42,8 +42,11 @@ node scripts/install.mjs
 node "$HOME/.ratchetx-g2/run.mjs" init --player PLAYER_PUBLIC_SOLANA_ADDRESS
 ```
 
-Use the player's authenticated public Solana address already associated with
-their private Bankr session; never infer ownership from an X handle or a post.
+The authenticated owner of this private Bankr session explicitly chooses the
+public Solana player address. It may be an external wallet; it does not have
+to be Bankr's native wallet. Never infer ownership from an X handle or a post.
+Entering an address grants no permission. Only the player's signature on the
+on-chain grant binds that wallet to this delegate and the chosen limits.
 Initialization generates an agent key **inside that agent runtime** and prints
 only its public address, grant ID and setup link. Show `reply` verbatim. The
 player opens that link in their wallet, selects explicit limits, and signs the
