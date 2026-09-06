@@ -11,6 +11,8 @@ Owner confirmed two 5-SOL devnet faucet sends to the dedicated payer. The funded
 
 Finalized balance after deployment: **2.926672920 devnet SOL**. Structured evidence: docs/receipts/g2-devnet-deployment-20260906.json; original sanitized runner log: docs/receipts/devnet-deploy-windows-20260906.log. RPC independently returned successful finalized deployment transactions at the same recorded slots. The final deploy instruction fee shown per transaction is not the total upload cost: uploading includes many preceding transactions.
 
+Independent finalized verification also passed using direct RPC without the deployment runner: full ELF bytes, loader states, authority/capacity and actual DeployWithMaxDataLen instruction fields. Evidence: docs/receipts/g2-devnet-independent-readback-20260906.json. The complete deployment changes and evidence landed in native commit 88344a1, exactly 13 owned paths. Retained public binary copies now also exist outside the site tree at ../g2-release-artifacts/devnet-20260906, with a SHA manifest; previous caches were preserved.
+
 The funding refusal below is historical and resolved. Build, B1, and deployment are complete. Actual bootstrap/claim/observer/game settlement plus website integration remain; the deployment signatures do not prove L1/L2 gameplay. Lead owns the callable bootstrap path and has the exact existing-protocol claim route; Astra 2/Gemini own site integration. Do not rerun the fresh-deployment command against these now-existing programs.
 
 ## Confirmed deployment payer

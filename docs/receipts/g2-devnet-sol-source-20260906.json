@@ -1,0 +1,22 @@
+{
+  "observedAt": "2026-09-06T00:10:13.881Z",
+  "cluster": "devnet",
+  "genesisHash": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "contextSlot": 493794875,
+  "clockUnixTimestamp": "1788653413",
+  "priceAccount": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+  "owner": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+  "bytes": 134,
+  "discriminatorMatches": true,
+  "verificationLevel": "Full",
+  "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+  "writeAuthority": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+  "price": "10330233187",
+  "conf": "1128398",
+  "exponent": -8,
+  "publishTime": "1788653347",
+  "prevPublishTime": "1788653346",
+  "postedSlot": "493794519",
+  "ageSeconds": "66",
+  "scope": "One live read of canonical Full SOL source and chain Clock; not proof of future capture or cadence"
+}
