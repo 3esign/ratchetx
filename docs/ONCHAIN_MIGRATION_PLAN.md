@@ -1,15 +1,28 @@
 # RatchetX: move authority to Solana, then remove the server dependency
 
-Decision recorded: 2026-08-30. Requested by Semir. Status: ROADMAP, not an
-implemented migration, mainnet approval, or change to economic rules.
+Decision recorded: 2026-08-30. Requested by Semir. Status: REQUIREMENTS ONLY,
+not an implementation tracker, mainnet approval, or change to economic rules.
+The sole execution/status authority is
+[PERMANENCE_EXECUTION_PLAN.md](PERMANENCE_EXECUTION_PLAN.md). RatchetX Gen3 is
+the product/cutover name; Core G2, versioned Timepin schemas and content-addressed
+ruleset/economy hashes are the component identities. Map these requirements to
+that tracker as follows: G0 -> P0/P8, G1 -> P2/P3, G2 -> P5, G3 -> P1/P5,
+G4 -> P4/P6/P7, G5 -> P8, and G6 -> P6/P9. P10 remains a separate,
+optional future Gen3 immutability ceremony.
+
+Current evidence correction, 2026-09-03: production readback is h113 and its
+canonical settlement remains `ratchet-server` on the durable Upstash store.
+Timepin schema 1 is a local no-value prototype; schema 2 and Core G2 integration
+are design/model work, not deployed programs. The h100/h104/h105 paragraphs below
+are historical evidence and must not be used as current status.
 
 Founder-independence companion: [OPERATOR_INDEPENDENCE_PLAN.md](OPERATOR_INDEPENDENCE_PLAN.md).
 It adds cost ownership and server-off acceptance for making the founder optional.
 The companion now contains stable task IDs, decision questions, dependencies,
 test batches, stop conditions and the user's product-expansion freeze. Follow
 those controls; old optional integration plans are not active implementation scope.
-Local AGENT_STATE.json now records h105; h100/h104 status paragraphs below are
-historical, not instructions to repeat completed migrations or proof G1-G6 shipped.
+The older AGENT_STATE.json snapshot and h100/h104/h105 status paragraphs below
+are historical, not instructions to repeat completed migrations or proof G1-G6 shipped.
 
 Checkpoint update 2026-08-30: h104 is now deployed and verified. Guarded application
 cutover and the scoped Bankr owner pilot progressed beyond the historical h100
@@ -34,8 +47,9 @@ Every input actually used for an economic decision needs independently available
 evidence. If a cosmetic feature starts affecting payout or access, it moves inside
 the authoritative boundary too.
 
-Final acceptance: turn off Ratchet API, Supabase, its oracle collector and its
-keeper in an isolated drill. A different client and independent submitter can
+Final acceptance: turn off Ratchet API, the current authoritative Upstash store,
+any required reads from the legacy Supabase evidence store, the oracle collector
+and the keeper in an isolated drill. A different client and independent submitter can
 admit new valid play, resolve or deterministically void existing positions, recover
 balances, revoke delegation and verify scores using Solana and admissible Pyth
 evidence. No Ratchet admin signature, secret API or server-issued result is needed.
@@ -50,7 +64,7 @@ Baseline is recorded in [AGENT_STATE.json](AGENT_STATE.json) and
 | Surface | Current boundary | Required destination |
 | --- | --- | --- |
 | RCX mint, actual burns/transfers | Solana; game verifies receipts | Same mint and actual token semantics; no replacement token |
-| Credits, shots, XP, Brier, pots, champion selection | Canonical server state | Program-validated state transitions and entitlements |
+| Credits, shots, XP, Brier, pots, champion selection | Canonical server state in Upstash; Supabase is legacy evidence, not the current writer | Program-validated state transitions and entitlements |
 | Pyth context/path | Validated sampled account observations; relay ordering | Shared readable context plus chain-verifiable decision inputs |
 | Ratchet Seal v2 | Optional non-custodial receipt/referee, not the game ledger | Preserve v2; new audited generation for canonical play |
 | Calibration PDA | Draft in CALIBRATION_ONCHAIN.md; not deployed canonical state | Native scoring from eligible terminal positions |
@@ -59,11 +73,13 @@ Baseline is recorded in [AGENT_STATE.json](AGENT_STATE.json) and
 | Registry/passport | Identity or attestation, not proof of game correctness | Provenance labels remain separate from native game results |
 | Demo Gauntlet | Wallet-free, reward-free sandbox | Remains a segregated demo; never becomes redeemable ranked balances |
 
-Production application remains h100. The guarded-write repair is local; database
+At the time of this historical baseline, production was h100. The guarded-write repair was local; database
 migration 003 is applied and live contention-tested (see GUARDED_DATABASE_CUTOVER.md).
-Existing v2 source stays byte-pinned, with the separately registered
-[freeze ceremony](FREEZE.md) unchanged. A directory named v3 or a successful
-receipt transaction is not evidence of a deployed canonical economy.
+Existing v2 source stays byte-pinned as a historical artifact. The separately
+registered [freeze ceremony](FREEZE.md) is preserved as historical evidence only:
+it neither proves that upgrade authority was revoked nor directs an authority
+revocation now. A directory named v3 or a successful receipt transaction is not
+evidence of a deployed canonical economy.
 
 ## Economic invariants before any port
 
@@ -77,8 +93,11 @@ receipt transaction is not evidence of a deployed canonical economy.
    rewards and VOID credit refunds must not be represented as token minting or
    reversal of an irreversible RCX burn.
 3. Public oracle/board/proof reads do not consume RCX. Real ranked reloads remain
-   its utility rail; no token-price promise, per-read levy, new team cut, automatic
-   buyback or subsidy for all users is part of this migration.
+   its live utility rail. A separately approved optional Work Market may fund or
+   reward completion of one exact, predeclared unmet Need, but it is demand-bound,
+   finite and never an automatic per-read or per-checkpoint levy. No token-price
+   promise, new team cut, automatic buyback or subsidy for all users is part of
+   this migration.
 4. Keep x402 champion entry and the separate proof-service payment distinct.
    A service receipt must not silently grant transfer, reload or gameplay power.
 5. Any proposed change to payout, eligibility, timing or custody is a separately
@@ -125,12 +144,29 @@ and publish-time-only duplicate rule are v2 semantics, not a complete Pyth archi
 Porting that ring does not by itself remove withholding, missed-crossing or
 same-timestamp selection risks. Do not modify frozen v2 to experiment.
 
-Evaluate a permissionless shared on-chain feed clock with a predeclared sampling
-and admissibility rule. Explicitly distinguish first **protocol checkpoint** from
-first **Pyth source update**. Prove how the rule handles skipped samples, equal
-publish times, adjacent posted slots, fork rollback and late keepers. If source
+Evaluate permissionless shared Timepin Needs with a fully predeclared evidence
+policy, not a lossy ring or global feed clock. A schema-2 Need identity commits to
+the oracle domain/adapter, feed and source derivation, verification level, target
+grid, pre-target gap, post-target publication lag, capture grace, exponent and
+confidence bounds. Split the source deadline from the later capture deadline so a
+still-retrievable authenticated historical state may be submitted without changing
+which source times are admissible. Capture grace is only a submission window, not
+an availability guarantee: once a mutable oracle account has overwritten the exact
+bytes and no independently retrievable authenticated copy exists, grace cannot
+reconstruct them. Explicitly distinguish first **protocol capture** from first
+**Pyth source update**. Prove how the rule handles skipped samples, equal publish
+times, adjacent posted slots, fork rollback and late submitters. If source
 first-crossing is claimed, establish its evidence and exact upstream semantics;
 two timestamp fields or a relay hash are not enough by assumption.
+
+Crypto may bind an observed entry and open an aligned exit Need. Slow xStock
+profiles bind future aligned entry/exit targets (`T0`, `T1`) before either price is
+known, then move `PendingEntry -> Active` only from a Final entry Timepin. Many
+shots and third-party applications should reference the same Need only when its
+policy hash and target are identical. They may reuse that Need's one Final result,
+not treat a generic feed checkpoint as interchangeable evidence. Final decision
+bytes remain in Timepin/Shot state; a transaction slot is provenance metadata, not
+a permanent archival availability guarantee.
 
 Unresolved design gate: sponsored accounts expose current state, not guaranteed
 historical completeness. A keeper can still affect which states get captured.
@@ -142,8 +178,9 @@ an explicit rule/dependency decision; do not silently fall back to latest price.
 
 Tests: same-millisecond distinct observations; widening confidence and EMA lag;
 fresh entry followed by bad confidence; conflicting valid states; omitted crossing;
-ring wrap; first checkpoint after expiry; delayed/reordered/duplicated submissions;
-source stoppage; two competing keepers; settlement at multiple delays.
+ring wrap; first checkpoint after expiry; capture attempted after mutable source
+bytes were overwritten; delayed/reordered/duplicated submissions; source stoppage;
+two competing keepers; settlement at multiple delays.
 Gate: one admissible result for the declared evidence/rule, or explicit bounded
 unresolvable/VOID behavior, with selection and liveness attacks documented.
 
@@ -155,8 +192,9 @@ at once. Keep the credit ledger/economic invariants isolated from experimental
 game logic. If split into programs, pin allowed CPI callers and bound each game's
 authority; a caller must not supply arbitrary winnings or create credit grants.
 
-Proposed accounts: versioned Ruleset, PlayerCredits, Shot, FeedClock/Epoch,
-Calibration, Season/Pot, reload/claim receipts and later Session. Use per-player
+Proposed accounts: content-addressed Ruleset/Economy, namespaced PlayerCredits,
+Shot, referenced Timepin Need/evidence, Calibration, Season/Pot, reload/claim
+receipts and later Session. Use per-player
 state and bounded per-feed/epoch aggregates rather than one writable global account.
 Benchmark shared mint/podium/pot contention; sharding is a measured optimization,
 not an excuse to weaken atomicity or change who wins a seat.
@@ -212,10 +250,13 @@ terminal reason. Notify/wait is an optional client convenience, not a second
 settlement engine. A getAccountInfo read does not execute settlement.
 
 Gate: independent client lifecycle; cross-user, wrong-domain, replay, revoke,
-expiry and cap tests; crash recovery; no Bankr-app-owner fallback. Pilot funding
-remains Bankr-only and requires the exact wallet, amounts and fee cap to be approved.
+expiry and cap tests; crash recovery; no Bankr-app-owner fallback. A pilot's
+sponsor/test-gas funding may remain Bankr-only and requires the exact funding
+wallet, amounts and fee cap to be approved. That cap limits only the sponsor's
+budget: protocol admission remains permissionless, with no Bankr or founder
+allowlist and no founder-controlled admission or economic-exposure ceiling.
 
-### G4 — shadow replay, costs and bounded mainnet pilot
+### G4 — shadow replay, costs and permissionless mainnet pilot
 
 Run historical labeled fixtures and synthetic adversarial streams on local validator
 and devnet. Feed identical inputs to the old and new rules; explain every intended
@@ -224,21 +265,27 @@ difference. Shadow mode has one economic authority: do not debit real state twic
 Measure account bytes/rent, transaction bytes, compute, success/failed fees, account
 contention, keeper writes, replay cost, void rate and resolution delay. No assumed
 future transaction-format activation, rent reduction, unlimited public RPC or
-zero operating cost. Reuse one validated checkpoint across eligible shots, subject
-to G1 correctness. Publish costs for 1, 100 and 1,000 active agents using measured
-actions per agent, not a guessed SOL/USD forecast.
+zero operating cost. Reuse one Final Timepin result only across shots that reference
+the exact same Need identity, policy hash and target; a cadence checkpoint by itself
+is not reusable settlement evidence. Publish costs for 1, 100 and 1,000 active
+agents using measured actions per agent, not a guessed SOL/USD forecast.
 
 Someone must submit transactions; the program cannot run on a timer. Users and
 independent keepers can do so. Start with explicit user-paid transactions and a
 separate finite approved test gas budget. Do not deduct a new keeper fee from
-frozen pots or promise perpetual sponsorship. Any sustainable keeper incentive
-requires a separately approved funding rule and depletion behavior.
+frozen pots or promise perpetual sponsorship. A future Work Market, if separately
+approved, posts a finite bounty for an exact open Need and pays one valid completion;
+it does not reward ambient cadence writes or tax reads. Its funding, duplicate-race
+rule, empty-pool behavior and optional SOL fee reimbursement must be explicit.
 
 Gate: reproducible artifact, independent review, invariant fuzzing, complete
 lifecycle/recovery matrix, source-to-deployed-byte verification, cost ceiling and
-zero unexplained economic mismatches. Only then an isolated capped mainnet pilot,
-with a declared authority policy and an escape path that cannot seize balances
-or change accepted shots. Devnet success alone is not a mainnet cutover gate.
+zero unexplained economic mismatches. Only then a mainnet pilot with an isolated,
+capped sponsor/test-gas budget. The cap bounds sponsor spending only; it must not
+become a protocol, founder admission, player-count, position-count or economic-
+exposure cap. The program remains permissionless under neutral on-chain rules,
+with a declared authority policy and an escape path that cannot seize balances or
+change accepted shots. Devnet success alone is not a mainnet cutover gate.
 
 ### G5 — migrate legacy state once, with an auditable boundary
 
@@ -247,6 +294,11 @@ actions, finish/void old positions under old rules, drain verified queues/outbox
 reconcile reload receipts and freeze a consistent snapshot. If per-wallet cutover
 is later needed, specify atomic tombstones and race handling first. Never run two
 independent writers against the same spendable balance.
+
+For P8 provenance, Upstash is the current production economic authority and is the
+source of the cutover balance snapshot. Supabase is separately retained legacy
+recovery/evidence: reconcile and label it, but do not promote a historical row into
+a current balance merely because it still exists there.
 
 Publish snapshot schema, provenance, rule/version, cutoff identifiers, totals by
 unit and known gaps. Use a canonical deterministic encoding and bounded claim
@@ -280,18 +332,22 @@ legacy economic actions" above. It is read once in `api/game.js` and checked in
 `takeStake`, which is the only place in the machine where credits are ever
 COMMITTED — every shot, every challenge and every take passes through it.
 Settlement, reveals, claims, payouts and the crank are untouched: the freeze
-stops *selling*, never *settling*. With the variable unset, which is every
-deployment today, the check is a comparison against `undefined` and the game
-behaves exactly as before. Refusals carry the code `MIGRATION_FREEZE` (registered
-in `lib/play_session_http.js` and in the skill's runner), because an agent that
-gets a generic `SHOT_REFUSED` for a day has no way to tell a freeze from a fault
-— that was the whole shape of the Bankr `RELEASE_MISMATCH` failure.
+stops *selling*, never *settling*. In the checked-in source, an unset variable
+makes the exact string comparison false and leaves selling enabled. That is a
+source-code property, not proof of any running deployment: before release, verify
+the exact deployed bytes against the reviewed source and independently verify the
+deployed environment has the intended `RX_MIGRATION_FREEZE` value. Refusals carry
+the code `MIGRATION_FREEZE` (registered in `lib/play_session_http.js` and in the
+skill's runner), because an agent that gets a generic `SHOT_REFUSED` for a day has
+no way to tell a freeze from a fault — that was the whole shape of the Bankr
+`RELEASE_MISMATCH` failure.
 
 It is an environment variable rather than a store key deliberately. The cutover
-is one announced act, not something that must flip in five seconds, and a switch
-that ships in the source is one anybody can verify against the running release.
-A flag hiding in the store is invisible to exactly the people this is meant to
-be honest with.
+is one announced act, not something that must flip in five seconds. Keeping the
+switch in source makes its intended behavior reviewable, but repository bytes do
+not establish what h113 or any later deployment actually runs or which environment
+value it received. The release evidence must bind source commit, deployed bytes and
+environment readback; without all three, do not claim the live switch state.
 
 **The rule the root follows: stop selling, then drain. Never void.**
 
@@ -350,11 +406,13 @@ selection on-chain where they affect the product. Premium computation/delivery
 can remain a replaceable service, but disclose availability and entitlement limits;
 payment settlement does not cryptographically guarantee off-chain delivery.
 
-Gate: the server-off drill described above, plus corrupt-indexer and keeper-loss
+Gate: the P6 server-off drill described above, plus corrupt-indexer and keeper-loss
 tests, independent client instructions, complete dependency/authority inventory,
-and no remaining economic writer in Supabase. Only then update the canonical
-settlement claim for that generation. Retire unused DB workloads after backups,
-not before; historical demo/read caches can be retained without economic authority.
+and no remaining economic writer or required read authority in Upstash. Supabase is
+not the current economic writer; preserve it only as labeled legacy evidence, never
+as a required live authority. Only then update the canonical settlement claim for
+that generation. Retire unused DB workloads after backups, not before; historical
+demo/read caches can be retained without economic authority.
 
 ## Handoff: where the next agent starts
 
@@ -367,10 +425,13 @@ not before; historical demo/read caches can be retained without economic authori
 3. Produce the G2 numeric specification and non-reveal scoring decision before
    writing a custody program. No arbitrary deadline or approved budget is inferred.
 4. Update this plan with exact artifacts, tests, signatures and unresolved failures
-   at each gate. Preserve current source, history and the v2 freeze commitment.
+   at each gate. Preserve current source, history and the byte-pinned v2 historical
+   artifact; do not infer an authority-revocation status from its freeze record.
 
-All gates are currently OPEN. This document creates no program, session, transfer,
-paid subscription, migration root or background job.
+This is a historical requirements checklist and does not assert current gate status.
+[PERMANENCE_EXECUTION_PLAN.md](PERMANENCE_EXECUTION_PLAN.md) is the sole execution
+and status tracker. This document creates no program, session, transfer, paid
+subscription, migration root or background job.
 
 ## Primary references checked 2026-08-30
 

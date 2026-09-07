@@ -38,6 +38,7 @@
 //   was never in the tree. Promotion has no such shape.
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { g2Leaf, g2Node, CLUSTER_GENESIS, snapshotHashOf, canonicalSnapshotHash } from './legacy_root_rules.mjs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -87,14 +88,14 @@ export const leafOf = (wallet, credits, xp) => {
 export const pairUp = (a, b) => Buffer.compare(a, b) <= 0 ? sha256(a, b) : sha256(b, a);
 
 /** The tree, level by level, keeping every level so proofs can be read off it. */
-export function buildTree(leaves) {
+export function buildTree(leaves, pair = pairUp) {
   if (!leaves.length) throw new Error('EMPTY_TREE');
   const levels = [leaves];
   while (levels[levels.length - 1].length > 1) {
     const below = levels[levels.length - 1];
     const above = [];
     for (let i = 0; i < below.length; i += 2)
-      above.push(i + 1 < below.length ? pairUp(below[i], below[i + 1]) : below[i]);
+      above.push(i + 1 < below.length ? pair(below[i], below[i + 1]) : below[i]);
     levels.push(above);
   }
   return levels;
@@ -183,14 +184,26 @@ export function reconcile(rows, { now = Date.now() } = {}) {
     latestExpiry: latestExpiry || null };
 }
 
-export function buildRoot(players) {
-  const leaves = players.map(p => leafOf(p.wallet, p.credits, p.xp));
-  const levels = buildTree(leaves);
+/** Build the tree under a named rule.
+ *
+ *  `binding` present -> g2: domain-separated leaf and node, ten committed
+ *  fields. `binding` absent -> the generation-1 rule, kept ONLY so an old root
+ *  can still be re-verified. It is never the default: passing no binding used
+ *  to mean "build the old way", and that is exactly how a root that verifies
+ *  against nothing gets built by accident. The CLI refuses before reaching
+ *  here, and this signature makes the choice visible at the call site too. */
+export function buildRoot(players, binding = null) {
+  const pair = binding ? g2Node : pairUp;
+  const leafFor = p => binding
+    ? g2Leaf({ ...binding, pubkey32: p.key32, credits: p.credits, xp: p.xp })
+    : leafOf(p.wallet, p.credits, p.xp);
+  const leaves = players.map(leafFor);
+  const levels = buildTree(leaves, pair);
   const root = levels[levels.length - 1][0];
   const accounts = {};
   players.forEach((p, index) => {
     const proof = proofFor(levels, index);
-    if (!foldProof(leaves[index], proof).equals(root))
+    if (!proof.reduce((acc, sib) => pair(acc, sib), leaves[index]).equals(root))
       throw new Error('SELF_CHECK_FAILED for ' + p.wallet);
     if (proof.length > 32) throw new Error('PROOF_TOO_LONG for ' + p.wallet);
     accounts[p.wallet] = { cr: p.credits, xp: p.xp, proof: proof.map(b => b.toString('hex')) };
@@ -225,8 +238,60 @@ function newestSnapshot() {
 const invoked = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (invoked) {
   const allowOpen = process.argv.includes('--allow-open-stake');
-  const source = process.argv.find(a => a.endsWith('.ndjson')) || newestSnapshot();
+  const arg = flag => { const i = process.argv.indexOf(flag); return i > 0 ? process.argv[i + 1] : null; };
+
+  // THE BINDINGS ARE NOT OPTIONAL AND ARE NOT DEFAULTED.
+  //
+  // g2's legacy_leaf commits to the program, the cluster, a migration id, the
+  // snapshot and the cutover slot. Each one is a "this root cannot be replayed
+  // over there" -- and each becomes "it can" the moment the field is absent or
+  // zero. A builder that filled them in would produce a root that verifies
+  // against nothing and looks fine until somebody replays a devnet rehearsal
+  // onto mainnet, at which point there is no repair: the root is in the economy
+  // account and the players it locked out need a whole new migration.
+  //
+  // So the tool refuses, by name, and says what to pass.
+  const cluster = arg('--cluster');
+  const programId = arg('--program');
+  const migrationId = arg('--migration-id');
+  const cutoverSlot = Number(arg('--cutover-slot') || 0);
+  const missing = [];
+  if (!cluster || !(cluster in CLUSTER_GENESIS)) missing.push('--cluster mainnet|devnet|testnet');
+  if (!programId) missing.push('--program <base58 program id>');
+  if (!migrationId) missing.push('--migration-id <32-byte hex, chosen once for this migration>');
+  if (!Number.isInteger(cutoverSlot) || cutoverSlot <= 0) missing.push('--cutover-slot <slot at cutover>');
+  if (missing.length) {
+    console.log('');
+    console.log('REFUSING: a g2 legacy root binds to a cluster, a program, a migration and a moment.');
+    console.log('Every one of those is what stops this root being replayed somewhere it does not belong,');
+    console.log('and a missing one is not a smaller root -- it is a root that binds to nothing.');
+    console.log('');
+    for (const m of missing) console.log('   need  ' + m);
+    console.log('');
+    console.log('The snapshot hash is NOT asked for: it is derived from the file being read,');
+    console.log('because a root that names its own snapshot is only worth something if nobody');
+    console.log('can name a different one.');
+    process.exit(2);
+  }
+
+  // Only NOW look for a snapshot. Validating arguments before touching the
+  // filesystem means a run with neither gets the refusal that tells it what to
+  // pass, rather than an ENOENT stack trace about a directory it was never
+  // going to reach.
+  let source;
+  try {
+    source = process.argv.find(a => a.endsWith('.ndjson')) || newestSnapshot();
+  } catch (e) {
+    console.log('');
+    console.log('REFUSING: ' + (e && e.message ? e.message : String(e)));
+    console.log('Pass a snapshot explicitly, or take one first with LEGACY_ROOT_LIVE.cmd.');
+    process.exit(2);
+  }
+
   console.log('source   ' + source);
+  console.log('cluster  ' + cluster + '  (' + CLUSTER_GENESIS[cluster] + ')');
+  console.log('program  ' + programId);
+  console.log('slot     ' + cutoverSlot);
 
   const rows = [];
   for (const line of fs.readFileSync(source, 'utf8').split('\n')) {
@@ -272,7 +337,28 @@ if (invoked) {
     process.exit(1);
   }
 
-  const tree = buildRoot(players);
+  // The snapshot hash is derived from the exact bytes the tree was built from,
+  // never supplied, so the root cannot name a snapshot other than its own.
+  const binding = {
+    programId: base58Decode(programId),
+    clusterGenesis: base58Decode(CLUSTER_GENESIS[cluster]),
+    migrationId: Buffer.from(migrationId.replace(/^0x/, ''), 'hex'),
+    // The CANONICAL hash -- over the balances -- not the file's bytes. The file
+    // carries read-time TTLs, so hashing it would make the root depend on when
+    // somebody read rather than on what the store held, and nobody could
+    // reproduce it. The file's own hash still goes into merkle_tree.json as
+    // provenance.
+    snapshotHash: canonicalSnapshotHash(players),
+    cutoverSlot,
+  };
+  if (binding.migrationId.length !== 32) {
+    console.log('');
+    console.log('REFUSING: --migration-id must be exactly 32 bytes of hex (64 characters).');
+    console.log('Got ' + binding.migrationId.length + '. A short id is not a smaller binding, it is a different one.');
+    process.exit(2);
+  }
+  console.log('snapshot ' + binding.snapshotHash.toString('hex'));
+  const tree = buildRoot(players, binding);
   console.log('');
   console.log('  leaves               ' + String(tree.leafCount).padStart(7));
   console.log('  depth                ' + String(tree.depth).padStart(7));
@@ -282,7 +368,35 @@ if (invoked) {
 
   // The exclusions ride WITH the root, not beside it. Anyone auditing this later
   // gets the list in the same file as the claim it qualifies.
+  // The binding rides WITH the root. A root whose binding lives in somebody's
+  // memory is a root nobody can independently verify, and this file is the
+  // thing an auditor is handed.
   fs.writeFileSync('merkle_tree.json', JSON.stringify({
+    rule: 'ratchet-core-g2 legacy_leaf/fold_merkle_proof',
+    binding: {
+      cluster, clusterGenesis: CLUSTER_GENESIS[cluster], programId,
+      migrationId: binding.migrationId.toString('hex'),
+      snapshotHash: binding.snapshotHash.toString('hex'),
+      snapshotHashMeaning: 'sha256 over the canonical balance set — reproducible from the store, independent of read time',
+      // READY TO COPY INTO register_economy. Not a convenience: these three are
+      // consensus-critical and g2 caps every claim against two of them
+      // (`credits <= legacy_total_credits && xp <= legacy_total_xp`), so a hand
+      // -recomputed total that comes out low locks legitimate players out of
+      // their own balances -- permanently, because the economy account is
+      // write-once. Emitted here so nobody adds them up twice.
+      economyArgs: {
+        legacy_root: tree.root,
+        legacy_snapshot_hash: binding.snapshotHash.toString('hex'),
+        legacy_cutover_slot: cutoverSlot,
+        legacy_leaf_count: tree.leafCount,
+        legacy_total_credits: String(players.reduce((n, p) => n + BigInt(p.credits), 0n)),
+        legacy_total_xp: String(players.reduce((n, p) => n + BigInt(p.xp), 0n)),
+        migration_id: binding.migrationId.toString('hex'),
+        cluster_genesis_hash: binding.clusterGenesis.toString('hex'),
+      },
+      snapshotFileHash: snapshotHashOf(fs.readFileSync(source)).toString('hex'),
+      cutoverSlot, snapshotFile: path.basename(source),
+    },
     root: tree.root, accounts: tree.accounts,
     excluded: { count: excluded.length, rule: 'lib/verify.js isDemo', wallets: excluded.map(r => r.wallet) },
   }, null, 1) + '\n');
@@ -291,5 +405,10 @@ if (invoked) {
     players.map(p => ({ wallet: p.wallet, cr: p.credits, xp: p.xp, staked: p.staked })), null, 1) + '\n');
   console.log('  wrote merkle_tree.json, merkle_balances.json and merkle_excluded.json');
   console.log('');
-  console.log('  next: node scripts/set-legacy-root.mjs merkle_tree.json');
+  console.log('');
+  console.log('  NEXT IS NOT set-legacy-root.mjs. That script patched a compiled');
+  console.log('  LEGACY_ROOT constant into ratchet-core\'s lib.rs and then needed a');
+  console.log('  rebuild. g2 keeps the root in economy.args.legacy_root -- on-chain');
+  console.log('  DATA -- so the cutover is a transaction, not a compile. Hand this');
+  console.log('  file to whoever owns the g2 deploy path.');
 }

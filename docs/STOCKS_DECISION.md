@@ -226,6 +226,75 @@ report lands.
 
 That is the answer to "do we have to wait": no, not to build. Only to publish.
 
+## CORRECTION 2026-09-04: five of the six are NOT 24/7, and that was the thesis
+
+An eight-hour window at a five-second poll, 5,516 polls, zero RPC errors,
+control sound. It overturns the central claim of this memo, so it goes at the
+top rather than in a footnote.
+
+| feed | last write (ET) | writes in 8h | verdict |
+| --- | --- | --- | --- |
+| TSLAX | 15:47 | **0** | stops at the US close |
+| NVDAX | 15:47 | **0** | stops at the US close |
+| MSTRX | 15:47 | **0** | stops at the US close |
+| CRCLX | 15:47 | **0** | stops at the US close |
+| SPYX | 15:57 | 1 | stops at the US close |
+| **AAPLX** | **23:44** | **48** | **genuinely 24/7, 600s exact** |
+| COINX | 04:54 (2 Sep) | 0 | dead, 42.9h |
+| HOODX | 09:23 | 0 | intermittent, 14.4h |
+
+Four feeds stopped at **15:47 ET** and SPYX at **15:57 ET**. The US regular
+session closes at 16:00 ET. Then nothing for eight hours.
+
+**So the product thesis in this memo was wrong.** It said: *"TSLAX up or down
+over the next 24 hours, sealed on a Saturday … a different market, and one the
+exchange-hours competition structurally cannot offer."* That is false for five
+of the six feeds. They are exchange-hours feeds wearing a `Crypto.` prefix.
+
+The earlier measurement could not have seen it: the 71-minute window ran
+14:28–15:39 ET, entirely inside the session. Being right about the cadence
+(870s, exact) and wrong about availability came from measuring the right thing
+in the wrong window.
+
+### What this does to the design
+
+Forward-binding still works and the arithmetic is unchanged. What breaks is the
+**exit**, which needs a print at or after expiry:
+
+- a 6-hour shot sealed at 14:00 ET expires at 20:00 ET, after the close — no
+  print exists, so `bind_crossing` binds it to the *next session's* first print,
+  roughly 13 hours late
+- a 24-hour shot sealed Friday never sees a Saturday print at all
+
+A shot that resolves on a price 13 hours after its stated expiry is not a
+six-hour market. It can be sold honestly — "six hours, or the next print if the
+market is shut" — but that is a different product from the one this memo
+proposed, and it must be named that way on the card or it is a lie.
+
+### What survives
+
+**AAPLX survives intact**, and it is the only one that does. 600 seconds,
+exactly, right through the night — a different publisher from the 870s batch,
+which is why the earlier run saw its distinct schedule. Everything this memo
+claimed about a 24/7 on-chain stock market is true of AAPLX and of nothing else
+currently on the board.
+
+That is one feed, not six. It is still a real and unusual product — a 24/7,
+keyless, on-chain market on a tokenised AAPL — but "we list six stocks" was
+never available and should not be planned for.
+
+### The honest listing rule this implies
+
+A feed cannot be listed on cadence alone. It needs a **session profile**: does
+it publish outside the hours its underlying trades? That is not a constant, it
+is a property to be measured over at least one close and one weekend, and it is
+the thing `HORIZON_MASK` cannot express — a mask says which windows are sold,
+not which hours they may be sold in.
+
+**Before any listing: one measurement across a weekend.** If AAPLX publishes
+through Saturday and Sunday it is listable at long horizons. If it does not,
+nothing here is listable at 6h or 24h and the whole file resolves to "no".
+
 ## Measured 2026-09-03: 870 seconds is a metronome, and AAPLX is not on it
 
 71 minutes, 211 polls, **zero RPC errors**, control sound (SOL wrote on every

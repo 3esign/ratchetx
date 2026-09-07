@@ -1,0 +1,150 @@
+{
+  "schema": 1,
+  "observedAt": "2026-09-05T22:46:54.088Z",
+  "scope": "Read-only rent query; no deploy, keys, account scan or transaction",
+  "endpoint": "https://api.mainnet-beta.solana.com",
+  "httpStatus": 200,
+  "receiptSha256": "2b07983d081180732c629e7fcc978b32a94b65f5e6e1d49bc022bde492b1fc58",
+  "receiptStatus": "FAIL",
+  "artifacts": {
+    "timepin": {
+      "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+      "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+      "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+      "size": 375944
+    },
+    "core": {
+      "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+      "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d\\ratchet_core_g2.so",
+      "sha256": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d",
+      "size": 1014408
+    }
+  },
+  "requests": [
+    {
+      "jsonrpc": "2.0",
+      "id": "genesis",
+      "method": "getGenesisHash",
+      "params": []
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "36",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        36,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "375989",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        375989,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "751933",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        751933,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "375981",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        375981,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "1014453",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        1014453,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "2028861",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        2028861,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "1014445",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        1014445,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    }
+  ],
+  "response": [
+    {
+      "jsonrpc": "2.0",
+      "result": "5eykt4UsFv8P8NJdTREpY1vzqKqZKvdpKuc147dw2N9d",
+      "id": "genesis"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 1038612,
+      "id": "36"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 2381948961,
+      "id": "375989"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 4762802313,
+      "id": "751933"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 2381898297,
+      "id": "375981"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 6425341473,
+      "id": "1014453"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 12849587337,
+      "id": "2028861"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 6425290809,
+      "id": "1014445"
+    }
+  ]
+}

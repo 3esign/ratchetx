@@ -55,16 +55,19 @@ assert.throws(()=>resolveIntent('put 500 on wif higher',{...env,board:cryptoOnly
 // ---- and the refusal tells the player what WOULD have worked --------------
 // A stock and a token are refused for different reasons and must not be refused
 // in the same words. A token is off THIS board and will be back; a stock is held
-// (2026-09-02: no free feed publishes equities fast enough to settle honestly),
-// so telling a player to check the next board sends them back every hour to be
-// refused again. The invariant both share: name the asset, never substitute one.
+// Pyth-owned xStock trackers now exist as a distinct candidate instrument, but
+// they are not direct shares, officially sponsored on Solana or launch-gated.
+// Telling a player to check the next board would still send them back every hour
+// to be refused again. The invariant: name the asset, never substitute one.
 {
   const stock=replyFor({ok:false,category:'REFUSED',code:'ASSET_NOT_ON_BOARD',
     requestedAsset:'TSLA',availableAssets:['SOL','BTC','ETH']});
   checks++;assert.match(stock,/Nothing was sealed/,'the first thing a player needs to know');
   checks++;assert.match(stock,/TSLA is a stock/,'name the asset they actually asked for');
-  checks++;assert.match(stock,/API-keyless oracle path has no sponsored on-chain equity feed/,
-    'name the exact permanent product constraint');
+  checks++;assert.match(stock,/Pyth-owned xStock tracker accounts.*not direct shares/,
+    'name the candidate instrument without calling it the requested equity');
+  checks++;assert.match(stock,/not on Pyth's official sponsored-Solana list.*Timepin\/cadence launch gate/,
+    'name the exact sponsorship and launch constraints');
   checks++;assert.doesNotMatch(stock,/this hour|next hour|board changes every hour/,
     'a held asset must not promise a later board');
   checks++;assert.match(stock,/On the board now: SOL, BTC, ETH\./,'name what works, so the next message is right');
@@ -86,9 +89,11 @@ assert.throws(()=>resolveIntent('put 500 on wif higher',{...env,board:cryptoOnly
   checks++;assert.doesNotMatch(c,/24\/7 index/,'the note appears only when it applies');
 }
 checks++;assert.doesNotMatch(HELP,/put 500 on tesla|stocks too/,'help must not offer a held target');
-checks++;assert.match(HELP,/API-keyless sponsored on-chain equity feed/);
+checks++;assert.match(HELP,/Pyth-owned xStock trackers.*not direct shares.*not on Pyth's official sponsored-Solana list/);
 checks++;assert.doesNotMatch(PITCH,/Call crypto or US stocks|playable around the clock/);
-checks++;assert.match(PITCH,/Stocks stay held until an API-keyless sponsored on-chain equity feed/);
+checks++;assert.match(PITCH,/@PythNetwork/,'the short public pitch credits the live price source');
+checks++;assert.doesNotMatch(PITCH,/TSLA|NVDA|stocks? (are|is) live/i,
+  'the pitch must not imply that the held stock path is already live');
 checks++;assert.ok(PITCH.length<=700,'pitch stays short: '+PITCH.length);
 
 console.log(`Session play stocks PASS - ${checks} checks: stock names refuse without dispatch, `

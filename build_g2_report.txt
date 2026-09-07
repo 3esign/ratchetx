@@ -1,0 +1,1299 @@
+PASS source identities; behavior readiness is the release lead handoff, not a text check.
+START build-sbf version
+cargo-build-sbf 4.3.0
+platform-tools v1.57
+
+PASS build-sbf version
+START cargo version
+cargo 1.98.0 (797e8a9bc 2026-08-05)
+PASS cargo version
+START install pinned platform tools
+PASS install pinned platform tools
+START Windows rustc alias version
+rustc 1.89.0-dev (e57530ef2 2026-08-14)
+PASS Windows rustc alias version
+START timepin SBPFv3 build
+warning: unexpected `cfg` condition value: `custom-heap`
+  --> programs\rcx-timepin-v2\src\lib.rs:74:1
+   |
+74 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::custom_heap_default` crate for guidance on how handle this unexpected cfg
+   = help: the macro `$crate::custom_heap_default` may come from an old version of the `solana_program_entrypoint` crate, try updating your dependency with `cargo update -p solana_program_entrypoint`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::custom_heap_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `custom-panic`
+  --> programs\rcx-timepin-v2\src\lib.rs:74:1
+   |
+74 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::custom_panic_default` crate for guidance on how handle this unexpected cfg
+   = help: the macro `$crate::custom_panic_default` may come from an old version of the `solana_program_entrypoint` crate, try updating your dependency with `cargo update -p solana_program_entrypoint`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::custom_panic_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs\rcx-timepin-v2\src\lifecycle.rs:46:10
+   |
+46 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs\rcx-timepin-v2\src\lifecycle.rs:66:10
+   |
+66 | #[derive(Accounts)]
+   |          ^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+   = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs\rcx-timepin-v2\src\lifecycle.rs:100:10
+    |
+100 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs\rcx-timepin-v2\src\lifecycle.rs:133:10
+    |
+133 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs\rcx-timepin-v2\src\lifecycle.rs:182:10
+    |
+182 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs\rcx-timepin-v2\src\lifecycle.rs:234:10
+    |
+234 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs\rcx-timepin-v2\src\lifecycle.rs:268:10
+    |
+268 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs\rcx-timepin-v2\src\lib.rs:74:1
+   |
+74 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a attribute macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `program` crate for guidance on how handle this unexpected cfg
+   = help: the attribute macro `program` may come from an old version of the `anchor_attribute_program` crate, try updating your dependency with `cargo update -p anchor_attribute_program`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs\rcx-timepin-v2\src\lib.rs:248:10
+    |
+248 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+   --> programs\rcx-timepin-v2\src\lib.rs:271:10
+    |
+271 | #[derive(Accounts)]
+    |          ^^^^^^^^
+    |
+    = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+    = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+    = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+    = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+    = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+    = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: variant `Ambiguous` is never constructed
+    --> programs\rcx-timepin-v2\src\lifecycle.rs:1478:5
+     |
+1475 | enum CaptureDispositionV2 {
+     |      -------------------- variant in this enum
+...
+1478 |     Ambiguous = 3,
+     |     ^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` on by default
+
+warning: `rcx-timepin-v2` (lib) generated 13 warnings
+    Finished `release` profile [optimized] target(s) in 5.08s
+[2026-09-05T23:31:40.927565000Z WARN  cargo_build_sbf] Package 'rcx-timepin-v2' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+PASS timepin SBPFv3 build
+START timepin pinned rustc version
+rustc 1.89.0-dev (e57530ef2 2026-08-14)
+PASS timepin pinned rustc version
+START timepin pinned clang version
+clang version 20.1.7-rust-dev (https://github.com/anza-xyz/llvm-project.git c0bfc71a0f44171b31cf0c0025cc6eecbb40d4b4)
+Target: x86_64-pc-windows-msvc
+Thread model: posix
+InstalledDir: C:\Users\treed\.cache\solana\v1.56\platform-tools\llvm\bin
+PASS timepin pinned clang version
+START timepin strict artifact verification
+{
+  "file": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+  "contentAddress": "ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so",
+  "cacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "configuredCacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "cacheRootSource": "default-temp",
+  "size": 375944,
+  "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+  "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+  "idOffset": 7568,
+  "idOccurrences": 1,
+  "forbiddenIds": [
+    {
+      "programId": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "byteLength": 32,
+      "occurrences": 0
+    }
+  ],
+  "elf": {
+    "isElf64Le": true,
+    "eFlagsHex": "0x3",
+    "sbpfVersion": 3
+  },
+  "checks": [
+    {
+      "check": "artifact is a regular non-symlink file",
+      "ok": true,
+      "detail": "lstat regular file"
+    },
+    {
+      "check": "is ELF64 little-endian",
+      "ok": true,
+      "detail": "class 2, data 1"
+    },
+    {
+      "check": "path excludes mutable target components",
+      "ok": true,
+      "detail": "no target component"
+    },
+    {
+      "check": "id embedded (declare_id baked)",
+      "ok": true,
+      "detail": "1 occurrence(s), first offset 7568"
+    },
+    {
+      "check": "id is 32 bytes",
+      "ok": true,
+      "detail": "32"
+    },
+    {
+      "check": "content-addressed temp cache path",
+      "ok": true,
+      "detail": "ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so"
+    },
+    {
+      "check": "sbpf version == 3",
+      "ok": true,
+      "detail": "e_flags=0x3 -> sbpf v3"
+    },
+    {
+      "check": "sha256 matches expected",
+      "ok": true,
+      "detail": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1"
+    },
+    {
+      "check": "size matches expected",
+      "ok": true,
+      "detail": "375944"
+    },
+    {
+      "check": "forbidden id absent: US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "ok": true,
+      "detail": "32 bytes; 0 occurrence(s)"
+    }
+  ],
+  "verdict": "PASS"
+}
+PASS timepin strict artifact verification
+timepin 375944 bytes SHA256 534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1 C:\Users\treed\AppData\Local\Temp\ratchetx-onchain-sbf\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\rcx_timepin_v2.so
+START core SBPFv3 build
+warning: unexpected `cfg` condition value: `custom-heap`
+  --> programs\ratchet-core-g2\src\lib.rs:72:1
+   |
+72 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::custom_heap_default` crate for guidance on how handle this unexpected cfg
+   = help: the macro `$crate::custom_heap_default` may come from an old version of the `solana_program_entrypoint` crate, try updating your dependency with `cargo update -p solana_program_entrypoint`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: `#[warn(unexpected_cfgs)]` on by default
+   = note: this warning originates in the macro `$crate::custom_heap_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `custom-panic`
+  --> programs\ratchet-core-g2\src\lib.rs:72:1
+   |
+72 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `$crate::custom_panic_default` crate for guidance on how handle this unexpected cfg
+   = help: the macro `$crate::custom_panic_default` may come from an old version of the `solana_program_entrypoint` crate, try updating your dependency with `cargo update -p solana_program_entrypoint`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the macro `$crate::custom_panic_default` which comes from the expansion of the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+  --> programs\ratchet-core-g2\src\lib.rs:72:1
+   |
+72 | #[program]
+   | ^^^^^^^^^^
+   |
+   = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+   = note: using a cfg inside a attribute macro will use the cfgs from the destination crate and not the ones from the defining crate
+   = help: try referring to `program` crate for guidance on how handle this unexpected cfg
+   = help: the attribute macro `program` may come from an old version of the `anchor_attribute_program` crate, try updating your dependency with `cargo update -p anchor_attribute_program`
+   = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+   = note: this warning originates in the attribute macro `program` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2413:10
+     |
+2413 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2431:10
+     |
+2431 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2450:10
+     |
+2450 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2466:10
+     |
+2466 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2495:10
+     |
+2495 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2524:10
+     |
+2524 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2553:10
+     |
+2553 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2573:10
+     |
+2573 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2613:10
+     |
+2613 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2654:10
+     |
+2654 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2675:10
+     |
+2675 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2691:10
+     |
+2691 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2720:10
+     |
+2720 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2742:10
+     |
+2742 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2818:10
+     |
+2818 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2912:10
+     |
+2912 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:2993:10
+     |
+2993 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:3092:10
+     |
+3092 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:3122:10
+     |
+3122 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:3186:10
+     |
+3186 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:3239:10
+     |
+3239 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:3301:10
+     |
+3301 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:3365:10
+     |
+3365 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:3427:10
+     |
+3427 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:3489:10
+     |
+3489 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: unexpected `cfg` condition value: `anchor-debug`
+    --> programs\ratchet-core-g2\src\lib.rs:3510:10
+     |
+3510 | #[derive(Accounts)]
+     |          ^^^^^^^^
+     |
+     = note: expected values for `feature` are: `cpi`, `default`, `idl-build`, `no-entrypoint`, `no-idl`, and `no-log-ix-name`
+     = note: using a cfg inside a derive macro will use the cfgs from the destination crate and not the ones from the defining crate
+     = help: try referring to `Accounts` crate for guidance on how handle this unexpected cfg
+     = help: the derive macro `Accounts` may come from an old version of the `anchor_derive_accounts` crate, try updating your dependency with `cargo update -p anchor_derive_accounts`
+     = note: see <https://doc.rust-lang.org/nightly/rustc/check-cfg/cargo-specifics.html> for more information about checking conditional configuration
+     = note: this warning originates in the derive macro `Accounts` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+warning: function `archive_funding_plan` is never used
+    --> programs\ratchet-core-g2\src\lib.rs:3830:4
+     |
+3830 | fn archive_funding_plan(
+     |    ^^^^^^^^^^^^^^^^^^^^
+     |
+     = note: `#[warn(dead_code)]` on by default
+
+warning: `ratchet-core-g2` (lib) generated 30 warnings
+    Finished `release` profile [optimized] target(s) in 4.67s
+[2026-09-05T23:31:49.470887000Z WARN  cargo_build_sbf] Package 'ratchet-core-g2' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+PASS core SBPFv3 build
+START core pinned rustc version
+rustc 1.89.0-dev (e57530ef2 2026-08-14)
+PASS core pinned rustc version
+START core pinned clang version
+clang version 20.1.7-rust-dev (https://github.com/anza-xyz/llvm-project.git c0bfc71a0f44171b31cf0c0025cc6eecbb40d4b4)
+Target: x86_64-pc-windows-msvc
+Thread model: posix
+InstalledDir: C:\Users\treed\.cache\solana\v1.56\platform-tools\llvm\bin
+PASS core pinned clang version
+START core strict artifact verification
+{
+  "file": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d\\ratchet_core_g2.so",
+  "contentAddress": "ratchetx-onchain-sbf/a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d/ratchet_core_g2.so",
+  "cacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "configuredCacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "cacheRootSource": "default-temp",
+  "size": 1014408,
+  "sha256": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d",
+  "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+  "idOffset": 12280,
+  "idOccurrences": 1,
+  "forbiddenIds": [
+    {
+      "programId": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "byteLength": 32,
+      "occurrences": 0
+    }
+  ],
+  "elf": {
+    "isElf64Le": true,
+    "eFlagsHex": "0x3",
+    "sbpfVersion": 3
+  },
+  "checks": [
+    {
+      "check": "artifact is a regular non-symlink file",
+      "ok": true,
+      "detail": "lstat regular file"
+    },
+    {
+      "check": "is ELF64 little-endian",
+      "ok": true,
+      "detail": "class 2, data 1"
+    },
+    {
+      "check": "path excludes mutable target components",
+      "ok": true,
+      "detail": "no target component"
+    },
+    {
+      "check": "id embedded (declare_id baked)",
+      "ok": true,
+      "detail": "1 occurrence(s), first offset 12280"
+    },
+    {
+      "check": "id is 32 bytes",
+      "ok": true,
+      "detail": "32"
+    },
+    {
+      "check": "content-addressed temp cache path",
+      "ok": true,
+      "detail": "ratchetx-onchain-sbf/a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d/ratchet_core_g2.so"
+    },
+    {
+      "check": "sbpf version == 3",
+      "ok": true,
+      "detail": "e_flags=0x3 -> sbpf v3"
+    },
+    {
+      "check": "sha256 matches expected",
+      "ok": true,
+      "detail": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d"
+    },
+    {
+      "check": "size matches expected",
+      "ok": true,
+      "detail": "1014408"
+    },
+    {
+      "check": "forbidden id absent: US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "ok": true,
+      "detail": "32 bytes; 0 occurrence(s)"
+    }
+  ],
+  "verdict": "PASS"
+}
+PASS core strict artifact verification
+core 1014408 bytes SHA256 a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d C:\Users\treed\AppData\Local\Temp\ratchetx-onchain-sbf\a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d\ratchet_core_g2.so
+START timepin built artifact readback
+{
+  "file": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+  "contentAddress": "ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so",
+  "cacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "configuredCacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "cacheRootSource": "default-temp",
+  "size": 375944,
+  "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+  "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+  "idOffset": 7568,
+  "idOccurrences": 1,
+  "forbiddenIds": [
+    {
+      "programId": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "byteLength": 32,
+      "occurrences": 0
+    }
+  ],
+  "elf": {
+    "isElf64Le": true,
+    "eFlagsHex": "0x3",
+    "sbpfVersion": 3
+  },
+  "checks": [
+    {
+      "check": "artifact is a regular non-symlink file",
+      "ok": true,
+      "detail": "lstat regular file"
+    },
+    {
+      "check": "is ELF64 little-endian",
+      "ok": true,
+      "detail": "class 2, data 1"
+    },
+    {
+      "check": "path excludes mutable target components",
+      "ok": true,
+      "detail": "no target component"
+    },
+    {
+      "check": "id embedded (declare_id baked)",
+      "ok": true,
+      "detail": "1 occurrence(s), first offset 7568"
+    },
+    {
+      "check": "id is 32 bytes",
+      "ok": true,
+      "detail": "32"
+    },
+    {
+      "check": "content-addressed temp cache path",
+      "ok": true,
+      "detail": "ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so"
+    },
+    {
+      "check": "sbpf version == 3",
+      "ok": true,
+      "detail": "e_flags=0x3 -> sbpf v3"
+    },
+    {
+      "check": "sha256 matches expected",
+      "ok": true,
+      "detail": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1"
+    },
+    {
+      "check": "size matches expected",
+      "ok": true,
+      "detail": "375944"
+    },
+    {
+      "check": "forbidden id absent: US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "ok": true,
+      "detail": "32 bytes; 0 occurrence(s)"
+    }
+  ],
+  "verdict": "PASS"
+}
+PASS timepin built artifact readback
+START core built artifact readback
+{
+  "file": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d\\ratchet_core_g2.so",
+  "contentAddress": "ratchetx-onchain-sbf/a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d/ratchet_core_g2.so",
+  "cacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "configuredCacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "cacheRootSource": "default-temp",
+  "size": 1014408,
+  "sha256": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d",
+  "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+  "idOffset": 12280,
+  "idOccurrences": 1,
+  "forbiddenIds": [
+    {
+      "programId": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "byteLength": 32,
+      "occurrences": 0
+    }
+  ],
+  "elf": {
+    "isElf64Le": true,
+    "eFlagsHex": "0x3",
+    "sbpfVersion": 3
+  },
+  "checks": [
+    {
+      "check": "artifact is a regular non-symlink file",
+      "ok": true,
+      "detail": "lstat regular file"
+    },
+    {
+      "check": "is ELF64 little-endian",
+      "ok": true,
+      "detail": "class 2, data 1"
+    },
+    {
+      "check": "path excludes mutable target components",
+      "ok": true,
+      "detail": "no target component"
+    },
+    {
+      "check": "id embedded (declare_id baked)",
+      "ok": true,
+      "detail": "1 occurrence(s), first offset 12280"
+    },
+    {
+      "check": "id is 32 bytes",
+      "ok": true,
+      "detail": "32"
+    },
+    {
+      "check": "content-addressed temp cache path",
+      "ok": true,
+      "detail": "ratchetx-onchain-sbf/a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d/ratchet_core_g2.so"
+    },
+    {
+      "check": "sbpf version == 3",
+      "ok": true,
+      "detail": "e_flags=0x3 -> sbpf v3"
+    },
+    {
+      "check": "sha256 matches expected",
+      "ok": true,
+      "detail": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d"
+    },
+    {
+      "check": "size matches expected",
+      "ok": true,
+      "detail": "1014408"
+    },
+    {
+      "check": "forbidden id absent: US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "ok": true,
+      "detail": "32 bytes; 0 occurrence(s)"
+    }
+  ],
+  "verdict": "PASS"
+}
+PASS core built artifact readback
+PASS committed vectors pin the freshly built Timepin artifact.
+START Timepin vector check
+{"mode":"check","programId":"C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp","profile":"synthetic-adapter1-strict-bracket","vectorDir":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\vectors","artifact":{"path":"ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so","size":375944,"sha256":"534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1","elfFlags":3,"sbpfVersion":3,"releaseArtifact":false,"rebuiltBySvmTask":false},"runtimeEvidence":"not included; the separate exact-SBF helper gate remains required"}
+PASS Timepin vector check
+START timepin SVM target inventory
+{"packages":[{"name":"rcx-timepin-v2-svm-tests","version":"0.1.0","id":"path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/rcx-timepin-v2/svm-tests#rcx-timepin-v2-svm-tests@0.1.0","license":null,"license_file":null,"description":"Independent transaction tests for Timepin v2 register/open SBF","source":null,"dependencies":[{"name":"litesvm","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=0.16.0","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"sha2","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=0.10.9","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"solana-sdk","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=4.0.1","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null}],"targets":[{"kind":["test"],"crate_types":["bin"],"name":"conflict_finalize_expire","src_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\tests\\conflict_finalize_expire.rs","edition":"2021","doc":false,"doctest":false,"test":true},{"kind":["test"],"crate_types":["bin"],"name":"malformed_state","src_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\tests\\malformed_state.rs","edition":"2021","doc":false,"doctest":false,"test":true},{"kind":["test"],"crate_types":["bin"],"name":"registration_open","src_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\tests\\registration_open.rs","edition":"2021","doc":false,"doctest":false,"test":true}],"features":{},"manifest_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\Cargo.toml","metadata":null,"publish":[],"authors":[],"categories":[],"keywords":[],"readme":null,"repository":null,"homepage":null,"documentation":null,"edition":"2021","links":null,"default_run":null,"rust_version":null}],"workspace_members":["path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/rcx-timepin-v2/svm-tests#rcx-timepin-v2-svm-tests@0.1.0"],"workspace_default_members":["path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/rcx-timepin-v2/svm-tests#rcx-timepin-v2-svm-tests@0.1.0"],"resolve":null,"target_directory":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\target","build_directory":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\target","version":1,"workspace_root":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests","metadata":null}
+PASS timepin SVM target inventory
+START timepin exact-SBF conflict_finalize_expire
+
+running 4 tests
+test conflict_total_order_rejects_later_replaces_earlier_and_finalizes ... ok
+test expire_only_takes_an_open_unanswered_need_after_its_window ... ok
+test finalize_of_an_open_need_without_a_candidate_is_refused ... ok
+test finalize_waits_for_the_capture_window_and_then_finalizes ... ok
+
+successes:
+
+successes:
+    conflict_total_order_rejects_later_replaces_earlier_and_finalizes
+    expire_only_takes_an_open_unanswered_need_after_its_window
+    finalize_of_an_open_need_without_a_candidate_is_refused
+    finalize_waits_for_the_capture_window_and_then_finalizes
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.40s
+
+   Compiling rcx-timepin-v2-svm-tests v0.1.0 (D:\Work\Software_Projects\pumpmind\ratchetx\ratchet_phase_a_clean\onchain\rcx-timepin-v2\svm-tests)
+    Finished `test` profile [unoptimized] target(s) in 3m 45s
+     Running tests\conflict_finalize_expire.rs (target\debug\deps\conflict_finalize_expire-a3e2d9cf9f7ae6b2.exe)
+PASS timepin exact-SBF conflict_finalize_expire
+START timepin exact-SBF malformed_state
+
+running 6 tests
+test capture_first_fails_with_truncated_data ... ok
+test open_fails_with_invalid_discriminator ... ok
+test open_fails_with_invalid_need_pda ... ok
+test register_fails_with_invalid_pda ... ok
+test register_ignores_trailing_bytes_without_changing_spec ... ok
+test register_rejects_truncated_arguments_without_creating_spec ... ok
+
+successes:
+
+successes:
+    capture_first_fails_with_truncated_data
+    open_fails_with_invalid_discriminator
+    open_fails_with_invalid_need_pda
+    register_fails_with_invalid_pda
+    register_ignores_trailing_bytes_without_changing_spec
+    register_rejects_truncated_arguments_without_creating_spec
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.84s
+
+   Compiling rcx-timepin-v2-svm-tests v0.1.0 (D:\Work\Software_Projects\pumpmind\ratchetx\ratchet_phase_a_clean\onchain\rcx-timepin-v2\svm-tests)
+warning: constant `CAPTURE_SLOT` is never used
+  --> tests\malformed_state.rs:26:7
+   |
+26 | const CAPTURE_SLOT: u64 = 1_100;
+   |       ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `LIVE_SNAPSHOT_SLOT` is never used
+  --> tests\malformed_state.rs:32:7
+   |
+32 | const LIVE_SNAPSHOT_SLOT: u64 = 444_338_968;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: constant `LIVE_RECEIVER_SLOT` is never used
+  --> tests\malformed_state.rs:33:7
+   |
+33 | const LIVE_RECEIVER_SLOT: u64 = 417_825_260;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: constant `LIVE_WORMHOLE_SLOT` is never used
+  --> tests\malformed_state.rs:34:7
+   |
+34 | const LIVE_WORMHOLE_SLOT: u64 = 417_825_233;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: constant `LIVE_PRICE_POSTED_SLOT` is never used
+  --> tests\malformed_state.rs:35:7
+   |
+35 | const LIVE_PRICE_POSTED_SLOT: u64 = 444_338_800;
+   |       ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `LIVE_PRICE_PUBLISH_TS` is never used
+  --> tests\malformed_state.rs:36:7
+   |
+36 | const LIVE_PRICE_PUBLISH_TS: i64 = 1_788_554_471;
+   |       ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `live_wormhole_id` is never used
+  --> tests\malformed_state.rs:57:4
+   |
+57 | fn live_wormhole_id() -> Pubkey {
+   |    ^^^^^^^^^^^^^^^^
+
+warning: function `live_fixture` is never used
+   --> tests\malformed_state.rs:194:4
+    |
+194 | fn live_fixture(name: &str, expected_len: usize, expected_sha256: &str) -> Vec<u8> {
+    |    ^^^^^^^^^^^^
+
+warning: method `policy_hash` is never used
+   --> tests\malformed_state.rs:303:8
+    |
+257 | impl SpecArgs {
+    | ------------- method in this implementation
+...
+303 |     fn policy_hash(&self) -> [u8; 32] {
+    |        ^^^^^^^^^^^
+
+warning: function `send_instruction` is never used
+   --> tests\malformed_state.rs:321:4
+    |
+321 | fn send_instruction(
+    |    ^^^^^^^^^^^^^^^^
+
+warning: methods `set_programdata_slot`, `clone_programdata`, `set_config`, `send`, `put_price`, and `register_and_open` are never used
+   --> tests\malformed_state.rs:470:8
+    |
+351 | impl World {
+    | ---------- methods in this implementation
+...
+470 |     fn set_programdata_slot(&mut self, program: Pubkey, slot: u64) {
+    |        ^^^^^^^^^^^^^^^^^^^^
+...
+477 |     fn clone_programdata(&mut self, source_program: Pubkey) -> Pubkey {
+    |        ^^^^^^^^^^^^^^^^^
+...
+487 |     fn set_config(&mut self, data: Vec<u8>) {
+    |        ^^^^^^^^^^
+...
+521 |     fn send(&mut self, instruction: Instruction) -> Result<u64, String> {
+    |        ^^^^
+...
+565 |     fn put_price(&mut self, posted_slot: u64) -> [u8; 32] {
+    |        ^^^^^^^^^
+...
+638 |     fn register_and_open(&mut self) -> (SpecArgs, [u8; 32]) {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: `rcx-timepin-v2-svm-tests` (test "malformed_state") generated 11 warnings
+    Finished `test` profile [unoptimized] target(s) in 2m 45s
+     Running tests\malformed_state.rs (target\debug\deps\malformed_state-99794573f2ac68a6.exe)
+PASS timepin exact-SBF malformed_state
+START timepin exact-SBF registration_open
+
+running 4 tests
+test capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds ... ok
+test exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts ... ok
+test exact_live_mainnet_snapshot_registers_opens_and_captures ... ok
+test registration_generation_mutants_fail_closed_and_roll_back ... ok
+
+successes:
+
+---- capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds stdout ----
+Timepin v2 large-account capture CU: 51447
+
+---- exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts stdout ----
+Timepin v2 large-account CU: register=35535, open=22781; Receiver ProgramData=425984B, Wormhole ProgramData=671744B
+policy_hash=88a2ab0b22ef195fb88756843549ad0fe4a9ad2fe11a26a4f95b7a3777aa5a1f spec_hash=ad7ea1f3961dc404fbe52feef6ac1a47480f92618de20499862d1bbd8a4679e3 spec_pda=7MJsnwEMjKjrw9YJG1rDvetGM8wrhbcQxyrDvjArMEe1 need_pda=ETp1e3Ayw7bf6JHXzE5zSyN1JjSRfpMFzzJwemQgavHy
+
+---- exact_live_mainnet_snapshot_registers_opens_and_captures stdout ----
+live mainnet snapshot slot=444338968: register=42092 CU, open=22786 CU, capture=62567 CU; Receiver PD=416909B@417825260, configured Wormhole PD=656005B@417825233, PriceUpdate posted=444338800
+
+
+successes:
+    capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds
+    exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts
+    exact_live_mainnet_snapshot_registers_opens_and_captures
+    registration_generation_mutants_fail_closed_and_roll_back
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.52s
+
+   Compiling rcx-timepin-v2-svm-tests v0.1.0 (D:\Work\Software_Projects\pumpmind\ratchetx\ratchet_phase_a_clean\onchain\rcx-timepin-v2\svm-tests)
+    Finished `test` profile [unoptimized] target(s) in 2m 19s
+     Running tests\registration_open.rs (target\debug\deps\registration_open-d3da5428b76c5880.exe)
+PASS timepin exact-SBF registration_open
+START core SVM target inventory
+{"packages":[{"name":"ratchet-core-g2-svm-tests","version":"0.1.0","id":"path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/ratchet-core-g2/svm-tests#ratchet-core-g2-svm-tests@0.1.0","license":null,"license_file":null,"description":"Independent exact-SBF transaction tests for Ratchet Core G2","source":null,"dependencies":[{"name":"base64","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=0.22.1","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"litesvm","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=0.16.0","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"serde_json","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=1.0.151","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"sha2","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=0.10.9","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"solana-sdk","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=4.0.1","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"spl-token","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=9.0.0","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":["no-entrypoint"],"target":null,"registry":null},{"name":"spl-token-2022-interface","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=2.1.0","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null}],"targets":[{"kind":["test"],"crate_types":["bin"],"name":"core_g2_lifecycle","src_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests\\tests\\core_g2_lifecycle.rs","edition":"2021","doc":false,"doctest":false,"test":true}],"features":{},"manifest_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests\\Cargo.toml","metadata":null,"publish":[],"authors":[],"categories":[],"keywords":[],"readme":null,"repository":null,"homepage":null,"documentation":null,"edition":"2021","links":null,"default_run":null,"rust_version":null}],"workspace_members":["path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/ratchet-core-g2/svm-tests#ratchet-core-g2-svm-tests@0.1.0"],"workspace_default_members":["path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/ratchet-core-g2/svm-tests#ratchet-core-g2-svm-tests@0.1.0"],"resolve":null,"target_directory":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests\\target","build_directory":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests\\target","version":1,"workspace_root":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests","metadata":null}
+PASS core SVM target inventory
+START core exact-SBF core_g2_lifecycle
+
+running 16 tests
+test delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless ... ok
+test equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe ... ok
+test full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page ... ok
+test immutable_generation_registration_ledger_claim_and_history_are_permissionless ... ok
+test observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless ... ok
+test register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes ... ok
+test reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay ... ok
+test seal_forward_rejects_final_need ... ok
+test settle_final_rejects_candidate_for_other_message_hash ... ok
+test settle_final_rejects_candidate_need ... ok
+test settle_final_rejects_lookalike_owned_need_and_candidate_bytes ... ok
+test settle_final_rejects_other_final_need ... ok
+test settle_final_rejects_shot_from_another_economy_and_ruleset ... ok
+test settle_final_rejects_timepin_deadline_drift ... ok
+test settle_final_replay_is_rejected ... ok
+test void_active_shot_rejects_final_need ... ok
+
+successes:
+
+successes:
+    delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless
+    equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe
+    full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page
+    immutable_generation_registration_ledger_claim_and_history_are_permissionless
+    observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless
+    register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes
+    reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay
+    seal_forward_rejects_final_need
+    settle_final_rejects_candidate_for_other_message_hash
+    settle_final_rejects_candidate_need
+    settle_final_rejects_lookalike_owned_need_and_candidate_bytes
+    settle_final_rejects_other_final_need
+    settle_final_rejects_shot_from_another_economy_and_ruleset
+    settle_final_rejects_timepin_deadline_drift
+    settle_final_replay_is_rejected
+    void_active_shot_rejects_final_need
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.17s
+
+    Finished `test` profile [unoptimized] target(s) in 1m 09s
+     Running tests\core_g2_lifecycle.rs (target\debug\deps\core_g2_lifecycle-5e6d2568520ee0d7.exe)
+PASS core exact-SBF core_g2_lifecycle
+START timepin final artifact readback
+{
+  "file": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+  "contentAddress": "ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so",
+  "cacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "configuredCacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "cacheRootSource": "default-temp",
+  "size": 375944,
+  "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+  "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+  "idOffset": 7568,
+  "idOccurrences": 1,
+  "forbiddenIds": [
+    {
+      "programId": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "byteLength": 32,
+      "occurrences": 0
+    }
+  ],
+  "elf": {
+    "isElf64Le": true,
+    "eFlagsHex": "0x3",
+    "sbpfVersion": 3
+  },
+  "checks": [
+    {
+      "check": "artifact is a regular non-symlink file",
+      "ok": true,
+      "detail": "lstat regular file"
+    },
+    {
+      "check": "is ELF64 little-endian",
+      "ok": true,
+      "detail": "class 2, data 1"
+    },
+    {
+      "check": "path excludes mutable target components",
+      "ok": true,
+      "detail": "no target component"
+    },
+    {
+      "check": "id embedded (declare_id baked)",
+      "ok": true,
+      "detail": "1 occurrence(s), first offset 7568"
+    },
+    {
+      "check": "id is 32 bytes",
+      "ok": true,
+      "detail": "32"
+    },
+    {
+      "check": "content-addressed temp cache path",
+      "ok": true,
+      "detail": "ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so"
+    },
+    {
+      "check": "sbpf version == 3",
+      "ok": true,
+      "detail": "e_flags=0x3 -> sbpf v3"
+    },
+    {
+      "check": "sha256 matches expected",
+      "ok": true,
+      "detail": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1"
+    },
+    {
+      "check": "size matches expected",
+      "ok": true,
+      "detail": "375944"
+    },
+    {
+      "check": "forbidden id absent: US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "ok": true,
+      "detail": "32 bytes; 0 occurrence(s)"
+    }
+  ],
+  "verdict": "PASS"
+}
+PASS timepin final artifact readback
+START core final artifact readback
+{
+  "file": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d\\ratchet_core_g2.so",
+  "contentAddress": "ratchetx-onchain-sbf/a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d/ratchet_core_g2.so",
+  "cacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "configuredCacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "cacheRootSource": "default-temp",
+  "size": 1014408,
+  "sha256": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d",
+  "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+  "idOffset": 12280,
+  "idOccurrences": 1,
+  "forbiddenIds": [
+    {
+      "programId": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "byteLength": 32,
+      "occurrences": 0
+    }
+  ],
+  "elf": {
+    "isElf64Le": true,
+    "eFlagsHex": "0x3",
+    "sbpfVersion": 3
+  },
+  "checks": [
+    {
+      "check": "artifact is a regular non-symlink file",
+      "ok": true,
+      "detail": "lstat regular file"
+    },
+    {
+      "check": "is ELF64 little-endian",
+      "ok": true,
+      "detail": "class 2, data 1"
+    },
+    {
+      "check": "path excludes mutable target components",
+      "ok": true,
+      "detail": "no target component"
+    },
+    {
+      "check": "id embedded (declare_id baked)",
+      "ok": true,
+      "detail": "1 occurrence(s), first offset 12280"
+    },
+    {
+      "check": "id is 32 bytes",
+      "ok": true,
+      "detail": "32"
+    },
+    {
+      "check": "content-addressed temp cache path",
+      "ok": true,
+      "detail": "ratchetx-onchain-sbf/a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d/ratchet_core_g2.so"
+    },
+    {
+      "check": "sbpf version == 3",
+      "ok": true,
+      "detail": "e_flags=0x3 -> sbpf v3"
+    },
+    {
+      "check": "sha256 matches expected",
+      "ok": true,
+      "detail": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d"
+    },
+    {
+      "check": "size matches expected",
+      "ok": true,
+      "detail": "1014408"
+    },
+    {
+      "check": "forbidden id absent: US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "ok": true,
+      "detail": "32 bytes; 0 occurrence(s)"
+    }
+  ],
+  "verdict": "PASS"
+}
+PASS core final artifact readback
+PASS G2 local candidate. Receipt: D:\Work\Software_Projects\pumpmind\ratchetx\ratchet_phase_a_clean\docs\receipts\g2-build-artifacts.json. Nothing deployed.

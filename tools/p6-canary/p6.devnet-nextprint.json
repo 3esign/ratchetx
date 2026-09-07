@@ -1,0 +1,18 @@
+{
+  "_comment": "DRY-RUN config for the read-side canary against the already-deployed devnet next-print-v2 program (historical v0 generation). Purpose: exercise genesis/authority/elf/rpc-agreement/founder-off checks on REAL chain data before the C8 window. Tuple from onchain/ratchet-next-print-v2/BUILD_EVIDENCE.md + DEVNET_EVIDENCE_2026-09-04.md. Replace the second RPC with an operator-chosen endpoint.",
+  "genesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "rpc": ["https://api.devnet.solana.com", "https://api.devnet.solana.com"],
+  "intervalSeconds": 60,
+  "evidenceDir": "evidence/p6-dryrun-nextprint",
+  "programs": {
+    "next_print_v2": { "id": "2TV2zagBZaDXXYjduLrRbiDGGsR8jXNqYAuLDE4j4tyR", "size": 217040, "sha256": "01bab651f511cd72c480c432425c1bb343c91ab17f4df63c5ffdac1a8b0d52cc", "sbpfVersion": 0, "upgradeAuthority": "9R17sG7w5b4w4DYkXAGAxDGKM4ktAToum3L31VJgkJUy" }
+  },
+  "readset": ["ELapjd76gKGPyRtYc6cVRaJA1qAcp8ni5NBsiPME2mbd"],
+  "trackedNeeds": [],
+  "needStateOffset": 11,
+  "founderMustBeUnreachable": ["https://ratchetx.xyz/api/game?action=board", "https://ratchetx.xyz/"],
+  "operators": [],
+  "thresholds": { "hours": 1, "oracleMaxGapSeconds": 600, "minLifecycles": 0 },
+  "scenarios": [],
+  "disclaimers": ["DRY RUN of the read-side only against the historical v0 next-print-v2 generation; not P6 evidence"]
+}

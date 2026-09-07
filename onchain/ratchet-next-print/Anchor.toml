@@ -1,0 +1,12 @@
+[programs.localnet]
+ratchet_next_print = "5bBHDFMmXQq6PNyrGVdSiKo3xpDvevbueYXZmp48bX4"
+
+[programs.devnet]
+ratchet_next_print = "5bBHDFMmXQq6PNyrGVdSiKo3xpDvevbueYXZmp48bX4"
+
+[provider]
+cluster = "Localnet"
+wallet = "~/.config/solana/id.json"
+
+[workspace]
+types = "target/types"

@@ -1,0 +1,19 @@
+{
+  "programId": "5bBHDFMmXQq6PNyrGVdSiKo3xpDvevbueYXZmp48bX4",
+  "player": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+  "nonce": "42",
+  "side": 1,
+  "pBps": 6500,
+  "saltHex": "0505050505050505050505050505050505050505050505050505050505050505",
+  "commitHex": "af671984962cdfe4077c71de5b9d90f67f4697ec9049e73e3ba9505c3d163b99",
+  "shotPda": "5VWV4N5pjpEvsK3no4C3rSDHSTSMx9TendAZdmjxaVEX",
+  "shotBump": 255,
+  "feedIndex": 1,
+  "priceUpdate": "G8EJV1bqPydBCFZJ2neo1hsrwp2Hwt2ZqJTLG2gotcP2",
+  "openDataHex": "9ddc5dc85cec8e9c2a00000000000000af671984962cdfe4077c71de5b9d90f67f4697ec9049e73e3ba9505c3d163b9901",
+  "observeDataHex": "cc4eb273c293414a",
+  "timeoutDataHex": "09362ea99cbd50f7",
+  "revealDataHex": "09233bbea7f94c730164190505050505050505050505050505050505050505050505050505050505050505",
+  "forfeitDataHex": "509aed9ef4c69a09",
+  "closeShotDataHex": "d382ac298155850f"
+}

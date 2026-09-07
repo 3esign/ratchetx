@@ -265,12 +265,7 @@ function findHorizon(text){
   return null;
 }
 /** One canonical explanation. Questions about RatchetX get this, not a shot. */
-export const PITCH=`RatchetX - sealed prediction arcade on Solana. $RCX launched on pump.fun, CA FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump.
-Call SOL, BTC, ETH and the crypto board higher or lower over minutes, sealed before the move, settled on verified Pyth-on-Solana data. No vote, no discretion.
-Stocks stay held until an API-keyless sponsored on-chain equity feed can meet the same settlement rule.
-Every call carries your probability; Brier scoring builds a public calibration record. Hits earn XP, rank and podium.
-Every $RCX reload burns 70%, pays 30% to the podium, 0% to the team.
-One flywheel: play -> XP -> podium -> $RCX -> reload -> burn + podium -> play. Humans and agents on one board. ratchetx.xyz`;
+export const PITCH=`RatchetX: sealed prediction arcade on @solana. @bankrbot turns one command into one bounded forecast. RatchetX applies published rules to on-chain price data from @PythNetwork. $RCX reloads burn 70%, reward players 30%, team 0%. Launched on @pumpdotfun. ratchetx.xyz`;
 const EXPLAIN_PATTERN=/\b(what|whats|what's|how does|how do|explain|tell me|describe|why|wtf|wat)\b.*\b(ratchet|ratchetx|rcx|this|it|game|arcade|arena|podium|flywheel|rewards?)\b|\b(ratchet|ratchetx|rcx)\b\s*\?|\b(explain|info|about|intro|pitch)\b/;
 export const HELP=`RatchetX commands (mention @bankrbot):
 - ratchetx put 500 on sol higher - sealed forecast: asset, higher/lower, credits, optional 70%
@@ -280,7 +275,8 @@ export const HELP=`RatchetX commands (mention @bankrbot):
 - ratchetx leaderboard - who is winning right now
 - ratchetx result - your latest settled forecast
 - ratchetx what is this - how the flywheel works
-Stocks are held until an API-keyless sponsored on-chain equity feed can settle them.
+Stocks remain held. Pyth-owned xStock trackers are an on-chain candidate, not direct shares; they are not on Pyth's official sponsored-Solana list and have not passed the Timepin/cadence launch gate.
+Aliases: @bankrbot play or $RCX play. Price data: @PythNetwork.
 Setup: ratchetx.xyz/play-session.html`;
 const META_PATTERN=/\b(update|upgrade|install|reinstall|uninstall|refresh|sync|latest version|github|skill|skills|repo|repository)\b/;
 export const META_REPLY='That is a Bankr skill command, not a RatchetX play - nothing was sealed. Ask Bankr: "update the ratchetx skill from https://github.com/3esign/ratchetx/tree/main/skills/ratchetx".';
@@ -365,7 +361,7 @@ export function resolveIntent(text,{board,context,limits,session,player,override
     // A $TICKER is an unmistakable naming of an asset, so an unknown one is
     // refused on the same principle as above rather than quietly redirected.
     const dollar=String(raw).match(/\$([A-Za-z]{2,6})\b/);
-    if(dollar&&!feeds.includes(dollar[1].toUpperCase())&&!['YES','NO','MAX','ALL'].includes(dollar[1].toUpperCase()))
+    if(dollar&&!feeds.includes(dollar[1].toUpperCase())&&!['YES','NO','MAX','ALL','RCX'].includes(dollar[1].toUpperCase()))
       stop('ASSET_NOT_ON_BOARD','REFUSED',{requestedAsset:dollar[1].toUpperCase(),availableAssets:feeds});
     // A bare run of capitals is far weaker evidence -- "ratchetx PLAY 500" --
     // so it stays a note on a shot that still happens, exactly as before.
@@ -707,7 +703,7 @@ export async function runPlay(options={},dependencies={}){
 }
 
 // ---- One reply per result. The agent posts `reply` verbatim; nothing else. --
-const FOOTER='ratchetx.xyz - solana prediction arcade rewarding $RCX';
+const FOOTER='ratchetx.xyz - on @solana - prices by @PythNetwork - rewarding $RCX';
 const NEW_SESSION='Approve a new play session at ratchetx.xyz/play-session.html.';
 const REFUSALS={
   SESSION_RATE_LIMIT:r=>'Cooldown active. Please retry in '+(r.retryAfterSeconds??'a few')+' s. Nothing was sealed.',
@@ -734,11 +730,11 @@ const REFUSALS={
     const want=r.requestedAsset?String(r.requestedAsset).toUpperCase():'That asset';
     const have=Array.isArray(r.availableAssets)&&r.availableAssets.length
       ? ' On the board now: '+r.availableAssets.join(', ')+'.' : '';
-    // A stock is not absent for an hour. It is held until the API-keyless
-    // oracle path has a sponsored on-chain equity account that can satisfy the
-    // same seal and settlement evidence rules as crypto.
+    // A stock is not absent for an hour. Pyth-owned xStock tracker accounts are
+    // a distinct candidate instrument, not direct shares or an officially
+    // sponsored production rail. Refuse until their Timepin/cadence gate passes.
     if(STOCKS.has(want))
-      return 'Nothing was sealed. '+want+' is a stock. RatchetX\'s API-keyless oracle path has no sponsored on-chain equity feed, so stocks stay held and the game will not settle on a source it cannot verify by the same rule as crypto.'+have;
+      return 'Nothing was sealed. '+want+' is a stock. Pyth-owned xStock tracker accounts are an API-keyless on-chain candidate, but they are not direct shares, are not on Pyth\'s official sponsored-Solana list, and have not passed RatchetX\'s Timepin/cadence launch gate. The production board stays held rather than pretending those guarantees exist.'+have;
     return 'Nothing was sealed. '+want+' is not on the board this hour, and RatchetX will not put your credits on a different asset than the one you named.'+have+' The board changes every hour - reply "ratchetx board" to see it.';
   },
   CAPABILITY_IDENTITY_MISMATCH:()=>'No RatchetX play session is configured for this account. '+NEW_SESSION,

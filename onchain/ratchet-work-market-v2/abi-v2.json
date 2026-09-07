@@ -1,0 +1,199 @@
+{
+  "name": "ratchet-work-market-v2-protocol",
+  "status": "draft-pre-freeze",
+  "program_fixture": "gBxS1f6uyyGPuW5MzGBukidSb71jdsCb5fZaoSzULE5",
+  "versions": {
+    "voucher_schema": 2,
+    "manifest_schema": 1,
+    "completion_schema": 1
+  },
+  "constants": {
+    "rcx_mint": "FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump",
+    "rcx_decimals": 6,
+    "token_program": "TokenzQdBNbLqP5VEhdkAS6EPFLC1PHnBqCXEpPxuEb",
+    "memo_program": "MemoSq4gqABAXKb96qnH8TysNcWxMyWCqXgDLGmfcHr",
+    "settlement_memo_domain_utf8_nul": "rcx-work-market:settle:v2\u0000",
+    "settlement_memo_digest": "sha256",
+    "settlement_memo_payload": "lowercase-hex-utf8-64-bytes",
+    "dispositions": {
+      "pending": 0,
+      "payable": 1,
+      "nonpayable": 2
+    },
+    "locator_modes": {
+      "direct_receipt": 1,
+      "packed_work_page": 2
+    }
+  },
+  "accounts": {
+    "WorkManifest": {
+      "discriminator_hex": "bbe5af48f112a455",
+      "payload_size": 34,
+      "account_size": 42,
+      "pda_seeds": [
+        "utf8:work_manifest",
+        "u16le:manifest_schema",
+        "u8:work_kind"
+      ],
+      "fields": [
+        {"name": "schema_version", "type": "u16", "payload_offset": 0},
+        {"name": "bump", "type": "u8", "payload_offset": 2},
+        {"name": "work_kind", "type": "u8", "payload_offset": 3},
+        {"name": "completion_schema_version", "type": "u16", "payload_offset": 4},
+        {"name": "locator_mode", "type": "u8", "payload_offset": 6},
+        {"name": "subject_schema_version", "type": "u16", "payload_offset": 7},
+        {"name": "subject_account_size", "type": "u16", "payload_offset": 9},
+        {"name": "subject_discriminator", "type": "[u8;8]", "payload_offset": 11},
+        {"name": "locator_schema_version", "type": "u16", "payload_offset": 19},
+        {"name": "locator_discriminator", "type": "[u8;8]", "payload_offset": 21},
+        {"name": "records_offset", "type": "u16", "payload_offset": 29},
+        {"name": "entry_len", "type": "u16", "payload_offset": 31},
+        {"name": "locator_capacity", "type": "u8", "payload_offset": 33}
+      ]
+    },
+    "Voucher": {
+      "payload_size": 238,
+      "account_size": 246,
+      "pda_seeds": [
+        "utf8:voucher",
+        "u16le:voucher_schema",
+        "pubkey:completion_program",
+        "pubkey:subject",
+        "u8:work_kind",
+        "pubkey:sponsor",
+        "u64le:nonce"
+      ],
+      "fields": [
+        {"name": "schema_version", "type": "u16", "payload_offset": 0},
+        {"name": "bump", "type": "u8", "payload_offset": 2},
+        {"name": "state", "type": "u8", "payload_offset": 3},
+        {"name": "work_kind", "type": "u8", "payload_offset": 4},
+        {"name": "completion_program", "type": "Pubkey", "payload_offset": 5},
+        {"name": "subject", "type": "Pubkey", "payload_offset": 37},
+        {"name": "completion_locator", "type": "Pubkey", "payload_offset": 69},
+        {"name": "locator_slot", "type": "u8", "payload_offset": 101},
+        {"name": "sponsor", "type": "Pubkey", "payload_offset": 102},
+        {"name": "nonce", "type": "u64", "payload_offset": 134},
+        {"name": "funded_amount", "type": "u64", "payload_offset": 142},
+        {"name": "settled_amount", "type": "u64", "payload_offset": 150},
+        {"name": "funded_slot", "type": "u64", "payload_offset": 158},
+        {"name": "funded_ts", "type": "i64", "payload_offset": 166},
+        {"name": "beneficiary", "type": "Pubkey", "payload_offset": 174},
+        {"name": "result_hash", "type": "[u8;32]", "payload_offset": 206}
+      ]
+    },
+    "DirectCompletionReceipt": {
+      "account_size": 125,
+      "pda_seeds": [
+        "utf8:completion",
+        "pubkey:subject",
+        "u8:work_kind"
+      ],
+      "fields_absolute": [
+        {"name": "discriminator", "type": "[u8;8]", "offset": 0},
+        {"name": "schema_version", "type": "u16", "offset": 8},
+        {"name": "bump", "type": "u8", "offset": 10},
+        {"name": "disposition", "type": "u8", "offset": 11},
+        {"name": "work_kind", "type": "u8", "offset": 12},
+        {"name": "subject", "type": "Pubkey", "offset": 13},
+        {"name": "worker", "type": "Pubkey", "offset": 45},
+        {"name": "result_hash", "type": "[u8;32]", "offset": 77},
+        {"name": "completed_slot", "type": "u64", "offset": 109},
+        {"name": "completed_ts", "type": "i64", "offset": 117}
+      ]
+    },
+    "PackedWorkRecord": {
+      "size": 106,
+      "fields": [
+        {"name": "subject", "type": "Pubkey", "offset": 0},
+        {"name": "work_kind", "type": "u8", "offset": 32},
+        {"name": "disposition", "type": "u8", "offset": 33},
+        {"name": "worker", "type": "Pubkey", "offset": 34},
+        {"name": "result_hash", "type": "[u8;32]", "offset": 66},
+        {"name": "completed_slot", "type": "u64", "offset": 98}
+      ],
+      "page_rules": {
+        "vec_len_offset": "manifest.records_offset - 4",
+        "record_offset": "manifest.records_offset + locator_slot * 106",
+        "exact_account_size": "manifest.records_offset + vec_len * 106",
+        "maximum_capacity": 48
+      }
+    }
+  },
+  "instructions": {
+    "fund_rcx_voucher": {
+      "args": [
+        {"name": "nonce", "type": "u64"},
+        {"name": "work_kind", "type": "u8"},
+        {"name": "locator_slot", "type": "u8"},
+        {"name": "amount", "type": "u64"}
+      ],
+      "accounts_in_order": [
+        "sponsor:signer+writable",
+        "subject:readonly",
+        "completion_locator:readonly",
+        "completion_program:readonly+executable",
+        "completion_program_data:readonly",
+        "work_manifest:readonly",
+        "voucher:writable+init",
+        "vault:writable+init",
+        "mint:writable",
+        "sponsor_token:writable",
+        "token_program:readonly+executable",
+        "system_program:readonly+executable"
+      ],
+      "requires_pending_completion": true,
+      "requires_completion_program_upgrade_authority_none": true
+    },
+    "claim_rcx_voucher": {
+      "accounts_in_order": [
+        "actor:signer",
+        "voucher:writable",
+        "vault:writable",
+        "mint:readonly",
+        "worker:readonly",
+        "worker_token:writable",
+        "work_manifest:readonly",
+        "completion_locator:readonly",
+        "sponsor:writable",
+        "token_program:readonly+executable",
+        "memo_program:readonly+executable"
+      ],
+      "terminal_disposition": 1,
+      "memo_immediately_precedes_transfer_checked": true
+    },
+    "refund_rcx_voucher": {
+      "accounts_in_order": [
+        "actor:signer",
+        "voucher:writable",
+        "vault:writable",
+        "mint:readonly",
+        "work_manifest:readonly",
+        "completion_locator:readonly",
+        "sponsor:writable",
+        "sponsor_token:writable",
+        "token_program:readonly+executable",
+        "memo_program:readonly+executable"
+      ],
+      "terminal_disposition": 2,
+      "memo_immediately_precedes_transfer_checked": true
+    },
+    "close_voucher": {
+      "accounts_in_order": [
+        "actor:signer",
+        "voucher:writable+close",
+        "sponsor:writable"
+      ],
+      "allowed_states": ["paid", "refunded"]
+    }
+  },
+  "producer_invariants": [
+    "manifest fields are compile-time constants and the manifest has no edit or close path",
+    "reservation is unique and idempotent for each subject and work kind",
+    "reservation accepts only a live eligible subject and creates a structurally clean pending record",
+    "every transition that completes or invalidates reserved work terminalizes the record exactly once",
+    "every terminal record has a nonzero producer-authenticated result hash and completed slot",
+    "completion locators never close, reset, or reuse a record",
+    "subject close is impossible while any reservation is pending"
+  ]
+}

@@ -74,7 +74,7 @@ let bad=0; const check=(c,l)=>{ if(!c)bad++; console.log((c?'PASS  ':'FAIL  ')+l
       banner: (document.getElementById('mode')||{}).textContent||'',
       hasBtn: !!document.getElementById('notifYes') }));
     sawFlash = sawFlash || m.flashed;
-    if(m.hasBtn) break; }
+    if(m.hasBtn && sawFlash) break; }
   check(sawFlash, 'the settled card flashes when you are looking at it');
   check(/Want to know when the next one does/.test(m.banner) && m.hasBtn,
         'and the permission ask arrives AFTER a settlement, with a button');

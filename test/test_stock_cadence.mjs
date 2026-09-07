@@ -111,4 +111,30 @@ const tool = readFileSync(new URL('../tools/stock_cadence.mjs', import.meta.url)
     'COINX and HOODX were abandoned by their publisher and the file must say so, or somebody lists them');
 }
 
+// ---- 8. a number that is not a number must be refused, not coerced --------
+// `--minutes --every 5` parsed to NaN. `Date.now() < NaN` is false, so the run
+// exited after ZERO polls having written a report full of dashes -- and that
+// report then overwrote a good one that was 74 minutes deep. Two failures in
+// one: a silent NaN, and an empty result allowed to destroy a real one.
+{
+  const src = readFileSync(new URL('../tools/stock_cadence.mjs', import.meta.url), 'utf8');
+  checks++; assert.match(src, /Number\.isFinite\(value\)/,
+    'the argument parser must reject a non-number rather than carrying NaN into the loop');
+  checks++; assert.match(src, /process\.exit\(2\)/,
+    'and must exit rather than run a zero-length window that looks like a measurement');
+  checks++; assert.match(src, /polls === 0 && fs\.existsSync\(OUT\)/,
+    'a run that measured nothing must never overwrite a run that measured something');
+  checks++; assert.match(src, /Refusing to overwrite it with nothing/,
+    'and must say so, because a silent refusal looks like a silent success');
+
+  const cmd = readFileSync(new URL('../STOCK_CADENCE.cmd', import.meta.url), 'utf8');
+  checks++; assert.match(cmd, /findstr \/r "\^\[1-9\]\[0-9\]\*\$"/,
+    'the prompts must validate that the answer is digits, since a flag typed into a number field is exactly what happened');
+  checks++; assert.match(cmd, /goto :askmin/, 're-asking beats accepting nonsense');
+  checks++; assert.match(cmd, /stock_cadence_report_2\.txt/,
+    'a second run must write a second file while the first may still be alive');
+  checks++; assert.match(cmd, /--every/,
+    'the poll interval must be askable: 20s cannot resolve a feed that writes faster than 20s');
+}
+
 console.log(`PASS  stock cadence: ${checks} checks — horizons and seal bound pinned to lib.rs, 870s cadence lands ~7% of seals`);

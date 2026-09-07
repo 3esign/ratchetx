@@ -8,62 +8,72 @@ exit /b
 :run
 cd /d "%RXDIR%"
 echo ============================================================
-echo   STOCK CADENCE - the measurement the stocks decision needs
+echo   STOCK CADENCE
 echo ============================================================
 echo.
-echo   Stocks are already reachable with no API key: the tokenized
-echo   xStocks are filed under Crypto, and Pyth sponsors those with
-echo   permanent push accounts the frozen program can already read.
-echo   That part is settled and measured.
+echo   Reads only. No key, no signer, no transaction.
 echo.
-echo   What is NOT settled is how often those feeds publish. Measured
-echo   once on 2 September, for 13 minutes, they wrote every 870
-echo   seconds - against a seal bound that stops at 60. On that number
-echo   about 7 stock seals in 100 would land, and the feature does not
-echo   work. But 13 minutes is not a measurement, it is a glimpse.
+echo   Answer each question with a PLAIN NUMBER. Do not type a flag
+echo   like --every here; the questions below are the flags.
 echo.
-echo   This watches them properly. It reads only: no key, no signer,
-echo   no transaction, nothing on chain changes. The report is
-echo   rewritten after every poll, so closing the window early still
-echo   leaves you what it had.
-echo.
-where node >/dev/null 2>nul
+where node >nul 2>nul
 if errorlevel 1 goto :nonode
 if not exist "tools\stock_cadence.mjs" goto :notool
-echo   A private RPC is worth it here: 8 hours of 20-second polling
-echo   will get throttled on the public endpoint, and throttling looks
-echo   exactly like a slow publisher. Paste a full https:// URL, or
-echo   leave it blank to use the public one anyway.
-echo.
+
 set "RX_RPC="
 set /p RX_RPC=RPC URL (blank = public): 
 echo.
-set "RX_MIN=480"
-set /p RX_MIN=How many minutes to watch [480]: 
+
+:askmin
+set "RX_MIN="
+set /p "RX_MIN=Minutes to watch [480]: "
+if "%RX_MIN%"=="" set "RX_MIN=480"
+echo %RX_MIN%| findstr /r "^[1-9][0-9]*$" >nul
+if errorlevel 1 (
+  echo   "%RX_MIN%" is not a plain number. Just digits, like 480.
+  echo.
+  goto :askmin
+)
+
+:asksec
+set "RX_EVERY="
+set /p "RX_EVERY=Seconds between polls [20, use 5 to resolve SOL]: "
+if "%RX_EVERY%"=="" set "RX_EVERY=20"
+echo %RX_EVERY%| findstr /r "^[1-9][0-9]*$" >nul
+if errorlevel 1 (
+  echo   "%RX_EVERY%" is not a plain number. Just digits, like 5.
+  echo.
+  goto :asksec
+)
+
+:askout
+set "RX_OUT=stock_cadence_report.txt"
+if exist "%RX_OUT%" (
+  echo.
+  echo   %RX_OUT% already exists - another run may still be writing it.
+  set "RX_OUT=stock_cadence_report_2.txt"
+  echo   This run will write %RX_OUT% instead, so nothing is clobbered.
+)
 echo.
-echo   Measuring for %RX_MIN% minutes. Leave this window open.
+echo   Watching %RX_MIN% minutes, polling every %RX_EVERY%s, into %RX_OUT%.
+echo   Leave this window open.
 echo.
-rem The URL is QUOTED on purpose. A Helius URL contains "/?api-key="
-rem and cmd reads that leading "/?" as the help switch for CALL, so an
-rem unquoted one prints CALLs manual instead of running anything.
-node "tools\stock_cadence.mjs" "%RX_RPC%" --minutes %RX_MIN%
+rem The URL is QUOTED: a Helius URL contains "/?api-key=" and cmd reads the
+rem leading "/?" as a help switch.
+node "tools\stock_cadence.mjs" "%RX_RPC%" --minutes %RX_MIN% --every %RX_EVERY% --out "%RX_OUT%"
 set "RX_RPC="
 if errorlevel 1 goto :failed
 echo.
 echo ============================================================
-echo   DONE. The report is stock_cadence_report.txt in this folder.
+echo   DONE. The report is %RX_OUT% in this folder.
 echo.
 echo   Read the CONTROL line first. If SOL did not tick, the RPC was
-echo   serving stale data and every stock row is meaningless - re-run
-echo   with a different RPC rather than believing it.
-echo.
-echo   Send me that file and I will tell you what it permits.
+echo   serving stale data and every stock row is meaningless.
 echo ============================================================
 goto :end
 :failed
 echo.
-echo   It stopped early and the reason is above. Whatever it had
-echo   measured is still in stock_cadence_report.txt.
+echo   It stopped early and the reason is above.
 goto :end
 :notool
 echo   STOPPED: tools\stock_cadence.mjs is not next to this script.

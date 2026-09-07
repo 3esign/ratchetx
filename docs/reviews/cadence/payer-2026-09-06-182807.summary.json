@@ -1,0 +1,467 @@
+{
+  "schema": 1,
+  "method": "poll-sponsored-price-accounts",
+  "header": {
+    "kind": "header",
+    "method": "walk-payer",
+    "startedAt": "2026-09-06T18:28:07.421Z",
+    "rpcUrl": "https://solana-rpc.publicnode.com",
+    "hours": 24,
+    "payer": "9F6ApEtzkHVdZXzsury6BYmyEh4pahDBxuhNLaGC6saC",
+    "intervalMs": 0,
+    "feeds": [
+      {
+        "symbol": "SOL",
+        "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+        "sourceAddress": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE"
+      },
+      {
+        "symbol": "BTC",
+        "feedId": "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
+        "sourceAddress": "APgzQGGdv2qCgBkX6aHVkrGePtBVDDg68GiqaM7rmtf5"
+      },
+      {
+        "symbol": "ETH",
+        "feedId": "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
+        "sourceAddress": "7odryi4WfoMFHtv2eubdMgP1pqQMmdiXSK1N2tqZ2nRH"
+      },
+      {
+        "symbol": "BONK",
+        "feedId": "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419",
+        "sourceAddress": "3nMpgBXnjBSDYupQQEVR7DZM65zkJCdKy1Up7nkqp99w"
+      },
+      {
+        "symbol": "PUMP",
+        "feedId": "7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9",
+        "sourceAddress": "4KL8nVtrXmLjbbHtrDz5YCHNqmii62oHfr9bsUtx1bgi"
+      },
+      {
+        "symbol": "JUP",
+        "feedId": "0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996",
+        "sourceAddress": "EitcZS5LtbR4EyNhCSy56vvUHPhsifSfWFG5gwSkjNpV"
+      },
+      {
+        "symbol": "WIF",
+        "feedId": "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc",
+        "sourceAddress": "9Sn9FVu6WpufA8yZFSRuxYyFgpBrhc5PpTgB3mq2DcsG"
+      }
+    ]
+  },
+  "pollIntervalMs": 0,
+  "observedSeconds": 87236,
+  "observedHours": 24.232222222222223,
+  "records": 45451,
+  "errors": 0,
+  "malformed": 0,
+  "headers": 2,
+  "duplicateRows": 490,
+  "collidingCollectors": true,
+  "feeds": {
+    "BTC": {
+      "feedId": "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
+      "sourceAddress": "APgzQGGdv2qCgBkX6aHVkrGePtBVDDg68GiqaM7rmtf5",
+      "observations": 18443,
+      "distinctPublishTimes": 18270,
+      "firstPublishTime": 1788632038,
+      "lastPublishTime": 1788719274,
+      "publishGapSeconds": {
+        "n": 18269,
+        "p50": 5,
+        "p95": 5,
+        "p99": 6,
+        "max": 8
+      },
+      "grids": {
+        "60": {
+          "targets": 1454,
+          "minCapture": {
+            "hit": 1454,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 1454,
+              "p50": 2,
+              "p95": 4,
+              "p99": 4,
+              "max": 5
+            }
+          },
+          "strictBracket": {
+            "hit": 234,
+            "missed": 1220,
+            "hitRate": 0.1609353507565337
+          }
+        },
+        "300": {
+          "targets": 291,
+          "minCapture": {
+            "hit": 291,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 291,
+              "p50": 2,
+              "p95": 4,
+              "p99": 4,
+              "max": 5
+            }
+          },
+          "strictBracket": {
+            "hit": 50,
+            "missed": 241,
+            "hitRate": 0.1718213058419244
+          }
+        }
+      }
+    },
+    "SOL": {
+      "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+      "sourceAddress": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+      "observations": 18427,
+      "distinctPublishTimes": 18257,
+      "firstPublishTime": 1788632038,
+      "lastPublishTime": 1788719274,
+      "publishGapSeconds": {
+        "n": 18256,
+        "p50": 5,
+        "p95": 5,
+        "p99": 6,
+        "max": 8
+      },
+      "grids": {
+        "60": {
+          "targets": 1454,
+          "minCapture": {
+            "hit": 1454,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 1454,
+              "p50": 2,
+              "p95": 4,
+              "p99": 4,
+              "max": 5
+            }
+          },
+          "strictBracket": {
+            "hit": 235,
+            "missed": 1219,
+            "hitRate": 0.16162310866574967
+          }
+        },
+        "300": {
+          "targets": 291,
+          "minCapture": {
+            "hit": 291,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 291,
+              "p50": 2,
+              "p95": 4,
+              "p99": 4,
+              "max": 5
+            }
+          },
+          "strictBracket": {
+            "hit": 47,
+            "missed": 244,
+            "hitRate": 0.16151202749140894
+          }
+        }
+      }
+    },
+    "ETH": {
+      "feedId": "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
+      "sourceAddress": "7odryi4WfoMFHtv2eubdMgP1pqQMmdiXSK1N2tqZ2nRH",
+      "observations": 1678,
+      "distinctPublishTimes": 1667,
+      "firstPublishTime": 1788676553,
+      "lastPublishTime": 1788719266,
+      "publishGapSeconds": {
+        "n": 1666,
+        "p50": 25,
+        "p95": 50,
+        "p99": 52,
+        "max": 53
+      },
+      "grids": {
+        "60": {
+          "targets": 712,
+          "minCapture": {
+            "hit": 712,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 712,
+              "p50": 14,
+              "p95": 41,
+              "p99": 48,
+              "max": 51
+            }
+          },
+          "strictBracket": {
+            "hit": 26,
+            "missed": 686,
+            "hitRate": 0.03651685393258427
+          }
+        },
+        "300": {
+          "targets": 142,
+          "minCapture": {
+            "hit": 142,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 142,
+              "p50": 15,
+              "p95": 40,
+              "p99": 50,
+              "max": 51
+            }
+          },
+          "strictBracket": {
+            "hit": 3,
+            "missed": 139,
+            "hitRate": 0.02112676056338028
+          }
+        }
+      }
+    },
+    "BONK": {
+      "feedId": "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419",
+      "sourceAddress": "3nMpgBXnjBSDYupQQEVR7DZM65zkJCdKy1Up7nkqp99w",
+      "observations": 1737,
+      "distinctPublishTimes": 1699,
+      "firstPublishTime": 1788676543,
+      "lastPublishTime": 1788719266,
+      "publishGapSeconds": {
+        "n": 1698,
+        "p50": 24,
+        "p95": 51,
+        "p99": 52,
+        "max": 53
+      },
+      "grids": {
+        "60": {
+          "targets": 712,
+          "minCapture": {
+            "hit": 712,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 712,
+              "p50": 15,
+              "p95": 42,
+              "p99": 47,
+              "max": 50
+            }
+          },
+          "strictBracket": {
+            "hit": 33,
+            "missed": 679,
+            "hitRate": 0.046348314606741575
+          }
+        },
+        "300": {
+          "targets": 142,
+          "minCapture": {
+            "hit": 142,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 142,
+              "p50": 15,
+              "p95": 41,
+              "p99": 49,
+              "max": 50
+            }
+          },
+          "strictBracket": {
+            "hit": 6,
+            "missed": 136,
+            "hitRate": 0.04225352112676056
+          }
+        }
+      }
+    },
+    "WIF": {
+      "feedId": "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc",
+      "sourceAddress": "9Sn9FVu6WpufA8yZFSRuxYyFgpBrhc5PpTgB3mq2DcsG",
+      "observations": 1689,
+      "distinctPublishTimes": 1662,
+      "firstPublishTime": 1788676539,
+      "lastPublishTime": 1788719264,
+      "publishGapSeconds": {
+        "n": 1661,
+        "p50": 26,
+        "p95": 50,
+        "p99": 52,
+        "max": 53
+      },
+      "grids": {
+        "60": {
+          "targets": 712,
+          "minCapture": {
+            "hit": 712,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 712,
+              "p50": 15,
+              "p95": 40,
+              "p99": 48,
+              "max": 51
+            }
+          },
+          "strictBracket": {
+            "hit": 25,
+            "missed": 687,
+            "hitRate": 0.0351123595505618
+          }
+        },
+        "300": {
+          "targets": 142,
+          "minCapture": {
+            "hit": 142,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 142,
+              "p50": 14,
+              "p95": 39,
+              "p99": 49,
+              "max": 51
+            }
+          },
+          "strictBracket": {
+            "hit": 2,
+            "missed": 140,
+            "hitRate": 0.014084507042253521
+          }
+        }
+      }
+    },
+    "PUMP": {
+      "feedId": "7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9",
+      "sourceAddress": "4KL8nVtrXmLjbbHtrDz5YCHNqmii62oHfr9bsUtx1bgi",
+      "observations": 1698,
+      "distinctPublishTimes": 1674,
+      "firstPublishTime": 1788676543,
+      "lastPublishTime": 1788719248,
+      "publishGapSeconds": {
+        "n": 1673,
+        "p50": 24,
+        "p95": 51,
+        "p99": 52,
+        "max": 53
+      },
+      "grids": {
+        "60": {
+          "targets": 712,
+          "minCapture": {
+            "hit": 712,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 712,
+              "p50": 15,
+              "p95": 42,
+              "p99": 47,
+              "max": 50
+            }
+          },
+          "strictBracket": {
+            "hit": 28,
+            "missed": 684,
+            "hitRate": 0.03932584269662921
+          }
+        },
+        "300": {
+          "targets": 142,
+          "minCapture": {
+            "hit": 142,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 142,
+              "p50": 16,
+              "p95": 42,
+              "p99": 46,
+              "max": 50
+            }
+          },
+          "strictBracket": {
+            "hit": 5,
+            "missed": 137,
+            "hitRate": 0.035211267605633804
+          }
+        }
+      }
+    },
+    "JUP": {
+      "feedId": "0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996",
+      "sourceAddress": "EitcZS5LtbR4EyNhCSy56vvUHPhsifSfWFG5gwSkjNpV",
+      "observations": 1779,
+      "distinctPublishTimes": 1732,
+      "firstPublishTime": 1788676544,
+      "lastPublishTime": 1788719227,
+      "publishGapSeconds": {
+        "n": 1731,
+        "p50": 24,
+        "p95": 51,
+        "p99": 52,
+        "max": 53
+      },
+      "grids": {
+        "60": {
+          "targets": 712,
+          "minCapture": {
+            "hit": 712,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 712,
+              "p50": 15,
+              "p95": 43,
+              "p99": 48,
+              "max": 51
+            }
+          },
+          "strictBracket": {
+            "hit": 33,
+            "missed": 679,
+            "hitRate": 0.046348314606741575
+          }
+        },
+        "300": {
+          "targets": 142,
+          "minCapture": {
+            "hit": 142,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 142,
+              "p50": 12,
+              "p95": 40,
+              "p99": 49,
+              "max": 49
+            }
+          },
+          "strictBracket": {
+            "hit": 4,
+            "missed": 138,
+            "hitRate": 0.028169014084507043
+          }
+        }
+      }
+    }
+  },
+  "limits": {
+    "accountPolling": "An account holds one message at a time. Prints overwritten between two polls are invisible.",
+    "firstPrintLag": "UPPER BOUND. The true first print may have come earlier and been overwritten.",
+    "strictBracketHitRate": "LOWER BOUND, for the same reason.",
+    "ties": "VACUOUS here. Two distinct signed messages sharing a publish_time cannot be resolved by account polling; that needs the Pythnet accumulator ring.",
+    "evidenceTier": "mainnet for the prints observed; nothing for the prints missed."
+  }
+}

@@ -400,7 +400,8 @@ assert.equal(new Set([...html.matchAll(/\bid="([^"]+)"/g)].map(m => m[1])).size,
 
 // Public command helpers never copy bearer material, even from a rich server record.
 const publicCommand = ui.bankrCommand('play', sampleSession(), 'a'.repeat(32));
-assert.equal(publicCommand, '@bankrbot ratchetx SOL up 5 min 100 credits', 'skill 1.5.0: words only, the post ID is the command ID');
+assert.equal(publicCommand, '@bankrbot ratchetx SOL up 5 min 100 credits - Powered by @PythNetwork',
+  'public play names the price-data provider; the post ID is the command ID');
 assert.doesNotMatch(publicCommand, /Command ID|Expected owner|Session:|hidden-token|hidden-credential|rxp1\./, 'no wallet, session or command id in a public post');
 assert.throws(() => ui.bankrCommand('play', sampleSession(), 'invalid'), /INVALID_REQUEST_ID/);
 assert.throws(() => ui.bankrCommand('play', {...sampleSession(), wallet: 'bad'}, 'a'.repeat(32)), /INVALID_SESSION_ID/);
@@ -409,7 +410,7 @@ assert.equal(commands.nodes.bankrCommands.hidden, true);
 await commands.dispatch('connectWallet'); await commands.dispatch('findSession');
 const commandReads = commands.requests.length, commandSigns = commands.signed.length;
 await commands.dispatch('copyBankrStats');
-assert.equal(commands.clipboard.at(-1), '@bankrbot ratchetx stats');
+assert.equal(commands.clipboard.at(-1), '@bankrbot ratchetx stats - Powered by @PythNetwork');
 await commands.dispatch('copyBankrPlay');
 const firstCommand = commands.clipboard.at(-1);
 await commands.dispatch('copyBankrPlay');

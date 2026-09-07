@@ -1,0 +1,36 @@
+{
+  "tool": "tools/repin-timepin-vectors.mjs",
+  "toolSha256": "d36fabf910af242d31d008dfd3d62e2e3344ea9fde903fc49ad4909f34860678",
+  "generatedAt": "2026-09-05T15:30:51.635Z",
+  "node": "v22.23.2",
+  "mode": "clean (artifact embeds target id)",
+  "from": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+  "to": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+  "deployableIdentity": true,
+  "inputs": {
+    "inDir": "/sessions/rcw-01dzjcnh8e5zxf89g4uk821j/mnt/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/rcx-timepin-v2/vectors",
+    "register-open-v2.json": "710f8f35b837ee7a64b746c21f5f45c9ba5719eda786454a44fd452d0c70297a",
+    "lifecycle-v2.json": "a8ce5e50be967b6fd29fefad83baaa06ca9809517726e0f7889e56591d615db5"
+  },
+  "artifact": {
+    "path": "/sessions/rcw-01dzjcnh8e5zxf89g4uk821j/mnt/pumpmind/ratchetx/ratchet_phase_a_clean/_to_delete/opusb-container-build/rcx_timepin_v2.so",
+    "size": 379400,
+    "sha256": "f2d1e93aea77d4af5a98c4bf576ead58361b856a18d2990ac820751f7d3cb546",
+    "embedsTargetId": true,
+    "idOffset": 7520,
+    "containsPlaceholderUS517Bytes": false,
+    "contentAddressedSnapshot": "artifacts/f2d1e93aea77d4af5a98c4bf576ead58361b856a18d2990ac820751f7d3cb546/rcx_timepin_v2.so"
+  },
+  "sourceBinding": {
+    "libRs": {
+      "path": "programs/rcx-timepin-v2/src/lib.rs",
+      "sha256": "6a83759c16a5b3403819162164b648d188500a9b80e569b32f72a6635f874ade",
+      "declareId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp"
+    },
+    "anchorToml": {
+      "path": "Anchor.toml",
+      "sha256": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
+      "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp"
+    }
+  }
+}

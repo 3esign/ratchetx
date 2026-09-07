@@ -1,29 +1,33 @@
 # Blocker 8 — a mutable account is not an archive
 
-Status: **proposal, not built.** Nothing here is in Rust. It exists to be argued
-with before it is bytes, the same way `CORE_G2_LAYOUT.md` was.
+Status: **historical proposal, not built, and rejected for the authority-first
+successor.** The Hermes measurements and mutable-source warning remain useful.
+The `FeedClock`/gap/ring design below is preserved only as archaeology and is
+not an implementation instruction.
 
-This is the last of the eight release blockers. Seven are closed. This one has
-stood since it was written because it is not a bug — it is a property of the
-data source — and the plan reserved two acceptable answers for it:
+In the earlier eight-blocker framing, this document was written as the last
+blocker and described the other seven as closed. That was the prototype ledger's
+historical status, not a current release-completion claim. The earlier plan
+reserved two acceptable answers for this source property:
 
 > Core G2 value waits for an audited archival-challenge path **or** a narrower
 > rule whose remaining omission assumption is explicitly accepted and
 > economically defended.
 
-This document does two things. It closes the first option with a measurement
-rather than an opinion, and it proposes something for the second that is
-stronger than an accepted assumption: a number, on chain, free, that says
-whether the assumption held for a particular shot.
+The current successor direction is explicit: a predeclared shared Need captures
+the admissible source crossing into terminal Timepin bytes. Those bytes are the
+canonical decision evidence. A posted slot is only a provenance locator, and no
+public or archival RPC is assumed to retain historical transactions for free.
 
 ---
 
 ## The problem, stated precisely
 
 The sponsored Pyth shard-0 PDA holds one `PriceUpdateV2`: the latest. The next
-push overwrites the previous bytes, and they are gone from every account on
-Solana. So a program cannot ask "what was the price at time T". It can only ask
-"what did somebody capture and pin, before it was overwritten".
+push overwrites the previous bytes in that mutable PDA. Unless somebody already
+copied the exact accepted evidence into a persistent account such as a terminal
+Timepin, a program cannot recover the prior bytes from that sponsored PDA. It
+can use only what was independently captured and pinned before the overwrite.
 
 That is the whole of it. Everything else in this document follows from that one
 sentence.
@@ -44,14 +48,16 @@ matter again:
 - A caller cannot fabricate. `VerificationLevel::Full` means the receiver
   verified guardian signatures over the message. A caller can choose *which*
   real Pyth message to post; it cannot invent one.
-- Choosing which does not help them either, because of the predicate. See
-  "Skipping cannot substitute" below: exactly one message in existence satisfies
-  `prev_publish_time < expiry <= publish_time`.
+- Choosing a later source interval does not help them, because of the predicate.
+  A later chained message cannot substitute for the interval that brackets the
+  target. Distinct same-publish-time revisions can still satisfy the same
+  interval; Timepin must preserve submitted conflicts as `Ambiguous`, and it
+  cannot prove that an unsubmitted revision never existed.
 - The write-authority worry — that the caller who posted the update could
-  overwrite it between the post and our read — is answered by ruleset 2. The
-  program binds the values *into the shot*. After `bind_crossing`, what happens
-  to the account it was read from is irrelevant, exactly as it is irrelevant
-  what happens to the ring.
+  overwrite it between the post and our read — was addressed in ruleset 2 by
+  copying values into the `Shot`. The successor applies that immutability at the
+  evidence boundary: accepted decision bytes live in the terminal `Timepin`, so
+  later mutation of the ingress account is irrelevant.
 
 So the objection is not the mechanism. It is the supply.
 
@@ -73,8 +79,8 @@ answers 401.
 Note what the probe shows beyond the historical question: **the keyless Hermes
 mirror is gone for `latest` too.** The live game does not care, because it
 stopped calling Hermes at all — prices are read from the sponsored push
-accounts over ordinary RPC, which costs nothing and needs no credential. That
-was the right call before this measurement and it is a better one after it.
+accounts over ordinary RPC, which needs no protocol credential. RPC transport,
+rate limits and historical access can still have availability or monetary cost.
 
 The standing rule on this project is that no correctness or liveness path may
 require a paid credential; paid data may make settlement *sharper*, never
@@ -90,11 +96,11 @@ fetch. It should be revisited then, and not before.
 
 ---
 
-## Skipping cannot substitute a price. It can only cause a void.
+## What the signed predecessor does and does not prove
 
-This is worth writing out, because it is what shrinks blocker 8 from "the
-settlement price can be wrong" to "the settlement can fail to happen" — a much
-smaller claim, and a survivable one.
+This argument proves that skipping to a later chained source interval cannot
+substitute a different later price for the target. It does not prove that only
+one revision of the qualifying interval ever existed.
 
 Pyth's messages for a feed form a chain: message *n+1* carries, signed, the
 `publish_time` of message *n* as its own `prev_publish_time`. Take three
@@ -104,21 +110,20 @@ consecutive messages with publish times `t1 < t2 < t3`, and an expiry `T` with
 - `m2` satisfies the predicate: `prev = t1 < T` and `publish = t2 >= T`. ✓
 - `m3` does not: `prev = t2`, and the predicate needs `t2 < T`, but `T <= t2`. ✗
 
-So a cranker who skips `m2` and posts `m3` does not settle the shot on a price
-of their choosing. The program refuses `m3` and the shot voids. **The set of
-messages that can settle a given shot has exactly one member.** That is the
-source-predecessor fix (blocker 1) doing the work, and it is why "missed
-crossing" is not a separate hazard from "withheld crossing": both produce a
-refund, neither produces a wrong number.
+So a cranker who skips `m2` and posts `m3` cannot settle on `m3`; the
+program refuses it. If no qualifying interval was captured, the Need eventually
+becomes permissionlessly expirable and its consumer follows the named VOID rule.
+If two distinct Full-valid revisions of the qualifying interval are submitted,
+Timepin records `Ambiguous`. If one such revision is withheld, Timepin cannot
+prove global nonexistence; that residual oracle/liveness limitation must remain
+visible rather than being collapsed into an "exactly one message" claim.
 
 ---
 
-## What is actually archived, for free, already
+## Canonical evidence without a historical-RPC dependency
 
-The program never needs to answer "what was the price at T". It needs a settled
-shot to be *checkable* afterwards by a stranger. Ruleset 2 made that possible
-without any archive of Pyth's accounts, because the shot now carries every
-number the settlement used:
+Ruleset 2 demonstrated the minimum decision fields by copying them into the
+Shot:
 
 ```
 exit_e12                the price it settled on
@@ -128,32 +133,44 @@ exit_prev_publish_time  the predecessor Pyth signed into it
 exit_posted_slot        the Solana slot the print was posted in
 ```
 
-The last one is the pointer. Solana's ledger is an archive — a real one, kept by
-Solana, at no cost to us — and `exit_posted_slot` says exactly where in it to
-look. A verifier with any archival RPC can fetch that block, find the Pyth push
-transaction, and confirm that the message the program read is the message Pyth
-published. The sponsored account is not an archive; **the transaction that wrote
-it is**, and the shot now records which one.
+`exit_posted_slot` is a provenance locator. If a chosen archival RPC retains
+the block, a verifier can use it as additional corroboration. Public RPC history
+may be pruned or rate-limited, archival access may cost money, and the program
+cannot query an arbitrary past transaction. The slot and transaction are
+therefore not canonical storage.
 
-That is the honest reframing: we do not need Pyth's account to remember. We need
-our settlement to be locatable in a ledger that already does.
+The value-bearing successor keeps the complete accepted decision bytes in the
+terminal Timepin. Settlement, recovery and verification read that account, not a
+promise that some RPC will serve the old block. The mutable Pyth account is live
+ingress; the terminal Timepin is the canonical retained evidence.
 
 ---
 
-## The residual, and a number that measures it
+## The residual liveness boundary
 
 What survives all of the above is one thing, stated without hedging:
 
-> **If nobody captures the crossing print before Pyth's next push overwrites it,
-> that shot can never settle. It voids and refunds, and no honest party who saw
-> the print can rescue it afterwards.**
+> **If no admissible qualifying source record reaches the shared Need by its
+> sealed capture deadline — whether from the live sponsored PDA or from an
+> independently retrievable, fully authenticated copy allowed by the same
+> EvidenceSpec — the Need terminalizes `Expired` and its consumer follows the
+> deterministic VOID/refund rule. Overwrite of one sponsored-PDA print alone
+> does not prove that every admissible copy or revision is unavailable.**
 
-The size of that window is Pyth's push cadence for the feed — on a major, under
-a second when the market is moving. The defence today is that `checkpoint` is
-permissionless and cheap and a runner does it continuously. That is a real
-defence and it is also an *unmeasured* one, which is the part worth fixing.
+The live-PDA portion of that window is bounded by source cadence; an allowed
+authenticated-history route can extend delivery only until the sealed capture
+deadline. The authority-first response is to predeclare a shared Need and let
+any runner submit admissible evidence. This improves liveness but does not
+convert an unavailable, uncaptured or withheld revision into evidence.
 
-### The proposal: contiguity, counted on chain
+## Historical rejected prototype: FeedClock contiguity counters
+
+> **Do not implement this section.** It describes the earlier
+> `FeedClock.gaps`/`gaps_at_seal`/ring proposal. The successor does not pay or
+> require continuous raw checkpoints and does not use an evicting clock as
+> canonical evidence. It uses predeclared shared Needs and terminal Timepins.
+
+### Historical sketch: contiguity counted on a protocol clock
 
 `FeedClock` already knows, at every `checkpoint`, whether the incoming message's
 signed `prev_publish_time` equals `latest_publish_time` — the publish time of the
@@ -179,26 +196,23 @@ pub struct Shot {
 }
 ```
 
-Then `bind_crossing` can state something no amount of prose can:
+The sketch intended `bind_crossing` to report:
 
 > **`gaps_at_bind == gaps_at_seal` means this protocol clock observed every
 > single Pyth publish for this feed between the moment the shot was sealed and
 > the moment its crossing was frozen.** Not "the predicate was satisfied" —
 > *nothing was missed*, provably, from data the chain holds.
 
-A shot settled under that condition does not rest on the liveness assumption at
-all for its own window. A shot settled with `gaps_at_bind > gaps_at_seal` still
-settled on the one message that can settle it (see above), but its clock is
-known to have blinked, and anybody can see that it did.
+Even in the sketch this proved only what that protocol clock observed. It did
+not prove global source completeness or exclude an unsubmitted same-interval
+revision, and it required continuous unrelated checkpoint traffic.
 
-### What this costs
+### Historical cost estimate — invalid for the successor
 
-Twelve bytes on a `FeedClock` (one per feed, permanent) and four on a `Shot`
-(refunded when the shot closes). One `u32` comparison and one increment per
-checkpoint. `Shot` would go from 254 to 258 bytes on chain, about 0.00003 SOL
-more rent per open shot, refundable. It is close to free, which is the point:
-this is a measurement, and a measurement that costs anything meaningful will be
-switched off the first time somebody is in a hurry.
+The rejected layout estimated twelve bytes on a `FeedClock` and four on a
+`Shot`, plus one write per checkpoint. Those sizes and rent arithmetic do not
+describe the successor's EvidenceSpec, Need, Timepin or voucher accounts and
+must not be reused as a current cost claim.
 
 ### What it does not prove
 
@@ -211,19 +225,20 @@ switched off the first time somebody is in a hurry.
   Pyth stops publishing, the clock is contiguous and empty at the same time —
   which is why `observed` is counted alongside `gaps` rather than only the ratio.
 
-### Why this is the better answer than accepting the assumption
+### Why the sketch was rejected
 
-The plan's second option was "a narrower rule whose remaining omission
-assumption is explicitly accepted and economically defended". Accepting an
-assumption is a sentence in a document; it is worth exactly as much as the
-reader's trust in the author. Counting it turns the same claim into something a
-stranger can check for a specific shot, on chain, without asking us anything —
-which is the standard the rest of this system is held to and there is no reason
-this one should be exempt.
+The counter could describe a particular clock's capture history, but it required
+continuous raw writes, did not preserve the demanded crossing by itself, and did
+not remove withheld-revision uncertainty. A shared Need makes the target itself
+the unit of work; its terminal Timepin retains the actual decision bytes without
+making an evicting ring authoritative.
 
 ---
 
-## The order, if this is approved
+## Historical implementation order — do not execute
+
+The following list is preserved only to explain the abandoned prototype. It is
+not approved work and does not close the current Timepin schema-2 gate.
 
 1. `gaps` and `observed` on `FeedClock`, incremented in `checkpoint`, with a
    host test that a linked message does not increment `gaps` and an unlinked one

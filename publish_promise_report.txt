@@ -1,0 +1,91 @@
+publish_promise Sat 09/05/2026 14:52:47.81
+Warning: you are leaving 1 commit behind, not connected to
+any of your branches:
+
+  f8c1184 the promise expires on Monday, and the correction was never committed
+
+If you want to keep it by creating a new branch, this may be a good time
+to do so with:
+
+ git branch <new-branch-name> f8c1184
+
+HEAD is now at 039580b claim.html: stop telling players the migration already happened
+HEAD is now at 039580b claim.html: stop telling players the migration already happened
+[detached HEAD fe8c56b] the promise expires on Monday, and the correction was never committed
+ Date: Sat Sep 5 11:16:30 2026 +0000
+ 4 files changed, 26 insertions(+), 17 deletions(-)
+node:internal/modules/cjs/loader:1479
+  throw err;
+  ^
+
+Error: Cannot find module 'D:\Work\Software_Projects\pumpmind\ratchetx\ratchetx-main-publish\tools\align-agent-state-versions.mjs'
+    at Module._resolveFilename (node:internal/modules/cjs/loader:1476:15)
+    at wrapResolveFilename (node:internal/modules/cjs/loader:1049:27)
+    at defaultResolveImplForCJSLoading (node:internal/modules/cjs/loader:1073:10)
+    at resolveForCJSWithHooks (node:internal/modules/cjs/loader:1094:12)
+    at Module._load (node:internal/modules/cjs/loader:1262:25)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:255:19)
+    at Module.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:154:5)
+    at node:internal/main/run_main_module:33:47 {
+  code: 'MODULE_NOT_FOUND',
+  requireStack: []
+}
+
+Node.js v24.15.0
+[detached HEAD 258c1ef] the promise expires on Monday, and the correction was never committed
+ Date: Sat Sep 5 11:16:30 2026 +0000
+ 4 files changed, 26 insertions(+), 17 deletions(-)
+commit 258c1efac52d8760aece7f3d6e4783c866c51bef
+Author: Semir Poturak <scumutator@gmail.com>
+Date:   Sat Sep 5 11:16:30 2026 +0000
+
+    the promise expires on Monday, and the correction was never committed
+    
+    README, llms.txt and AGENT_STATE.json already carried the honest copy in the
+    working tree, unstaged, since 2026-09-03. HEAD did not: `git show HEAD:README.md`
+    still said the upgrade authority "is revoked for good on 2026-09-08", and that is
+    what GitHub main, ratchetx.xyz and the llms.txt agents actually read still serve,
+    three days before the date. An uncommitted correction is not a correction; it is
+    one `git checkout` away from never having happened.
+    
+    docs/FREEZE.md is the file README links to, and its H1 still read "Ratchet Seal v2
+    becomes immutable on 2026-09-08" above the superseded banner. A title outlives its
+    page in an index, a search result and a title-only model read, so the link defeated
+    the correction it was meant to support. Retitled; banner and historical body
+    untouched, because the precommitment is worth keeping exactly as it was written.
+    
+    AGENT_STATE.json also stops claiming a deployment it cannot prove: productionRelease
+    h113, and deployment id, source commit and lastVerifiedDeploy set to null with a
+    readback note, rather than repeating the h108 values as if they were verified.
+    
+    No freeze is scheduled. A future ceremony needs fresh authorization and will be
+    registered in advance.
+    
+    Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+    Claude-Session: https://claude.ai/code/session_01Bfwy5v46mVZJfgxt8bXkDh
+
+ README.md             | 13 ++++++++-----
+ docs/AGENT_STATE.json | 19 +++++++++++--------
+ docs/FREEZE.md        |  2 +-
+ llms.txt              |  9 ++++++---
+ 4 files changed, 26 insertions(+), 17 deletions(-)
+
+> ratchet@0.1.0 test
+> node scripts/check-release-safety.mjs && node scripts/check-versions.mjs && node scripts/run-tests.mjs
+
+[OK] frozen Ratchet Seal v2 source identity
+[OK] 485 tracked files contain no blocked credential/artifact patterns
+[OK] core settlement and premium verifier remain bound to validated Pyth-on-Solana evidence
+[OK] Agent Skills index digest == SKILL.md sha256: sha256:36f07cd1eb75fbd202167ac16eccb8856cff1cda8d2576f2f47b4b558fb5aa8c
+[OK] SKILL.md runner digest == session-play.mjs: de69199efa31931d214fa19e01bcb19ec89911d8c0ac4ffe2ba8c3a75828f7ed
+[OK] SKILL.md smoke digest == session-smoke.mjs: 4f52789d5daf53841309b0dd8e9bed95ff0ed25f3afe60ddb21725f618bcef52
+[OK] AI Catalog Skill == SKILL.md: 1.6.3
+[FAIL] AGENT_STATE.json skill == SKILL.md: expected 1.6.3, got 1.6.4
+[OK] AI Catalog MCP == mcp.json: 1.2.0
+[OK] api/mcp.js runtime == mcp.json: 1.2.0
+[OK] mcp/ratchet-mcp.mjs runtime == mcp.json: 1.2.0
+[OK] server.json (Official Registry) == mcp.json: 1.2.0
+[OK] mcp/server.json (Legacy Registry) == mcp.json: 1.2.0
+[OK] AGENT_STATE.json mcp == mcp.json: 1.2.0
+[OK] ERC-8004 profile (agent-registration.json) == SKILL.md: 1.6.3
+[FAIL] AGENT_STATE.json erc8004 == SKILL.md: expected 1.6.3, got 1.6.4

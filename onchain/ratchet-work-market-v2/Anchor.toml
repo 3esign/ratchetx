@@ -1,0 +1,16 @@
+[toolchain]
+anchor_version = "1.0.2"
+
+[features]
+resolution = true
+skip-lint = false
+
+[programs.localnet]
+ratchet_work_market_v2 = "gBxS1f6uyyGPuW5MzGBukidSb71jdsCb5fZaoSzULE5"
+
+[provider]
+cluster = "localnet"
+wallet = "D:/keys/id.json"
+
+[workspace]
+types = "target/types"

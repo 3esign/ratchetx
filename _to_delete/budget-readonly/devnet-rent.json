@@ -1,0 +1,167 @@
+{
+  "schema": 1,
+  "observedAt": "2026-09-05T22:54:56.671Z",
+  "scope": "Public devnet first-deploy preflight; no keys, fees or transaction",
+  "endpoint": "https://api.devnet.solana.com",
+  "httpStatus": 200,
+  "requests": [
+    {
+      "jsonrpc": "2.0",
+      "id": "genesis",
+      "method": "getGenesisHash",
+      "params": []
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "programs",
+      "method": "getMultipleAccounts",
+      "params": [
+        [
+          "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+          "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL"
+        ],
+        {
+          "commitment": "finalized",
+          "encoding": "base64",
+          "dataSlice": {
+            "offset": 0,
+            "length": 36
+          }
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "36",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        36,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "375989",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        375989,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "1014453",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        1014453,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "751933",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        751933,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "2028861",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        2028861,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "375981",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        375981,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    },
+    {
+      "jsonrpc": "2.0",
+      "id": "1014445",
+      "method": "getMinimumBalanceForRentExemption",
+      "params": [
+        1014445,
+        {
+          "commitment": "finalized"
+        }
+      ]
+    }
+  ],
+  "response": [
+    {
+      "jsonrpc": "2.0",
+      "result": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+      "id": "genesis"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": {
+        "context": {
+          "apiVersion": "4.3.0-beta.3",
+          "slot": 493767584
+        },
+        "value": [
+          null,
+          null
+        ]
+      },
+      "id": "programs"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 833120,
+      "id": "36"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 1910674360,
+      "id": "375989"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 5154071480,
+      "id": "1014453"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 3820469880,
+      "id": "751933"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 10307264120,
+      "id": "2028861"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 1910633720,
+      "id": "375981"
+    },
+    {
+      "jsonrpc": "2.0",
+      "result": 5154030840,
+      "id": "1014445"
+    }
+  ]
+}

@@ -1,0 +1,22 @@
+{
+  "programId": "2TV2zagBZaDXXYjduLrRbiDGGsR8jXNqYAuLDE4j4tyR",
+  "player": "LbUiWL3xVV8hTFYBVdbTNrpDo41NKS6o3LHHuDzjfcY",
+  "nonce": "42",
+  "side": 1,
+  "pBps": 6000,
+  "saltHex": "0707070707070707070707070707070707070707070707070707070707070707",
+  "feedIndex": 1,
+  "commitHex": "3d332e1f6b44ae94f1ae29144380832efead29af2dcbd264c5bb1f6054db39b0",
+  "shot": "6ueR92dSWyqG86Ed21a96qvZMt4KKbLrDPhdDha1Ewzd",
+  "shotBump": 255,
+  "receipt": "HMC8TzLiGA6tEuqWRQTeVNTpJBo1UstNU7h6Pu8ZH31z",
+  "receiptBump": 254,
+  "priceUpdate": "G8EJV1bqPydBCFZJ2neo1hsrwp2Hwt2ZqJTLG2gotcP2",
+  "openDataHex": "9ddc5dc85cec8e9c2a000000000000003d332e1f6b44ae94f1ae29144380832efead29af2dcbd264c5bb1f6054db39b001",
+  "observeDataHex": "cc4eb273c293414a",
+  "timeoutDataHex": "09362ea99cbd50f7",
+  "revealDataHex": "09233bbea7f94c730170170707070707070707070707070707070707070707070707070707070707070707",
+  "forfeitDataHex": "509aed9ef4c69a09",
+  "writeReceiptDataHex": "ea3e43e085f71c4a",
+  "closeDataHex": "d382ac298155850f"
+}

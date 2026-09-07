@@ -88,7 +88,7 @@ code{font:600 11px/1.7 var(--mono);color:var(--ice);word-break:break-all}
 .f{margin-top:16px;font:600 10px var(--mono);letter-spacing:.08em;color:var(--dim);text-align:center}
 a{color:var(--gold)}
 </style></head><body><div class="w">${body}
-<div class="f"><a href="${SITE}">RATCHET</a> · sealed before the outcome · server-settled from Pyth accounts read off Solana · ${esc(VERSION)}</div>
+<div class="f"><a href="${SITE}">RATCHET</a> · sealed before the outcome · server-settled from <a href="https://x.com/PythNetwork">@PythNetwork</a> accounts on <a href="https://x.com/solana">@solana</a> · ${esc(VERSION)}</div>
 </div></body></html>`;
 
   try {
@@ -137,7 +137,7 @@ a{color:var(--gold)}
     const desc = `Called ${s.side}. ${Number.isFinite(s.entry) ? `Entry $${money(s.entry)}` : ''}`
       + `${Number.isFinite(s.exitPx) ? ` → exit $${money(s.exitPx)}` : ''}`
       + `${moved != null ? ` (${moved >= 0 ? '+' : ''}${moved.toFixed(2)}%)` : ''}`
-      + ` · sealed as a hash before the outcome, server-settled from Pyth accounts read off Solana.`;
+      + ` · sealed as a hash before the outcome, server-settled from price data by @PythNetwork on @solana.`;
 
     const xpAwarded = vd ? 0 : hit ? Number(s.xp||0)
       : Number.isFinite(+s.settleXp) ? Number(s.xp||0) : 0;

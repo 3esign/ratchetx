@@ -53,9 +53,9 @@
     // from the protected RATCHET_PLAY_SESSION and uses the post ID as the
     // command ID. Nothing about the wallet or session belongs in the post.
     if (!session || !WALLET.test(session.wallet) || !HEX32.test(session.id)) throw new Error('INVALID_SESSION_ID');
-    if (kind === 'status') return '@bankrbot ratchetx stats';
+    if (kind === 'status') return '@bankrbot ratchetx stats - Powered by @PythNetwork';
     if (kind !== 'play' || !HEX32.test(commandId || '')) throw new Error('INVALID_REQUEST_ID');
-    return '@bankrbot ratchetx SOL up 5 min 100 credits';
+    return '@bankrbot ratchetx SOL up 5 min 100 credits - Powered by @PythNetwork';
   }
   async function createCredential(wallet, webCrypto) {
     if (!WALLET.test(wallet) || !webCrypto || !webCrypto.subtle) throw new Error('SECURE_BROWSER_REQUIRED');

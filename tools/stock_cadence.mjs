@@ -47,8 +47,21 @@ const arg = (flag, dflt) => {
 };
 const RPC = process.argv.slice(2).find(a => /^https?:\/\//.test(a))
   || process.env.RATCHET_RPC || 'https://api.mainnet-beta.solana.com';
-const MINUTES = arg('--minutes', 120);
-const EVERY_S = Math.max(5, arg('--every', 20));
+// A number that is not a number must be REFUSED, never coerced. `--minutes
+// --every` parsed to NaN, `Date.now() < NaN` is false, and the run exited after
+// zero polls having written a report full of dashes -- which then overwrote a
+// good one. Silent NaN is how a measurement becomes a lie about itself.
+const positive = (value, flag, dflt) => {
+  if (value === dflt) return dflt;
+  if (!Number.isFinite(value) || value <= 0) {
+    console.error(`\n  ${flag} needs a positive number, and got something that is not one.`);
+    console.error('  Nothing was measured and nothing was written.\n');
+    process.exit(2);
+  }
+  return value;
+};
+const MINUTES = positive(arg('--minutes', 120), '--minutes', 120);
+const EVERY_S = Math.max(5, positive(arg('--every', 20), '--every', 20));
 const OUT = (() => { const i = process.argv.indexOf('--out'); return i > 0 ? process.argv[i + 1] : 'stock_cadence_report.txt'; })();
 
 // The horizons and the seal bound are the PROGRAM's, restated here because a
@@ -219,7 +232,16 @@ if (invoked) {
     await new Promise(r => setTimeout(r, EVERY_S * 1000));
   }
   const final = render();
-  fs.writeFileSync(OUT, final + '\n');
+  // A run that measured nothing must never overwrite a run that measured
+  // something. Two of these can be alive at once -- one was, tonight -- and the
+  // empty one landing last would destroy hours of data for no reason.
+  if (polls === 0 && fs.existsSync(OUT)) {
+    console.log('\n  Zero polls, and ' + OUT + ' already exists with someone else\'s');
+    console.log('  measurement in it. Refusing to overwrite it with nothing.');
+    process.exitCode = 2;
+  } else {
+    fs.writeFileSync(OUT, final + '\n');
+  }
   console.log('\n' + final);
   console.log('\nwrote ' + OUT);
 }

@@ -175,4 +175,7 @@ delete process.env.RX_MIGRATION_FREEZE;
 console.log(fails
   ? `\nFAIL  migration freeze: ${fails} of ${checks} checks failed`
   : `\nPASS  migration freeze: ${checks} checks — it stops selling, it never stops settling`);
-process.exit(fails ? 1 : 0);
+// Let Undici/libuv close naturally. An immediate process.exit() after the
+// state route's fetch can trip Node 24's Windows UV_HANDLE_CLOSING race even
+// after every assertion passed; exitCode preserves failures without that race.
+process.exitCode = fails ? 1 : 0;

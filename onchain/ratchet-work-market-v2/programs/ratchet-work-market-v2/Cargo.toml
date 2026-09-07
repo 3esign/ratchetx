@@ -1,0 +1,23 @@
+[package]
+name = "ratchet-work-market-v2"
+version = "0.1.0"
+description = "Manifest-gated demand-bound RCX execution vouchers"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "lib"]
+name = "ratchet_work_market_v2"
+
+[features]
+default = []
+cpi = ["no-entrypoint"]
+no-entrypoint = []
+no-idl = []
+no-log-ix-name = []
+idl-build = ["anchor-lang/idl-build", "anchor-spl/idl-build"]
+
+[dependencies]
+anchor-lang = { version = "=1.0.2" }
+anchor-spl = { version = "=1.0.2", features = ["memo"] }
+solana-sha256-hasher = "=3.1.0"
+spl-token-2022-interface = "=2.1.0"

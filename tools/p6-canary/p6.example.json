@@ -1,0 +1,29 @@
+{
+  "_comment": "P6 canary config. Fill from the T0 tuple. All values are measured pins, not hopes. Devnet example shapes; replace ids/hashes with the C8 generation.",
+  "genesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+  "rpc": ["https://api.devnet.solana.com", "https://<second-operator-chosen-devnet-endpoint>"],
+  "intervalSeconds": 60,
+  "evidenceDir": "evidence/p6",
+  "programs": {
+    "timepin": { "id": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp", "size": 0, "sha256": "<from tools/verify-artifact.mjs on the C8 build>", "sbpfVersion": 3, "upgradeAuthority": null },
+    "core":    { "id": "<core g2 devnet id>", "size": 0, "sha256": "<pinned>", "sbpfVersion": 3, "upgradeAuthority": null },
+    "work_market": { "id": "<wm v2 devnet id>", "size": 0, "sha256": "<pinned>", "sbpfVersion": 3, "upgradeAuthority": null }
+  },
+  "economy": { "pda": "<canonical Economy PDA>", "hash": "<economy_hash hex>" },
+  "ruleset": { "pda": "<canonical Ruleset PDA>", "hash": "<ruleset_hash hex>" },
+  "readset": ["<Economy PDA>", "<Ruleset PDA>"],
+  "trackedNeeds": [],
+  "needStateOffset": 11,
+  "oracle": { "priceAccount": "<pinned Pyth push PriceUpdateV2 account for the feed>", "publishTimeOffset": 0, "_note": "set publishTimeOffset to the i64 publish_time offset inside the PriceUpdateV2 account per the pinned Receiver layout" },
+  "founderMustBeUnreachable": ["https://ratchetx.xyz/api/game?action=board", "https://ratchetx.xyz/"],
+  "bundle": { "manifestSha256": "<sha of the release manifest>", "clientFiles": { "onchain/ratchet-core-g2/client/lifecycle-v2.mjs": "<sha>", "tools/core-g2-recovery.mjs": "<sha>" } },
+  "operators": [ { "name": "external-1", "pubkey": "<pubkey published before T0>", "machine": "external", "fundedBy": "self", "signedStatement": "<sig>" }, { "name": "team-sol", "pubkey": "<pubkey>", "machine": "team", "fundedBy": "team" } ],
+  "thresholds": { "hours": 72, "oracleMaxGapSeconds": 600, "minLifecycles": 200 },
+  "scenarios": [
+    { "kind": "replay",   "op": "settle_final", "subject": "<shot pda>", "actor": { "name": "team-sol", "pubkey": "<pubkey>" } },
+    { "kind": "race",     "op": "forfeit",      "subject": "<shot pda>", "actors": [ { "name": "external-1", "pubkey": "<pubkey>" }, { "name": "team-sol", "pubkey": "<pubkey>" } ] },
+    { "kind": "rollback", "op": "void_active_shot", "subject": "<shot pda whose exit Need is FINAL>", "actor": { "name": "team-sol", "pubkey": "<pubkey>" } },
+    { "kind": "timeout",  "op": "expire",       "subject": "<need pda>", "actor": { "name": "team-sol", "pubkey": "<pubkey>" } }
+  ],
+  "disclaimers": ["volunteer runners, incentive untested on devnet", "devnet costs only", "P8 not exercised"]
+}

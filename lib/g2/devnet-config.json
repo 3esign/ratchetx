@@ -52,6 +52,6 @@
   "preparedAt": "2026-09-06T00:23:16.135Z",
   "admission": {
     "enabled": false,
-    "reason": "The shared devnet run is in progress. New shots open when its keeper is ready."
+    "reason": "The first devnet run is complete. New shots open when the keeper can process browser-created games."
   }
 }

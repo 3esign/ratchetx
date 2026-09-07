@@ -98,6 +98,50 @@ for (const [key, why] of Object.entries(MUST_STAY_FRESH))
 ok(!Object.keys(hits).some(k => k.startsWith('px:')),
    'no price-bucket walk on the state path — that was 78 reads when the log was empty');
 
+// ---- THE PATHS EVERY VISITOR PAYS FOR, WHICH NOTHING PINNED ---------------
+//
+// The budget above covers the AUTHENTICATED state request. It is not what most
+// traffic costs. A visitor who never signs in still polls `state`, and every
+// page load fetches `board`, and neither had a ceiling — so either could double
+// without a single test noticing.
+//
+// This stopped being theoretical on 2026-09-05, when the live store started
+// answering 500 on every game action while /api/proof, from the same build,
+// stayed healthy. Whatever the immediate cause, the arithmetic underneath is
+// not in dispute: reads per call multiplied by polls per day multiplied by open
+// tabs is the whole store bill, and two of those three terms are fixed by
+// product decisions. The one this file can hold is the first.
+// Measured 3 and 4. The budgets sit just above, for the reason this file
+// already states about the state budget: one far above the measurement is not a
+// budget, it is a comment. These catch a doubling, which is the shape read creep
+// actually takes — a loop added around something that used to be fetched once.
+const ANON_BUDGET = 5;
+const BOARD_BUDGET = 6;
+const measure = async (label, query, budget) => {
+  await call(query, '3.3.3.3');                        // warm whatever it caches
+  n = 0; for (const k of Object.keys(hits)) delete hits[k];
+  const M = 20;
+  for (let i = 0; i < M; i++) await call(query, '8.8.8.' + i);
+  const per = n / M;
+  console.log(`reads per ${label}: ${per.toFixed(2)} (budget ${budget})`);
+  ok(per > 0, `the ${label} counter is wired — ${per.toFixed(2)} reads, not a silent zero`);
+  ok(per <= budget,
+    `${label} stays within ${budget} reads — at ${per.toFixed(2)}, one such tab polling ` +
+    `every 60s costs ${Math.round(per * 60 * 24).toLocaleString()} store commands/day, ` +
+    `and every visitor pays it whether or not they ever play`);
+  return per;
+};
+
+const anon = await measure('anonymous state', { action:'state' }, ANON_BUDGET);
+const board = await measure('board', { action:'board' }, BOARD_BUDGET);
+
+// The relationship, not just the levels: an anonymous poll must never cost more
+// than an authenticated one. It knows strictly less and does strictly less; if
+// it ever costs more, something is being read to decide there is nothing to read.
+ok(anon <= avg + 3,
+   `an anonymous poll (${anon.toFixed(2)}) is not wildly dearer than an authenticated one ` +
+   `(${avg.toFixed(2)}) — it knows less and should not pay more to find that out`);
+
 // ---- the guards that made the open lists safe to cache ----
 {
   const src = require('fs').readFileSync(new URL('../api/game.js', import.meta.url), 'utf8');

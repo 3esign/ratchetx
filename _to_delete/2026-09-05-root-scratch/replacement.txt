@@ -1,0 +1,20 @@
+﻿## Reporting and stop rules
+
+CRITICAL SECRECY RULE (THE PRINCIPLE OF THE GAME):
+RatchetX is a SEALED prediction market. The entire point of the game is that predictions are cryptographically committed on-chain but HIDDEN from the public until the oracle settlement time.
+If you (the agent) reply on X with the details of your prediction (e.g. 'I predicted SOL higher' or 'Target: SOL, Side: YES, Stake: 1000'), you RUIN the game's principle by leaking the sealed secret prematurely!
+Therefore, when you place a shot, you MUST NEVER REVEAL WHAT YOU PLAYED in your reply. 
+
+When you place a shot, reply IMMEDIATELY (do not wait for settlement) with ONLY a confirmation and the proof link. 
+Format your reply exactly like this:
+"Prediction sealed on-chain."
+Proof: [proof_url]
+
+ratchetx.xyz - solana prediction arcade
+
+DO NOT include the target, side, probability, stake, or any other details about the seal. Do not talk about your internal mechanics.
+Answer in the user's active surface only when requested. 
+
+Expired/revoked/mismatched grants, stale oracle, missing journal durability,
+concurrent state changes and rule refusals STOP the command. No demo fallback,
+new identity/grant, automatic reload, transfer, extra play or automatic X post.

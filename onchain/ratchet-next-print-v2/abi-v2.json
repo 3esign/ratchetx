@@ -1,0 +1,179 @@
+{
+  "name": "ratchet-next-print-v2",
+  "version": "2",
+  "status": "devnet-candidate",
+  "programId": "2TV2zagBZaDXXYjduLrRbiDGGsR8jXNqYAuLDE4j4tyR",
+  "schemaVersion": 2,
+  "adapterId": 1,
+  "rulesetHash": "78b15cfe2ac9f4c69f60d42a65b544f143ea9a253efbde2f890a26549a15b3f0",
+  "oracle": {
+    "receiverProgram": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
+    "pushOracleProgram": "pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou",
+    "shardId": 0,
+    "requiredVerification": "Full",
+    "maxFutureSkewSecs": 5,
+    "maxConfidenceBps": 200
+  },
+  "feeds": [
+    { "index": 0, "symbol": "SOL", "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d", "maxEntryAgeSecs": 30, "maxWaitSecs": 300 },
+    { "index": 1, "symbol": "TSLAX", "feedId": "47a156470288850a440df3a6ce85a55917b813a19bb5b31128a33a986566a362", "maxEntryAgeSecs": 120, "maxWaitSecs": 7200 },
+    { "index": 2, "symbol": "NVDAX", "feedId": "4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", "maxEntryAgeSecs": 120, "maxWaitSecs": 7200 },
+    { "index": 3, "symbol": "SPYX", "feedId": "2817b78438c769357182c04346fddaad1178c82f4048828fe0997c3c64624e14", "maxEntryAgeSecs": 120, "maxWaitSecs": 7200 },
+    { "index": 4, "symbol": "AAPLX", "feedId": "978e6cc68a119ce066aa830017318563a9ed04ec3a0a6439010fc11296a58675", "maxEntryAgeSecs": 120, "maxWaitSecs": 7200 },
+    { "index": 5, "symbol": "MSTRX", "feedId": "53f95ba4e23ed15ea56083e2ee9a5eec48055d6f59033d4bb95f1ca2a2349c28", "maxEntryAgeSecs": 120, "maxWaitSecs": 7200 },
+    { "index": 6, "symbol": "CRCLX", "feedId": "c13184461c0c80d98ffcd89be627c2220b94a96c7c67f0c4b16bc12fd3b17758", "maxEntryAgeSecs": 120, "maxWaitSecs": 7200 }
+  ],
+  "pdas": {
+    "shot": {
+      "program": "self",
+      "seeds": [
+        { "literalUtf8": "shot" },
+        { "field": "player", "encoding": "pubkey" },
+        { "field": "nonce", "encoding": "u64le" }
+      ]
+    },
+    "completionReceipt": {
+      "program": "self",
+      "seeds": [
+        { "literalUtf8": "completion" },
+        { "field": "shot", "encoding": "pubkey" },
+        { "constant": 1, "encoding": "u8", "meaning": "next-print-terminalize" }
+      ]
+    }
+  },
+  "instructions": [
+    {
+      "name": "open_shot",
+      "args": [
+        { "name": "nonce", "type": "u64" },
+        { "name": "commit", "type": "bytes32" },
+        { "name": "feedIndex", "type": "u8" }
+      ],
+      "accounts": [
+        { "name": "player", "signer": true, "writable": true },
+        { "name": "shot", "signer": false, "writable": true },
+        { "name": "priceUpdate", "signer": false, "writable": false },
+        { "name": "completionReceipt", "signer": false, "writable": false },
+        { "name": "systemProgram", "signer": false, "writable": false }
+      ]
+    },
+    {
+      "name": "observe",
+      "args": [],
+      "accounts": [
+        { "name": "actor", "signer": true, "writable": true },
+        { "name": "shot", "signer": false, "writable": true },
+        { "name": "priceUpdate", "signer": false, "writable": false }
+      ]
+    },
+    {
+      "name": "timeout",
+      "args": [],
+      "accounts": [
+        { "name": "actor", "signer": true, "writable": false },
+        { "name": "shot", "signer": false, "writable": true }
+      ]
+    },
+    {
+      "name": "reveal",
+      "args": [
+        { "name": "side", "type": "u8" },
+        { "name": "pBps", "type": "u16" },
+        { "name": "salt", "type": "bytes32" }
+      ],
+      "accounts": [
+        { "name": "player", "signer": true, "writable": false },
+        { "name": "shot", "signer": false, "writable": true }
+      ]
+    },
+    {
+      "name": "forfeit",
+      "args": [],
+      "accounts": [
+        { "name": "actor", "signer": true, "writable": false },
+        { "name": "shot", "signer": false, "writable": true }
+      ]
+    },
+    {
+      "name": "write_completion_receipt",
+      "args": [],
+      "accounts": [
+        { "name": "payer", "signer": true, "writable": true },
+        { "name": "shot", "signer": false, "writable": false },
+        { "name": "completionReceipt", "signer": false, "writable": true },
+        { "name": "systemProgram", "signer": false, "writable": false }
+      ]
+    },
+    {
+      "name": "close_shot",
+      "args": [],
+      "accounts": [
+        { "name": "actor", "signer": true, "writable": false },
+        { "name": "shot", "signer": false, "writable": true },
+        { "name": "player", "signer": false, "writable": true },
+        { "name": "completionReceipt", "signer": false, "writable": false }
+      ]
+    }
+  ],
+  "accounts": {
+    "NextPrintShot": {
+      "size": 470,
+      "states": {
+        "open": 0,
+        "captured": 1,
+        "revealed": 2,
+        "voidEqual": 3,
+        "voidMissedSuccessor": 4,
+        "voidSourceRevision": 5,
+        "voidSourceChain": 6,
+        "voidScaleChange": 7,
+        "voidTimeout": 8,
+        "forfeited": 9
+      },
+      "completionFieldsFrozenAtFirstNonOpenTransition": true
+    },
+    "CompletionReceipt": {
+      "size": 125,
+      "schemaVersion": 1,
+      "workKind": 1,
+      "dispositions": { "payable": 1, "nonpayable": 2 },
+      "fields": [
+        { "name": "discriminator", "type": "bytes8" },
+        { "name": "schemaVersion", "type": "u16" },
+        { "name": "bump", "type": "u8" },
+        { "name": "disposition", "type": "u8" },
+        { "name": "workKind", "type": "u8" },
+        { "name": "subject", "type": "pubkey" },
+        { "name": "worker", "type": "pubkey" },
+        { "name": "resultHash", "type": "bytes32" },
+        { "name": "completedSlot", "type": "u64" },
+        { "name": "completedTs", "type": "i64" }
+      ]
+    }
+  },
+  "completionPolicy": {
+    "samePrint": "no-op, no receipt",
+    "directSuccessor": "payable to the observe transaction signer, including equal-price and scale-change terminal states",
+    "missedRevisionOrBrokenChain": "nonpayable with default worker",
+    "timeout": "nonpayable with default worker",
+    "receiptCreation": "permissionless and separate from canonical state transition",
+    "receiptRetention": "permanent; no close instruction",
+    "shotCloseRequiresExactReceipt": true,
+    "closedShotAddressCannotBeReused": true
+  },
+  "workMarketCompatibility": {
+    "programId": "EdwrtcJ254e5BDSHbY6oZosdjPBrXLMZc9PzkmR9GBVD",
+    "receiptSchemaVersion": 1,
+    "workKind": 1,
+    "canonicalWorkIndependentOfRewardClaim": true
+  },
+  "deployment": {
+    "cluster": "devnet",
+    "slot": 492867556,
+    "signature": "3D9kBSTu9H6TqjitGhjuNTuY4uy8botnULJ5m1T1cy5qqdcZ2opKRMw5iL9QuM5d6ZpeqU4WkFYPnVrqgHg57M6B",
+    "programData": "ELapjd76gKGPyRtYc6cVRaJA1qAcp8ni5NBsiPME2mbd",
+    "upgradeAuthority": "9R17sG7w5b4w4DYkXAGAxDGKM4ktAToum3L31VJgkJUy",
+    "sbfSize": 217040,
+    "sbfSha256": "01bab651f511cd72c480c432425c1bb343c91ab17f4df63c5ffdac1a8b0d52cc"
+  }
+}

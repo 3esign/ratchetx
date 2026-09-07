@@ -3,7 +3,8 @@ name: ratchetx
 description: >-
   RatchetX prediction arcade on Solana. Use for any RatchetX, ratchet, shot,
   forecast, prediction, play credits, chambers, podium, XP or Brier request,
-  including "play", "put 500 on sol higher", "bet on btc lower", "predict",
+  including "@bankrbot play", "$RCX play", "play", "put 500 on sol higher",
+  "bet on btc lower", "predict",
   "stats", "result", "help", "board" or "what is ratchetx". These are sealed
   forecasts paid in play credits and settled on Pyth, never token trades,
   swaps, perps or Polymarket bets; amounts are credits, not dollars. Also
@@ -12,8 +13,8 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "1.6.3"
-  session-play-sha256: "de69199efa31931d214fa19e01bcb19ec89911d8c0ac4ffe2ba8c3a75828f7ed"
+  version: "1.6.4"
+  session-play-sha256: "c667f50806531d121009d67a96c7b9daf37a1fb477925200d5dd5c96a1d17207"
   session-smoke-sha256: "4f52789d5daf53841309b0dd8e9bed95ff0ed25f3afe60ddb21725f618bcef52"
 ---
 
@@ -47,6 +48,12 @@ forecast, resolving asset, direction, horizon, stake and probability from
 the words against the live board and the signed grant. Words that name
 nothing play the shortest fresh target with 100 credits. A redelivered post
 (same `POST_ID`) returns the original proof; never invent an ID.
+
+The exact aliases `@bankrbot play` and `$RCX play` are RatchetX play
+requests, never token-trade requests. Pass the complete post verbatim to the
+runner. Its public reply names `@PythNetwork` as the price-data source and
+`@solana` as the chain; never rewrite that as sponsorship or as a claim that
+Pyth audited RatchetX.
 
 Two things the runner will NOT do, so you never have to reason about them.
 It never seals a shot on an asset the user did not name: if they ask for an

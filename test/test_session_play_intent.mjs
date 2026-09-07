@@ -20,7 +20,8 @@ const R=(text,extra={})=>{const r=resolveIntent(text,{...env,...extra});return [
 for(const t of ['status','stats','how am i doing','my xp','credits','balance?','podium','rank','did i win','results','resume','ratchetx result','ratchetx did i win?',
   'what is my brier','check my shot','check sol','sol status','how much did i win on sol','ratchetx stats','@bankrbot ratchetx stats','ratchet status','ratchetx how am i doing','ratchetx my xp'])assert.equal(classifyCommand(t),'status',t);
 for(const t of ['play','shot','ratchetx','take a shot','hi','gm','spend 1000','put 500 on SOL','call ETH','higher','lower','yes','no',
-  'stats then play sol','play and status','spend credits','another one','buy sol','ratchetx put 500 on sol higher','@bankrbot ratchetx play','ratchetx sol'])assert.equal(classifyCommand(t),'execute',t);
+  'stats then play sol','play and status','spend credits','another one','buy sol','ratchetx put 500 on sol higher','@bankrbot ratchetx play',
+  '@bankrbot play','$RCX play','@bankrbot $RCX play','ratchetx sol'])assert.equal(classifyCommand(t),'execute',t);
 
 // Skill maintenance words are Bankr's, not ours: never a shot, never status.
 for(const t of ['ratchetx update github version','update ratchetx skill','ratchetx install latest version','ratchetx upgrade','@bankrbot ratchetx refresh skill from github'])assert.equal(classifyCommand(t),'meta',t);
@@ -29,20 +30,23 @@ for(const t of ['ratchetx put 500 on sol higher','ratchetx stats','ratchetx play
 for(const t of ['ratchetx help','help','ratchetx menu','ratchetx commands','how do i play ratchetx','@bankrbot ratchetx help'])assert.equal(classifyCommand(t),'help',t);
 for(const t of ['ratchetx board','ratchetx games','what can i play','ratchetx targets','ratchetx what is on the board'])assert.equal(classifyCommand(t),'board',t);
 for(const t of ['ratchetx play','play the board','ratchetx put 500 on the board leader'])assert.equal(classifyCommand(t),'execute',t);
-assert.ok(HELP.includes('ratchetx put 500 on sol higher')&&HELP.includes('ratchetx result')&&HELP.includes('play-session'));
+assert.ok(HELP.includes('ratchetx put 500 on sol higher')&&HELP.includes('ratchetx result')&&HELP.includes('@bankrbot play')
+  &&HELP.includes('$RCX play')&&HELP.includes('@PythNetwork')&&HELP.includes('play-session'));
 {const b=boardReply({flipsAt:Date.now()+23*60000,targets:board.targets});
   assert.match(b,/^On the board now \(new board in 23 min\):\n- SOL higher or lower in 5 min\n- BONK in 10 min\n- BTC in 15 min\n- ETH in 30 min\n- JUP in 1 h\nPlay: "ratchetx put 500 on bonk lower"/);
   assert.ok(!b.includes('WIF')&&!b.includes('race')&&b.endsWith('rewarding $RCX'));
   assert.match(boardReply(null),/No playable target/);}
-for(const r of [replyFor({code:'SEALED',proofUrl:'U'}),replyFor({code:'WEIRD'}),HELP+'\n\nratchetx.xyz - solana prediction arcade rewarding $RCX'])assert.ok(r.endsWith('ratchetx.xyz - solana prediction arcade rewarding $RCX'),r);
+for(const r of [replyFor({code:'SEALED',proofUrl:'U'}),replyFor({code:'WEIRD'}),HELP+'\n\nratchetx.xyz - on @solana - prices by @PythNetwork - rewarding $RCX'])
+  assert.ok(r.endsWith('ratchetx.xyz - on @solana - prices by @PythNetwork - rewarding $RCX'),r);
 // Questions about the game explain; they never fire a shot.
 for(const t of ['what is ratchetx','what is ratchetx?','how does this work','explain the flywheel','tell me about rcx rewards','ratchetx?','$RCX?','wtf is this','ratchetx what is this?','@bankrbot ratchetx explain'])
   assert.equal(classifyCommand(t),'explain',t);
 for(const t of ['play ratchetx','describe the game and play 500','what is my xp','why did i lose'])assert.notEqual(classifyCommand(t),'explain',t);
-for(const must of ['Pyth','Brier','XP','podium','$RCX','70%','30%','0% to the team','flywheel','ratchetx.xyz','Solana','pump.fun','FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump'])assert.ok(PITCH.includes(must),must);
+for(const must of ['@PythNetwork','@solana','@bankrbot','@pumpdotfun','$RCX','70%','30%','team 0%','ratchetx.xyz'])assert.ok(PITCH.includes(must),must);
+assert.ok(PITCH.length<=280,'about reply remains one ordinary X post');
 assert.doesNotMatch(PITCH,/\b(AI-built|built with AI|agents built|guaranteed)\b/i);
 // Bare intent: shortest directional target, trend side, honest default p, minimum stake.
-for(const t of ['play','shot','ratchetx','take a shot','hi','gm','play again','another one','something quick','flash'])
+for(const t of ['play','shot','ratchetx','take a shot','hi','gm','play again','another one','something quick','flash','@bankrbot play','$RCX play','@bankrbot $RCX play'])
   assert.deepEqual(R(t),['SOL',5,'YES',0.55,100],t);
 // Asset names, tickers, aliases; the asset's own horizon is used even when long.
 assert.deepEqual(R('put 500 on SOL'),['SOL',5,'YES',0.55,500]);
@@ -222,7 +226,7 @@ assert.throws(()=>parseArgs(['--status','--say','stats','--wallet',wallet,'--ses
   assert.match(replyFor({code:'SEALED',proofUrl:'U',settled:{result:'hit',back:850}}),/Result: HIT - \+850 credits/);
   assert.match(replyFor({code:'SEALED',proofUrl:'U',settled:{result:'void'}}),/VOID - stake refunded/);
   assert.match(replyFor({code:'STATUS',credits:1,stated:1,brier:0.2,open:[],remainingAttempts:1,remainingGrossCredits:1,closed:[{result:'miss'}]}),/Last result: MISS/);
-  assert.ok(PITCH.length<=700,'pitch stays short: '+PITCH.length);assert.ok(PITCH.startsWith('RatchetX - sealed prediction arcade on Solana. $RCX launched on pump.fun, CA FQb2'));
+  assert.ok(PITCH.length<=280,'pitch fits one X post: '+PITCH.length);assert.ok(PITCH.startsWith('RatchetX: sealed prediction arcade on @solana.'));
   assert.match(replyFor({code:'SEALED',proofUrl:'U',settlesInMinutes:5,sessionEndsInMinutes:12}),/Session ends in 12 min - approve a new one/);
   assert.doesNotMatch(replyFor({code:'SEALED',proofUrl:'U',settlesInMinutes:5,sessionEndsInMinutes:120}),/Session ends/);
   assert.match(replyFor({code:'STATUS',credits:1,stated:0,brier:null,open:[],remainingAttempts:3,remainingGrossCredits:500,sessionEndsInMinutes:200}),/credits left, ends in 200 min/);

@@ -67,8 +67,7 @@ REM  a skill version bump as well as the promise fix. On main that makes
 REM  check-versions.mjs fail correctly - the state file would claim a skill
 REM  version this tree does not have. Measured by Gemini 1 at 12:42Z: expected
 REM  1.6.3, got 1.6.4. This step carries the promise fix and nothing else.
-call node tools\align-agent-state-versions.mjs
-call node tools\align-agent-state-versions.mjs >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
+  call node "..\ratchet_phase_a_clean\tools\align-agent-state-versions.mjs" >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
 call git add docs/AGENT_STATE.json >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
 call git commit --amend --no-edit >> "..\ratchet_phase_a_clean\%REPORT%" 2>&1
 

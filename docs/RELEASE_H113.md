@@ -2,8 +2,9 @@
 
 Date: 2026-09-03
 
-Status: release candidate until the cache-busted production readback below is
-complete. The candidate commit is the commit containing this manifest.
+Status: live in production. A cache-busted public readback on 2026-09-03
+confirmed the h113 release surfaces below. That readback did not independently
+establish the exact Vercel deployment ID or source commit.
 
 ## Product result
 
@@ -24,8 +25,11 @@ complete. The candidate commit is the commit containing this manifest.
   fence every poller.
 - Expired-card settlement refresh pressure is capped at one request per three
   seconds.
-- Skill `1.6.1` pins the exact SHA-256 of both installed runner scripts and
+- The h113 launch-time Skill `1.6.1` pins the exact SHA-256 of both installed runner scripts and
   uses the Bankr skill-folder update URL.
+
+The independently versioned skill has since advanced beyond 1.6.1. The value in
+this manifest is the h113 launch/readback criterion, not the current skill version.
 
 The 20-second value is a browser patience budget, not a claimed server ceiling.
 A browser abort does not prove that the server invocation stopped.

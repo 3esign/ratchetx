@@ -68,6 +68,7 @@ ok(/\+1\.63%/.test(r.body), 'the move is computed');
 ok(/<svg/.test(r.body) && /class="sp"/.test(r.body), 'the oracle path is drawn from the recorded log');
 ok(/og:title/.test(r.body) && /twitter:card/.test(r.body), 'it unfurls when shared');
 ok(/first fully validated Pyth transition captured by RATCHET at or after expiry/.test(r.body), 'the settling sample is named without overstating capture coverage');
+ok(/@PythNetwork/.test(r.body) && /@solana/.test(r.body), 'proof page visibly credits the oracle and chain handles');
 ok(r.body.includes(`ENTRY ${stamp(t)} UTC`), 'a legacy stored entry timestamp is preserved');
 ok(r.body.includes(`/api/shot?w=${W}&amp;id=abc123`) && r.body.includes(`/api/agent?id=${W}`),
   'the page links its actual public proof and cumulative report routes');

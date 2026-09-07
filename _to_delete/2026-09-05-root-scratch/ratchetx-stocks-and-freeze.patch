@@ -1,0 +1,1131 @@
+From 30f7daf507688dd6a4deae3a2d6856f86fe6f37b Mon Sep 17 00:00:00 2001
+From: Claude <noreply@anthropic.com>
+Date: Thu, 3 Sep 2026 17:22:44 +0000
+Subject: [PATCH] =?UTF-8?q?stop=20selling,=20then=20drain=20=E2=80=94=20an?=
+ =?UTF-8?q?d=20the=20entry=20price=20nobody=20knows=20yet?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Two questions answered on the merits, both handed back to me.
+
+THE ROOT AND STAKE IN FLIGHT. The option chosen blind was to credit open stake
+as cr and void the shots. It was never applied — LEGACY_ROOT_LIVE.cmd passes no
+--allow-open-stake, so the run that printed ROOT BUILT (17 leaves, depth 5) had
+genuinely zero open stake under the EXISTING rule. Which is lucky, because that
+option is wrong twice over: it hands a player who sealed a CORRECT prediction
+their stake back instead of their win, selected by nothing but holding a chamber
+at the cutover second; and the void has to land in the store atomically with the
+snapshot, so a half-applied one leaves a wallet credited on chain and still
+holding the shot off chain, paid twice, on the one path that cannot be rolled
+back.
+
+So: freeze, drain, snapshot. RX_MIGRATION_FREEZE=1 refuses in takeStake, the
+only place credits are ever COMMITTED — every shot, every challenge, every take.
+Settlement, reveals, claims and the crank are untouched: it stops selling, never
+settling. Refusals carry MIGRATION_FREEZE rather than a generic SHOT_REFUSED,
+because an agent that gets an opaque refusal for a day cannot tell a freeze from
+a fault, which was the entire shape of the Bankr RELEASE_MISMATCH failure. An
+env var and not a store key: the cutover is one announced act, and a switch that
+ships in the source is one anybody can verify against the running release.
+
+The objection that "refuse while open" cannot scale to a thousand players is
+true and irrelevant. The legacy root is set ONCE; after cutover the crossing
+predicate settles balances on chain and there is no snapshot any more. The rule
+must survive one cutover, not a thousand players.
+
+And the second guard was dead. set-legacy-root.mjs refuses to patch LEGACY_ROOT
+when any row of merkle_balances.json carries staked > 0 — an independent check
+that fires exactly when the builder was run with --allow-open-stake. The builder
+wrote a hardcoded `staked: 0` for everybody, so it read a constant and passed. A
+check that cannot fail is worse than no check: the money path looked doubly
+protected. It now carries the real per-wallet stake.
+
+STOCKS. The keyless path is already proven — the tokenized xStocks are filed
+under Crypto, Pyth sponsors those on Solana, and the frozen program can read
+them with no change. What blocks them is one number against another: an 870s
+batch cadence against a seal bound that clamps at 60s, so ~7 seals in 100 land.
+
+The recorded option was to scale the seal bound to the horizon. That trades a
+refusal problem for an information-asymmetry problem: a player sealing on a
+15-minute-old price knows which way TSLAX moved and the program does not. The
+existing defence — "a rounding error on a day-long call" — is a comfort
+argument, not a bound, and asymmetries get harvested patiently.
+
+The fourth option, available only since ruleset 2 shipped HORIZON_MASK: bind the
+ENTRY crossing forward. entry = the unique publish where prev_publish_time <
+sealed_ts <= publish_time — the same predicate bind_crossing already binds at
+expiry, pointed at the other end of the shot. You cannot seal on a stale price
+if your entry does not exist yet. Seals go from 7% to ~100% with no promise
+relaxed; the promise gets stronger, from "your entry is recent" to "your entry
+is unknowable at seal". It composes with the mask rather than replacing it:
+binding makes the entry honest, the mask keeps the window long enough that the
+binding delay is noise. Per-feed, because on SOL's 60s heartbeat it would eat
+20% of a 5-minute window for no benefit. Ruleset 3 work, written down, not built.
+
+The measurement it rests on could not be reproduced from this repository: the
+870s came from ids fetched ad hoc on 2026-09-02 and never committed, by a script
+that was not kept. docs/STOCK_FEEDS.json pins all eight feeds and their
+redemption-rate siblings; tools/stock_cadence.mjs measures properly, with SOL as
+a control that refuses to let a lying RPC produce a confident wrong answer, and
+prints the two decision numbers directly — pass rate per horizon today, and the
+forward-binding delay as a fraction of each window. Its restatement of the
+horizon table and max_seal_age is pinned to lib.rs by test, so a program change
+fails the tool instead of quietly making its report describe a different game.
+
+npm test: 109 passed, 0 failed, 0 skipped — the full gate this time, not
+run-tests.mjs. check-versions caught the runner digests, kill-switch caught an
+undocumented env var. Skill 1.6.3.
+
+Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>
+Claude-Session: https://claude.ai/code/session_01Kdudy2R4Fmq1XerU13fKAZ
+---
+ .well-known/agent-registration.json       |   2 +-
+ .well-known/agent-skills/index.json       |   2 +-
+ .well-known/ai-catalog.json               |   2 +-
+ STOCK_CADENCE.cmd                         |  63 ++++++
+ agent-registration.json                   |   2 +-
+ api/game.js                               |  34 ++++
+ docs/AGENT_STATE.json                     |   4 +-
+ docs/ONCHAIN_MIGRATION_PLAN.md            |  59 ++++++
+ docs/STOCKS_DECISION.md                   | 182 +++++++++++++++++
+ docs/STOCKS_ONCHAIN_TOKENIZED.md          |  10 +
+ docs/STOCK_FEEDS.json                     |  36 ++++
+ lib/play_session_http.js                  |   1 +
+ skills/ratchetx/SKILL.md                  |   6 +-
+ skills/ratchetx/scripts/session-play.mjs  |   3 +-
+ skills/ratchetx/scripts/session-smoke.mjs |   2 +-
+ test/test_legacy_root.mjs                 |  53 +++++
+ test/test_stock_cadence.mjs               | 114 +++++++++++
+ tools/legacy_root.mjs                     |  13 +-
+ tools/stock_cadence.mjs                   | 225 ++++++++++++++++++++++
+ 19 files changed, 799 insertions(+), 14 deletions(-)
+ create mode 100644 STOCK_CADENCE.cmd
+ create mode 100644 docs/STOCKS_DECISION.md
+ create mode 100644 docs/STOCK_FEEDS.json
+ create mode 100644 test/test_stock_cadence.mjs
+ create mode 100644 tools/stock_cadence.mjs
+
+diff --git a/.well-known/agent-registration.json b/.well-known/agent-registration.json
+index b0e1ac7..8ebd788 100644
+--- a/.well-known/agent-registration.json
++++ b/.well-known/agent-registration.json
+@@ -51,7 +51,7 @@
+     {
+       "name": "Agent Skill",
+       "endpoint": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
+-      "version": "1.6.2"
++      "version": "1.6.3"
+     },
+     {
+       "name": "OpenAPI",
+diff --git a/.well-known/agent-skills/index.json b/.well-known/agent-skills/index.json
+index 4c0a47c..3beb0b2 100644
+--- a/.well-known/agent-skills/index.json
++++ b/.well-known/agent-skills/index.json
+@@ -6,7 +6,7 @@
+       "type": "skill-md",
+       "description": "Operate a forecasting agent on RatchetX using shared validated Pyth context, the live Solana board, public record and ranked arena.",
+       "url": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
+-      "digest": "sha256:803c48ac5235a6bf957ed6164378540034611533985a265444c63dfc8a14f77d"
++      "digest": "sha256:36f07cd1eb75fbd202167ac16eccb8856cff1cda8d2576f2f47b4b558fb5aa8c"
+     }
+   ]
+ }
+diff --git a/.well-known/ai-catalog.json b/.well-known/ai-catalog.json
+index bb93431..75df1eb 100644
+--- a/.well-known/ai-catalog.json
++++ b/.well-known/ai-catalog.json
+@@ -206,7 +206,7 @@
+         "Build a public calibration record for my trading agent",
+         "Teach my coding agent how to play RatchetX safely"
+       ],
+-      "version": "1.6.2",
++      "version": "1.6.3",
+       "updatedAt": "2026-09-02T00:00:00Z",
+       "metadata": {
+         "format": "agentskills.io",
+diff --git a/STOCK_CADENCE.cmd b/STOCK_CADENCE.cmd
+new file mode 100644
+index 0000000..633b177
+--- /dev/null
++++ b/STOCK_CADENCE.cmd
+@@ -0,0 +1,63 @@
++@echo off
++setlocal
++if "%RX_RELAUNCHED%"=="1" goto :run
++set RX_RELAUNCHED=1
++cmd /k "%~f0" %*
++exit /b
++:run
++cd /d "%~dp0"
++echo ============================================================
++echo   STOCK CADENCE - the measurement the stocks decision needs
++echo ============================================================
++echo.
++echo   Stocks are already reachable with no API key: the tokenized
++echo   xStocks are filed under Crypto, and Pyth sponsors those with
++echo   permanent push accounts the frozen program can already read.
++echo   That part is settled and measured.
++echo.
++echo   What is NOT settled is how often those feeds publish. Measured
++echo   once on 2 September, for 13 minutes, they wrote every 870
++echo   seconds - against a seal bound that stops at 60. On that number
++echo   about 7 stock seals in 100 would land, and the feature does not
++echo   work. But 13 minutes is not a measurement, it is a glimpse.
++echo.
++echo   This watches them properly. It reads only: no key, no signer,
++echo   no transaction, nothing on chain changes. Leave it running as
++echo   long as you like - the report is rewritten after every poll,
++echo   so closing the window early still leaves you what it had.
++echo.
++echo   Default is 2 hours. For a different length:
++echo     STOCK_CADENCE.cmd --minutes 480
++echo.
++where node >/dev/null 2>nul
++if errorlevel 1 goto :nonode
++echo.
++set "RX_RPC="
++set /p RX_RPC=Solana RPC URL (blank uses the public one, which may rate-limit): 
++echo.
++echo   Measuring. Leave this window open.
++echo.
++call node tools\\stock_cadence.mjs %RX_RPC% %*
++if errorlevel 1 goto :failed
++echo.
++echo ============================================================
++echo   DONE. The report is stock_cadence_report.txt in this folder.
++echo.
++echo   Read the CONTROL line first. If SOL did not tick, the RPC was
++echo   serving stale data and every stock row is meaningless - re-run
++echo   with a different RPC rather than believing it.
++echo.
++echo   Send me that file and I will tell you what it permits.
++echo ============================================================
++goto :end
++:failed
++echo.
++echo   It stopped early and the reason is above. Whatever it had
++echo   measured is still in stock_cadence_report.txt.
++goto :end
++:nonode
++echo   Node was not found on PATH.
++goto :end
++:end
++echo.
++echo (this window stays open - close it when you are done)
+diff --git a/agent-registration.json b/agent-registration.json
+index b0e1ac7..8ebd788 100644
+--- a/agent-registration.json
++++ b/agent-registration.json
+@@ -51,7 +51,7 @@
+     {
+       "name": "Agent Skill",
+       "endpoint": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
+-      "version": "1.6.2"
++      "version": "1.6.3"
+     },
+     {
+       "name": "OpenAPI",
+diff --git a/api/game.js b/api/game.js
+index 733545e..251a42e 100644
+--- a/api/game.js
++++ b/api/game.js
+@@ -1885,10 +1885,44 @@ function oracleSealSnapshot(prices, feeds) {
+     snapshotHash:crypto.createHash('sha256').update(JSON.stringify(body)).digest('hex') };
+ }
+ 
++/** The migration freeze: stop SELLING, never stop settling.
++ *
++ *  The legacy root is a claim about every player's credits at one instant. A
++ *  stake in flight is credits that are in nobody's `cr`, so a root built while
++ *  a shot is open migrates that player short by exactly the stake. The tool
++ *  that builds the root already refuses in that case (tools/legacy_root.mjs).
++ *
++ *  The tempting fix -- credit the open stake back as `cr` and void the shot --
++ *  is the wrong one, and it is worth writing down why, because it looks
++ *  reasonable. It takes a player who sealed a CORRECT prediction and hands
++ *  back the stake instead of the win: an earned outcome confiscated, applied
++ *  to whoever happened to hold a chamber at the cutover second. And the void
++ *  has to land in the store atomically with the snapshot; a half-applied void
++ *  leaves a player credited on chain AND still holding the shot off chain,
++ *  paid twice, on the one path that cannot be rolled back.
++ *
++ *  So the machine does not void anything. It stops selling, lets every open
++ *  shot run to its own expiry and settle on its own terms, and the snapshot is
++ *  taken after the last one lands. Nobody's outcome is taken from them and the
++ *  wait is bounded by the longest horizon actually open when the freeze went
++ *  on -- which tools/legacy_root.mjs prints as `latestExpiry`, not the 1440
++ *  minutes the horizon table allows in the abstract.
++ *
++ *  It is an environment variable rather than a store key on purpose. The
++ *  cutover is one deliberate act, not something that needs flipping in five
++ *  seconds, and a freeze that ships in the source is one anybody can verify
++ *  against the running release. A flag hiding in the store is invisible to
++ *  exactly the people this is supposed to be honest with.
++ *
++ *  Settlement, claims, and payouts are untouched: this sits in takeStake,
++ *  which is the only place credits are ever COMMITTED. */
++const MIGRATION_FREEZE = process.env.RX_MIGRATION_FREEZE === '1';
++
+ async function takeStake(p, stake, structured = false) {
+   // Existing challenge callers still receive prose; the shot adapter needs a
+   // stable code from this SAME validation, not a second copy of the credit rules.
+   const refuse = (code, reason) => structured ? {code, reason} : reason;
++  if (MIGRATION_FREEZE) return refuse('MIGRATION_FREEZE', 'the machine is not selling new shots: the migration snapshot is being taken. Open shots settle normally and credits are safe.');
+   if ((p.settlementOutbox || []).length >= 32) return refuse('SETTLEMENT_DELIVERY_PENDING', 'settlement delivery is pending; read state before opening another shot');
+   if (badStake(stake)) return refuse('INVALID_STAKE', `stake must be a whole number between ${STAKE_MIN} and ${STAKE_MAX.toLocaleString()}`);
+   if (p.cr < stake) return refuse('INSUFFICIENT_CREDITS', `not enough credits - you have ${Math.floor(p.cr).toLocaleString()}${MINT ? '. Reload: burn RCX for credits, 1 for 1.' : '.'}`);
+diff --git a/docs/AGENT_STATE.json b/docs/AGENT_STATE.json
+index 210cdbd..11ba5ef 100644
+--- a/docs/AGENT_STATE.json
++++ b/docs/AGENT_STATE.json
+@@ -5,8 +5,8 @@
+   "productionUiRevision": "h108-core-rules-and-per-account-recipe",
+   "versions": {
+     "mcp": "1.2.0",
+-    "agentSkill": "1.6.2",
+-    "erc8004": "1.6.2",
++    "agentSkill": "1.6.3",
++    "erc8004": "1.6.3",
+     "aiCatalog": "1.0"
+   },
+   "endpoints": {
+diff --git a/docs/ONCHAIN_MIGRATION_PLAN.md b/docs/ONCHAIN_MIGRATION_PLAN.md
+index 4b82929..7c85c87 100644
+--- a/docs/ONCHAIN_MIGRATION_PLAN.md
++++ b/docs/ONCHAIN_MIGRATION_PLAN.md
+@@ -273,6 +273,65 @@ and omitted-claim tests, rollback rehearsal before activation, no shared mutable
+ balance after activation. Once chain becomes authoritative, rollback means fixing
+ or switching a compatible client, never restoring a stale database over chain.
+ 
++#### The cutover switch, and why the root does not void anything
++
++`RX_MIGRATION_FREEZE=1` is the environment variable that performs "stop new
++legacy economic actions" above. It is read once in `api/game.js` and checked in
++`takeStake`, which is the only place in the machine where credits are ever
++COMMITTED — every shot, every challenge and every take passes through it.
++Settlement, reveals, claims, payouts and the crank are untouched: the freeze
++stops *selling*, never *settling*. With the variable unset, which is every
++deployment today, the check is a comparison against `undefined` and the game
++behaves exactly as before. Refusals carry the code `MIGRATION_FREEZE` (registered
++in `lib/play_session_http.js` and in the skill's runner), because an agent that
++gets a generic `SHOT_REFUSED` for a day has no way to tell a freeze from a fault
++— that was the whole shape of the Bankr `RELEASE_MISMATCH` failure.
++
++It is an environment variable rather than a store key deliberately. The cutover
++is one announced act, not something that must flip in five seconds, and a switch
++that ships in the source is one anybody can verify against the running release.
++A flag hiding in the store is invisible to exactly the people this is meant to
++be honest with.
++
++**The rule the root follows: stop selling, then drain. Never void.**
++
++A stake in flight is credits that are in nobody's `cr`. `tools/legacy_root.mjs`
++therefore refuses to build a root while any shot is open, and says when the last
++one expires. The tempting shortcut is to credit that stake back as `cr` and void
++the shot, and it is the wrong answer for two independent reasons:
++
++1. **It confiscates an earned outcome.** A player who sealed a correct
++   prediction gets the stake back instead of the win, selected by nothing but
++   holding a chamber at the cutover second.
++2. **It can pay somebody twice.** The void has to land in the store atomically
++   with the snapshot. A half-applied void leaves a wallet credited on chain and
++   still holding the shot off chain — on the one path that cannot be rolled
++   back.
++
++So: freeze, let every open shot run to its own expiry and settle on its own
++terms, then snapshot. The wait is bounded by the longest horizon actually open
++when the freeze went on — `latestExpiry`, which the tool prints — not by the
++1440 minutes the horizon table allows in the abstract. Nobody's outcome is taken
++from them, and no new money path is introduced on the day it can least afford
++one.
++
++This also answers the objection that "refuse while open" cannot scale: at a
++thousand concurrent players a naturally quiet moment may never arrive. True, and
++irrelevant. The legacy root is set ONCE. After cutover, balances live on chain
++and the crossing predicate settles them; there is no snapshot any more. The rule
++must survive exactly one cutover, not a thousand players — and building a
++void-and-credit path to handle a one-time event is added risk on the money path
++in exchange for nothing.
++
++**Both guards must be live.** `scripts/set-legacy-root.mjs` refuses to patch
++`LEGACY_ROOT` into `lib.rs` when any row of `merkle_balances.json` carries
++`staked > 0` — an independent second check that fires even when the builder was
++run with `--allow-open-stake`, which is the exact case it exists for. That check
++was dead until 2026-09-03: the builder wrote a hardcoded `staked: 0` for every
++player, so the guard read a constant and passed. It now writes the real
++per-wallet stake. A check that cannot fail is worse than no check, because the
++money path looks doubly protected when it is not.
++
+ ### G6 — retire database authority and prove independent operation
+ 
+ Switch clients and MCP to chain-derived records with visible source slot,
+diff --git a/docs/STOCKS_DECISION.md b/docs/STOCKS_DECISION.md
+new file mode 100644
+index 0000000..c07f6da
+--- /dev/null
++++ b/docs/STOCKS_DECISION.md
+@@ -0,0 +1,182 @@
++# Stocks: what is actually possible, and the one change that makes it fair
++
++**Status 2026-09-03.** Decision memo. Nothing here is built into the program.
++The measurement it asks for is `STOCK_CADENCE.cmd`; the feed ids it rests on are
++pinned in `docs/STOCK_FEEDS.json`.
++
++## The question
++
++"Is there a way to have stocks that is our win?"
++
++## What is already settled, and it is the hard part
++
++Stocks are reachable **with no API key, no subscription and no server in the
++loop**. `docs/STOCKS_ONCHAIN_TOKENIZED.md` measured this on 2026-09-02: the
++tokenized equities (`Crypto.TSLAX/USD` and its siblings) are filed by Pyth under
++the *Crypto* asset class, and Crypto is the class Pyth sponsors on Solana with
++permanent push accounts. Those accounts are `PriceUpdateV2` at sponsored PDAs —
++exactly what `load_push_price_update` was written for. Owner is the Pyth
++receiver, verification level is `Full`, the feed id matches.
++
++**No program change of any kind is required to read them.** Only the feed table
++changes. A stranger with any RPC can verify every settlement.
++
++Two paths that looked better are closed and stay closed:
++
++- The Pyth **pull** path needs a signed update from Hermes, and Hermes has
++  required a key on every host since the 2026-08-26 Pyth Core upgrade. A key is
++  the exact dependency the frozen core exists not to have.
++- Native `Equity.*` feeds are not sponsored on Solana on any shard. Measured
++  0/10 across all 256 shards.
++
++## What blocks it: one number against another
++
++The six maintained xStocks publish as a **batch, every 870 seconds** — the same
++integer for all six, one publisher writing them together.
++
++The program's seal rule wants an entry price no older than
++
++```rust
++max_seal_age(minutes) = clamp((minutes * 60 * 15 + 50) / 100, 30, 60)
++```
++
++which **clamps at 60 seconds for every horizon**. A 24-hour target gets the same
++60-second bound as a 5-minute one, because of the `min`.
++
++60 / 870 ≈ **6.9%**. About 93 stock seals in 100 would be refused, at every
++horizon. That is not a feature with a rough edge; it is a feature that does not
++work, and the freshness guard is right to refuse it.
++
++## The three options on record, and why two of them are wrong
++
++`docs/STOCKS_ONCHAIN_TOKENIZED.md` left three: drop it, scale the seal bound to
++the horizon, or wait. Since it was written, ruleset 2 shipped `HORIZON_MASK` —
++per-feed control over which windows a feed may be sold at — which changes what
++is available. With that in hand:
++
++**Dropping it is giving up a thing we already have for free.** The mechanism is
++keyless, permissionless and on chain. The only obstacle is a bound written for
++feeds that tick every second.
++
++**Scaling the seal bound is the dangerous one, and it is worth naming why**,
++because it reads as the obvious fix. Allowing a 24-hour shot to seal on a
++15-minute-old price does not just relax a promise; it creates a position that
++did not exist before. A player watching the real market knows what TSLAX has
++done in those 15 minutes. The program does not. That player is not predicting —
++they are sealing against a price they already know is wrong, in the direction
++they already know it moved. The existing doc defends this as "a rounding error
++on a day-long call", which is a comfort argument, not a bound. It is an
++information asymmetry, and information asymmetries do not shrink because the
++window is long; they get *harvested* patiently.
++
++**Waiting costs nothing and decides nothing.** Keep it as the fallback, not the
++plan.
++
++## The proposal: bind the entry crossing forward
++
++Today `entry_e12` is the **last price published before the seal**, at most 60
++seconds old. Change it, *for slow feeds only*, to the **first price published at
++or after the seal**.
++
++```
++today:     entry = last publish before sealed_ts,  age <= max_seal_age
++proposed:  entry = the unique publish where  prev_publish_time < sealed_ts <= publish_time
++```
++
++That predicate is not new. It is the *same* crossing rule ruleset 2 already
++binds at the other end of the shot:
++
++```
++exit:   prev_publish_time < expiry_ts  <= publish_time     (bind_crossing, built)
++entry:  prev_publish_time < sealed_ts  <= publish_time     (proposed)
++```
++
++Exactly one Pyth message in existence satisfies each. Same `FeedClock` ring,
++same lazy permissionless binding, same idempotency, same evidence fields. It is
++the existing mechanism pointed at the other end.
++
++### What it buys
++
++1. **The freshness bound stops mattering for entry, without being relaxed.**
++   You cannot seal on a stale price if your entry price *does not exist yet*.
++   Stock seals go from ~7% landing to ~100%, and no published promise about
++   freshness is loosened — the promise gets *stronger*, from "your entry is
++   recent" to "your entry is unknowable at seal".
++2. **It removes the arbitrage instead of bounding it.** Nobody — not the player,
++   not us, not a market maker watching NASDAQ — knows the entry price when the
++   shot is sealed, because it has not been published. There is no asymmetry left
++   to harvest.
++3. **It is the discipline the game already uses.** The shot's *side* is
++   commit-reveal. The entry becomes commit-then-bind. Both ends of the shot are
++   then fixed by chain data that nobody controlled at commit time. That is the
++   same sentence, said twice.
++
++### What it costs, stated plainly
++
++1. **The card cannot say "sealed at $353.18".** It says the entry binds at the
++   next print, and on this feed that is within about 15 minutes. This is a real
++   product change and it goes on the card next to the two disclosures already
++   required there.
++2. **The front of the window is consumed by the binding delay.** Up to 870s: 4%
++   of a 6-hour window, 1% of a 24-hour one, and **290% of a 5-minute one**.
++   Which is why this does not replace `HORIZON_MASK` — it *composes* with it.
++   Binding makes the entry honest; the mask keeps the window long enough that
++   the binding delay is noise. `STOCK_CADENCE.cmd` prints the suggested mask
++   directly from the measured gaps.
++3. **It must be per-feed.** On SOL's 60-second heartbeat, forward-binding a
++   5-minute shot would eat 20% of the window at the front, for no benefit —
++   SOL already seals ~100% of the time. Crypto keeps observed-entry. So this
++   needs an `ENTRY_MODE: [u8; N]` alongside `HORIZON_MASK`, not a global switch.
++4. **It is ruleset 3 work.** `Shot` needs `entry_publish_time`,
++   `entry_prev_publish_time` and an `entry_bound` flag; there needs to be a
++   `bind_entry` instruction; and the clock ring must retain enough history to
++   cover a seal that goes unbound for a while. That is a program change and a
++   redeploy, not a config edit.
++
++## So: is it "our win"?
++
++Yes, and specifically because of the limits rather than in spite of them.
++
++Every stock prediction market that settles on an exchange print **closes when
++the exchange closes**. The xStocks feeds are 24/7 and sponsored on Solana. So
++what this permits is: *TSLAX up or down over the next 24 hours, sealed on a
++Saturday, settled by a program with no server in the loop, no key anywhere in
++the path, verifiable by any stranger with any RPC, on an entry price that did
++not exist when the shot was taken.*
++
++That is not a smaller version of a stock market. It is a different one, and it
++is one the exchange-hours competition structurally cannot offer.
++
++It is also a product whose card can state its own limits precisely — TSLAX not
++TSLA, 6h and 24h only, entry binds forward — and be *more* trustworthy for
++saying so. That is the whole thesis of this machine applied to a new asset.
++
++## What must be measured before any of it ships
++
++1. **Is 870s the real cadence, or was it a quiet afternoon?** 13.4 minutes and
++   18 polls establishes "at least 870s". It does not establish stability, and
++   every number above is downstream of it. → `STOCK_CADENCE.cmd`, run for hours,
++   ideally across a US market open and a weekend.
++2. **Does the publisher stall?** COINX was 10.7 hours stale and HOODX 6.8 days.
++   Those are not slow feeds, they are abandoned ones. A feed table needs a
++   *liveness rule* that drops a target when its publisher stops — a one-time
++   check at listing is not enough, and the staleness guard dropping the target
++   is the behaviour to build on.
++3. **Does TSLAX track TSLA closely enough that the card is honest even with the
++   disclosure?** `Crypto.TSLAX/TSLA.RR` is the redemption-rate feed and is
++   pinned in `docs/STOCK_FEEDS.json`. The premium/discount can be measured
++   directly rather than assumed small.
++
++Until (1) is done nothing should be listed, because every conclusion here is a
++function of one number measured once.
++
++## Files
++
++- `docs/STOCK_FEEDS.json` — the feed ids, pinned. The 2026-09-02 measurement
++  used ids that were fetched ad hoc and never committed, so the number the whole
++  decision rests on could not be re-derived from this repository. It can now.
++- `tools/stock_cadence.mjs` / `STOCK_CADENCE.cmd` — the measurement, with SOL as
++  a control that refuses to let a lying RPC produce a confident wrong answer.
++- `test/test_stock_cadence.mjs` — pins the horizon table and the seal bound to
++  `lib.rs`, so a change to the program fails the tool rather than silently
++  making its report describe a game that is not running.
+diff --git a/docs/STOCKS_ONCHAIN_TOKENIZED.md b/docs/STOCKS_ONCHAIN_TOKENIZED.md
+index cb6324a..7c63616 100644
+--- a/docs/STOCKS_ONCHAIN_TOKENIZED.md
++++ b/docs/STOCKS_ONCHAIN_TOKENIZED.md
+@@ -123,6 +123,16 @@ send a message in the minute after a publish.
+ That is not a feature with a rough edge. It is a feature that does not work, and
+ the freshness guard is right to refuse it.
+ 
++> **Answered 2026-09-03 in `docs/STOCKS_DECISION.md`.** The three options below
++> were written before ruleset 2 shipped `HORIZON_MASK`, and with per-feed horizon
++> control available the answer is a fourth one: do not relax the seal bound, bind
++> the ENTRY crossing forward. Option 2 below trades a refusal problem for an
++> information-asymmetry problem — a player who can seal on a 15-minute-old price
++> knows which way it moved and the program does not. Binding the entry to the
++> first publish at or after the seal removes that instead of bounding it, using
++> the crossing predicate ruleset 2 already binds at the other end of the shot.
++> The options below stay on record because the measurement in them is sound.
++
+ ## So the decision is a settlement-rule question, and it is the founder's
+ 
+ The mechanism is free, keyless and permissionless — everything that was wanted.
+diff --git a/docs/STOCK_FEEDS.json b/docs/STOCK_FEEDS.json
+new file mode 100644
+index 0000000..a6b5a8c
+--- /dev/null
++++ b/docs/STOCK_FEEDS.json
+@@ -0,0 +1,36 @@
++{
++  "_comment": [
++    "The tokenized-equity feed ids, pinned so the cadence measurement in",
++    "docs/STOCKS_ONCHAIN_TOKENIZED.md can be reproduced from this repository",
++    "alone. That measurement was taken on 2026-09-02 with ids fetched ad hoc",
++    "and never committed: the single number the whole stocks decision rests on",
++    "(an 870-second batch cadence) could not be re-derived from anything here.",
++    "",
++    "Source: https://pyth.dourolabs.app/v1/symbols?query=<TICKER> — Pyth's",
++    "symbology API, keyless, read-only. Verified on chain by deriving",
++    "[u16le(0), feed_id] under the push oracle and requiring the derived",
++    "account to be receiver-owned and to carry back the same feed id.",
++    "",
++    "The .RR rows are the redemption-rate feeds: the tokenized share against",
++    "the real one. They are what a premium/discount claim has to be measured",
++    "with, and they are NOT tradeable targets."
++  ],
++  "pushOracle": "pyt2F414BA6dPttK6RddPZUdHfapoBN24GL5wbrPCou",
++  "receiver": "rec2HHDDnjLfj4kE7VyEtFA1HPGQLK33259532cRyHp",
++  "shard": 0,
++  "control": {
++    "symbol": "Crypto.SOL/USD",
++    "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
++    "note": "derives to 7AviUf9n... — the account the live program already settles on. If this row does not tick, the RPC or the derivation is broken and every other row is meaningless."
++  },
++  "feeds": [
++    { "ticker": "TSLAX", "symbol": "Crypto.TSLAX/USD", "feedId": "47a156470288850a440df3a6ce85a55917b813a19bb5b31128a33a986566a362", "rrSymbol": "Crypto.TSLAX/TSLA.RR", "rrFeedId": "997362625415627e9e3177f6c0d32f200d4a221ccadb3dddab80d6079d03ea24" },
++    { "ticker": "NVDAX", "symbol": "Crypto.NVDAX/USD", "feedId": "4244d07890e4610f46bbde67de8f43a4bf8b569eebe904f136b469f148503b7f", "rrSymbol": "Crypto.NVDAX/NVDA.RR", "rrFeedId": "b675c4e9f46d94afa9174a7df09966b77a2950970bb50a77ec8ad4fcfd8266f4" },
++    { "ticker": "SPYX",  "symbol": "Crypto.SPYX/USD",  "feedId": "2817b78438c769357182c04346fddaad1178c82f4048828fe0997c3c64624e14", "rrSymbol": "Crypto.SPYX/SPY.RR",   "rrFeedId": "9e916cc00d292da2367646ffd6537d6b8d0c3f15e2d5891ac44aed31291811a9" },
++    { "ticker": "AAPLX", "symbol": "Crypto.AAPLX/USD", "feedId": "978e6cc68a119ce066aa830017318563a9ed04ec3a0a6439010fc11296a58675", "rrSymbol": "Crypto.AAPLX/AAPL.RR", "rrFeedId": "25babb83691a056fd65f879bfd7197eabd840aae741f69c87ccb31e204a979b2" },
++    { "ticker": "MSTRX", "symbol": "Crypto.MSTRX/USD", "feedId": "53f95ba4e23ed15ea56083e2ee9a5eec48055d6f59033d4bb95f1ca2a2349c28", "rrSymbol": "Crypto.MSTRX/MSTR.RR", "rrFeedId": "342df7ea9b8db28630933d55d0c9c1119525eb5be58d499ecc4e88faf061083a" },
++    { "ticker": "CRCLX", "symbol": "Crypto.CRCLX/USD", "feedId": "c13184461c0c80d98ffcd89be627c2220b94a96c7c67f0c4b16bc12fd3b17758", "rrSymbol": "Crypto.CRCLX/CRCL.RR", "rrFeedId": "381f301f3aabddfa8605be298e704bf7c40738a5f7aeb07dd0b023f993ce7638" },
++    { "ticker": "COINX", "symbol": "Crypto.COINX/USD", "feedId": "641435d5dffb5311140b480517c79986d8488d5cf08a11eec53b83ad02cab33f", "rrSymbol": "Crypto.COINX/COIN.RR", "rrFeedId": "b663e208031820ed2ea373346501ceb897f230623439482f0e2a13150af08549", "status": "abandoned 2026-09-02: 10.7 hours stale at measurement" },
++    { "ticker": "HOODX", "symbol": "Crypto.HOODX/USD", "feedId": "dd49a9ac6df5cbfa9d8fc6371f7ae927a74d5c6763c1c01b4220d70314c647f9", "rrSymbol": "Crypto.HOODX/HOOD.RR", "rrFeedId": "d88c382daa11f3a377796bc3f9318e7fbffd69c5bbceb5e58548670a7ad23e7f", "status": "abandoned 2026-09-02: 6.8 days stale at measurement" }
++  ]
++}
+diff --git a/lib/play_session_http.js b/lib/play_session_http.js
+index 1e3c8fd..cf29b0b 100644
+--- a/lib/play_session_http.js
++++ b/lib/play_session_http.js
+@@ -37,6 +37,7 @@ const SHOT_REFUSALS = Object.freeze({
+   INVALID_STAKE:'The stake was outside the canonical game limits.',
+   INSUFFICIENT_CREDITS:'The wallet had insufficient existing play credits.',
+   SETTLEMENT_DELIVERY_PENDING:'Existing settlement delivery must finish before another shot.',
++  MIGRATION_FREEZE:'The machine is not selling new shots while the migration snapshot is taken; open shots settle normally.',
+   INVALID_PROBABILITY:'The stated probability was invalid.',
+   AGENT_ADMISSION_REQUIRED:'The wallet did not meet existing arena admission requirements.',
+   PLAYER_BUSY:'Another update held the player lock.',
+diff --git a/skills/ratchetx/SKILL.md b/skills/ratchetx/SKILL.md
+index 7b40362..fac441b 100644
+--- a/skills/ratchetx/SKILL.md
++++ b/skills/ratchetx/SKILL.md
+@@ -12,9 +12,9 @@ description: >-
+ license: MIT
+ metadata:
+   author: 3esign
+-  version: "1.6.2"
+-  session-play-sha256: "4c4c2dcc00b6bb41e9afa01286f25b69ac28767934e2ab8acc8f6559dc746033"
+-  session-smoke-sha256: "ef9facd64a367bccf989df3fc9acf80a4f28a502c29274a39bf7e187dc949b43"
++  version: "1.6.3"
++  session-play-sha256: "de69199efa31931d214fa19e01bcb19ec89911d8c0ac4ffe2ba8c3a75828f7ed"
++  session-smoke-sha256: "4f52789d5daf53841309b0dd8e9bed95ff0ed25f3afe60ddb21725f618bcef52"
+ ---
+ 
+ # RatchetX
+diff --git a/skills/ratchetx/scripts/session-play.mjs b/skills/ratchetx/scripts/session-play.mjs
+index f2475ef..19bfcd1 100644
+--- a/skills/ratchetx/scripts/session-play.mjs
++++ b/skills/ratchetx/scripts/session-play.mjs
+@@ -15,7 +15,7 @@ const SHOT=/^[a-f0-9]{12}$/, COMMAND=/^(?:[0-9]{1,32}|[a-f0-9]{32})$/;
+ const TOKEN=/^rxp1\.([1-9A-HJ-NP-Za-km-z]{32,44})\.([a-f0-9]{32})\.[a-f0-9]{64}$/;
+ const CODES=new Set(['SESSION_EXPIRED','SESSION_REVOKED','INVALID_CAPABILITY','SESSION_RATE_LIMIT',
+   'SESSION_BUDGET_EXHAUSTED','AGENT_ADMISSION_REQUIRED','PLAYER_BUSY','ORACLE_STALE',
+-  'ORACLE_CONFIDENCE_TOO_WIDE','FEED_UNAVAILABLE','TARGET_UNAVAILABLE','CHAMBERS_FULL',
++  'ORACLE_CONFIDENCE_TOO_WIDE','FEED_UNAVAILABLE','TARGET_UNAVAILABLE','CHAMBERS_FULL','MIGRATION_FREEZE',
+   'INVALID_STAKE','INSUFFICIENT_CREDITS','SETTLEMENT_DELIVERY_PENDING','INVALID_PROBABILITY',
+   'RATE_LIMITED','WRITE_CONFLICT','WRITE_LEASE_EXPIRED','CREDIT_QUEUE_CONFLICT','SHOT_REFUSED',
+   'RECOVERED_NO_DISPATCH','REQUEST_CONFLICT','PRIOR_ATTEMPT_UNRESOLVED','ASSET_NOT_ON_BOARD','ASSET_AMBIGUOUS']);
+@@ -713,6 +713,7 @@ const REFUSALS={
+   SESSION_RATE_LIMIT:r=>'Cooldown active. Please retry in '+(r.retryAfterSeconds??'a few')+' s. Nothing was sealed.',
+   STATUS_THROTTLED:()=>'Another request for this wallet was running at the same time. Nothing was sealed - send the command again in a minute.',
+   CHAMBERS_FULL:()=>'All your forecast chambers are active. Wait for one to settle.',
++  MIGRATION_FREEZE:()=>'The machine is not selling new shots right now: the migration snapshot is being taken. Shots already open settle normally and your credits are safe.',
+   SESSION_BUDGET_EXHAUSTED:()=>'This play session\'s allowance is used up. '+NEW_SESSION,
+   INSUFFICIENT_CREDITS:()=>'Not enough play credits for that stake.',
+   SESSION_EXPIRED:()=>'Your play session has expired. '+NEW_SESSION,
+diff --git a/skills/ratchetx/scripts/session-smoke.mjs b/skills/ratchetx/scripts/session-smoke.mjs
+index c4eea4a..f95b3e3 100644
+--- a/skills/ratchetx/scripts/session-smoke.mjs
++++ b/skills/ratchetx/scripts/session-smoke.mjs
+@@ -14,7 +14,7 @@ const SCHEMA='ratchetx-session-smoke-v1', STAKE=100, MIN_ROOM=22*60000;
+ const REMOTE_CODES=new Set(['SESSION_EXPIRED','SESSION_REVOKED','INVALID_CAPABILITY',
+   'SESSION_RATE_LIMIT','SESSION_BUDGET_EXHAUSTED','AGENT_ADMISSION_REQUIRED','PLAYER_BUSY',
+   'ORACLE_STALE','ORACLE_CONFIDENCE_TOO_WIDE','FEED_UNAVAILABLE','TARGET_UNAVAILABLE',
+-  'CHAMBERS_FULL','INVALID_STAKE','INSUFFICIENT_CREDITS','SETTLEMENT_DELIVERY_PENDING',
++  'CHAMBERS_FULL','INVALID_STAKE','INSUFFICIENT_CREDITS','SETTLEMENT_DELIVERY_PENDING','MIGRATION_FREEZE',
+   'INVALID_PROBABILITY','RATE_LIMITED','WRITE_CONFLICT','WRITE_LEASE_EXPIRED',
+   'CREDIT_QUEUE_CONFLICT','SHOT_REFUSED','RECOVERED_NO_DISPATCH']);
+ export function canonical(value){
+diff --git a/test/test_legacy_root.mjs b/test/test_legacy_root.mjs
+index 4f0881c..10a2c32 100644
+--- a/test/test_legacy_root.mjs
++++ b/test/test_legacy_root.mjs
+@@ -173,4 +173,57 @@ for (const size of [1, 2, 3, 5, 8, 17, 64, 1000]) {
+     'a second copy of a rule is how the Supabase import got five key families wrong');
+ }
+ 
++// ---- 9. the SECOND guard on the money path is live, not decorative --------
++//
++// scripts/set-legacy-root.mjs refuses to patch LEGACY_ROOT into lib.rs when any
++// row in merkle_balances.json carries `staked > 0`. It is deliberately a second,
++// independent check: it fires even when this tool was run with
++// --allow-open-stake, which is the exact case it exists for.
++//
++// It was DEAD. merkle_balances.json was written with a hardcoded `staked: 0` for
++// every player, so the guard read a constant and passed. A check that cannot
++// fail is worse than no check, because the money path looks doubly protected.
++{
++  const out = reconcile([
++    ['u:' + wallets[0], { cr: 10, xp: 2 }, null, null],
++    ['u:' + wallets[1], { cr: 5, xp: 1, open: [{ stake: 250 }, { stake: 40 }] }, null, null],
++  ]);
++  const byWallet = Object.fromEntries(out.players.map(p => [p.wallet, p]));
++  checks++; assert.equal(byWallet[wallets[0]].staked, 0, 'a player with no open shot carries no stake');
++  checks++; assert.equal(byWallet[wallets[1]].staked, 290,
++    'per-wallet stake, not just the total — the downstream guard reads it row by row');
++  checks++; assert.equal(out.players.reduce((s, p) => s + p.staked, 0), out.openStake,
++    'the rows must add up to the total this tool refuses on, or the two checks disagree');
++
++  const src = readFileSync(new URL('../tools/legacy_root.mjs', import.meta.url), 'utf8');
++  checks++; assert.match(src, /staked:\s*p\.staked\b/,
++    'merkle_balances.json must carry the real stake, never a constant the guard reads as safe');
++  const guard = readFileSync(new URL('../scripts/set-legacy-root.mjs', import.meta.url), 'utf8');
++  checks++; assert.match(guard, /Number\(b\.staked\)\s*>\s*0/,
++    'the downstream guard still reads the field this tool now fills');
++}
++
++// ---- 10. the freeze stops selling and nothing else ------------------------
++//
++// A root cannot be built while stake is in flight, and at any real player count
++// a naturally quiet moment may never arrive. The answer is not to void live
++// shots at the cutover — that confiscates an earned outcome from whoever held a
++// chamber at that second, and a half-applied void pays somebody twice. The
++// answer is to stop SELLING and let every open shot run to its own expiry.
++{
++  const src = readFileSync(new URL('../api/game.js', import.meta.url), 'utf8');
++  checks++; assert.match(src, /const MIGRATION_FREEZE = process\.env\.RX_MIGRATION_FREEZE === '1';/,
++    'the freeze is off unless it is explicitly turned on');
++  const take = src.slice(src.indexOf('async function takeStake('));
++  checks++; assert.ok(take.indexOf("MIGRATION_FREEZE") < take.indexOf('SETTLEMENT_DELIVERY_PENDING'),
++    'the freeze refuses before any other stake rule, so no path reaches the credit deduction');
++  const after = take.slice(take.indexOf('\n}\n'));
++  checks++; assert.ok(!/MIGRATION_FREEZE/.test(after),
++    'the freeze lives only in takeStake — settlement, claims and payouts must keep running');
++
++  const codes = readFileSync(new URL('../lib/play_session_http.js', import.meta.url), 'utf8');
++  checks++; assert.match(codes, /MIGRATION_FREEZE:/,
++    'an unregistered code degrades to SHOT_REFUSED — an opaque error where a specific one exists');
++}
++
+ console.log(`PASS  legacy root: ${checks} checks — leaf matches the program, every proof folds, promotion not duplication`);
+diff --git a/test/test_stock_cadence.mjs b/test/test_stock_cadence.mjs
+new file mode 100644
+index 0000000..8e5ff6e
+--- /dev/null
++++ b/test/test_stock_cadence.mjs
+@@ -0,0 +1,114 @@
++// The cadence watcher restates two things the PROGRAM owns -- the horizon table
++// and the seal-freshness bound -- because a Rust constant cannot be imported
++// into node. A restated rule is a rule that can drift, and a report describing
++// a game that is not running is worse than no report. So both are pinned here
++// against lib.rs itself, and the arithmetic that turns a cadence into a product
++// decision is checked against hand-worked cases.
++import assert from 'node:assert/strict';
++import { readFileSync } from 'node:fs';
++import { decide, readPrice } from '../tools/stock_cadence.mjs';
++
++let checks = 0;
++const rust = readFileSync(new URL('../onchain/ratchet-core/programs/ratchet-core/src/lib.rs', import.meta.url), 'utf8');
++const tool = readFileSync(new URL('../tools/stock_cadence.mjs', import.meta.url), 'utf8');
++
++// ---- 1. the horizon table is the program's ------------------------------
++{
++  const block = rust.match(/pub const HORIZONS: \[\(u16, u64\); \d+\] = \[([\s\S]*?)\];/);
++  checks++; assert.ok(block, 'HORIZONS must still be findable in lib.rs');
++  const fromRust = [...block[1].matchAll(/\(\s*(\d+)\s*,\s*\d+\s*\)/g)].map(m => Number(m[1]));
++  const fromTool = JSON.parse(tool.match(/const HORIZONS = (\[[^\]]*\]);/)[1]);
++  checks++; assert.deepEqual(fromTool, fromRust,
++    'the tool sells the horizons the program sells, or its pass rates describe a different game');
++}
++
++// ---- 2. the seal bound is the program's ---------------------------------
++{
++  const fn = rust.match(/pub fn max_seal_age\(minutes: u16\) -> u64 \{([\s\S]*?)\n\}/);
++  checks++; assert.ok(fn, 'max_seal_age must still be findable in lib.rs');
++  checks++; assert.match(fn[1], /window \* 15 \+ 50\) \/ 100/, 'the 15% term');
++  checks++; assert.match(fn[1], /\.clamp\(30, 60\)/, 'the 30..60 clamp');
++  // and the tool's copy must agree numerically at every horizon it sells
++  const maxSealAge = minutes => Math.min(60, Math.max(30, Math.floor((minutes * 60 * 15 + 50) / 100)));
++  checks++; assert.equal(maxSealAge(5), 45, 'a 5-minute window seals on a 45-second price');
++  checks++; assert.equal(maxSealAge(10), 60, 'a 10-minute window is already at the clamp');
++  checks++; assert.equal(maxSealAge(1440), 60,
++    'THE WHOLE PROBLEM: a 24-hour target gets the same 60-second bound as a 5-minute one');
++  checks++; assert.match(tool, /Math\.min\(60, Math\.max\(30, Math\.floor\(\(window \* 15 \+ 50\) \/ 100\)\)\)/,
++    'the tool must restate the bound in the same shape, so a diff is visible');
++}
++
++// ---- 3. the pass rate is what makes stocks a feature that does not work ---
++{
++  // 870-second cadence, sampled evenly: fresh only in the 60s after a publish.
++  const samples = [];
++  for (let t = 0; t < 8700; t += 10) samples.push({ at: t, publishTime: Math.floor(t / 870) * 870 });
++  const d = decide(samples, [870, 870, 870, 870]);
++  checks++; assert.ok(d.lands[1440] > 0.05 && d.lands[1440] < 0.09,
++    `a 24-hour stock seal lands about 7 times in 100 (got ${(d.lands[1440] * 100).toFixed(1)}%)`);
++  checks++; assert.ok(d.lands[5] < d.lands[1440],
++    'the 5-minute window has a tighter bound, so it lands even less often');
++  checks++; assert.equal(d.bindWorst, 870, 'the worst forward-binding wait is one whole gap');
++  checks++; assert.equal(d.bindTypical, 435, 'from a random instant inside a gap, the expected wait is half of it');
++}
++
++// ---- 4. a fast feed is unaffected, which is the point of measuring per feed
++{
++  const samples = [];
++  for (let t = 0; t < 3600; t += 10) samples.push({ at: t, publishTime: Math.floor(t / 60) * 60 });
++  const d = decide(samples, [60, 60, 60, 61, 59]);
++  checks++; assert.ok(d.lands[1440] > 0.95,
++    'SOL at a 60-second heartbeat seals essentially always — no rule needs relaxing for it');
++  checks++; assert.ok(d.bindWorst <= 61,
++    'and its forward-binding wait is a minute, not a quarter of an hour');
++}
++
++// ---- 5. an empty measurement reports nothing, it does not report zero ----
++{
++  const d = decide([], []);
++  checks++; assert.equal(d.lands[5], null, 'no samples means no pass rate, not a pass rate of 0%');
++  checks++; assert.equal(d.bindWorst, null, 'no gaps means no binding estimate');
++}
++
++// ---- 6. the price reader agrees with the other tool that reads these ------
++{
++  const gate = readFileSync(new URL('../scripts/check-equity-feeds.mjs', import.meta.url), 'utf8');
++  for (const step of ['8 + 32', 'readUInt8(o++)', 'subarray(o, o + 32)', 'readBigInt64LE(o)']) {
++    checks++; assert.ok(gate.includes(step) && tool.includes(step),
++      `both readers must walk PriceUpdateV2 the same way (${step}) — two tools that disagree about a price account produce two confident wrong answers`);
++  }
++  // and it must actually parse a hand-built account
++  const b = Buffer.alloc(8 + 32 + 1 + 32 + 8 + 8 + 4 + 8 + 8);
++  let o = 8 + 32; b.writeUInt8(1, o++);                       // Full
++  Buffer.from('ef'.repeat(32), 'hex').copy(b, o); o += 32;
++  b.writeBigInt64LE(9927n, o); o += 8;
++  b.writeBigUInt64LE(16n, o); o += 8;
++  b.writeInt32LE(-2, o); o += 4;
++  b.writeBigInt64LE(1_800_000_060n, o); o += 8;
++  b.writeBigInt64LE(1_800_000_000n, o);
++  const p = readPrice(b);
++  checks++; assert.equal(p.full, true);
++  checks++; assert.equal(p.feedId, 'ef'.repeat(32));
++  checks++; assert.equal(Number(p.price) * Math.pow(10, p.exponent), 99.27);
++  checks++; assert.equal(p.publishTime, 1_800_000_060);
++  checks++; assert.equal(p.prevPublishTime, 1_800_000_000,
++    'prev_publish_time is read too — it is the left half of the crossing predicate');
++}
++
++// ---- 7. the feed list is pinned, and the RR feeds are not targets ---------
++{
++  const cfg = JSON.parse(readFileSync(new URL('../docs/STOCK_FEEDS.json', import.meta.url), 'utf8'));
++  checks++; assert.equal(cfg.control.feedId, rust.match(/hex32\(b"([0-9a-f]{64})"\), \/\/ SOL/)[1],
++    'the control feed must be the SOL feed the live program settles on, or the control proves nothing');
++  checks++; assert.ok(cfg.feeds.length >= 6, 'the six maintained xStocks at least');
++  for (const f of cfg.feeds) {
++    checks++; assert.match(f.feedId, /^[0-9a-f]{64}$/, f.ticker + ' feed id is 32 bytes of hex');
++    checks++; assert.notEqual(f.feedId, f.rrFeedId,
++      f.ticker + ': the USD feed and the redemption-rate feed are different instruments');
++  }
++  const marked = cfg.feeds.filter(f => f.status);
++  checks++; assert.ok(marked.length >= 2,
++    'COINX and HOODX were abandoned by their publisher and the file must say so, or somebody lists them');
++}
++
++console.log(`PASS  stock cadence: ${checks} checks — horizons and seal bound pinned to lib.rs, 870s cadence lands ~7% of seals`);
+diff --git a/tools/legacy_root.mjs b/tools/legacy_root.mjs
+index a17e41d..25c4217 100644
+--- a/tools/legacy_root.mjs
++++ b/tools/legacy_root.mjs
+@@ -159,15 +159,22 @@ export function reconcile(rows, { now = Date.now() } = {}) {
+     // Open stake is credits already committed to a shot that has not settled. It
+     // is NOT in `cr`, so a root built while shots are open under-counts somebody.
+     const open = Array.isArray(value.open) ? value.open : [];
++    let staked = 0;
+     for (const shot of open) {
+       const stake = Number(shot && shot.stake);
+-      if (Number.isFinite(stake) && stake > 0) { openStake += stake; openShots++; }
++      if (Number.isFinite(stake) && stake > 0) { openStake += stake; openShots++; staked += stake; }
+       // Refusing without saying WHEN the refusal lifts leaves somebody guessing
+       // at a wait. The last expiry is the answer and the rows already carry it.
+       const exp = Number(shot && shot.exp);
+       if (Number.isFinite(exp) && exp > latestExpiry) latestExpiry = exp;
+     }
+-    players.push({ wallet, credits, xp, key32 });
++    // Per-wallet, not just the total. scripts/set-legacy-root.mjs refuses to
++    // patch the constant when any row in merkle_balances.json carries
++    // `staked > 0` -- an independent second check, on the money path, that
++    // fires even if this tool was run with --allow-open-stake. That check was
++    // DEAD: merkle_balances.json wrote a hardcoded `staked: 0` for everybody,
++    // so the guard could never see a thing. It sees now.
++    players.push({ wallet, credits, xp, key32, staked });
+   }
+ 
+   players.sort((a, b) => Buffer.compare(a.key32, b.key32));
+@@ -281,7 +288,7 @@ if (invoked) {
+   }, null, 1) + '\n');
+   fs.writeFileSync('merkle_excluded.json', JSON.stringify(excluded, null, 1) + '\n');
+   fs.writeFileSync('merkle_balances.json', JSON.stringify(
+-    players.map(p => ({ wallet: p.wallet, cr: p.credits, xp: p.xp, staked: 0 })), null, 1) + '\n');
++    players.map(p => ({ wallet: p.wallet, cr: p.credits, xp: p.xp, staked: p.staked })), null, 1) + '\n');
+   console.log('  wrote merkle_tree.json, merkle_balances.json and merkle_excluded.json');
+   console.log('');
+   console.log('  next: node scripts/set-legacy-root.mjs merkle_tree.json');
+diff --git a/tools/stock_cadence.mjs b/tools/stock_cadence.mjs
+new file mode 100644
+index 0000000..33e38ab
+--- /dev/null
++++ b/tools/stock_cadence.mjs
+@@ -0,0 +1,225 @@
++// Measure the tokenized-equity publish cadence, and turn it into the two
++// numbers the stocks decision actually needs.
++//
++// WHY THIS EXISTS. docs/STOCKS_ONCHAIN_TOKENIZED.md settles the hard part:
++// stocks ARE reachable keylessly, as sponsored push accounts the frozen
++// program can already read, with no Hermes and no API key. What stops them is
++// one number against another -- an 870-second batch cadence against a seal
++// bound that clamps at 60 seconds -- so about 7 seals in 100 would land. That
++// 870 was measured once, for 13.4 minutes, by a script that was never
++// committed. A product decision resting on a number nobody can re-derive is a
++// rumour with a table around it. This is the script, and docs/STOCK_FEEDS.json
++// is the feed list it reads, so the measurement is reproducible from this
++// repository plus any RPC, forever.
++//
++// It reads and never writes. No key, no signer, no transaction.
++//
++//   node tools/stock_cadence.mjs [RPC_URL] [--minutes N] [--every S] [--out FILE]
++//
++// WHAT IT REPORTS, and why those two numbers:
++//
++//   1. "seals that land"  -- for each horizon, the fraction of wall-clock time
++//      the price is younger than max_seal_age(minutes). That is the pass rate
++//      of the rule as it stands today. It is what makes stocks a feature that
++//      does not work.
++//
++//   2. "entry binds within" -- if the entry price were the FIRST publish at or
++//      after the seal rather than the last one before it, how long a player
++//      waits for their entry to be determined, and what fraction of each
++//      horizon that delay consumes. That is the proposal in
++//      docs/STOCKS_DECISION.md, and this is the measurement that says whether
++//      it is tolerable on this feed.
++//
++// The SOL row is a CONTROL, not a subject. If SOL does not tick during the
++// window, the RPC is lying or the derivation is broken, and every stock row
++// printed is meaningless -- so the report says so instead of being trusted.
++import fs from 'node:fs';
++import { Connection, PublicKey } from '@solana/web3.js';
++import { fileURLToPath } from 'node:url';
++import path from 'node:path';
++
++const CFG = JSON.parse(fs.readFileSync(
++  new URL('../docs/STOCK_FEEDS.json', import.meta.url), 'utf8'));
++
++const arg = (flag, dflt) => {
++  const i = process.argv.indexOf(flag);
++  return i > 0 && process.argv[i + 1] ? Number(process.argv[i + 1]) : dflt;
++};
++const RPC = process.argv.slice(2).find(a => /^https?:\/\//.test(a))
++  || process.env.RATCHET_RPC || 'https://api.mainnet-beta.solana.com';
++const MINUTES = arg('--minutes', 120);
++const EVERY_S = Math.max(5, arg('--every', 20));
++const OUT = (() => { const i = process.argv.indexOf('--out'); return i > 0 ? process.argv[i + 1] : 'stock_cadence_report.txt'; })();
++
++// The horizons and the seal bound are the PROGRAM's, restated here because a
++// Rust constant cannot be imported into node. test/test_stock_cadence.mjs pins
++// both against lib.rs, so a change there fails this file rather than silently
++// making the report describe a game that is not running.
++const HORIZONS = [5, 10, 15, 30, 60, 360, 1440];
++const maxSealAge = minutes => {
++  const window = minutes * 60;
++  return Math.min(60, Math.max(30, Math.floor((window * 15 + 50) / 100)));
++};
++
++const PUSH_ORACLE = new PublicKey(CFG.pushOracle);
++const pushAccount = (feedIdHex, shardId = CFG.shard) => {
++  const shard = Buffer.alloc(2); shard.writeUInt16LE(shardId);
++  return PublicKey.findProgramAddressSync([shard, Buffer.from(feedIdHex, 'hex')], PUSH_ORACLE)[0];
++};
++
++/** Minimal PriceUpdateV2 reader: the same field walk as
++ *  scripts/check-equity-feeds.mjs, kept deliberately identical so two tools
++ *  cannot disagree about what a price account says. */
++export function readPrice(data) {
++  const b = Buffer.from(data);
++  let o = 8 + 32;                                          // discriminator, write_authority
++  const level = b.readUInt8(o++); if (level === 0) o++;    // Partial{num_sigs} | Full
++  const feedId = b.subarray(o, o + 32).toString('hex'); o += 32;
++  const price = b.readBigInt64LE(o); o += 8;
++  const conf = b.readBigUInt64LE(o); o += 8;
++  const exponent = b.readInt32LE(o); o += 4;
++  const publishTime = b.readBigInt64LE(o); o += 8;
++  const prevPublishTime = b.readBigInt64LE(o);
++  return { full: level === 1, feedId, price, conf, exponent,
++    publishTime: Number(publishTime), prevPublishTime: Number(prevPublishTime) };
++}
++
++const median = xs => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); const m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
++const pct = (xs, p) => { if (!xs.length) return null; const s = [...xs].sort((a, b) => a - b); return s[Math.min(s.length - 1, Math.floor(p * s.length))]; };
++
++/** Turn a list of observed (sampleTime, publishTime) pairs into the decision
++ *  numbers. Exported and pure so the arithmetic is testable without an RPC. */
++export function decide(samples, gaps) {
++  // 1. How often is the price fresh enough to seal on, per horizon.
++  const lands = {};
++  for (const minutes of HORIZONS) {
++    const bound = maxSealAge(minutes);
++    const fresh = samples.filter(s => s.at - s.publishTime <= bound).length;
++    lands[minutes] = samples.length ? fresh / samples.length : null;
++  }
++  // 2. If the entry bound FORWARD instead, how long until it binds. A seal at
++  //    an arbitrary instant waits for the next publish; with observed gaps, the
++  //    wait from a uniformly random instant inside a gap of length g averages
++  //    g/2 and is at worst g. Report the honest worst case (the gap) and the
++  //    expected case, and never invent a distribution the samples cannot see.
++  const bindWorst = gaps.length ? Math.max(...gaps) : null;
++  const bindTypical = gaps.length ? median(gaps) / 2 : null;
++  return { lands, bindWorst, bindTypical, bindP95: gaps.length ? pct(gaps, 0.95) : null };
++}
++
++const invoked = process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url);
++if (invoked) {
++  const rows = [{ ticker: 'SOL', control: true, feedId: CFG.control.feedId, symbol: CFG.control.symbol },
++    ...CFG.feeds.map(f => ({ ...f, control: false }))];
++  for (const r of rows) r.key = pushAccount(r.feedId);
++
++  const conn = new Connection(RPC, 'confirmed');
++  const out = [];
++  const say = line => { out.push(line); console.log(line); };
++
++  say(`stock cadence · ${RPC}`);
++  say(`window ${MINUTES} min · poll every ${EVERY_S}s · started ${new Date().toISOString()}`);
++  say('');
++  say('This reads only. No key, no signer, no transaction. Leave it running;');
++  say('the longer the window the more the numbers are worth. Ctrl-C writes');
++  say('nothing extra -- the report file is rewritten after every poll, so');
++  say('stopping early still leaves you whatever it had measured.');
++  say('');
++
++  const seen = new Map();   // ticker -> { publishTimes: [], samples: [], missing, badOwner }
++  for (const r of rows) seen.set(r.ticker, { row: r, publishTimes: [], samples: [], missing: 0, badOwner: 0, price: null, exponent: null });
++
++  const deadline = Date.now() + MINUTES * 60_000;
++  let polls = 0, rpcErrors = 0;
++
++  const render = () => {
++    const lines = [...out];
++    const add = l => lines.push(l);
++    add('');
++    add(`polls ${polls} · rpc errors ${rpcErrors} · elapsed ${Math.round((MINUTES * 60_000 - (deadline - Date.now())) / 60_000)} min`);
++    add('');
++
++    const ctrl = seen.get('SOL');
++    const ctrlWrites = Math.max(0, ctrl.publishTimes.length - 1);
++    add('feed      writes   gap min   median      max   stale now   last price');
++    add('-------------------------------------------------------------------------');
++    for (const r of rows) {
++      const s = seen.get(r.ticker);
++      const gaps = [];
++      for (let i = 1; i < s.publishTimes.length; i++) gaps.push(s.publishTimes[i] - s.publishTimes[i - 1]);
++      const last = s.publishTimes[s.publishTimes.length - 1];
++      const stale = last ? Math.round(Date.now() / 1000) - last : null;
++      const px = s.price != null ? (Number(s.price) * Math.pow(10, s.exponent)).toFixed(2) : '—';
++      add(`${(r.ticker + (r.control ? ' *' : '')).padEnd(9)} ${String(gaps.length).padStart(6)} `
++        + `${(gaps.length ? Math.min(...gaps) + 's' : '—').padStart(9)} `
++        + `${(gaps.length ? median(gaps) + 's' : '—').padStart(8)} `
++        + `${(gaps.length ? Math.max(...gaps) + 's' : '—').padStart(8)} `
++        + `${(stale == null ? '—' : stale + 's').padStart(11)}   ${px}`
++        + (s.missing ? `   (account missing on ${s.missing} polls)` : '')
++        + (s.badOwner ? `   (WRONG OWNER on ${s.badOwner} polls)` : ''));
++    }
++    add('   * control');
++    add('');
++
++    if (ctrlWrites < 2) {
++      add('CONTROL FAILED: SOL wrote ' + ctrlWrites + ' time(s) in this window.');
++      add('SOL publishes on a ~60s sponsored heartbeat, so it must write. Either the');
++      add('RPC is serving stale or cached account data, or the derivation is wrong.');
++      add('IGNORE every stock row above. Re-run with a different RPC.');
++      return lines.join('\n');
++    }
++    add('CONTROL OK: SOL wrote ' + ctrlWrites + ' time(s) — the RPC is serving live account data,');
++    add('so the stock rows above are real measurements and not an artefact.');
++    add('');
++    add('WHAT THIS MEANS FOR THE GAME');
++    add('');
++    for (const r of rows) {
++      if (r.control) continue;
++      const s = seen.get(r.ticker);
++      const gaps = [];
++      for (let i = 1; i < s.publishTimes.length; i++) gaps.push(s.publishTimes[i] - s.publishTimes[i - 1]);
++      if (gaps.length < 2) { add(`${r.ticker}: fewer than two gaps observed — run longer before believing anything about it.`); add(''); continue; }
++      const d = decide(s.samples, gaps);
++      add(`${r.ticker}  (${r.symbol})`);
++      add('  today, seals that would land:');
++      add('    ' + HORIZONS.map(m => `${m}m ${(d.lands[m] * 100).toFixed(0)}%`).join('   '));
++      add(`  if the entry bound forward instead: typically ${Math.round(d.bindTypical)}s, `
++        + `95th percentile gap ${d.bindP95}s, worst observed ${d.bindWorst}s`);
++      const usable = HORIZONS.filter(m => d.bindWorst <= m * 60 * 0.05);
++      add('  horizons where even the WORST binding delay is under 5% of the window:');
++      add('    ' + (usable.length ? usable.map(m => m + 'm').join(', ') : 'none — this feed is too slow for any horizon the program sells'));
++      add(`  suggested HORIZON_MASK: 0b${HORIZONS.map(m => usable.includes(m) ? '1' : '0').reverse().join('')}`
++        + `  (0x${parseInt(HORIZONS.map(m => usable.includes(m) ? '1' : '0').reverse().join(''), 2).toString(16).padStart(2, '0')})`);
++      add('');
++    }
++    add('The mask is a SUGGESTION from one window of data, not a decision. It is the');
++    add('shape of the answer: open only the horizons whose length makes this feed\'s');
++    add('slowness irrelevant, and the slowness stops being a fairness problem.');
++    return lines.join('\n');
++  };
++
++  while (Date.now() < deadline) {
++    let infos;
++    try { infos = await conn.getMultipleAccountsInfo(rows.map(r => r.key), 'confirmed'); }
++    catch (e) { rpcErrors++; console.log('  rpc error: ' + (e.message || e)); await new Promise(r => setTimeout(r, EVERY_S * 1000)); continue; }
++    polls++;
++    const at = Math.round(Date.now() / 1000);
++    rows.forEach((r, i) => {
++      const s = seen.get(r.ticker), info = infos[i];
++      if (!info) { s.missing++; return; }
++      if (info.owner.toBase58() !== CFG.receiver) { s.badOwner++; return; }
++      let p; try { p = readPrice(info.data); } catch { s.missing++; return; }
++      if (p.feedId !== r.feedId) { s.badOwner++; return; }   // the account answered for a different feed
++      s.price = p.price; s.exponent = p.exponent;
++      s.samples.push({ at, publishTime: p.publishTime });
++      if (s.publishTimes[s.publishTimes.length - 1] !== p.publishTime) s.publishTimes.push(p.publishTime);
++    });
++    fs.writeFileSync(OUT, render() + '\n');
++    process.stdout.write(`  poll ${polls} · ${Math.round((deadline - Date.now()) / 60_000)} min left\r`);
++    await new Promise(r => setTimeout(r, EVERY_S * 1000));
++  }
++  const final = render();
++  fs.writeFileSync(OUT, final + '\n');
++  console.log('\n' + final);
++  console.log('\nwrote ' + OUT);
++}
+-- 
+2.43.0
+

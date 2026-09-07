@@ -1,3 +1,17 @@
+// OBSOLETE FOR G2 -- READ THIS BEFORE RUNNING IT.
+//
+// This script patches a compiled-in LEGACY_ROOT constant into ratchet-core's
+// lib.rs, which then has to be rebuilt and redeployed. ratchet-core-g2 does not
+// work that way: it keeps the root in `economy.args.legacy_root`, which is
+// on-chain DATA. Setting it there is a transaction, not a compile, and this
+// script would patch a constant that the running program never reads.
+//
+// It is kept because ratchet-core still exists and its verification logic --
+// re-folding every proof before accepting a tree -- is still correct for that
+// generation. Do not point it at a g2 root: the leaf and node rules differ
+// (see tools/legacy_root_rules.mjs), so it would refuse the proofs anyway,
+// which is the right failure but a confusing one if you did not expect it.
+//
 // Writes the legacy Merkle root into the core program source as the compiled-in
 // LEGACY_ROOT constant, and proves the root is what merkle_tree.json says:
 // every proof in the file is re-verified here with the program's exact rule
