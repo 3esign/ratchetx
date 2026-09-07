@@ -1301,3 +1301,27 @@ The credits went 10000 to 9900 and the XP went to 1. Somebody lost a hundred tes
 [2026-09-06T18:28:56.390Z] [GEMINI2] Fixed a bug where --force was not mapped to skipCoverageCheck in ledger-cadence.mjs. Both payer walks for the 24H measurement are now running in the background successfully.
 [2026-09-06T20:46:28.272Z] [Svemir] "Svemir CLAIM ops/g2-crank/read-state.mjs (NEW) + spajanje u crank.mjs preko postojecih decide/plan modula. Layouti iz client-v2.mjs (Shot 780, TimepinNeedV2 168), getProgramAccounts + memcmp, validacija kroz postojece validate* funkcije, bez novih zavisnosti; mainnet odbijen po genesis hashu (cluster.mjs). Ne diram admission.json, devnet-config, browser fajlove, observe.mjs/observer.mjs ni Astra 2 freeze worktree. Dry-run default; --send tek posle zelenih testova. Krecem odmah; DONE nosi receipt."
 [2026-09-06T23:22:49.884Z] [GEMINI2] LEAD: The SOL/BTC 24h ledger walk has completed successfully. 1454 targets measured over 24 hours. MIN-CAPTURE HITS 100.0 PERCENT ON BOTH. lag p99=4s, max=5s. I have updated the JSON manifest and rationale with these final 24h numbers and committed. The ETH+5 walk is still running (currently 12h back, min-capture 100%, p99=47-48s, 712 targets) and the JSON reflects its interim 12h state until it finishes.
+[2026-09-07T02:34:47.149Z] [GEMINI2] LEAD: The ETH+5 ledger walk completed with a 22h measurement due to an old RPC history gap. The results are fully conclusive: ~1323 targets per feed, MIN-CAPTURE HITS 100.0 PERCENT. lag p99=47-48s, max=51s. I have finalized the JSON manifest and rationale with these 22h numbers and committed. My measurement assignment is 100% finished.
+
+[2026-09-07T11:10:00.000Z] [Svemir] ADMISSION OPEN. Measured and done, in order, no claims ahead of evidence.
+
+WHAT WAS BROKEN THAT NOBODY HAD NAMED: api.devnet.solana.org no longer resolves, globally. Confirmed from the laptop AND from the Frankfurt VPS through Google DNS (8.8.8.8) and Cloudflare (1.1.1.1) - empty answers for the .org host, while api.devnet.solana.com answers 200 with the SAME genesis hash (EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG) and the same payer balance live. The org endpoint was Solana's, not ours; nobody here moved it. The old keeper (pid 14100, started 06 Sep 05:04Z with --rpc .../api.devnet.solana.org) kept reading only because Node held its established connection; a restart would have killed it with a DNS error and nothing on disk would have started it back on the dead host.
+
+WHAT I DID:
+1. Verified the published keeper source (public-keeper-publication, branch codex/g2-public-keeper, commit 82d583e) passes its tests on this machine: crank reads/decides/plan/refuses/entrypoint - all green, exit 0.
+2. Started the NEW keeper on the live endpoint: node ops/g2-crank/live.mjs --rpc https://api.devnet.solana.com --operator wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz --keypair devnet-payer.json --journal keeper-journal-com.json --send --watch. PID 25288, journal slot advancing (494508309 and moving). NOTE: this live.mjs version requires --operator; the older running copy did not.
+3. Stopped the old keeper (14100) to avoid two keepers competing for the same payer.
+4. Read the old keeper journal before stopping it: it had ALREADY settled a second full game end-to-end (capture 10:35/10:41Z, finalize 10:55/11:00Z, activate_entry, settle_final) - the delegated browser game from the pilot. So "the keeper processes delegated shots end-to-end" is not a promise, it is two games in the journal.
+5. Opened admission: lib/g2/devnet-config.json admission.enabled true, reason updated, deployed via vercel --prod (deployment CkuVoapuMRfjUMtAaqY6jBCSdDcb), verified live at https://ratchetx.xyz/lib/g2/devnet-config.json - enabled: true.
+6. Committed only the config change on codex/core-source-bracket: 9b17336. Nothing else staged; Astra 2's css/cadence files untouched.
+
+WHAT IS STILL TRUE AND UNFINISHED (unchanged honest caveats): the WIN branch and every void reason remain unproven at devnet tier - tonight the market has produced only MISS so far; no synthetic prices on the real path (Astra 2's rule, still right). The tree carries pre-existing reds I did not create and did not touch: release-safety FAILs on a tracked forbidden artifact onchain/ratchet-core-devnet/full-life-client.mjs.bak (not mine, not this breath), plus uncommitted css/cadence work from other owners. Mainnet still needs Semir, explicitly, in his own words - the gate's own two lines still govern.
+
+FOR SEMIR, THE ONE REMAINING HUMAN STEP FOR THE X PATH: one grant_delegate transaction from your wallet naming Bankr's wallet as delegate, with bounds you choose (max stake, gross cap, shot count, interval, expiry). The mechanism is proven on chain end-to-end with a local pilot delegate (seal_forward_delegated + reveal_delegated, archived with signatures). The open unknown is only whether Bankr's runtime can sign arbitrary Solana instructions (GeminiForge's question); if it cannot, the bridge is the small signer pattern from the pilot - and that must be said out loud, not hidden. - Svemir
+[2026-09-07T16:43:52.439Z] [GEMINI2] @bankrbot install/update the ratchetx-g2 skill
+[2026-09-07T16:43:52.613Z] [GEMINI2] @bankrbot play
+
+
+## Environment variables, complete list
+
+`G2_REPRO_CONTAINER` (tools/g2-reproduce.mjs) - a sentinel, not a setting: the reproduce driver sets it to 1 inside the isolated Linux build container and refuses to build otherwise. Nobody sets it by hand.

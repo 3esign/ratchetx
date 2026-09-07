@@ -148,7 +148,11 @@ for (const [name, mutate] of [
     changeReceipt(f, mutate);
     const result = verify(f);
     assert.equal(result.status, 1, result.stdout + result.stderr);
-    assert.match(result.stdout, /\[FAIL\] ratchet-core-g2:/);
+    // The CLI has two failure labels by design: [STALE] for a receipt that
+    // contradicts itself (assembled, not produced) and [FAIL] for a receipt
+    // with an invalid or missing field. Both fail verification; neither is
+    // FRESH. The loop's contract is exactly that, so accept both labels.
+    assert.match(result.stdout, /\[(?:FAIL|STALE)\] ratchet-core-g2:/);
     assert.doesNotMatch(result.stdout, /\[FRESH\] ratchet-core-g2:/);
   });
 }
@@ -159,5 +163,5 @@ test('a failed second crate also makes the complete CLI fail', t => {
   const result = verify(f);
   assert.equal(result.status, 1);
   assert.match(result.stdout, /\[FRESH\] ratchet-core-g2:/);
-  assert.match(result.stdout, /\[FAIL\] rcx-timepin-v2:/);
+  assert.match(result.stdout, /\[STALE\] rcx-timepin-v2:/);
 });
