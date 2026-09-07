@@ -51,7 +51,7 @@
   ],
   "preparedAt": "2026-09-06T00:23:16.135Z",
   "admission": {
-    "enabled": false,
-    "reason": "The first devnet run is complete. New shots open when the keeper can process browser-created games."
+    "enabled": true,
+    "reason": "Admission open: the permissionless devnet keeper is live and has settled delegated shots end-to-end."
   }
 }
