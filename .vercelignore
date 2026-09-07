@@ -61,3 +61,10 @@ supabase/.temp/
 /merkle_balances.json
 /devnet_*.txt
 /wip/
+
+# The G2 agent skill companions ship verbatim and pinned (see releases manifest).
+!skills/ratchetx-g2/SKILL.md
+!skills/ratchetx-g2/scripts/
+skills/ratchetx-g2/scripts/*
+!skills/ratchetx-g2/scripts/install.mjs
+!skills/ratchetx-g2/scripts/g2-session.mjs

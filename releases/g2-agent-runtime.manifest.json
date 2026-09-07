@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "url": "https://ratchetx.xyz/releases/g2-agent-runtime.json.gz",
+  "sha256": "e01b2c1b4113419154bdfac5815f354a63717e6248487adf65a58db290ea57f3",
+  "bytes": 309013,
+  "entry": "skills/ratchetx-g2/scripts/g2-session.mjs",
+  "scope": "DEVNET_AGENT_RUNTIME",
+  "node": ">=20.11",
+  "generation": {
+    "clusterGenesis": "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG",
+    "core": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+    "timepin": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+    "economyHash": "fc48abc784516fa5cd30a4b4220ef2adbf4d079b9bfad72e75830737fedd61c4",
+    "rulesetHash": "a48816b847c6179f7fab9b4835c26321d9a1c0a577d63bce502d51bbe79f81dd"
+  },
+  "dependencies": {
+    "@solana/web3.js": {
+      "version": "1.98.4",
+      "sha256": "09cdbea951b2ed0e11bcbe3aeb1ee9f035f9fb51ed212aca645475ae82688cc3",
+      "format": "existing browser IIFE; Node stdlib loader"
+    }
+  },
+  "sourceBytes": 782006,
+  "files": [
+    {
+      "path": "lib/g2/agent-session.mjs",
+      "sha256": "2a57290197db683b9d7a47e175d6afbdfe74494e33c4542ea7a959d09de7c900",
+      "bytes": 25251
+    },
+    {
+      "path": "lib/g2/archive-result.mjs",
+      "sha256": "56b7b0cf9cc7c475dccc8ad6e455d05160c4886b364791a0ff1be53a29369351",
+      "bytes": 17811
+    },
+    {
+      "path": "lib/g2/browser-game.mjs",
+      "sha256": "d8c436e4fb89358f83607b9d60e1171fd9dfd607e9b9e7b5e6fb3481b3347e81",
+      "bytes": 20315
+    },
+    {
+      "path": "lib/g2/client-v2.mjs",
+      "sha256": "74ddfe1d7b9f19c297f2e7c47396959a88acf3f11e19b68acfb84aa440507cd5",
+      "bytes": 65780
+    },
+    {
+      "path": "lib/g2/cluster.mjs",
+      "sha256": "175e3fa9c4852acfb6e296693999f270699cd89012fe2564059b29cb08e3c89a",
+      "bytes": 2459
+    },
+    {
+      "path": "lib/g2/delegate-actions.mjs",
+      "sha256": "2304e075b1238c0f8ac520afd39f8e0e24b190327cd2d64c10b98576502123e9",
+      "bytes": 17559
+    },
+    {
+      "path": "lib/g2/devnet-config.json",
+      "sha256": "ebb1a39e020a5975b27da4d5dba1dc20d0d57e08235b77bc6de5e2b1ff609cdb",
+      "bytes": 2143
+    },
+    {
+      "path": "lib/g2/player-actions.mjs",
+      "sha256": "c933b9585b6a59125e0065ea694d4480b82c80cb2faeb9d6ebcc1fb1f5808824",
+      "bytes": 8113
+    },
+    {
+      "path": "lib/g2/read-game.mjs",
+      "sha256": "0aececdb116d6f875aa29fa0d385a290d34806697853b4351ab4db2bebdbd3cc",
+      "bytes": 7392
+    },
+    {
+      "path": "lib/g2/shot-receipt.mjs",
+      "sha256": "d8ae61085d23ef8814bfac05fb41cc1f512b9abf29e2c12e09e1ca94b7c7598d",
+      "bytes": 7588
+    },
+    {
+      "path": "lib/g2/x-reply.mjs",
+      "sha256": "42edb3fc2fd59d864a1fe0ddc3f4efa55c501bf79a2587232c7a11d7ac8130b0",
+      "bytes": 5625
+    },
+    {
+      "path": "onchain/ratchet-core-g2/client/delegate.mjs",
+      "sha256": "5f2cdba9a4dd0003c65d6b1c3dac811a072b762241b9883ded38633d64111702",
+      "bytes": 9003
+    },
+    {
+      "path": "skills/ratchetx-g2/scripts/g2-session.mjs",
+      "sha256": "ceeb9e0af471aed54179ef8ba7ddb1167508470f6a7be684675d071277193325",
+      "bytes": 18378
+    },
+    {
+      "path": "skills/ratchetx/scripts/session-play.mjs",
+      "sha256": "de69199efa31931d214fa19e01bcb19ec89911d8c0ac4ffe2ba8c3a75828f7ed",
+      "bytes": 66735
+    },
+    {
+      "path": "skills/ratchetx/scripts/session-smoke.mjs",
+      "sha256": "4f52789d5daf53841309b0dd8e9bed95ff0ed25f3afe60ddb21725f618bcef52",
+      "bytes": 22830
+    },
+    {
+      "path": "THIRD_PARTY_LICENSES.txt",
+      "sha256": "6cf39414c9a6721561f0e96560e89046196775c76bbbb2fa22a9ae399a0db888",
+      "bytes": 21164
+    },
+    {
+      "path": "vendor/solana-web3-1.98.4.min.js",
+      "sha256": "09cdbea951b2ed0e11bcbe3aeb1ee9f035f9fb51ed212aca645475ae82688cc3",
+      "bytes": 463860
+    }
+  ]
+}
