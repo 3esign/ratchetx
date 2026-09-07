@@ -10,6 +10,10 @@
       "destination": "/lib/g2/play.html"
     },
     {
+      "source": "/agent-setup",
+      "destination": "/lib/g2/agent-setup.html"
+    },
+    {
       "source": "/agents",
       "destination": "/agents.html"
     },
