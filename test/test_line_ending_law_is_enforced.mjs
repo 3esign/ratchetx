@@ -137,7 +137,7 @@ for (const path of lfFiles) {
 }
 lfViolations.sort();
 
-const KNOWN_LF_VIOLATIONS = 109;
+const KNOWN_LF_VIOLATIONS = 0;
 checks += 1;
 assert.ok(lfViolations.length <= KNOWN_LF_VIOLATIONS,
   `LF-mandated files containing CRLF went from ${KNOWN_LF_VIOLATIONS} to ` +

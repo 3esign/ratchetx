@@ -100,7 +100,7 @@ for (const [program, file, pattern] of CLAIMS) {
 // with two separate patterns.
 const gate = read('tools/mainnet-go-check.mjs');
 const gateIds = [...gate.matchAll(
-  /'([1-9A-HJ-NP-Za-km-z]{32,44})'\],/g,
+  /(?:core|timepin):\s*'([1-9A-HJ-NP-Za-km-z]{32,44})',/g,
 )].map(m => m[1]);
 checks += 1;
 assert.equal(gateIds.length, 2,

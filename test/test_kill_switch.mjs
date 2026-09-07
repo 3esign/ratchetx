@@ -117,7 +117,7 @@ const CLIENT_DIRS = ['onchain/ratchet-core/client', 'onchain/ratchet-core-devnet
 // confident false finding about the gate that guards every deploy. Same lesson
 // as mcp/, as ops/heartbeat-worker/ and as the onchain client dirs: a scan
 // shallower than the thing it scans reports confident nonsense.
-const code = ['api', 'lib', 'tools', 'mcp', 'scripts', ...CLIENT_DIRS]
+const code = ['api', 'lib', 'tools', 'mcp', 'scripts', 'ops/g2-crank', ...CLIENT_DIRS]
   .flatMap(d => {
     let names = [];
     try { names = readdirSync(at(d)); } catch { return []; }

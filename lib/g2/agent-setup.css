@@ -1,0 +1,43 @@
+.setup-lead{max-width:700px;color:var(--muted);font-size:17px;line-height:1.7;margin:-8px 0 24px}.setup-layout{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(300px,1fr);gap:24px;align-items:start}.setup-form h2,.setup-rail h2{font-size:25px;letter-spacing:-.5px;margin:10px 0 22px;font-weight:550}.setup-form>label,.setup-fields>label{display:grid;gap:9px;font-size:13px;color:var(--muted);margin-bottom:19px}.setup-form input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:7px;background:#0d141c;padding:13px 14px;color:var(--ink);font:15px/1.4 ui-monospace,Consolas,monospace}.setup-form input:focus{outline:2px solid var(--gold);outline-offset:2px}.setup-fields{display:grid;grid-template-columns:1fr 1fr;gap:0 22px}.setup-fields label>span{font-size:11px;margin-top:-3px}.setup-divider{border-top:1px solid var(--line);margin:28px 0}.setup-buttons{display:flex;gap:13px;margin-top:24px}.setup-buttons .primary{width:auto;flex:1}.setup-rail{display:grid;gap:22px;min-width:0}.setup-rail a{font-size:13px}.setup-rail pre,.setup-review pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.6 ui-monospace,Consolas,monospace;background:#0d141c;padding:14px;border:1px solid var(--line);border-radius:6px;max-height:250px;overflow:auto}.setup-facts,.setup-review dl{display:grid;grid-template-columns:auto minmax(0,1fr);gap:12px 15px;font-size:13px;line-height:1.5}.setup-facts dt,.setup-review dt{color:var(--muted)}.setup-facts dd,.setup-review dd{margin:0;text-align:right;overflow-wrap:anywhere;color:var(--ink);font-variant-numeric:tabular-nums}.setup-links{display:grid;gap:12px;margin:22px 0}.setup-review{border-top:2px solid var(--gold);margin-top:28px;padding-top:24px}.setup-review h3{font-size:24px;margin:10px 0}.setup-review>p:not(.eyebrow){font-size:14px;line-height:1.7}.setup-review details{margin:20px 0}.setup-review summary{cursor:pointer;font-size:13px;color:var(--muted)}.setup-review .button{margin-top:10px}#grant-state[data-active=true]{color:var(--green)}#grant-state[data-revoked=true]{color:var(--red)}
+@media(max-width:900px){.setup-layout{grid-template-columns:1fr}.setup-rail{grid-template-columns:1fr 1fr}.setup-lead{font-size:15px}.setup-form{padding:24px}.setup-facts{grid-template-columns:1fr}.setup-facts dd{text-align:left}}
+@media(max-width:620px){.setup-layout{gap:18px}.setup-rail{grid-template-columns:1fr}.setup-form{padding:22px}.setup-form input{font-size:13px;padding:12px}.setup-fields{gap:0 15px}.setup-buttons{flex-direction:column}.setup-buttons .primary{width:100%}.setup-review dl{grid-template-columns:1fr}.setup-review dd{text-align:left;margin-top:-8px}.setup-lead{font-size:14px}.setup-facts{grid-template-columns:auto minmax(0,1fr)}.setup-facts dd{text-align:right}}
+
+.setup-journey{display:flex;flex-wrap:wrap;gap:12px;color:var(--muted);font-size:13px;margin:0 0 22px}.setup-journey span{color:var(--gold)}.setup-details{margin:20px 0 0;border-top:1px solid var(--line);padding-top:15px}.setup-details>summary{cursor:pointer;color:var(--blue);font-size:14px;min-height:32px}.setup-details[open]>summary{margin-bottom:16px}.setup-details>label{display:grid;gap:9px;font-size:13px;color:var(--muted);margin-bottom:19px}.identity-summary{font:14px/1.7 ui-monospace,Consolas,monospace;overflow-wrap:anywhere;color:var(--ink);margin:0}.allowance-summary{font-size:23px;font-weight:600;line-height:1.4;letter-spacing:-.4px;margin:0}.setup-form h2{margin-bottom:16px}.setup-rail .setup-details:first-of-type{margin-top:12px;border-top:0;padding-top:0}.setup-review h3:focus{outline:2px solid var(--blue);outline-offset:7px}@media(max-width:620px){.allowance-summary{font-size:20px}.setup-journey{gap:9px;font-size:12px}}
+
+/* Compact permission dashboard: the exact review remains a separate action. */
+.agent-setup-page .shell{width:min(1320px,100% - 48px)}
+.agent-setup-page .top{min-height:74px;gap:18px}
+.agent-setup-page .intro{margin:24px 0 10px;align-items:center}
+.agent-setup-page .intro .eyebrow{margin-bottom:8px;font-size:11px}
+.agent-setup-page h1{font-size:clamp(28px,3.1vw,40px);letter-spacing:-1.3px;line-height:1.15}
+.agent-setup-page .intro-side{display:none}
+.agent-setup-page .setup-lead{max-width:none;font-size:14px;line-height:1.6;margin:0 0 10px}
+.agent-setup-page .setup-journey{margin:0 0 12px;font-size:12px}
+.agent-setup-page .notice{margin:12px 0 18px;padding:10px 14px;font-size:13px}
+.agent-setup-page .setup-layout{grid-template-columns:minmax(0,1.9fr) minmax(290px,1fr);gap:18px}
+.agent-setup-page .panel{padding:22px;border-radius:14px}
+.agent-setup-page .setup-overview{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:28px}
+.agent-setup-page .setup-identity,.agent-setup-page .setup-allowance{min-width:0}
+.agent-setup-page .setup-allowance{border-left:1px solid var(--line);padding-left:24px}
+.agent-setup-page .setup-form h2,.agent-setup-page .setup-rail h2{font-size:21px;margin:8px 0 14px}
+.agent-setup-page .setup-form .eyebrow,.agent-setup-page .setup-rail .eyebrow{font-size:10px;letter-spacing:.1em}
+.agent-setup-page .setup-details{margin-top:14px;padding-top:12px}
+.agent-setup-page .setup-details>label{font-size:12px;margin-bottom:13px;gap:6px}
+.agent-setup-page .setup-form input{padding:10px 11px;font-size:13px}
+.agent-setup-page .hint{font-size:12px;line-height:1.6;margin-top:10px}
+.agent-setup-page .allowance-summary{font-size:21px;line-height:1.45}
+.agent-setup-page .identity-summary{font-size:12px}
+.agent-setup-page .setup-fields{grid-template-columns:1fr;gap:0}
+.agent-setup-page .setup-buttons{margin-top:14px}
+.agent-setup-page .setup-buttons .primary{font-size:16px;min-height:50px}
+.agent-setup-page .setup-readiness{padding-top:14px;border-top:1px solid var(--line);margin-top:18px}
+.agent-setup-page .setup-explainer{margin-top:14px}
+.agent-setup-page .setup-rail{gap:16px}
+.agent-setup-page .setup-facts{font-size:12px;gap:9px 14px}
+.agent-setup-page .setup-links{margin:15px 0;gap:10px}
+@media(max-width:1000px){.agent-setup-page .setup-layout{grid-template-columns:minmax(0,1.5fr) minmax(270px,1fr)}.agent-setup-page .setup-overview{grid-template-columns:1fr;gap:18px}.agent-setup-page .setup-allowance{border-left:0;border-top:1px solid var(--line);padding:18px 0 0}.agent-setup-page .setup-rail{grid-template-columns:1fr}}
+@media(max-width:720px){.agent-setup-page .shell{width:calc(100% - 28px)}.agent-setup-page .top{min-height:70px;gap:12px;padding:14px 0}.agent-setup-page .top .cluster{display:inline-block;font-size:10px;padding:3px 7px}.agent-setup-page .top nav{order:3;width:100%;justify-content:space-between;gap:12px}.agent-setup-page .top nav a{font-size:12px}.agent-setup-page .top #connect{margin-left:auto;font-size:12px;min-height:38px;padding:8px 10px}.agent-setup-page .brand{font-size:23px}.agent-setup-page .gear{width:30px;height:30px;font-size:23px;margin-right:8px}.agent-setup-page .intro{margin-top:19px}.agent-setup-page h1{font-size:29px}.agent-setup-page .setup-layout{grid-template-columns:1fr}.agent-setup-page .setup-lead{font-size:13px}.agent-setup-page .panel{padding:18px}.agent-setup-page .setup-fields{grid-template-columns:1fr 1fr;gap:0 14px}.agent-setup-page .setup-buttons{flex-direction:row;gap:10px}.agent-setup-page .setup-buttons .primary{width:auto;font-size:14px}.agent-setup-page .setup-buttons #refresh{font-size:12px;padding:10px}.agent-setup-page .notice{font-size:12px}}
+
+.agent-setup-page .setup-bankr-jump{margin-left:auto;color:var(--blue)}
+.agent-setup-page #bankr-check{scroll-margin-top:18px}
+@media(max-width:720px){.agent-setup-page .setup-bankr-jump{margin-left:0;flex-basis:100%;padding:4px 0}}

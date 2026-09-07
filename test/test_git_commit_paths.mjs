@@ -58,7 +58,7 @@ test('a stale lock is moved aside and a fresh one is left alone', t => {
   const swept = sweepStaleLocks(r.root, { staleMs: 60_000 });
   assert.equal(swept.swept.length, 1);
   assert.equal(fs.existsSync(lock), false, 'the stale lock is gone from .git');
-  assert.ok(fs.existsSync(path.join(r.root, '_to_delete', 'stale-git-locks')), 'moved, never deleted');
+  assert.ok(fs.existsSync(lock + '.bak'), 'moved, never deleted');
 
   fs.writeFileSync(lock, 'someone is writing right now');
   const held = sweepStaleLocks(r.root, { staleMs: 60_000, observeMs: 0 });

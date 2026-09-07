@@ -7,7 +7,7 @@ assert.match(html, /current legacy production machine uses Upstash Redis/,
   'the site names the actual current economic storage authority');
 assert.match(html, /Supabase (?:is|remains) retained legacy evidence/,
   'the site keeps Supabase in its honest legacy role');
-assert.match(html, /G2 candidate is not live/,
+assert.match(html, /Devnet execution does not establish mainnet readiness/,
   'source arithmetic is not marketed as a live on-chain game');
 assert.match(html, /cluster-specific rent and transaction cost will be measured and published/,
   'the site promises measurement rather than a timeless guessed cost');

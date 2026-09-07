@@ -51,6 +51,7 @@ const PROGRAMS = {
 
 // Every entry: why it is dead, and what retires it. No entry without a row.
 const BASELINE = {
+  'rcx-timepin-v2 TimepinNeedV2.candidate_b_hash': 'Branch B deferred',
   // The lead's Branch B ruling, 17:00Z, a82b171: "the fields shipped, the
   // lifecycle that writes them did not". These eleven come OUT in I1 - this
   // baseline exists so that the gate is honest between the ruling and the edit,
