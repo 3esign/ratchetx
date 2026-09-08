@@ -1,4 +1,26 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RatchetX — G2 agent contract</title><link rel="stylesheet" href="/lib/g2/game-page.css"></head><body><div class="shell"><header class="top"><a class="brand" href="/play"><span class="gear">↗</span> Ratchet<span>X</span></a><nav><a href="/play">The game</a><a href="/proof">The receipt room</a><a href="/skills/ratchetx-g2/SKILL.md">Agent skill</a></nav></header><main class="agent-guide"><p class="eyebrow">G2 · SOLANA DEVNET · LOCAL SIGNING</p><h1>Read the chain.<br>Make your move.</h1><p>RatchetX is a sealed prediction arcade using Pyth price evidence. This interface reads on-chain state and prepares unsigned transactions. Your agent keeps its wallet, signs locally and independently checks the result.</p><p><strong>Current access:</strong> this rehearsal allocates test credits to one wallet. Connecting does not create credits. The existing mainnet $RCX token and a future real claim are separate.</p><p><a class="button" href="/agent-setup">Set up my agent →</a></p><p>Have an agent setup link? Open it to review your limits. The protocol reference below is for agent builders.</p><h2>Connect through MCP</h2><pre>Endpoint: https://ratchetx.xyz/api/g2-mcp
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RatchetX — How to start</title><link rel="stylesheet" href="/lib/g2/game-page.css"></head><body><div class="shell"><header class="top"><a class="brand" href="/play"><span class="gear">↗</span> Ratchet<span>X</span></a><nav><a href="/play">The game</a><a href="/proof">The receipt room</a><a href="/skills/ratchetx-g2/SKILL.md">Agent skill</a></nav></header><main class="agent-guide"><p class="eyebrow">START HERE · SOLANA DEVNET · FREE TEST CREDITS</p><h1>Call the price.<br>Let the chain keep score.</h1>
+<p>RatchetX is a small prediction arcade. You say whether SOL will be higher or lower five minutes from now. Your call is sealed on Solana devnet before the move, Pyth prices decide, and the receipt is public forever. Test credits only - no real money, nothing to buy.</p>
+<h2>Two ways to play</h2>
+<h3>1 · In a browser, with your own wallet</h3>
+<ol>
+<li>Open <a href="/play">ratchetx.xyz/play</a> and connect a Solana wallet (Phantom, Solflare, ...). Switch the wallet to <strong>devnet</strong>; in Phantom turn on Settings → Developer settings → Testnet mode so it simulates correctly.</li>
+<li>Your wallet needs a little devnet SOL for fees (about 0.003). If the page cannot get it from the faucet for you, take some at <a href="https://faucet.solana.com" rel="noopener">faucet.solana.com</a>.</li>
+<li>Press <strong>Claim 10,000 test credits</strong> - once per wallet, one signature.</li>
+<li>Pick UP or DOWN, a stake and a confidence, seal. Come back after the exit time and press Reveal; the result and the Pyth prices are yours to show anyone.</li>
+</ol>
+<h3>2 · From X, through Bankr - no wallet at all</h3>
+<ol>
+<li>Have a <a href="https://bankr.bot" rel="noopener">Bankr</a> account linked to your X handle.</li>
+<li>In Bankr, install the skill: <code>Install the ratchetx skill from https://github.com/3esign/ratchetx/tree/main/skills/ratchetx</code></li>
+<li>In Bankr settings → Environment Variables add <code>RATCHET_G2_SEED</code> = any private random string of 32+ characters (a password-manager password is fine). It is <em>not</em> a wallet key; it lets your agent keep the same devnet wallet between commands.</li>
+<li>Post <code>@bankrbot rcx play SOL UP</code> (or DOWN). Your agent claims its own 10,000 test credits and seals. If it answers that its wallet has no devnet SOL, send that address a little from the faucet and repeat.</li>
+<li><code>@bankrbot rcx status</code> shows the result once Pyth prices are in; the reply carries the proof link.</li>
+</ol>
+<p><strong>What you are trusting.</strong> The programs are on devnet with a retained upgrade authority (this is a rehearsal, not mainnet); the keeper that records Pyth prices is permissionless and anyone may run one; the public devnet RPC and faucet are rate limited. The mainnet  token is a separate asset and is not paid out here.</p>
+<p><a class="button" href="/play">Play in the browser →</a> &nbsp; <a class="button" href="/agent-setup">Delegate to an agent on my own wallet →</a></p>
+<h2>For agent builders</h2>
+<p>Everything below is the protocol surface: a read-only MCP that prepares unsigned transactions, and the skill your agent runs. Your agent keeps its wallet, signs locally and checks the result itself.</p>
+<h2>Connect through MCP</h2><pre>Endpoint: https://ratchetx.xyz/api/g2-mcp
 Transport: Streamable HTTP · POST
 MCP-Protocol-Version: 2025-11-25
 Content-Type: application/json
