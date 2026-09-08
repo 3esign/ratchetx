@@ -329,6 +329,26 @@ the same commit: either to the module that still implements the old behavior
 (`lib/mcp-legacy.js`) or to the new contract. A red gate that everyone learns to read past is
 not a gate.
 
+## 17 · "Permissionless" was true of the keeper and false of the door
+
+**What happened (2026-09-08).** Every surface said the devnet arcade was permissionless and
+decentralized. The keeper was; the game was on chain; but credits entered a ledger only through
+`claim_legacy` (a one-leaf snapshot naming the operator's wallet) or `reload_rcx` against a
+hardcoded **mainnet** mint that does not exist on devnet. Nobody but the operator could ever hold
+a credit. A stranger opening the site saw a form they could not use.
+
+**Rule.** Before calling a deployment permissionless, walk one stranger's path from an empty wallet
+to a sealed shot, on the real cluster, and keep the signatures. If any step needs the operator's
+key, the word is wrong.
+
+**Fix and check.** `claim_devnet_credits` (once per wallet, 10,000 credits into the legacy bucket
+so conservation and the replay tombstone are unchanged) gated by the economy's immutable cluster
+genesis, not a build flag - the same bytes refuse on any non-devnet economy. Exact-SBF test
+`devnet_playground_credits_open_only_on_the_devnet_economy`; the stranger's path is
+`ops/g2-deploy/stranger-proof.mjs` (claim 3bcuoVAtdRRYUCZct8iT5mAbfi4riBmxz5AFtq5iQCvCx3Nd3rFZEhsiSAZjHec1HqUGvVMufWDPVPYR123uTfgJ,
+seal 3Cqc6ddRHhv5iSJs1kh9AVKGqErvrnaKqQ2Zvxjqp9aphqSRVyvsxwaY8PUwFSc5ADdHv5Nr46975neoBPvpXQjC,
+player A1ibWYthMwE4c4ryfPb1s3oMykohtV6Ek1fY1LdYeXDY, devnet).
+
 ## Already documented elsewhere, not restated here
 
 - **`jsonb` does not preserve object key order**, so hashing `JSON.stringify` output makes a

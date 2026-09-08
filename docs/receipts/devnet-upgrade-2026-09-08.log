@@ -1,0 +1,22 @@
+01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8
+== extend
+
+Extended Program Id ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL by 65536 bytes
+
+exit=0
+== deploy
+Program Id: ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL
+
+Signature: 3adADa81MZcGidneA5EJjt5x46DMuZ66qYqrXn9WKhCU5RS8n3BmRtrr1bKrZnsManR7Cn1mmV8PtoyiKAFduVyA
+
+exit=0
+
+Program Id: ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL
+Owner: BPFLoaderUpgradeab1e11111111111111111111111
+ProgramData Address: 6h8VdBWK8rjc8ZaPA64VxpVYRHJ91qRQhQEn4LkVbGfg
+Authority: wJYFx75hzP9h2ujQQ6mpJWLeYgPSUdLtuWjrw881rKz
+Last Deployed In Slot: 495276443
+Data Length: 1079944 (0x107a88) bytes
+Balance: 5.48699436 SOL
+
+7.508544624 SOL
