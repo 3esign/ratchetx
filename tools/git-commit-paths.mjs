@@ -27,6 +27,7 @@
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 // Age alone is the wrong test on this mount, and measuring it said so.
 //
@@ -140,7 +141,10 @@ export function commitPaths(root, paths, { message, messageFile, dryRun = false,
 }
 
 const invokedDirectly = process.argv[1]
-  && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname);
+  // fileURLToPath, not URL.pathname: on Windows the pathname is "/D:/..." and path.resolve
+  // turned it into "D:\D:\...", so this guard was false on every Windows body and the tool
+  // exited 0 having committed nothing (found 2026-09-08, three commits that never happened).
+  && path.resolve(process.argv[1]) === path.resolve(fileURLToPath(import.meta.url));
 if (invokedDirectly) {
   const argv = process.argv.slice(2);
   const sep = argv.indexOf('--');

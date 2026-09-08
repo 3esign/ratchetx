@@ -20,7 +20,7 @@ require.cache[kvPath].exports = {
   },
 };
 
-const mcp = require('../api/mcp.js');
+const mcp = require('../lib/mcp-legacy.js'); // api/mcp.js is G2-only since c310dfd
 const funnel = require('../lib/funnel.js');
 
 async function call(name, args = {}) {

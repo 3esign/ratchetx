@@ -182,8 +182,7 @@ warning: variant `Ambiguous` is never constructed
      = note: `#[warn(dead_code)]` on by default
 
 warning: `rcx-timepin-v2` (lib) generated 13 warnings
-    Finished `release` profile [optimized] target(s) in 5.08s
-[2026-09-05T23:31:40.927565000Z WARN  cargo_build_sbf] Package 'rcx-timepin-v2' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+    Finished `release` profile [optimized] target(s) in 1.93s
 PASS timepin SBPFv3 build
 START timepin pinned rustc version
 rustc 1.89.0-dev (e57530ef2 2026-08-14)
@@ -662,8 +661,7 @@ warning: function `archive_funding_plan` is never used
      = note: `#[warn(dead_code)]` on by default
 
 warning: `ratchet-core-g2` (lib) generated 30 warnings
-    Finished `release` profile [optimized] target(s) in 4.67s
-[2026-09-05T23:31:49.470887000Z WARN  cargo_build_sbf] Package 'ratchet-core-g2' has two crate types defined: cdylib and lib. This setting precludes link-time optimizations (LTO). Use cdylib for programs to be deployed and rlib for packages to be imported by other programs as libraries.
+    Finished `release` profile [optimized] target(s) in 2.09s
 PASS core SBPFv3 build
 START core pinned rustc version
 rustc 1.89.0-dev (e57530ef2 2026-08-14)
@@ -935,10 +933,9 @@ successes:
     finalize_of_an_open_need_without_a_candidate_is_refused
     finalize_waits_for_the_capture_window_and_then_finalizes
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.40s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.28s
 
-   Compiling rcx-timepin-v2-svm-tests v0.1.0 (D:\Work\Software_Projects\pumpmind\ratchetx\ratchet_phase_a_clean\onchain\rcx-timepin-v2\svm-tests)
-    Finished `test` profile [unoptimized] target(s) in 3m 45s
+    Finished `test` profile [unoptimized] target(s) in 5.87s
      Running tests\conflict_finalize_expire.rs (target\debug\deps\conflict_finalize_expire-a3e2d9cf9f7ae6b2.exe)
 PASS timepin exact-SBF conflict_finalize_expire
 START timepin exact-SBF malformed_state
@@ -961,9 +958,8 @@ successes:
     register_ignores_trailing_bytes_without_changing_spec
     register_rejects_truncated_arguments_without_creating_spec
 
-test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.84s
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.74s
 
-   Compiling rcx-timepin-v2-svm-tests v0.1.0 (D:\Work\Software_Projects\pumpmind\ratchetx\ratchet_phase_a_clean\onchain\rcx-timepin-v2\svm-tests)
 warning: constant `CAPTURE_SLOT` is never used
   --> tests\malformed_state.rs:26:7
    |
@@ -1054,7 +1050,7 @@ warning: methods `set_programdata_slot`, `clone_programdata`, `set_config`, `sen
     |        ^^^^^^^^^^^^^^^^^
 
 warning: `rcx-timepin-v2-svm-tests` (test "malformed_state") generated 11 warnings
-    Finished `test` profile [unoptimized] target(s) in 2m 45s
+    Finished `test` profile [unoptimized] target(s) in 1.36s
      Running tests\malformed_state.rs (target\debug\deps\malformed_state-99794573f2ac68a6.exe)
 PASS timepin exact-SBF malformed_state
 START timepin exact-SBF registration_open
@@ -1084,10 +1080,9 @@ successes:
     exact_live_mainnet_snapshot_registers_opens_and_captures
     registration_generation_mutants_fail_closed_and_roll_back
 
-test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.52s
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.45s
 
-   Compiling rcx-timepin-v2-svm-tests v0.1.0 (D:\Work\Software_Projects\pumpmind\ratchetx\ratchet_phase_a_clean\onchain\rcx-timepin-v2\svm-tests)
-    Finished `test` profile [unoptimized] target(s) in 2m 19s
+    Finished `test` profile [unoptimized] target(s) in 0.84s
      Running tests\registration_open.rs (target\debug\deps\registration_open-d3da5428b76c5880.exe)
 PASS timepin exact-SBF registration_open
 START core SVM target inventory
@@ -1133,11 +1128,859 @@ successes:
     settle_final_replay_is_rejected
     void_active_shot_rejects_final_need
 
-test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 13.17s
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.86s
 
-    Finished `test` profile [unoptimized] target(s) in 1m 09s
+    Finished `test` profile [unoptimized] target(s) in 2.67s
      Running tests\core_g2_lifecycle.rs (target\debug\deps\core_g2_lifecycle-5e6d2568520ee0d7.exe)
 PASS core exact-SBF core_g2_lifecycle
+START JS release gate
+
+> ratchet@0.1.0 test
+> node scripts/check-release-safety.mjs && node scripts/check-versions.mjs && node scripts/run-tests.mjs
+
+[OK] frozen Ratchet Seal v2 source identity
+[OK] 131 deployment input files pass the public surface boundary
+[OK] 2585 tracked/deployment files contain no blocked credential/artifact patterns
+[OK] core settlement and premium verifier remain bound to validated Pyth-on-Solana evidence
+[OK] Agent Skills index digest == SKILL.md sha256: sha256:0c64e2faa4db712c4f86ef797f0dfc332ab28f3fca8f48bc9b6ba8ed6b451bdb
+[OK] SKILL.md installer digest == install.mjs: 221b734356cf38f3902b75684cb3f3438f806416b2824bee2ad4e2fbf1462297
+[OK] AI Catalog Skill == SKILL.md: 2.1.1
+[OK] AGENT_STATE.json skill == SKILL.md: 2.1.1
+[OK] AI Catalog MCP == mcp.json: 1.2.0
+[OK] api/mcp.js runtime == mcp.json: 1.2.0
+[OK] mcp/ratchet-mcp.mjs runtime == mcp.json: 1.2.0
+[OK] server.json (Official Registry) == mcp.json: 1.2.0
+[OK] mcp/server.json (Legacy Registry) == mcp.json: 1.2.0
+[OK] AGENT_STATE.json mcp == mcp.json: 1.2.0
+[OK] ERC-8004 profile (agent-registration.json) == SKILL.md: 2.1.1
+[OK] AGENT_STATE.json erc8004 == SKILL.md: 2.1.1
+All comprehensive version & digest checks passed.
+Test scope (win32): portable suites + native Windows deployment suites
+ok    test_account_lists.mjs
+ok    test_activity_agents.mjs
+ok    test_activity_feed.mjs
+ok    test_activity_readonly.mjs
+FAIL  test_agent_discovery.mjs (confirmed by an immediate re-run)
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: the portable Agent Skill is part of domain-anchored discovery
+    at file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/test/test_agent_discovery.mjs:42:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v24.15.0
+
+ok    test_agent_e2e.mjs
+FAIL  test_agent_funnel_protocol.mjs (confirmed by an immediate re-run)
+node:internal/modules/run_main:107
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: Expected values to be strictly equal:
+
+415 !== 200
+
+    at call (file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/test/test_agent_funnel_protocol.mjs:42:10)
+    at async file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/test/test_agent_funnel_protocol.mjs:46:17 {
+  generatedMessage: true,
+  code: 'ERR_ASSERTION',
+  actual: 415,
+  expected: 200,
+  operator: 'strictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.15.0
+
+ok    test_agent_registry.mjs
+ok    test_agent_registry_fix.mjs
+ok    test_agent_report.mjs
+ok    test_agents.mjs
+ok    test_anchor_health.mjs
+ok    test_arena_brier_ranking.mjs
+ok    test_balance.mjs
+ok    test_blink.mjs
+ok    test_bootstrap_plan.mjs
+ok    test_build_ix.mjs
+ok    test_calibration.mjs
+ok    test_canon.mjs
+ok    test_chain_gap.mjs
+ok    test_check_g2_artifacts.mjs  (21.3 s)
+ok    test_clean_tree_gate.mjs  (14.3 s)
+ok    test_client_covers_every_instruction.mjs
+ok    test_client_model_parity.mjs
+ok    test_cluster_guard.mjs
+ok    test_commit.mjs
+ok    test_compile_receipt_cli.mjs
+ok    test_core_and_timepin_agree_on_a_spec.mjs
+ok    test_core_client.mjs
+ok    test_core_g2_client_v2.mjs
+ok    test_core_g2_cost.mjs
+ok    test_core_g2_model.mjs
+ok    test_core_g2_snapshot.mjs
+ok    test_core_reads_what_timepin_writes.mjs
+ok    test_core_vectors.mjs
+ok    test_crank_decides.mjs
+ok    test_crank_entrypoint.mjs
+ok    test_crank_plan.mjs
+ok    test_crank_reads_players.mjs
+ok    test_crank_refuses.mjs
+ok    test_critical_paths.mjs
+ok    test_cutover_rehearsal.mjs
+ok    test_delegate.mjs
+ok    test_deploy_devnet.mjs
+ok    test_deploy_input.mjs  (13.7 s)
+ok    test_deploy_plan.mjs
+ok    test_deploy_preflight.mjs
+ok    test_deploy_rent.mjs
+ok    test_devnet_2_2_plan.mjs
+ok    test_devnet_bootstrap_cli.mjs
+ok    test_devnet_lifecycle_shape.mjs
+ok    test_devnet_play.mjs
+ok    test_equity_prices.mjs
+ok    test_feedhealth.mjs
+ok    test_foreign_timepin_abi.mjs
+ok    test_g2_build_artifacts.mjs  (13.9 s)
+ok    test_g2_reproduce.mjs
+ok    test_git_commit_paths.mjs  (11.0 s)
+ok    test_guarded_build_gate.mjs
+ok    test_guarded_commit_sql.mjs  (11.3 s)
+ok    test_guarded_preflight_sql.mjs  (16.5 s)
+ok    test_harness.mjs  (9.6 s)
+ok    test_heartbeat.mjs
+ok    test_history_page_is_write_only.mjs
+ok    test_inspector.mjs  (5.0 s)
+ok    test_kv_atomic.mjs
+ok    test_kv_ordered.mjs
+ok    test_kv_quota_is_not_retried.mjs
+ok    test_kv_shapes.mjs
+ok    test_ledger.mjs
+ok    test_ledger_cadence.mjs  (7.7 s)
+ok    test_legacy_chain.mjs
+ok    test_legacy_root.mjs
+ok    test_legacy_root_g2.mjs
+ok    test_legacy_root_rules.mjs
+ok    test_line_ending_law_is_enforced.mjs  (12.5 s)
+ok    test_live_snapshot.mjs
+ok    test_log.mjs
+ok    test_log_api.mjs
+ok    test_mainnet_go_check.mjs  (17.9 s)
+ok    test_manifest_is_approved.mjs
+ok    test_manifest_lag_is_grid_minus_one.mjs
+ok    test_mcp.mjs
+FAIL  test_mcp_agent_record.mjs (confirmed by an immediate re-run)
+# Subtest: bad and unknown identities return structured tool errors, not module-stack exceptions
+not ok 3 - bad and unknown identities return structured tool errors, not module-stack exceptions
+  ---
+  duration_ms: 0.3657
+  type: 'test'
+  location: 'D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\test\\test_mcp_agent_record.mjs:49:1'
+  failureType: 'testCodeFailure'
+  error: "Cannot read properties of undefined (reading 'isError')"
+  code: 'ERR_TEST_FAILURE'
+  name: 'TypeError'
+  stack: |-
+    TestContext.<anonymous> (file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/test/test_mcp_agent_record.mjs:52:30)
+    async Test.run (node:internal/test_runner/test:1208:7)
+    async Test.processPendingSubtests (node:internal/test_runner/test:831:7)
+  ...
+1..3
+# tests 3
+# suites 0
+# pass 0
+# fail 3
+# cancelled 0
+# skipped 0
+# todo 0
+# duration_ms 34.2782
+
+FAIL  test_mcp_http.mjs (confirmed by an immediate re-run)
+FAIL  legacy Streamable HTTP initializes with the exact discovery version and deployed build
+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/test/test_mcp_http.mjs:59
+const names=(list.body.result.tools||[]).map(t=>t.name);
+                              ^
+
+TypeError: Cannot read properties of undefined (reading 'tools')
+    at file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/test/test_mcp_http.mjs:59:31
+
+Node.js v24.15.0
+
+ok    test_mcp_registry_manifest.mjs
+ok    test_migration_freeze.mjs
+ok    test_min_capture_logic.mjs
+ok    test_model_mirrors_source.mjs
+ok    test_next_print_client.mjs
+ok    test_next_print_model.mjs
+ok    test_next_print_v2_client.mjs
+ok    test_no_clip.mjs
+FAIL  test_no_scheduled_freeze_promise.mjs (confirmed by an immediate re-run)
++ actual - expected
+
++ [
++   'llms.txt:3: ## Current generation: G2 on Solana devnet (read this first, 2026-09-08)',
++   'llms.txt:23: clients that already integrated it. As of 2026-09-08 the legacy store is over its request'
++ ]
+- []
+
+    at file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/test/test_no_scheduled_freeze_promise.mjs:53:8
+    at ModuleJob.run (node:internal/modules/esm/module_job:437:25)
+    at async node:internal/modules/esm/loader:639:26
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:101:5) {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: [
+    'llms.txt:3: ## Current generation: G2 on Solana devnet (read this first, 2026-09-08)',
+    'llms.txt:23: clients that already integrated it. As of 2026-09-08 the legacy store is over its request'
+  ],
+  expected: [],
+  operator: 'deepStrictEqual',
+  diff: 'simple'
+}
+
+Node.js v24.15.0
+
+ok    test_no_unwritten_fields_in_permanent_accounts.mjs
+ok    test_observe_io.mjs
+ok    test_observer.mjs
+ok    test_onchain_cost.mjs
+ok    test_onchain_px.mjs
+ok    test_p6_canary.mjs
+ok    test_permanence_release.mjs
+ok    test_play_session_atomicity.mjs
+ok    test_player_actions.mjs
+ok    test_player_commit_recovery.mjs
+ok    test_player_day_rent.mjs
+ok    test_player_write_fencing.mjs
+ok    test_program_identity_is_one_fact.mjs
+ok    test_pure_burn.mjs
+ok    test_pyth_context.mjs
+ok    test_pyth_layout.mjs
+ok    test_pyth_ordering.mjs
+ok    test_pyth_pagination.mjs
+FAIL  test_ranked_remote_protocol.mjs (confirmed by an immediate re-run)
+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/test/test_ranked_remote_protocol.mjs:69
+assert.equal(prepared.isError, undefined);
+                      ^
+
+TypeError: Cannot read properties of undefined (reading 'isError')
+    at file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/test/test_ranked_remote_protocol.mjs:69:23
+
+Node.js v24.15.0
+
+ok    test_read_budget.mjs
+ok    test_read_game.mjs
+ok    test_readcost.mjs
+ok    test_record.mjs
+ok    test_record_api.mjs
+ok    test_release_identity.mjs
+ok    test_restore.mjs
+ok    test_rollup.mjs
+ok    test_run_bootstrap.mjs
+ok    test_run_receipt.mjs
+ok    test_run_tests_gate.mjs
+ok    test_sample_durability.mjs
+ok    test_say.mjs
+ok    test_send_gate.mjs
+ok    test_send_io.mjs
+ok    test_settle.mjs
+ok    test_shot_receipt.mjs
+ok    test_snapshot_fidelity.mjs
+ok    test_state_read_budget.mjs
+ok    test_stock_cadence.mjs
+ok    test_store_gate.mjs
+ok    test_store_outage.mjs
+ok    test_stream_capture.mjs  (7.5 s)
+ok    test_suite_selection.mjs
+ok    test_supabase_final_snapshot.mjs
+ok    test_supabase_final_snapshot_restore.mjs  (11.0 s)
+ok    test_supabase_key_formats.mjs
+ok    test_supabase_kv.mjs
+ok    test_supabase_migration.mjs
+ok    test_supabase_strict_read.mjs
+ok    test_supply.mjs
+ok    test_timepin_cadence_policy.mjs
+ok    test_timepin_v2_lifecycle_vectors.mjs
+ok    test_timepin_v2_model.mjs
+ok    test_timepin_vector_generation.mjs
+ok    test_waiting.mjs
+ok    test_warden.mjs
+ok    test_work_market_client.mjs
+ok    test_work_page_cost_model.mjs
+ok    windows/test_deploy_cmd.mjs
+
+147 passed · 6 failed · 0 skipped
+FAIL JS release gate (exit 1)
+FAIL G2 candidate: JS release gate: exit 1; read D:\Work\Software_Projects\pumpmind\ratchetx\ratchet_phase_a_clean\build_g2_report.txt
+START timepin reused artifact readback
+{
+  "file": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
+  "contentAddress": "ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so",
+  "cacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "configuredCacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "cacheRootSource": "default-temp",
+  "size": 375944,
+  "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+  "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
+  "idOffset": 7568,
+  "idOccurrences": 1,
+  "forbiddenIds": [
+    {
+      "programId": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "byteLength": 32,
+      "occurrences": 0
+    }
+  ],
+  "elf": {
+    "isElf64Le": true,
+    "eFlagsHex": "0x3",
+    "sbpfVersion": 3
+  },
+  "checks": [
+    {
+      "check": "artifact is a regular non-symlink file",
+      "ok": true,
+      "detail": "lstat regular file"
+    },
+    {
+      "check": "is ELF64 little-endian",
+      "ok": true,
+      "detail": "class 2, data 1"
+    },
+    {
+      "check": "path excludes mutable target components",
+      "ok": true,
+      "detail": "no target component"
+    },
+    {
+      "check": "id embedded (declare_id baked)",
+      "ok": true,
+      "detail": "1 occurrence(s), first offset 7568"
+    },
+    {
+      "check": "id is 32 bytes",
+      "ok": true,
+      "detail": "32"
+    },
+    {
+      "check": "content-addressed temp cache path",
+      "ok": true,
+      "detail": "ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so"
+    },
+    {
+      "check": "sbpf version == 3",
+      "ok": true,
+      "detail": "e_flags=0x3 -> sbpf v3"
+    },
+    {
+      "check": "sha256 matches expected",
+      "ok": true,
+      "detail": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1"
+    },
+    {
+      "check": "size matches expected",
+      "ok": true,
+      "detail": "375944"
+    },
+    {
+      "check": "forbidden id absent: US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "ok": true,
+      "detail": "32 bytes; 0 occurrence(s)"
+    }
+  ],
+  "verdict": "PASS"
+}
+PASS timepin reused artifact readback
+START core reused artifact readback
+{
+  "file": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d\\ratchet_core_g2.so",
+  "contentAddress": "ratchetx-onchain-sbf/a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d/ratchet_core_g2.so",
+  "cacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "configuredCacheRoot": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf",
+  "cacheRootSource": "default-temp",
+  "size": 1014408,
+  "sha256": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d",
+  "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
+  "idOffset": 12280,
+  "idOccurrences": 1,
+  "forbiddenIds": [
+    {
+      "programId": "US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "byteLength": 32,
+      "occurrences": 0
+    }
+  ],
+  "elf": {
+    "isElf64Le": true,
+    "eFlagsHex": "0x3",
+    "sbpfVersion": 3
+  },
+  "checks": [
+    {
+      "check": "artifact is a regular non-symlink file",
+      "ok": true,
+      "detail": "lstat regular file"
+    },
+    {
+      "check": "is ELF64 little-endian",
+      "ok": true,
+      "detail": "class 2, data 1"
+    },
+    {
+      "check": "path excludes mutable target components",
+      "ok": true,
+      "detail": "no target component"
+    },
+    {
+      "check": "id embedded (declare_id baked)",
+      "ok": true,
+      "detail": "1 occurrence(s), first offset 12280"
+    },
+    {
+      "check": "id is 32 bytes",
+      "ok": true,
+      "detail": "32"
+    },
+    {
+      "check": "content-addressed temp cache path",
+      "ok": true,
+      "detail": "ratchetx-onchain-sbf/a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d/ratchet_core_g2.so"
+    },
+    {
+      "check": "sbpf version == 3",
+      "ok": true,
+      "detail": "e_flags=0x3 -> sbpf v3"
+    },
+    {
+      "check": "sha256 matches expected",
+      "ok": true,
+      "detail": "a8f3fb4daefaeea13c951c967e23b92ed14d8cc904402aad7d38e5b8c446094d"
+    },
+    {
+      "check": "size matches expected",
+      "ok": true,
+      "detail": "1014408"
+    },
+    {
+      "check": "forbidden id absent: US517G5965aydkZ46HS38QLi7UQiSojurfbQfKCELFx",
+      "ok": true,
+      "detail": "32 bytes; 0 occurrence(s)"
+    }
+  ],
+  "verdict": "PASS"
+}
+PASS core reused artifact readback
+PASS committed vectors pin the freshly built Timepin artifact.
+START Timepin vector check
+{"mode":"check","programId":"C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp","profile":"synthetic-adapter1-strict-bracket","vectorDir":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\vectors","artifact":{"path":"ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so","size":375944,"sha256":"534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1","elfFlags":3,"sbpfVersion":3,"releaseArtifact":false,"rebuiltBySvmTask":false},"runtimeEvidence":"not included; the separate exact-SBF helper gate remains required"}
+PASS Timepin vector check
+START timepin SVM target inventory
+{"packages":[{"name":"rcx-timepin-v2-svm-tests","version":"0.1.0","id":"path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/rcx-timepin-v2/svm-tests#rcx-timepin-v2-svm-tests@0.1.0","license":null,"license_file":null,"description":"Independent transaction tests for Timepin v2 register/open SBF","source":null,"dependencies":[{"name":"litesvm","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=0.16.0","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"sha2","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=0.10.9","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"solana-sdk","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=4.0.1","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null}],"targets":[{"kind":["test"],"crate_types":["bin"],"name":"conflict_finalize_expire","src_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\tests\\conflict_finalize_expire.rs","edition":"2021","doc":false,"doctest":false,"test":true},{"kind":["test"],"crate_types":["bin"],"name":"malformed_state","src_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\tests\\malformed_state.rs","edition":"2021","doc":false,"doctest":false,"test":true},{"kind":["test"],"crate_types":["bin"],"name":"registration_open","src_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\tests\\registration_open.rs","edition":"2021","doc":false,"doctest":false,"test":true}],"features":{},"manifest_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\Cargo.toml","metadata":null,"publish":[],"authors":[],"categories":[],"keywords":[],"readme":null,"repository":null,"homepage":null,"documentation":null,"edition":"2021","links":null,"default_run":null,"rust_version":null}],"workspace_members":["path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/rcx-timepin-v2/svm-tests#rcx-timepin-v2-svm-tests@0.1.0"],"workspace_default_members":["path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/rcx-timepin-v2/svm-tests#rcx-timepin-v2-svm-tests@0.1.0"],"resolve":null,"target_directory":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\target","build_directory":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests\\target","version":1,"workspace_root":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests","metadata":null}
+PASS timepin SVM target inventory
+START timepin exact-SBF conflict_finalize_expire
+
+running 4 tests
+test conflict_total_order_rejects_later_replaces_earlier_and_finalizes ... ok
+test expire_only_takes_an_open_unanswered_need_after_its_window ... ok
+test finalize_of_an_open_need_without_a_candidate_is_refused ... ok
+test finalize_waits_for_the_capture_window_and_then_finalizes ... ok
+
+successes:
+
+successes:
+    conflict_total_order_rejects_later_replaces_earlier_and_finalizes
+    expire_only_takes_an_open_unanswered_need_after_its_window
+    finalize_of_an_open_need_without_a_candidate_is_refused
+    finalize_waits_for_the_capture_window_and_then_finalizes
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.05s
+
+    Finished `test` profile [unoptimized] target(s) in 13.10s
+     Running tests\conflict_finalize_expire.rs (target\debug\deps\conflict_finalize_expire-a3e2d9cf9f7ae6b2.exe)
+PASS timepin exact-SBF conflict_finalize_expire
+START timepin exact-SBF malformed_state
+
+running 6 tests
+test capture_first_fails_with_truncated_data ... ok
+test open_fails_with_invalid_discriminator ... ok
+test open_fails_with_invalid_need_pda ... ok
+test register_fails_with_invalid_pda ... ok
+test register_ignores_trailing_bytes_without_changing_spec ... ok
+test register_rejects_truncated_arguments_without_creating_spec ... ok
+
+successes:
+
+successes:
+    capture_first_fails_with_truncated_data
+    open_fails_with_invalid_discriminator
+    open_fails_with_invalid_need_pda
+    register_fails_with_invalid_pda
+    register_ignores_trailing_bytes_without_changing_spec
+    register_rejects_truncated_arguments_without_creating_spec
+
+test result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.43s
+
+warning: constant `CAPTURE_SLOT` is never used
+  --> tests\malformed_state.rs:26:7
+   |
+26 | const CAPTURE_SLOT: u64 = 1_100;
+   |       ^^^^^^^^^^^^
+   |
+   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default
+
+warning: constant `LIVE_SNAPSHOT_SLOT` is never used
+  --> tests\malformed_state.rs:32:7
+   |
+32 | const LIVE_SNAPSHOT_SLOT: u64 = 444_338_968;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: constant `LIVE_RECEIVER_SLOT` is never used
+  --> tests\malformed_state.rs:33:7
+   |
+33 | const LIVE_RECEIVER_SLOT: u64 = 417_825_260;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: constant `LIVE_WORMHOLE_SLOT` is never used
+  --> tests\malformed_state.rs:34:7
+   |
+34 | const LIVE_WORMHOLE_SLOT: u64 = 417_825_233;
+   |       ^^^^^^^^^^^^^^^^^^
+
+warning: constant `LIVE_PRICE_POSTED_SLOT` is never used
+  --> tests\malformed_state.rs:35:7
+   |
+35 | const LIVE_PRICE_POSTED_SLOT: u64 = 444_338_800;
+   |       ^^^^^^^^^^^^^^^^^^^^^^
+
+warning: constant `LIVE_PRICE_PUBLISH_TS` is never used
+  --> tests\malformed_state.rs:36:7
+   |
+36 | const LIVE_PRICE_PUBLISH_TS: i64 = 1_788_554_471;
+   |       ^^^^^^^^^^^^^^^^^^^^^
+
+warning: function `live_wormhole_id` is never used
+  --> tests\malformed_state.rs:57:4
+   |
+57 | fn live_wormhole_id() -> Pubkey {
+   |    ^^^^^^^^^^^^^^^^
+
+warning: function `live_fixture` is never used
+   --> tests\malformed_state.rs:194:4
+    |
+194 | fn live_fixture(name: &str, expected_len: usize, expected_sha256: &str) -> Vec<u8> {
+    |    ^^^^^^^^^^^^
+
+warning: method `policy_hash` is never used
+   --> tests\malformed_state.rs:303:8
+    |
+257 | impl SpecArgs {
+    | ------------- method in this implementation
+...
+303 |     fn policy_hash(&self) -> [u8; 32] {
+    |        ^^^^^^^^^^^
+
+warning: function `send_instruction` is never used
+   --> tests\malformed_state.rs:321:4
+    |
+321 | fn send_instruction(
+    |    ^^^^^^^^^^^^^^^^
+
+warning: methods `set_programdata_slot`, `clone_programdata`, `set_config`, `send`, `put_price`, and `register_and_open` are never used
+   --> tests\malformed_state.rs:470:8
+    |
+351 | impl World {
+    | ---------- methods in this implementation
+...
+470 |     fn set_programdata_slot(&mut self, program: Pubkey, slot: u64) {
+    |        ^^^^^^^^^^^^^^^^^^^^
+...
+477 |     fn clone_programdata(&mut self, source_program: Pubkey) -> Pubkey {
+    |        ^^^^^^^^^^^^^^^^^
+...
+487 |     fn set_config(&mut self, data: Vec<u8>) {
+    |        ^^^^^^^^^^
+...
+521 |     fn send(&mut self, instruction: Instruction) -> Result<u64, String> {
+    |        ^^^^
+...
+565 |     fn put_price(&mut self, posted_slot: u64) -> [u8; 32] {
+    |        ^^^^^^^^^
+...
+638 |     fn register_and_open(&mut self) -> (SpecArgs, [u8; 32]) {
+    |        ^^^^^^^^^^^^^^^^^
+
+warning: `rcx-timepin-v2-svm-tests` (test "malformed_state") generated 11 warnings
+    Finished `test` profile [unoptimized] target(s) in 3.01s
+     Running tests\malformed_state.rs (target\debug\deps\malformed_state-99794573f2ac68a6.exe)
+PASS timepin exact-SBF malformed_state
+START timepin exact-SBF registration_open
+
+running 4 tests
+test capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds ... ok
+test exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts ... ok
+test exact_live_mainnet_snapshot_registers_opens_and_captures ... ok
+test registration_generation_mutants_fail_closed_and_roll_back ... ok
+
+successes:
+
+---- capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds stdout ----
+Timepin v2 large-account capture CU: 51447
+
+---- exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts stdout ----
+Timepin v2 large-account CU: register=35535, open=22781; Receiver ProgramData=425984B, Wormhole ProgramData=671744B
+policy_hash=88a2ab0b22ef195fb88756843549ad0fe4a9ad2fe11a26a4f95b7a3777aa5a1f spec_hash=ad7ea1f3961dc404fbe52feef6ac1a47480f92618de20499862d1bbd8a4679e3 spec_pda=7MJsnwEMjKjrw9YJG1rDvetGM8wrhbcQxyrDvjArMEe1 need_pda=ETp1e3Ayw7bf6JHXzE5zSyN1JjSRfpMFzzJwemQgavHy
+
+---- exact_live_mainnet_snapshot_registers_opens_and_captures stdout ----
+live mainnet snapshot slot=444338968: register=42092 CU, open=22786 CU, capture=62567 CU; Receiver PD=416909B@417825260, configured Wormhole PD=656005B@417825233, PriceUpdate posted=444338800
+
+
+successes:
+    capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds
+    exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts
+    exact_live_mainnet_snapshot_registers_opens_and_captures
+    registration_generation_mutants_fail_closed_and_roll_back
+
+test result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.73s
+
+    Finished `test` profile [unoptimized] target(s) in 1.20s
+     Running tests\registration_open.rs (target\debug\deps\registration_open-d3da5428b76c5880.exe)
+PASS timepin exact-SBF registration_open
+START core SVM target inventory
+{"packages":[{"name":"ratchet-core-g2-svm-tests","version":"0.1.0","id":"path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/ratchet-core-g2/svm-tests#ratchet-core-g2-svm-tests@0.1.0","license":null,"license_file":null,"description":"Independent exact-SBF transaction tests for Ratchet Core G2","source":null,"dependencies":[{"name":"base64","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=0.22.1","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"litesvm","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=0.16.0","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"serde_json","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=1.0.151","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"sha2","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=0.10.9","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"solana-sdk","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=4.0.1","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null},{"name":"spl-token","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=9.0.0","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":["no-entrypoint"],"target":null,"registry":null},{"name":"spl-token-2022-interface","source":"registry+https://github.com/rust-lang/crates.io-index","req":"=2.1.0","kind":null,"rename":null,"optional":false,"uses_default_features":true,"features":[],"target":null,"registry":null}],"targets":[{"kind":["test"],"crate_types":["bin"],"name":"core_g2_lifecycle","src_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests\\tests\\core_g2_lifecycle.rs","edition":"2021","doc":false,"doctest":false,"test":true}],"features":{},"manifest_path":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests\\Cargo.toml","metadata":null,"publish":[],"authors":[],"categories":[],"keywords":[],"readme":null,"repository":null,"homepage":null,"documentation":null,"edition":"2021","links":null,"default_run":null,"rust_version":null}],"workspace_members":["path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/ratchet-core-g2/svm-tests#ratchet-core-g2-svm-tests@0.1.0"],"workspace_default_members":["path+file:///D:/Work/Software_Projects/pumpmind/ratchetx/ratchet_phase_a_clean/onchain/ratchet-core-g2/svm-tests#ratchet-core-g2-svm-tests@0.1.0"],"resolve":null,"target_directory":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests\\target","build_directory":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests\\target","version":1,"workspace_root":"D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests","metadata":null}
+PASS core SVM target inventory
+START core exact-SBF core_g2_lifecycle
+
+running 16 tests
+test delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless ... ok
+test equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe ... ok
+test full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page ... ok
+test immutable_generation_registration_ledger_claim_and_history_are_permissionless ... ok
+test observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless ... ok
+test register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes ... ok
+test reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay ... ok
+test seal_forward_rejects_final_need ... ok
+test settle_final_rejects_candidate_for_other_message_hash ... ok
+test settle_final_rejects_candidate_need ... ok
+test settle_final_rejects_lookalike_owned_need_and_candidate_bytes ... ok
+test settle_final_rejects_other_final_need ... ok
+test settle_final_rejects_shot_from_another_economy_and_ruleset ... ok
+test settle_final_rejects_timepin_deadline_drift ... ok
+test settle_final_replay_is_rejected ... ok
+test void_active_shot_rejects_final_need ... ok
+
+successes:
+
+successes:
+    delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless
+    equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe
+    full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page
+    immutable_generation_registration_ledger_claim_and_history_are_permissionless
+    observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless
+    register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes
+    reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay
+    seal_forward_rejects_final_need
+    settle_final_rejects_candidate_for_other_message_hash
+    settle_final_rejects_candidate_need
+    settle_final_rejects_lookalike_owned_need_and_candidate_bytes
+    settle_final_rejects_other_final_need
+    settle_final_rejects_shot_from_another_economy_and_ruleset
+    settle_final_rejects_timepin_deadline_drift
+    settle_final_replay_is_rejected
+    void_active_shot_rejects_final_need
+
+test result: ok. 16 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.51s
+
+    Finished `test` profile [unoptimized] target(s) in 2.92s
+     Running tests\core_g2_lifecycle.rs (target\debug\deps\core_g2_lifecycle-5e6d2568520ee0d7.exe)
+PASS core exact-SBF core_g2_lifecycle
+START JS release gate
+
+> ratchet@0.1.0 test
+> node scripts/check-release-safety.mjs && node scripts/check-versions.mjs && node scripts/run-tests.mjs
+
+[OK] frozen Ratchet Seal v2 source identity
+[OK] 132 deployment input files pass the public surface boundary
+[OK] 2589 tracked/deployment files contain no blocked credential/artifact patterns
+[OK] core settlement and premium verifier remain bound to validated Pyth-on-Solana evidence
+[OK] Agent Skills index digest == SKILL.md sha256: sha256:6fa736ac28bc9b64baa8737887ae84c3beef345806dd8f740dba286cc4b30462
+[OK] SKILL.md installer digest == install.mjs: a1d74ac7178f820069283ba94dbb35fa715eaeb6d9f01514030de3fc66d760d6
+[OK] AI Catalog Skill == SKILL.md: 2.2.0
+[OK] AGENT_STATE.json skill == SKILL.md: 2.2.0
+[OK] AI Catalog MCP == mcp.json: 1.2.0
+[OK] api/mcp.js runtime == mcp.json: 1.2.0
+[OK] mcp/ratchet-mcp.mjs runtime == mcp.json: 1.2.0
+[OK] server.json (Official Registry) == mcp.json: 1.2.0
+[OK] mcp/server.json (Legacy Registry) == mcp.json: 1.2.0
+[OK] AGENT_STATE.json mcp == mcp.json: 1.2.0
+[OK] ERC-8004 profile (agent-registration.json) == SKILL.md: 2.2.0
+[OK] AGENT_STATE.json erc8004 == SKILL.md: 2.2.0
+All comprehensive version & digest checks passed.
+Test scope (win32): portable suites + native Windows deployment suites
+ok    test_account_lists.mjs
+ok    test_activity_agents.mjs
+ok    test_activity_feed.mjs
+ok    test_activity_readonly.mjs
+ok    test_agent_discovery.mjs
+ok    test_agent_e2e.mjs
+ok    test_agent_funnel_protocol.mjs
+ok    test_agent_registry.mjs
+ok    test_agent_registry_fix.mjs
+ok    test_agent_report.mjs
+ok    test_agents.mjs
+ok    test_anchor_health.mjs
+ok    test_arena_brier_ranking.mjs
+ok    test_balance.mjs
+ok    test_blink.mjs
+ok    test_bootstrap_plan.mjs
+ok    test_build_ix.mjs
+ok    test_calibration.mjs
+ok    test_canon.mjs
+ok    test_chain_gap.mjs
+ok    test_check_g2_artifacts.mjs  (25.7 s)
+ok    test_clean_tree_gate.mjs  (10.4 s)
+ok    test_client_covers_every_instruction.mjs
+ok    test_client_model_parity.mjs
+ok    test_cluster_guard.mjs
+ok    test_commit.mjs
+ok    test_compile_receipt_cli.mjs
+ok    test_core_and_timepin_agree_on_a_spec.mjs
+ok    test_core_client.mjs
+ok    test_core_g2_client_v2.mjs
+ok    test_core_g2_cost.mjs
+ok    test_core_g2_model.mjs
+ok    test_core_g2_snapshot.mjs
+ok    test_core_reads_what_timepin_writes.mjs
+ok    test_core_vectors.mjs
+ok    test_crank_decides.mjs
+ok    test_crank_entrypoint.mjs
+ok    test_crank_plan.mjs
+ok    test_crank_reads_players.mjs
+ok    test_crank_refuses.mjs
+ok    test_critical_paths.mjs
+ok    test_cutover_rehearsal.mjs
+ok    test_delegate.mjs
+ok    test_deploy_devnet.mjs
+ok    test_deploy_input.mjs  (10.3 s)
+ok    test_deploy_plan.mjs
+ok    test_deploy_preflight.mjs
+ok    test_deploy_rent.mjs
+ok    test_devnet_2_2_plan.mjs
+ok    test_devnet_bootstrap_cli.mjs
+ok    test_devnet_lifecycle_shape.mjs
+ok    test_devnet_play.mjs
+ok    test_equity_prices.mjs
+ok    test_feedhealth.mjs
+ok    test_foreign_timepin_abi.mjs
+ok    test_g2_build_artifacts.mjs  (9.7 s)
+ok    test_g2_reproduce.mjs
+ok    test_git_commit_paths.mjs  (7.8 s)
+ok    test_guarded_build_gate.mjs
+ok    test_guarded_commit_sql.mjs  (8.5 s)
+ok    test_guarded_preflight_sql.mjs
+ok    test_harness.mjs
+ok    test_heartbeat.mjs
+ok    test_history_page_is_write_only.mjs
+ok    test_inspector.mjs
+ok    test_kv_atomic.mjs
+ok    test_kv_ordered.mjs
+ok    test_kv_quota_is_not_retried.mjs
+ok    test_kv_shapes.mjs
+ok    test_ledger.mjs
+ok    test_ledger_cadence.mjs  (6.8 s)
+ok    test_legacy_chain.mjs
+ok    test_legacy_root.mjs
+ok    test_legacy_root_g2.mjs
+ok    test_legacy_root_rules.mjs
+ok    test_line_ending_law_is_enforced.mjs  (11.2 s)
+ok    test_live_snapshot.mjs
+ok    test_log.mjs
+ok    test_log_api.mjs
+ok    test_mainnet_go_check.mjs  (24.1 s)
+ok    test_manifest_is_approved.mjs
+ok    test_manifest_lag_is_grid_minus_one.mjs
+ok    test_mcp.mjs
+ok    test_mcp_agent_record.mjs
+ok    test_mcp_http.mjs
+ok    test_mcp_registry_manifest.mjs
+ok    test_migration_freeze.mjs
+ok    test_min_capture_logic.mjs
+ok    test_model_mirrors_source.mjs
+ok    test_next_print_client.mjs
+ok    test_next_print_model.mjs
+ok    test_next_print_v2_client.mjs
+ok    test_no_clip.mjs
+ok    test_no_scheduled_freeze_promise.mjs
+ok    test_no_unwritten_fields_in_permanent_accounts.mjs
+ok    test_observe_io.mjs
+ok    test_observer.mjs
+ok    test_onchain_cost.mjs
+ok    test_onchain_px.mjs
+ok    test_p6_canary.mjs
+ok    test_permanence_release.mjs
+ok    test_play_session_atomicity.mjs
+ok    test_player_actions.mjs
+ok    test_player_commit_recovery.mjs
+ok    test_player_day_rent.mjs
+ok    test_player_write_fencing.mjs
+ok    test_program_identity_is_one_fact.mjs
+ok    test_pure_burn.mjs
+ok    test_pyth_context.mjs
+ok    test_pyth_layout.mjs
+ok    test_pyth_ordering.mjs
+ok    test_pyth_pagination.mjs
+ok    test_ranked_remote_protocol.mjs
+ok    test_read_budget.mjs
+ok    test_read_game.mjs
+ok    test_readcost.mjs
+ok    test_record.mjs
+ok    test_record_api.mjs
+ok    test_release_identity.mjs
+ok    test_restore.mjs
+ok    test_rollup.mjs
+ok    test_run_bootstrap.mjs
+ok    test_run_receipt.mjs
+ok    test_run_tests_gate.mjs
+ok    test_sample_durability.mjs
+ok    test_say.mjs
+ok    test_send_gate.mjs
+ok    test_send_io.mjs
+ok    test_settle.mjs
+ok    test_shot_receipt.mjs
+ok    test_snapshot_fidelity.mjs
+ok    test_state_read_budget.mjs
+ok    test_stock_cadence.mjs
+ok    test_store_gate.mjs
+ok    test_store_outage.mjs
+ok    test_stream_capture.mjs  (7.3 s)
+ok    test_suite_selection.mjs
+ok    test_supabase_final_snapshot.mjs
+ok    test_supabase_final_snapshot_restore.mjs  (7.8 s)
+ok    test_supabase_key_formats.mjs
+ok    test_supabase_kv.mjs
+ok    test_supabase_migration.mjs
+ok    test_supabase_strict_read.mjs
+ok    test_supply.mjs
+ok    test_timepin_cadence_policy.mjs
+ok    test_timepin_v2_lifecycle_vectors.mjs
+ok    test_timepin_v2_model.mjs
+ok    test_timepin_vector_generation.mjs
+ok    test_waiting.mjs
+ok    test_warden.mjs
+ok    test_work_market_client.mjs
+ok    test_work_page_cost_model.mjs
+ok    windows/test_deploy_cmd.mjs
+
+153 passed · 0 failed · 0 skipped
+PASS JS release gate
 START timepin final artifact readback
 {
   "file": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",

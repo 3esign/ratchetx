@@ -39,7 +39,7 @@ require.cache[gamePath] = {
   },
 };
 
-const mcp = require('../api/mcp.js');
+const mcp = require('../lib/mcp-legacy.js'); // api/mcp.js is G2-only since c310dfd
 
 function b58encode(bytes) {
   const alphabet = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';

@@ -33,7 +33,8 @@ require.cache[proofPath] = { id:proofPath, filename:proofPath, loaded:true, expo
   res.json({ok:true,v:'test',truthPlane:{canonicalSettlement:'ratchet-server'},
     checks:[{id:'oracle',status:'green',label:'oracle answers',detail:'stub'}]}) };
 
-const mcp = require('../api/mcp.js');
+// api/mcp.js serves G2 only since c310dfd (2026-09-08); the legacy demo server is exercised at its module.
+const mcp = require('../lib/mcp-legacy.js');
 let nextId = 1;
 const call = async (method, params = {}, headers = {}) => {
   let status=200, body, ended=false; const outHeaders={};

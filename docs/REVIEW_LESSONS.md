@@ -294,6 +294,41 @@ receipt with no second facilitator settlement.
 
 ---
 
+## 15 · A pinned release package is only as current as the last time somebody rebuilt it
+
+**What happened (2026-09-08).** Three commits on `main` "fixed" the Bankr `$RCX play` alias by
+editing JSON discovery files and docs. The runtime that a Bankr host actually downloads is
+`releases/g2-agent-runtime.json.gz`, pinned by SHA-256 in `install.mjs` and `SKILL.md`; it was
+built on 2026-09-06 and still refused `$RCX play` as an unsupported asset. Worse, the tree could
+not rebuild it: `lib/g2/x-reply.mjs` lived only on `codex/astra2-devnet-site`,
+`skills/ratchetx/scripts/session-play.mjs` had been deleted by "Semantic variety in G2 skill",
+and `scripts/build-g2-agent-runtime.mjs` was never committed. `main` shipped a runtime whose
+source did not exist on `main`.
+
+**Rule.** A change to any file listed in `releases/g2-agent-runtime.manifest.json` is not a
+change until `node scripts/build-g2-agent-runtime.mjs` has run and the new digest is in
+`install.mjs`, both `SKILL.md` copies, `.well-known/agent-skills/index.json` and
+`docs/AGENT_STATE.json` (`node scripts/check-versions.mjs` enforces the pins). Editing discovery
+JSON to "force cache invalidation" changes nothing a host executes.
+
+**Check.** `scripts/check-versions.mjs` already pins digests; what it could not see was a source
+tree unable to reproduce its own package. The build script is now tracked; running it from a
+clean checkout is the reproducibility test. Evidence: this session's `docs/receipts/`.
+
+## 16 · A test that pins a retired surface fails forever, and hides every real failure behind it
+
+**What happened.** `api/mcp.js` was switched to the G2 server ("Force api/mcp to use g2 always").
+`test_mcp_http.mjs`, `test_mcp_agent_record.mjs` and `test_agent_funnel_protocol.mjs` kept
+requiring `api/mcp.js` and asserting the thirteen legacy tools; `test_agent_discovery.mjs`
+asserted `references/owner-session-test.md`, deleted at the takeover. The JS release gate was red
+for reasons unrelated to any change under review, so the G2 artifact build could not pass its
+last stage and B1/B2 stayed PENDING while both programs compiled and every exact-SBF test passed.
+
+**Rule.** When a surface is retired or re-pointed, the tests that describe it move with it in
+the same commit: either to the module that still implements the old behavior
+(`lib/mcp-legacy.js`) or to the new contract. A red gate that everyone learns to read past is
+not a gate.
+
 ## Already documented elsewhere, not restated here
 
 - **`jsonb` does not preserve object key order**, so hashing `JSON.stringify` output makes a

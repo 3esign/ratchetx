@@ -202,10 +202,10 @@ assert.ok(skillHeaders && skillHeaders.headers.some(h =>
   'the public Agent Skill must be served as Markdown');
 assert.match(vercelIgnore, /^!skills\/ratchetx\/SKILL\.md$/m,
   'the exact public Agent Skill must be re-included after the global Markdown deploy exclusion');
-const runbook = read('../skills/ratchetx/references/owner-session-test.md');
-assert.ok(skill.includes('(references/owner-session-test.md)'), 'owner-session mode routes to its bounded runbook');
-assert.ok(runbook.includes('(../scripts/session-smoke.mjs)'), 'runner is discoverable from the installed skill');
-for (const path of ['references/owner-session-test.md', 'scripts/session-smoke.mjs']) {
+// Since the G2 takeover the public skill is the delegated-signer runtime: SKILL.md ships with its
+// pinned installer and runner companion, and every served companion is CORS-visible.
+assert.ok(skill.includes('scripts/install.mjs'), 'the installer companion is discoverable from the installed skill');
+for (const path of ['scripts/install.mjs', 'scripts/g2-session.mjs']) {
   assert.ok(fs.statSync(new URL('../skills/ratchetx/' + path, import.meta.url)).isFile());
   assert.ok(vercelIgnore.split(/\r?\n/).includes('!skills/ratchetx/' + path));
   assert.ok(vercel.headers.some(h => h.source === '/skills/ratchetx/' + path

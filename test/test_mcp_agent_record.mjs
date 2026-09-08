@@ -15,7 +15,7 @@ await kv.setJSON('u:'+identity,{w:identity,shots:1,bn:1,bsum:.2704,
 await kv.setJSON('agentrun:'+shotId,{shotId,digest:'sha256:'+'a'.repeat(64),verifiedAt:1788080000000,
   receipt:{result:'MATCH',trustBoundary:{oracleAccountValidation:'Pyth PriceUpdateV2 decoded and validated at observation time',
     selectionAuthority:'ratchet-server-hash-chain',independentPythReplay:false}}});
-const mcp=require('../api/mcp.js'),game=require('../api/game.js');
+const mcp=require('../lib/mcp-legacy.js'),game=require('../api/game.js'); // api/mcp.js is G2-only since c310dfd
 async function call(id){
   let body,status=200;
   await mcp({method:'POST',headers:{},socket:{},body:{jsonrpc:'2.0',id:1,method:'tools/call',
