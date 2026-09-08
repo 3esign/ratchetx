@@ -255,7 +255,7 @@ function argumentsFor(argv) {
     flags[argv[i]] = argv[i + 1];
   }
   const allowed = { help: [], init: ['--player'], setup: ['--player'], preflight: [], play: ['--say', '--command-id'], status: [],
-    reconcile: ['--command-id'], reveal: ['--command-id'], finish: ['--command-id'], 'recover-lock': [] }[command];
+    reconcile: ['--command-id'], reveal: ['--command-id'], finish: ['--command-id'], 'recover-lock': [], diagnose: [] }[command];
   fail(allowed && Object.keys(flags).every(key => allowed.includes(key)), 'INVALID_ARGUMENTS');
   if (['play', 'reconcile', 'reveal', 'finish'].includes(command)) fail(/^(?:[0-9]{1,32}|[a-f0-9]{32})$/.test(flags['--command-id'] || ''), 'COMMAND_ID_REQUIRED');
   if (command === 'play') fail(typeof flags['--say'] === 'string' && flags['--say'].length > 0 && flags['--say'].length <= 4000, 'USER_TEXT_REQUIRED');
@@ -282,6 +282,7 @@ async function runSeeded(command, flags, seed) {
   const identity = { ...seedIdentity(web3, seed), economyHash: CONFIG.economyHash, rulesetHash: CONFIG.rulesetHash };
   if (command === 'init' || command === 'setup') { fail(flags['--player'] === undefined || flags['--player'] === 'self' || flags['--player'] === identity.player, 'STATE_PLAYER_CONFLICT');
     return publicJson({ ok: true, code: 'SELF_PLAY_READY', scope: 'DEVNET_TEST_CREDITS_ONLY', ...identity, noTransactionSent: true, reply: 'Your agent plays with its own seed-derived devnet wallet ' + identity.player + '. Nothing to sign anywhere else: the first play claims 10,000 devnet test credits and seals the prediction.' }); }
+  if (command === 'diagnose') return publicJson({ ok: true, code: 'DIAGNOSE', node: process.version, platform: process.platform, envNames: Object.keys(process.env).filter(k => !/SEED|SECRET|TOKEN|KEY|PASS/i.test(k)).sort(), cwd: process.cwd(), homeWritable: (() => { try { fs.accessSync(os.homedir(), fs.constants.W_OK); return true; } catch { return false; } })(), reply: 'Host diagnostics (names only, no values).' });
   if (command === 'recover-lock') return publicJson({ ok: true, code: 'NO_LOCK_IN_SEED_MODE', reply: 'Seed mode keeps no local lock or journal; nothing to recover.' });
   const funding = await ensureDevnetFeeBalance(identity, web3, connection);
   const agent = createSeedAgent({ web3, connection, config: CONFIG, seed, onStatus: s => { if (process.env.RATCHET_G2_DEBUG) console.error('..', s.phase); } });
