@@ -37,6 +37,14 @@ pub const RCX_MINT: Pubkey = pubkey!("FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpu
 pub const RCX_DECIMALS: u8 = 6;
 pub const RCX_RAW_UNITS_PER_CREDIT: u64 = 1_000_000;
 pub const RCX_MINT_ACCOUNT_LEN: usize = 409;
+/// Solana devnet genesis hash (EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG). The devnet
+/// playground entry below compares the immutable economy's cluster genesis against it, so
+/// the same program bytes carry a permissionless test-credit door on devnet and a door
+/// that can never open on any economy registered for another cluster.
+pub const DEVNET_GENESIS_HASH: Pubkey = pubkey!("EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG");
+/// Test credits any wallet may claim once per devnet economy. Same figure as the
+/// single legacy allocation, so a stranger and the operator start equal.
+pub const DEVNET_PLAYGROUND_CREDITS: u64 = 10_000;
 pub const RCX_METADATA_URI: &str =
     "https://ipfs.io/ipfs/bafkreig5iupjirb2lgufnfehecq4vrnsxr5h54p2jp3o3h64p6wnclg26a";
 pub const ASSOCIATED_TOKEN_PROGRAM_ID: Pubkey =
@@ -773,6 +781,48 @@ pub mod ratchet_core_g2 {
             leaf,
             snapshot_hash: ctx.accounts.economy.args.legacy_snapshot_hash,
             cutover_slot: ctx.accounts.economy.args.legacy_cutover_slot,
+        });
+        Ok(())
+    }
+
+    /// Permissionless devnet entry: any wallet claims DEVNET_PLAYGROUND_CREDITS once
+    /// per economy. The credits land in the legacy bucket, so ledger conservation is
+    /// unchanged and the legacy tombstone (legacy_credits/legacy_xp) is the replay
+    /// guard: a wallet that already claimed the migration snapshot cannot also claim
+    /// here, and vice versa. The door is bound to the economy's immutable cluster
+    /// genesis, not to a build flag: on an economy registered for any other cluster
+    /// this instruction always fails, with identical program bytes.
+    pub fn claim_devnet_credits(ctx: Context<ClaimDevnetCredits>) -> Result<()> {
+        require_exact_len(&ctx.accounts.economy.to_account_info(), Economy::LEN)?;
+        authenticate_economy(&ctx.accounts.economy, ctx.accounts.economy.key())?;
+        require!(
+            ctx.accounts.economy.args.cluster_genesis_hash == DEVNET_GENESIS_HASH.to_bytes(),
+            CoreG2Error::NotDevnetEconomy
+        );
+        let player = ctx.accounts.player.key();
+        let economy_hash = ctx.accounts.economy.economy_hash;
+        initialize_or_authenticate_ledger(
+            &mut ctx.accounts.ledger,
+            ctx.bumps.ledger,
+            economy_hash,
+            player,
+        )?;
+        require_legacy_claim_available(&ctx.accounts.ledger, DEVNET_PLAYGROUND_CREDITS, 0)?;
+        let ledger = &mut ctx.accounts.ledger;
+        require_ledger_conservation(ledger)?;
+        ledger.credits = ledger
+            .credits
+            .checked_add(DEVNET_PLAYGROUND_CREDITS)
+            .ok_or(CoreG2Error::MathOverflow)?;
+        ledger.legacy_credits = ledger
+            .legacy_credits
+            .checked_add(DEVNET_PLAYGROUND_CREDITS)
+            .ok_or(CoreG2Error::MathOverflow)?;
+        require_ledger_conservation(ledger)?;
+        emit!(DevnetCreditsClaimed {
+            economy_hash,
+            player,
+            credits: DEVNET_PLAYGROUND_CREDITS,
         });
         Ok(())
     }
@@ -2674,6 +2724,22 @@ pub struct FinalizeDay<'info> {
 
 #[derive(Accounts)]
 pub struct ClaimLegacy<'info> {
+    #[account(mut)]
+    pub player: Signer<'info>,
+    pub economy: Box<Account<'info, Economy>>,
+    #[account(
+        init_if_needed,
+        payer = player,
+        space = 8 + PlayerLedger::LEN,
+        seeds = [LEDGER_SEED, economy.economy_hash.as_ref(), player.key().as_ref()],
+        bump,
+    )]
+    pub ledger: Box<Account<'info, PlayerLedger>>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ClaimDevnetCredits<'info> {
     #[account(mut)]
     pub player: Signer<'info>,
     pub economy: Box<Account<'info, Economy>>,
@@ -4850,6 +4916,13 @@ pub struct RcxReloaded {
 }
 
 #[event]
+pub struct DevnetCreditsClaimed {
+    pub economy_hash: [u8; 32],
+    pub player: Pubkey,
+    pub credits: u64,
+}
+
+#[event]
 pub struct LegacyClaimed {
     pub economy_hash: [u8; 32],
     pub player: Pubkey,
@@ -5094,6 +5167,8 @@ pub enum CoreG2Error {
     WrongReloadHistoryPage,
     #[msg("this day still has shots that have not terminalized")]
     PlayerDayStillReferenced,
+    #[msg("devnet test credits exist only on an economy registered for the devnet genesis")]
+    NotDevnetEconomy,
 }
 
 #[cfg(test)]

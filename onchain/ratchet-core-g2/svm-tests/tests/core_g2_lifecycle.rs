@@ -57,6 +57,9 @@ const NEED_LEN: usize = 168;
 const RCX_UNIT: u64 = 1_000_000;
 const RCX_SUPPLY: u64 = 936_699_884_132_132;
 const LEGACY_CREDITS: u64 = 100;
+// Solana devnet genesis, as the program pins it; the playground door opens only here.
+const DEVNET_GENESIS_HASH: &str = "EtWTRABZaYq6iMfeYKouRu166VU2xqa1wcaWoxPkrZBG";
+const DEVNET_PLAYGROUND_CREDITS: u64 = 10_000;
 const LEGACY_XP: u64 = 7;
 const FEED: [u8; 32] = [3; 32];
 const SNAPSHOT_HASH: [u8; 32] = [77; 32];
@@ -1037,6 +1040,24 @@ impl World {
         entry_mode: u8,
         max_entry_age_seconds: u32,
     ) -> Kernel {
+        self.bootstrap_full(registrar, legacy_player, entry_mode, max_entry_age_seconds, CLUSTER_GENESIS_HASH)
+    }
+
+    /// Same kernel, registered for another cluster genesis. Only the devnet
+    /// playground test needs this; every other test keeps the synthetic genesis.
+    fn bootstrap_devnet(&mut self, registrar: &Keypair, legacy_player: &Pubkey) -> Kernel {
+        let genesis = Pubkey::from_str(DEVNET_GENESIS_HASH).unwrap().to_bytes();
+        self.bootstrap_full(registrar, legacy_player, 2, 0, genesis)
+    }
+
+    fn bootstrap_full(
+        &mut self,
+        registrar: &Keypair,
+        legacy_player: &Pubkey,
+        entry_mode: u8,
+        max_entry_age_seconds: u32,
+        cluster_genesis_hash: [u8; 32],
+    ) -> Kernel {
         let (spec_hash, policy_hash, spec) = self.register_timepin_spec(registrar);
         let policy_template = RulesArgs {
             economy_hash: [0; 32],
@@ -1053,7 +1074,7 @@ impl World {
         economy_args.extend_from_slice(&SCHEMA.to_le_bytes());
         economy_args.extend_from_slice(timepin_program().as_ref());
         economy_args.extend_from_slice(&SCHEMA.to_le_bytes());
-        economy_args.extend_from_slice(&CLUSTER_GENESIS_HASH);
+        economy_args.extend_from_slice(&cluster_genesis_hash);
         economy_args.extend_from_slice(&MIGRATION_ID);
         economy_args.extend_from_slice(&legacy_root);
         economy_args.extend_from_slice(&SNAPSHOT_HASH);
@@ -1288,6 +1309,22 @@ impl World {
             self.instruction(
                 "claim_legacy",
                 args,
+                vec![
+                    AccountMeta::new(player.pubkey(), true),
+                    AccountMeta::new_readonly(kernel.economy, false),
+                    AccountMeta::new(ledger_pda(&kernel.economy_hash, &player.pubkey()), false),
+                    AccountMeta::new_readonly(system_program(), false),
+                ],
+            ),
+            &[player],
+        )
+    }
+
+    fn claim_devnet_credits(&mut self, player: &Keypair, kernel: &Kernel) -> Result<(), String> {
+        self.send(
+            self.instruction(
+                "claim_devnet_credits",
+                Vec::new(),
                 vec![
                     AccountMeta::new(player.pubkey(), true),
                     AccountMeta::new_readonly(kernel.economy, false),
@@ -2615,6 +2652,51 @@ fn immutable_generation_registration_ledger_claim_and_history_are_permissionless
     assert_eq!(history.data.len(), HISTORY_BASE_LEN);
     assert_eq!(&history.data[..8], &discriminator("account", "HistoryPage"));
     assert_eq!(read_u32(&history.data, 83), 0);
+}
+
+#[test]
+fn devnet_playground_credits_open_only_on_the_devnet_economy() {
+    let mut world = World::new();
+    let registrar = world.wallet();
+    let legacy_player = world.wallet();
+    let stranger = world.wallet();
+    let other = world.wallet();
+
+    // On an economy registered for any other genesis the door never opens,
+    // whether or not the ledger already exists.
+    let synthetic = world.bootstrap(&registrar, &legacy_player.pubkey());
+    assert!(world.claim_devnet_credits(&stranger, &synthetic).is_err());
+    world.open_ledger(&stranger, &synthetic).unwrap();
+    assert!(world.claim_devnet_credits(&stranger, &synthetic).is_err());
+    let untouched = world
+        .svm
+        .get_account(&ledger_pda(&synthetic.economy_hash, &stranger.pubkey()))
+        .unwrap();
+    assert_eq!(read_u64(&untouched.data, 75), 0);
+
+    // On the devnet economy a stranger with no allocation claims exactly once,
+    // the ledger is created for them, and the credits sit in the legacy bucket
+    // so conservation and the replay tombstone are the existing ones.
+    let devnet = world.bootstrap_devnet(&registrar, &legacy_player.pubkey());
+    let ledger_key = ledger_pda(&devnet.economy_hash, &stranger.pubkey());
+    assert!(world.svm.get_account(&ledger_key).is_none());
+    world.claim_devnet_credits(&stranger, &devnet).unwrap();
+    let ledger = world.svm.get_account(&ledger_key).unwrap();
+    assert_eq!(ledger.data.len(), LEDGER_LEN);
+    assert_eq!(read_u64(&ledger.data, 75), DEVNET_PLAYGROUND_CREDITS);
+    assert_eq!(read_u64(&ledger.data, 99), DEVNET_PLAYGROUND_CREDITS);
+    assert_eq!(read_u64(&ledger.data, 91), 0);
+    assert!(world.claim_devnet_credits(&stranger, &devnet).is_err());
+    let again = world.svm.get_account(&ledger_key).unwrap();
+    assert_eq!(read_u64(&again.data, 75), DEVNET_PLAYGROUND_CREDITS);
+
+    // A second stranger gets their own, independent allocation.
+    world.claim_devnet_credits(&other, &devnet).unwrap();
+    let other_ledger = world
+        .svm
+        .get_account(&ledger_pda(&devnet.economy_hash, &other.pubkey()))
+        .unwrap();
+    assert_eq!(read_u64(&other_ledger.data, 75), DEVNET_PLAYGROUND_CREDITS);
 }
 
 #[test]

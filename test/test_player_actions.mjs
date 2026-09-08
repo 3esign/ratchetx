@@ -123,6 +123,15 @@ test('one-leaf legacy claim accepts empty proof with exact bytes and Rust accoun
   assertAccounts(ix, 'ClaimLegacy', common);
 });
 
+test('devnet playground claim is argument-free, synchronous and uses the ClaimLegacy account shape', () => {
+  const ix = actions.claimDevnetCreditsIx({ economy, player });
+  assert.equal(typeof ix.then, 'undefined', 'claim builder is synchronous');
+  assert.deepEqual(Buffer.from(ix.data), disc('claim_devnet_credits'));
+  assert.equal(ix.data.length, 8);
+  assertAccounts(ix, 'ClaimDevnetCredits', common);
+  assert.throws(() => actions.claimDevnetCreditsIx({ economy, player: 'not-a-key' }));
+});
+
 test('legacy proof vector serializes u32 count followed by all exact siblings', () => {
   const proof = [new Uint8Array(hash('sibling one')), new Uint8Array(hash('sibling two'))];
   const ix = actions.claimLegacyIx({ economy, player, ...claim, proof });
@@ -176,7 +185,7 @@ test('adapters run without Node globals and expose no signing/sending method', a
   const make = runInNewContext(source.replace(/^export /gm, '') + '\ncreatePlayerActions',
     { TextEncoder, Uint8Array, DataView });
   const browser = make({ client, web3 });
-  assert.deepEqual(Object.keys(browser), ['claimLegacyIx', 'revealIx']);
+  assert.deepEqual(Object.keys(browser), ['claimLegacyIx', 'claimDevnetCreditsIx', 'revealIx']);
   assert.equal(browser.claimLegacyIx({ economy, player, ...claim }).data.length, 28);
   assert.equal((await browser.revealIx(reveal)).data.length, 43);
 });

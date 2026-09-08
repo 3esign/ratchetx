@@ -350,6 +350,31 @@
         }
       ]
     },
+    "claim_devnet_credits": {
+      "context": "ClaimDevnetCredits",
+      "accounts": [
+        {
+          "name": "player",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "economy",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "ledger",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
     "grant_delegate": {
       "context": "GrantDelegate",
       "accounts": [
