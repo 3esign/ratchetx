@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "url": "https://ratchetx.xyz/releases/g2-agent-runtime.json.gz",
-  "sha256": "e0c9830591c97880891d868ee9c1b1dc2977c664aba20d136f013db3965807ef",
-  "bytes": 310268,
+  "sha256": "1d5e1823a8e1137a4548e7de546be82222672ec9deff13caf8458864adf0174b",
+  "bytes": 311095,
   "entry": "skills/ratchetx-g2/scripts/g2-session.mjs",
   "scope": "DEVNET_AGENT_RUNTIME",
   "node": ">=20.11",
@@ -20,7 +20,7 @@
       "format": "existing browser IIFE; Node stdlib loader"
     }
   },
-  "sourceBytes": 785199,
+  "sourceBytes": 786942,
   "files": [
     {
       "path": "lib/g2/agent-session.mjs",
@@ -34,8 +34,8 @@
     },
     {
       "path": "lib/g2/browser-game.mjs",
-      "sha256": "71f5a56874e4ebd6c0e73fbc23be82fd839eca4ecf35c118edd05379f5df06f7",
-      "bytes": 20805
+      "sha256": "3c34d44f47fc01d903d2948acbd6e032208c7cdbabd43f50598fd65b02c4fd0e",
+      "bytes": 22548
     },
     {
       "path": "lib/g2/client-v2.mjs",
