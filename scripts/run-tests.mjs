@@ -38,11 +38,8 @@ console.log('Test scope (' + process.platform + '): portable suites'
 // surface it needs; RATCHET_LAYOUT_SERVER still overrides, and when it does the
 // runner serves nothing and uses what you pointed it at.
 const LAYOUT_SERVER = process.env.RATCHET_LAYOUT_SERVER || 'http://127.0.0.1:8247/';
-const SERVER_FOR = new Map([
-  ['test_widths.mjs',LAYOUT_SERVER], ['test_align.mjs',LAYOUT_SERVER],
-  ['test_funnel.mjs',LAYOUT_SERVER], ['test_notify.mjs',LAYOUT_SERVER],
-  ['test_chal_ui.mjs',LAYOUT_SERVER],
-]);
+  const SERVER_FOR = new Map([
+  ]);
 // Suites that drive a browser but serve their own page, so they need no fixture
 // server and are not in the map above. They still need a BROWSER, and leaving
 // them out of that check is how one of them stayed red on a machine with no

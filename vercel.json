@@ -114,7 +114,7 @@
       ]
     },
     {
-      "source": "/skills/ratchetx/SKILL.md",
+      "source": "/skills/ratchetx-g2/SKILL.md",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",
@@ -127,20 +127,7 @@
       ]
     },
     {
-      "source": "/skills/ratchetx/references/owner-session-test.md",
-      "headers": [
-        {
-          "key": "Access-Control-Allow-Origin",
-          "value": "*"
-        },
-        {
-          "key": "Content-Type",
-          "value": "text/markdown; charset=utf-8"
-        }
-      ]
-    },
-    {
-      "source": "/skills/ratchetx/scripts/session-smoke.mjs",
+      "source": "/skills/ratchetx-g2/scripts/install.mjs",
       "headers": [
         {
           "key": "Access-Control-Allow-Origin",

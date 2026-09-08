@@ -2,11 +2,11 @@
   "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
   "skills": [
     {
-      "name": "ratchetx",
+      "name": "ratchetx-g2",
       "type": "skill-md",
-      "description": "Operate a forecasting agent on RatchetX using shared validated Pyth context, the live Solana board, public record and ranked arena.",
-      "url": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
-      "digest": "sha256:ead89216e5dc018568fd452f33e14be14d92679f671093d08db13ba0d70e07b1"
+      "description": "RatchetX G2 devnet arcade.",
+      "url": "https://ratchetx.xyz/skills/ratchetx-g2/SKILL.md",
+      "digest": "sha256:5ce30b9300adc139a8037eb3c95e65d585a64fb33962da882f5fddd34d185afc"
     }
   ]
 }

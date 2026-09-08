@@ -19,7 +19,7 @@ try {
   const agentState = readJson('docs/AGENT_STATE.json');
 
   // --- SKILLS ---
-  const skillText = fs.readFileSync('skills/ratchetx/SKILL.md', 'utf8');
+  const skillText = fs.readFileSync('skills/ratchetx-g2/SKILL.md', 'utf8');
   const skillVersionMatch = skillText.match(/version:\s*"([^"]+)"/);
   const skillVersion = skillVersionMatch ? skillVersionMatch[1] : null;
 
@@ -29,18 +29,14 @@ try {
 
   // Agent Skills Index Digest
   const skillsIndex = readJson('.well-known/agent-skills/index.json');
-  const skillItem = skillsIndex.skills.find(s => s.name === 'ratchetx');
+  const skillItem = skillsIndex.skills.find(s => s.name === 'ratchetx-g2');
   const actualDigest = 'sha256:' + crypto.createHash('sha256').update(skillText).digest('hex');
-  const runnerDigest = crypto.createHash('sha256')
-    .update(fs.readFileSync('skills/ratchetx/scripts/session-play.mjs')).digest('hex');
-  const smokeDigest = crypto.createHash('sha256')
-    .update(fs.readFileSync('skills/ratchetx/scripts/session-smoke.mjs')).digest('hex');
-  const runnerDeclared = skillText.match(/session-play-sha256:\s*"([a-f0-9]{64})"/)?.[1] || null;
-  const smokeDeclared = skillText.match(/session-smoke-sha256:\s*"([a-f0-9]{64})"/)?.[1] || null;
+  const installerDigest = crypto.createHash('sha256')
+    .update(fs.readFileSync('skills/ratchetx-g2/scripts/install.mjs')).digest('hex');
+  const installerDeclared = skillText.match(/installer-sha256:\s*"([a-f0-9]{64})"/)?.[1] || null;
 
   assertVersion('Agent Skills index digest == SKILL.md sha256', skillItem.digest, actualDigest);
-  assertVersion('SKILL.md runner digest == session-play.mjs', runnerDeclared, runnerDigest);
-  assertVersion('SKILL.md smoke digest == session-smoke.mjs', smokeDeclared, smokeDigest);
+  assertVersion('SKILL.md installer digest == install.mjs', installerDeclared, installerDigest);
   assertVersion('AI Catalog Skill == SKILL.md', catalogSkillVersion, skillVersion);
   assertVersion('AGENT_STATE.json skill == SKILL.md', agentState.versions.agentSkill, skillVersion);
 

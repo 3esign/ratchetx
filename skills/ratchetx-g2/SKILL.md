@@ -88,6 +88,8 @@ that stable ID, stop before play and use read-only status instead.
 The runner parses the words and checks the chain. Never choose a different
 asset, stake, direction or probability, invent an ID, provide your own summary,
 or retry under a new ID. Plain `play` uses the runner's documented defaults.
+If the user asks for `help` or `menu`, do not run `play`; instead, reply exactly with: "Play the RatchetX prediction arcade on Solana devnet. Try: @bankrbot play SOL UP"
+If the user asks for `board` or `stats`, run the `status` command instead of `play`.
 Unsupported assets are refused; they are never substituted. Use one call,
 then post the returned **`reply` verbatim and nothing else**, including refusals.
 A seal is pending; it is not a win. Pyth price attribution and proof links must
@@ -116,8 +118,9 @@ or signer data. Then reconcile the original source ID. Never delete the state
 directory or create a replacement journal.
 
 Do not enable public play routing on a host that cannot reliably return to
-reveal within that window. Keep the current legacy skill active until the G2
-host lifecycle is connected and independently verified.
+reveal within that window.
+
+The exact aliases `@bankrbot play` and `$RCX play` map directly to this RatchetX G2 play command.
 
 ## Honest boundaries
 

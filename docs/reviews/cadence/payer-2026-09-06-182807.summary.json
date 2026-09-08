@@ -50,22 +50,22 @@
   "pollIntervalMs": 0,
   "observedSeconds": 87236,
   "observedHours": 24.232222222222223,
-  "records": 45451,
+  "records": 54047,
   "errors": 0,
   "malformed": 0,
   "headers": 2,
-  "duplicateRows": 490,
+  "duplicateRows": 886,
   "collidingCollectors": true,
   "feeds": {
     "BTC": {
       "feedId": "e62df6c8b4a85fe1a67db44dc12de5db330f7ac66b72dc658afedf0f4a415b43",
       "sourceAddress": "APgzQGGdv2qCgBkX6aHVkrGePtBVDDg68GiqaM7rmtf5",
-      "observations": 18443,
-      "distinctPublishTimes": 18270,
+      "observations": 19152,
+      "distinctPublishTimes": 18848,
       "firstPublishTime": 1788632038,
       "lastPublishTime": 1788719274,
       "publishGapSeconds": {
-        "n": 18269,
+        "n": 18847,
         "p50": 5,
         "p95": 5,
         "p99": 6,
@@ -87,9 +87,66 @@
             }
           },
           "strictBracket": {
-            "hit": 234,
-            "missed": 1220,
-            "hitRate": 0.1609353507565337
+            "hit": 244,
+            "missed": 1210,
+            "hitRate": 0.16781292984869325
+          }
+        },
+        "300": {
+          "targets": 291,
+          "minCapture": {
+            "hit": 291,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 291,
+              "p50": 2,
+              "p95": 4,
+              "p99": 4,
+              "max": 5
+            }
+          },
+          "strictBracket": {
+            "hit": 52,
+            "missed": 239,
+            "hitRate": 0.17869415807560138
+          }
+        }
+      }
+    },
+    "SOL": {
+      "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
+      "sourceAddress": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
+      "observations": 19141,
+      "distinctPublishTimes": 18831,
+      "firstPublishTime": 1788632038,
+      "lastPublishTime": 1788719274,
+      "publishGapSeconds": {
+        "n": 18830,
+        "p50": 5,
+        "p95": 5,
+        "p99": 6,
+        "max": 8
+      },
+      "grids": {
+        "60": {
+          "targets": 1454,
+          "minCapture": {
+            "hit": 1454,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 1454,
+              "p50": 2,
+              "p95": 4,
+              "p99": 4,
+              "max": 5
+            }
+          },
+          "strictBracket": {
+            "hit": 249,
+            "missed": 1205,
+            "hitRate": 0.17125171939477304
           }
         },
         "300": {
@@ -114,186 +171,15 @@
         }
       }
     },
-    "SOL": {
-      "feedId": "ef0d8b6fda2ceba41da15d4095d1da392a0d2f8ed0c6c7bc0f4cfac8c280b56d",
-      "sourceAddress": "7AviUf9nL62mcxNbQGKm4nKDQnPjswo6c5MX4D57HmyE",
-      "observations": 18427,
-      "distinctPublishTimes": 18257,
-      "firstPublishTime": 1788632038,
-      "lastPublishTime": 1788719274,
-      "publishGapSeconds": {
-        "n": 18256,
-        "p50": 5,
-        "p95": 5,
-        "p99": 6,
-        "max": 8
-      },
-      "grids": {
-        "60": {
-          "targets": 1454,
-          "minCapture": {
-            "hit": 1454,
-            "missed": 0,
-            "hitRate": 1,
-            "firstPrintLagSeconds": {
-              "n": 1454,
-              "p50": 2,
-              "p95": 4,
-              "p99": 4,
-              "max": 5
-            }
-          },
-          "strictBracket": {
-            "hit": 235,
-            "missed": 1219,
-            "hitRate": 0.16162310866574967
-          }
-        },
-        "300": {
-          "targets": 291,
-          "minCapture": {
-            "hit": 291,
-            "missed": 0,
-            "hitRate": 1,
-            "firstPrintLagSeconds": {
-              "n": 291,
-              "p50": 2,
-              "p95": 4,
-              "p99": 4,
-              "max": 5
-            }
-          },
-          "strictBracket": {
-            "hit": 47,
-            "missed": 244,
-            "hitRate": 0.16151202749140894
-          }
-        }
-      }
-    },
     "ETH": {
       "feedId": "ff61491a931112ddf1bd8147cd1b641375f79f5825126d665480874634fd0ace",
       "sourceAddress": "7odryi4WfoMFHtv2eubdMgP1pqQMmdiXSK1N2tqZ2nRH",
-      "observations": 1678,
-      "distinctPublishTimes": 1667,
-      "firstPublishTime": 1788676553,
+      "observations": 3106,
+      "distinctPublishTimes": 3075,
+      "firstPublishTime": 1788639873,
       "lastPublishTime": 1788719266,
       "publishGapSeconds": {
-        "n": 1666,
-        "p50": 25,
-        "p95": 50,
-        "p99": 52,
-        "max": 53
-      },
-      "grids": {
-        "60": {
-          "targets": 712,
-          "minCapture": {
-            "hit": 712,
-            "missed": 0,
-            "hitRate": 1,
-            "firstPrintLagSeconds": {
-              "n": 712,
-              "p50": 14,
-              "p95": 41,
-              "p99": 48,
-              "max": 51
-            }
-          },
-          "strictBracket": {
-            "hit": 26,
-            "missed": 686,
-            "hitRate": 0.03651685393258427
-          }
-        },
-        "300": {
-          "targets": 142,
-          "minCapture": {
-            "hit": 142,
-            "missed": 0,
-            "hitRate": 1,
-            "firstPrintLagSeconds": {
-              "n": 142,
-              "p50": 15,
-              "p95": 40,
-              "p99": 50,
-              "max": 51
-            }
-          },
-          "strictBracket": {
-            "hit": 3,
-            "missed": 139,
-            "hitRate": 0.02112676056338028
-          }
-        }
-      }
-    },
-    "BONK": {
-      "feedId": "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419",
-      "sourceAddress": "3nMpgBXnjBSDYupQQEVR7DZM65zkJCdKy1Up7nkqp99w",
-      "observations": 1737,
-      "distinctPublishTimes": 1699,
-      "firstPublishTime": 1788676543,
-      "lastPublishTime": 1788719266,
-      "publishGapSeconds": {
-        "n": 1698,
-        "p50": 24,
-        "p95": 51,
-        "p99": 52,
-        "max": 53
-      },
-      "grids": {
-        "60": {
-          "targets": 712,
-          "minCapture": {
-            "hit": 712,
-            "missed": 0,
-            "hitRate": 1,
-            "firstPrintLagSeconds": {
-              "n": 712,
-              "p50": 15,
-              "p95": 42,
-              "p99": 47,
-              "max": 50
-            }
-          },
-          "strictBracket": {
-            "hit": 33,
-            "missed": 679,
-            "hitRate": 0.046348314606741575
-          }
-        },
-        "300": {
-          "targets": 142,
-          "minCapture": {
-            "hit": 142,
-            "missed": 0,
-            "hitRate": 1,
-            "firstPrintLagSeconds": {
-              "n": 142,
-              "p50": 15,
-              "p95": 41,
-              "p99": 49,
-              "max": 50
-            }
-          },
-          "strictBracket": {
-            "hit": 6,
-            "missed": 136,
-            "hitRate": 0.04225352112676056
-          }
-        }
-      }
-    },
-    "WIF": {
-      "feedId": "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc",
-      "sourceAddress": "9Sn9FVu6WpufA8yZFSRuxYyFgpBrhc5PpTgB3mq2DcsG",
-      "observations": 1689,
-      "distinctPublishTimes": 1662,
-      "firstPublishTime": 1788676539,
-      "lastPublishTime": 1788719264,
-      "publishGapSeconds": {
-        "n": 1661,
+        "n": 3074,
         "p50": 26,
         "p95": 50,
         "p99": 52,
@@ -301,43 +187,157 @@
       },
       "grids": {
         "60": {
-          "targets": 712,
+          "targets": 1323,
           "minCapture": {
-            "hit": 712,
+            "hit": 1323,
             "missed": 0,
             "hitRate": 1,
             "firstPrintLagSeconds": {
-              "n": 712,
+              "n": 1323,
               "p50": 15,
-              "p95": 40,
-              "p99": 48,
+              "p95": 41,
+              "p99": 47,
               "max": 51
             }
           },
           "strictBracket": {
-            "hit": 25,
-            "missed": 687,
-            "hitRate": 0.0351123595505618
+            "hit": 53,
+            "missed": 1270,
+            "hitRate": 0.0400604686318972
           }
         },
         "300": {
-          "targets": 142,
+          "targets": 265,
           "minCapture": {
-            "hit": 142,
+            "hit": 265,
             "missed": 0,
             "hitRate": 1,
             "firstPrintLagSeconds": {
-              "n": 142,
-              "p50": 14,
-              "p95": 39,
-              "p99": 49,
+              "n": 265,
+              "p50": 16,
+              "p95": 41,
+              "p99": 50,
               "max": 51
             }
           },
           "strictBracket": {
-            "hit": 2,
-            "missed": 140,
-            "hitRate": 0.014084507042253521
+            "hit": 6,
+            "missed": 259,
+            "hitRate": 0.022641509433962263
+          }
+        }
+      }
+    },
+    "BONK": {
+      "feedId": "72b021217ca3fe68922a19aaf990109cb9d84e9ad004b4d2025ad6f529314419",
+      "sourceAddress": "3nMpgBXnjBSDYupQQEVR7DZM65zkJCdKy1Up7nkqp99w",
+      "observations": 3171,
+      "distinctPublishTimes": 3110,
+      "firstPublishTime": 1788639904,
+      "lastPublishTime": 1788719266,
+      "publishGapSeconds": {
+        "n": 3109,
+        "p50": 25,
+        "p95": 51,
+        "p99": 52,
+        "max": 53
+      },
+      "grids": {
+        "60": {
+          "targets": 1322,
+          "minCapture": {
+            "hit": 1322,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 1322,
+              "p50": 15,
+              "p95": 41,
+              "p99": 47,
+              "max": 51
+            }
+          },
+          "strictBracket": {
+            "hit": 56,
+            "missed": 1266,
+            "hitRate": 0.04236006051437216
+          }
+        },
+        "300": {
+          "targets": 264,
+          "minCapture": {
+            "hit": 264,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 264,
+              "p50": 15,
+              "p95": 40,
+              "p99": 49,
+              "max": 50
+            }
+          },
+          "strictBracket": {
+            "hit": 9,
+            "missed": 255,
+            "hitRate": 0.03409090909090909
+          }
+        }
+      }
+    },
+    "WIF": {
+      "feedId": "4ca4beeca86f0d164160323817a4e42b10010a724c2217c6ee41b54cd4cc61fc",
+      "sourceAddress": "9Sn9FVu6WpufA8yZFSRuxYyFgpBrhc5PpTgB3mq2DcsG",
+      "observations": 3113,
+      "distinctPublishTimes": 3072,
+      "firstPublishTime": 1788639888,
+      "lastPublishTime": 1788719264,
+      "publishGapSeconds": {
+        "n": 3071,
+        "p50": 26,
+        "p95": 50,
+        "p99": 52,
+        "max": 53
+      },
+      "grids": {
+        "60": {
+          "targets": 1323,
+          "minCapture": {
+            "hit": 1323,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 1323,
+              "p50": 15,
+              "p95": 40,
+              "p99": 47,
+              "max": 51
+            }
+          },
+          "strictBracket": {
+            "hit": 45,
+            "missed": 1278,
+            "hitRate": 0.034013605442176874
+          }
+        },
+        "300": {
+          "targets": 265,
+          "minCapture": {
+            "hit": 265,
+            "missed": 0,
+            "hitRate": 1,
+            "firstPrintLagSeconds": {
+              "n": 265,
+              "p50": 15,
+              "p95": 40,
+              "p99": 47,
+              "max": 51
+            }
+          },
+          "strictBracket": {
+            "hit": 4,
+            "missed": 261,
+            "hitRate": 0.01509433962264151
           }
         }
       }
@@ -345,12 +345,12 @@
     "PUMP": {
       "feedId": "7a01fca212788bba7c5bf8c9efd576a8a722f070d2c17596ff7bb609b8d5c3b9",
       "sourceAddress": "4KL8nVtrXmLjbbHtrDz5YCHNqmii62oHfr9bsUtx1bgi",
-      "observations": 1698,
-      "distinctPublishTimes": 1674,
-      "firstPublishTime": 1788676543,
+      "observations": 3149,
+      "distinctPublishTimes": 3093,
+      "firstPublishTime": 1788639866,
       "lastPublishTime": 1788719248,
       "publishGapSeconds": {
-        "n": 1673,
+        "n": 3092,
         "p50": 24,
         "p95": 51,
         "p99": 52,
@@ -358,33 +358,33 @@
       },
       "grids": {
         "60": {
-          "targets": 712,
+          "targets": 1323,
           "minCapture": {
-            "hit": 712,
+            "hit": 1323,
             "missed": 0,
             "hitRate": 1,
             "firstPrintLagSeconds": {
-              "n": 712,
-              "p50": 15,
-              "p95": 42,
-              "p99": 47,
-              "max": 50
+              "n": 1323,
+              "p50": 16,
+              "p95": 43,
+              "p99": 48,
+              "max": 51
             }
           },
           "strictBracket": {
-            "hit": 28,
-            "missed": 684,
-            "hitRate": 0.03932584269662921
+            "hit": 47,
+            "missed": 1276,
+            "hitRate": 0.03552532123960695
           }
         },
         "300": {
-          "targets": 142,
+          "targets": 265,
           "minCapture": {
-            "hit": 142,
+            "hit": 265,
             "missed": 0,
             "hitRate": 1,
             "firstPrintLagSeconds": {
-              "n": 142,
+              "n": 265,
               "p50": 16,
               "p95": 42,
               "p99": 46,
@@ -392,9 +392,9 @@
             }
           },
           "strictBracket": {
-            "hit": 5,
-            "missed": 137,
-            "hitRate": 0.035211267605633804
+            "hit": 10,
+            "missed": 255,
+            "hitRate": 0.03773584905660377
           }
         }
       }
@@ -402,56 +402,56 @@
     "JUP": {
       "feedId": "0a0408d619e9380abad35060f9192039ed5042fa6f82301d0e48bb52be830996",
       "sourceAddress": "EitcZS5LtbR4EyNhCSy56vvUHPhsifSfWFG5gwSkjNpV",
-      "observations": 1779,
-      "distinctPublishTimes": 1732,
-      "firstPublishTime": 1788676544,
+      "observations": 3215,
+      "distinctPublishTimes": 3132,
+      "firstPublishTime": 1788639873,
       "lastPublishTime": 1788719227,
       "publishGapSeconds": {
-        "n": 1731,
-        "p50": 24,
+        "n": 3131,
+        "p50": 25,
         "p95": 51,
         "p99": 52,
         "max": 53
       },
       "grids": {
         "60": {
-          "targets": 712,
+          "targets": 1323,
           "minCapture": {
-            "hit": 712,
+            "hit": 1323,
             "missed": 0,
             "hitRate": 1,
             "firstPrintLagSeconds": {
-              "n": 712,
+              "n": 1323,
               "p50": 15,
-              "p95": 43,
+              "p95": 42,
               "p99": 48,
               "max": 51
             }
           },
           "strictBracket": {
-            "hit": 33,
-            "missed": 679,
-            "hitRate": 0.046348314606741575
+            "hit": 52,
+            "missed": 1271,
+            "hitRate": 0.039304610733182165
           }
         },
         "300": {
-          "targets": 142,
+          "targets": 265,
           "minCapture": {
-            "hit": 142,
+            "hit": 265,
             "missed": 0,
             "hitRate": 1,
             "firstPrintLagSeconds": {
-              "n": 142,
-              "p50": 12,
-              "p95": 40,
+              "n": 265,
+              "p50": 14,
+              "p95": 41,
               "p99": 49,
               "max": 49
             }
           },
           "strictBracket": {
-            "hit": 4,
-            "missed": 138,
-            "hitRate": 0.028169014084507043
+            "hit": 8,
+            "missed": 257,
+            "hitRate": 0.03018867924528302
           }
         }
       }
