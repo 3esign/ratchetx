@@ -5,8 +5,8 @@
   "productionUiRevision": "h113-keyless-board-truth-and-reconnect-recovery",
   "versions": {
     "mcp": "1.2.0",
-    "agentSkill": "2.4.1",
-    "erc8004": "2.4.1",
+    "agentSkill": "2.5.0",
+    "erc8004": "2.5.0",
     "aiCatalog": "1.0"
   },
   "endpoints": {
