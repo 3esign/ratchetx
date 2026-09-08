@@ -9,9 +9,9 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "2.3.1"
-  runtime-sha256: "1d5e1823a8e1137a4548e7de546be82222672ec9deff13caf8458864adf0174b"
-  installer-sha256: "48b9ebb6c57ee73768e288494041959f0c8623db8ac18d3ba6218731bf4b9c17"
+  version: "2.3.2"
+  runtime-sha256: "3cd4669f631f54ea81ed6f0154a782ab1976dad4543635c2ad265d970507b6c1"
+  installer-sha256: "db98ff84e7a6ba30d0fc6872e3e20fad00a51f38ba6ed16af3763ac1aac68978"
 ---
 
 # RatchetX G2 devnet
