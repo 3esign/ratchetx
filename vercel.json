@@ -36,6 +36,10 @@
     {
       "source": "/api/agent-proof-bundle",
       "destination": "/api/game?action=agent-proof-bundle"
+    },
+    {
+      "source": "/api/g2-mcp",
+      "destination": "/api/mcp"
     }
   ],
   "crons": [
