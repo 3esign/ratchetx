@@ -9,7 +9,7 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "0.1.0"
+  version: "2.0.0"
   runtime-sha256: "e01b2c1b4113419154bdfac5815f354a63717e6248487adf65a58db290ea57f3"
   installer-sha256: "221b734356cf38f3902b75684cb3f3438f806416b2824bee2ad4e2fbf1462297"
 ---
