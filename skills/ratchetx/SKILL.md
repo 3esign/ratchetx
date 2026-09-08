@@ -9,9 +9,9 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "2.4.1"
-  runtime-sha256: "2d4d45761e7b58a5ecfb11e5d0180e84fd65c19746994cbe2f0975ab0d2ab8d9"
-  installer-sha256: "6046afc7a35b56c6068ba9f761dd57ebdb711a4164d498a065a7d507390b0c9c"
+  version: "2.5.0"
+  runtime-sha256: "0f0c562966764d5219cb2be041c1133f6b1207ab0e46e5f1781c98646cd8c95b"
+  installer-sha256: "4a3ef98c999b50e132885d3cc9a8eaf5a2b286f7c9348417622608e80e1055b3"
 ---
 
 # RatchetX G2 devnet
@@ -42,6 +42,9 @@ node scripts/install.mjs
 node "$HOME/.ratchetx-g2/run.mjs" init
 ```
 
+If `$HOME/.ratchetx-g2/run.mjs` is missing when a command arrives (a fresh host), run the
+installer first, then the command - every time, not only once.
+
 **Default: the agent plays with its own devnet wallet.** `init` with no address
 (or `--player self`) generates a key inside this agent runtime and makes it the
 player. Nothing has to be signed anywhere else: the first `play` claims 10,000
@@ -49,6 +52,23 @@ devnet test credits for that wallet and seals the prediction. A public X command
 on a fresh host may skip `init` entirely; `play` sets self-play up on the way.
 The agent wallet needs a little devnet SOL for fees and rent; the runner asks the
 devnet faucet itself and, if the faucet is rate limited, reports the address to fund.
+
+**Hosts without a persistent filesystem (Bankr's X runtime is one): set one secret.**
+Every command there starts on a fresh disk, so a key kept in a file would be a new wallet
+each time and a sealed prediction could never be revealed. Fix: the owner adds an env var
+`RATCHET_G2_SEED` (any private random string, 32+ characters, e.g. from a password
+manager) in Bankr settings → Env Vars, once. Run every command with it in the environment:
+
+```sh
+RATCHET_G2_SEED={{RATCHET_G2_SEED}} node "$HOME/.ratchetx-g2/run.mjs" play --say "USER WORDS VERBATIM" --command-id SOURCE_X_POST_ID
+RATCHET_G2_SEED={{RATCHET_G2_SEED}} node "$HOME/.ratchetx-g2/run.mjs" status
+```
+
+With the seed present the runner is stateless: the agent wallet, the reveal material and the
+journal are all re-derived from the seed and read back from the chain, so `init` is not
+needed and nothing is written to disk. One prediction is open at a time: `play` while a
+shot is live reports it (or reveals it once Pyth prices are recorded) instead of sealing a
+second one. Never print or echo the seed; pass it only as an environment variable.
 
 **Optional: play on the human's own wallet.** Only if the authenticated owner of
 this private session explicitly asks for their record to live on their wallet:

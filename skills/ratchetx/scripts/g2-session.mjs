@@ -276,10 +276,32 @@ export async function finishCommand(runner, commandId, { timeoutMs = 45 * 60 * 1
     await sleep(Math.min(pollMs, Math.max(0, deadline - now())));
   }
 }
+async function runSeeded(command, flags, seed) {
+  const web3 = loadWeb3(), connection = connectionFor(web3);
+  const { seedIdentity, createSeedAgent } = await import('../../../lib/g2/seed-agent.mjs');
+  const identity = { ...seedIdentity(web3, seed), economyHash: CONFIG.economyHash, rulesetHash: CONFIG.rulesetHash };
+  if (command === 'init' || command === 'setup') { fail(flags['--player'] === undefined || flags['--player'] === 'self' || flags['--player'] === identity.player, 'STATE_PLAYER_CONFLICT');
+    return publicJson({ ok: true, code: 'SELF_PLAY_READY', scope: 'DEVNET_TEST_CREDITS_ONLY', ...identity, noTransactionSent: true, reply: 'Your agent plays with its own seed-derived devnet wallet ' + identity.player + '. Nothing to sign anywhere else: the first play claims 10,000 devnet test credits and seals the prediction.' }); }
+  if (command === 'recover-lock') return publicJson({ ok: true, code: 'NO_LOCK_IN_SEED_MODE', reply: 'Seed mode keeps no local lock or journal; nothing to recover.' });
+  const funding = await ensureDevnetFeeBalance(identity, web3, connection);
+  const agent = createSeedAgent({ web3, connection, config: CONFIG, seed, onStatus: s => { if (process.env.RATCHET_G2_DEBUG) console.error('..', s.phase); } });
+  if (command === 'preflight') { const view = await agent.game.load(); const credits = view.ledger?.credits ?? 0n, claimable = !view.ledger || (view.ledger.legacyCredits === 0n && view.ledger.legacyXp === 0n);
+    const ready = funding.after > 0n && (credits >= view.economy.args.minStake || claimable);
+    return publicJson({ ok: ready, code: ready ? 'PREFLIGHT_READY' : funding.after === 0n ? 'DELEGATE_FEE_BALANCE_REQUIRED' : 'NO_TEST_CREDIT_ALLOCATION', scope: 'DEVNET_TEST_CREDITS_ONLY', mode: 'seed-self-play', player: identity.player, playerCredits: String(credits), delegateLamports: String(funding.after), feeFunding: funding.airdrop, readOnly: true, noTransactionSent: true,
+      reply: ready ? 'Devnet agent ready (' + identity.player + '): ' + (credits >= view.economy.args.minStake ? credits + ' test credits.' : 'the first play claims 10,000 test credits, then seals.') : funding.after === 0n ? 'Your agent needs devnet SOL for fees and rent. Its public address: ' + identity.player : 'This agent wallet has no test credits left and its one-time claim is used.' }); }
+  if (funding.after === 0n && command === 'play') return publicJson({ ok: false, code: 'DELEGATE_FEE_BALANCE_REQUIRED', scope: 'DEVNET_TEST_CREDITS_ONLY', mode: 'seed-self-play', player: identity.player, feeFunding: funding.airdrop, noTransactionSent: true,
+    reply: 'No prediction was sent. The agent wallet ' + identity.player + ' has no devnet SOL for fees and rent, and the devnet faucet refused an airdrop just now. Send it a little devnet SOL (faucet.solana.com) and repeat the same command.' });
+  if (command === 'play') return publicJson(await agent.play(flags['--say']));
+  if (command === 'finish') return publicJson(await agent.finish());
+  return publicJson(await agent.status()); // status, reconcile, reveal: the chain is the journal
+}
 export async function runCli(argv, { rootDir = stateRoot() } = {}) {
   const [major, minor] = process.versions.node.split('.').map(Number);
   fail(major > 20 || major === 20 && minor >= 11, 'NODE_20_11_REQUIRED');
   const { command, flags } = argumentsFor(argv);
+  // RATCHET_G2_SEED: stateless self-play for hosts without a persistent filesystem. Everything is
+  // derived from the seed and read from the chain; nothing is written under the state root.
+  if (process.env.RATCHET_G2_SEED && command !== 'help') return runSeeded(command, flags, process.env.RATCHET_G2_SEED);
   if (command === 'help') return { ok: true, code: 'HELP', reply: 'RatchetX G2 devnet: init --player PUBLIC_KEY; preflight; play --say USER_WORDS --command-id SOURCE_POST_ID; status; reconcile --command-id SOURCE_POST_ID; reveal --command-id SOURCE_POST_ID; finish --command-id SOURCE_POST_ID; recover-lock. Keep one persistent private state directory. Test credits only. Pyth prices · https://ratchetx.xyz/play' };
   if (command === 'init' || command === 'setup') return initialize(flags['--player'], rootDir);
   // A public X command on a fresh host must not die on SETUP_REQUIRED: set up self-play and go on.

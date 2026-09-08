@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "url": "https://ratchetx.xyz/releases/g2-agent-runtime.json.gz",
-  "sha256": "2d4d45761e7b58a5ecfb11e5d0180e84fd65c19746994cbe2f0975ab0d2ab8d9",
-  "bytes": 315009,
+  "sha256": "0f0c562966764d5219cb2be041c1133f6b1207ab0e46e5f1781c98646cd8c95b",
+  "bytes": 319854,
   "entry": "skills/ratchetx-g2/scripts/g2-session.mjs",
   "scope": "DEVNET_AGENT_RUNTIME",
   "node": ">=20.11",
@@ -20,7 +20,7 @@
       "format": "existing browser IIFE; Node stdlib loader"
     }
   },
-  "sourceBytes": 795108,
+  "sourceBytes": 806679,
   "files": [
     {
       "path": "lib/g2/agent-session.mjs",
@@ -34,8 +34,8 @@
     },
     {
       "path": "lib/g2/browser-game.mjs",
-      "sha256": "604fe65c1a6e8749cfdffd2dacd057df002845c74466ec4c4a5bf00ca3cf5dd7",
-      "bytes": 24431
+      "sha256": "878540e08be970913f3b9952edb49f26fe4ae70280b1610d82cb159aa234cedf",
+      "bytes": 24673
     },
     {
       "path": "lib/g2/client-v2.mjs",
@@ -68,6 +68,11 @@
       "bytes": 7392
     },
     {
+      "path": "lib/g2/seed-agent.mjs",
+      "sha256": "94b865c09aa200cad1627a5ea763dc78ee54b52ef510af41339ecf215ab98750",
+      "bytes": 7931
+    },
+    {
       "path": "lib/g2/shot-receipt.mjs",
       "sha256": "d8ae61085d23ef8814bfac05fb41cc1f512b9abf29e2c12e09e1ca94b7c7598d",
       "bytes": 7588
@@ -84,8 +89,8 @@
     },
     {
       "path": "skills/ratchetx-g2/scripts/g2-session.mjs",
-      "sha256": "28a3a3e27e5568a0165cdf534856311835d8c2ea9c010dbd739fe46bc5e5effb",
-      "bytes": 25275
+      "sha256": "b4af8aee617a33466bda889c53820f8ee9708a641fe66e24c7c4bfdc584e2b23",
+      "bytes": 28673
     },
     {
       "path": "skills/ratchetx/scripts/session-play.mjs",
