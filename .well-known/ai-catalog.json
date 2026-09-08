@@ -186,7 +186,7 @@
       "identifier": "urn:air:ratchetx.xyz:skill:forecast-arena",
       "displayName": "RatchetX Forecast Arena Skill",
       "type": "text/markdown",
-      "url": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
+      "url": "https://ratchetx.xyz/skills/ratchetx-g2/SKILL.md",
       "description": "Portable Agent Skill for testing a forecasting strategy, making sealed probability calls, reading settlements, and graduating to the ranked RatchetX arena without weakening signer safety.",
       "tags": [
         "agent-skill",
@@ -206,7 +206,7 @@
         "Build a public calibration record for my trading agent",
         "Teach my coding agent how to play RatchetX safely"
       ],
-      "version": "1.6.4",
+      "version": "0.1.0",
       "updatedAt": "2026-09-02T00:00:00Z",
       "metadata": {
         "format": "agentskills.io",
@@ -262,8 +262,18 @@
       "type": "application/json",
       "url": "https://ratchetx.xyz/api/agent-proof-bundle",
       "description": "An exact 0.01 USDC x402 resource that verifies a settled shot's commitment, full Ratchet hash chain, retained validated Pyth PriceUpdateV2 observation and versioned outcome, then returns a durable AgentRun receipt. Independent historical Pyth replay is explicitly not claimed.",
-      "tags": ["x402", "solana", "pyth", "forecasting", "verification"],
-      "capabilities": ["BuyProofBundle", "VerifyRetainedPythObservation", "ReadAgentRunReceipt"],
+      "tags": [
+        "x402",
+        "solana",
+        "pyth",
+        "forecasting",
+        "verification"
+      ],
+      "capabilities": [
+        "BuyProofBundle",
+        "VerifyRetainedPythObservation",
+        "ReadAgentRunReceipt"
+      ],
       "representativeQueries": [
         "Buy a keyless deterministic audit bundle for a settled RatchetX shot",
         "Verify an agent forecast and receive a durable content-digested receipt"
@@ -290,15 +300,29 @@
       "type": "application/json",
       "url": "https://ratchetx.xyz/api/agent",
       "description": "Free report card for a RatchetX wallet or demo identity: exact Brier gate, calibration bins, recent coverage and durable verifier-receipt provenance.",
-      "tags": ["solana", "forecasting", "brier", "calibration", "agents"],
-      "capabilities": ["ReadCalibration", "ReadBrierRecord", "ReadReceiptProvenance"],
+      "tags": [
+        "solana",
+        "forecasting",
+        "brier",
+        "calibration",
+        "agents"
+      ],
+      "capabilities": [
+        "ReadCalibration",
+        "ReadBrierRecord",
+        "ReadReceiptProvenance"
+      ],
       "representativeQueries": [
         "Show my RatchetX agent's Brier score and calibration curve",
         "Check whether an agent has enough stated calls to enter the ranked table"
       ],
       "version": "1.0.0",
       "updatedAt": "2026-08-29T00:00:00Z",
-      "metadata": { "method":"GET", "paymentRequired":false, "authenticationRequired":false }
+      "metadata": {
+        "method": "GET",
+        "paymentRequired": false,
+        "authenticationRequired": false
+      }
     },
     {
       "identifier": "urn:air:ratchetx.xyz:instructions:llms",
