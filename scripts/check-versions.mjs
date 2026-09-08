@@ -29,7 +29,7 @@ try {
 
   // Agent Skills Index Digest
   const skillsIndex = readJson('.well-known/agent-skills/index.json');
-  const skillItem = skillsIndex.skills.find(s => s.name === 'ratchetx-g2');
+  const skillItem = skillsIndex.skills.find(s => s.name === 'ratchetx');
   const actualDigest = 'sha256:' + crypto.createHash('sha256').update(skillText).digest('hex');
   const installerDigest = crypto.createHash('sha256')
     .update(fs.readFileSync('skills/ratchetx-g2/scripts/install.mjs')).digest('hex');

@@ -2,11 +2,11 @@
   "$schema": "https://schemas.agentskills.io/discovery/0.2.0/schema.json",
   "skills": [
     {
-      "name": "ratchetx-g2",
+      "name": "ratchetx",
       "type": "skill-md",
       "description": "RatchetX G2 devnet arcade.",
       "url": "https://ratchetx.xyz/skills/ratchetx-g2/SKILL.md",
-      "digest": "sha256:e656bb9d7251479dbd8776503956e81a5ef6bb85630bc4033b35a97da13406f4"
+      "digest": "sha256:25c225c4b191bc47fe1525c39250aa0965110539510112d5b740151e2ec5adcc"
     }
   ]
 }
