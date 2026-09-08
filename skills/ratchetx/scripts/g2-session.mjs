@@ -206,7 +206,9 @@ async function selfView(identity, web3, connection, signer = null) {
 }
 // Self-play: make sure the agent wallet holds fee SOL and test credits before a seal. Claims once.
 async function ensureSelfCredits(identity, web3, connection, signer) {
-  await ensureDevnetFeeBalance(identity, web3, connection);
+  const funding = await ensureDevnetFeeBalance(identity, web3, connection);
+  if (funding.after === 0n) return { blocked: publicJson({ ok: false, code: 'DELEGATE_FEE_BALANCE_REQUIRED', scope: 'DEVNET_TEST_CREDITS_ONLY', mode: 'self-play', player: identity.player, feeFunding: funding.airdrop, noTransactionSent: true,
+    reply: 'No prediction was sent. The agent wallet ' + identity.player + ' has no devnet SOL for fees and rent, and the devnet faucet refused an airdrop just now. Send it a little devnet SOL (faucet.solana.com) and repeat the same command.' }) };
   const game = await selfView(identity, web3, connection, signer);
   const before = await game.load();
   if (before.ledger && before.ledger.credits >= before.economy.args.minStake) return { claimed: null, credits: before.ledger.credits };
@@ -297,7 +299,7 @@ export async function runCli(argv, { rootDir = stateRoot() } = {}) {
     if (command === 'status') return await runner.status();
     if (command === 'finish') return await finishCommand(runner, flags['--command-id']);
     if (command === 'play') {
-      if (isSelfPlay(identity)) await ensureSelfCredits(identity, web3, connection, keypair); else await ensureDevnetFeeBalance(identity, web3, connection);
+      if (isSelfPlay(identity)) { const ready = await ensureSelfCredits(identity, web3, connection, keypair); if (ready.blocked) return ready.blocked; } else await ensureDevnetFeeBalance(identity, web3, connection);
       return await runner.runCommand({ commandId: flags['--command-id'], text: flags['--say'] });
     }
     return await runner[command]({ commandId: flags['--command-id'] });
