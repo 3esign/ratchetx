@@ -349,6 +349,29 @@ genesis, not a build flag - the same bytes refuse on any non-devnet economy. Exa
 seal 3Cqc6ddRHhv5iSJs1kh9AVKGqErvrnaKqQ2Zvxjqp9aphqSRVyvsxwaY8PUwFSc5ADdHv5Nr46975neoBPvpXQjC,
 player A1ibWYthMwE4c4ryfPb1s3oMykohtV6Ek1fY1LdYeXDY, devnet).
 
+## 18 · The X newbie's first command must be the whole setup
+
+**What happened (2026-09-08/09).** A stranger on X posted `@bankrbot rcx play` and got
+"requires initialization ... init --player <your-solana-address>". The runner assumed every
+player is a human with a wallet who will open a setup link and sign a grant. Most people on X
+have neither the wallet nor the patience; the owner himself needed three attempts and a
+Phantom Testnet-Mode toggle to get one grant signed. Meanwhile the site's own claim button
+failed twice for reasons that were ours: the page demanded byte-identical transactions
+(Phantom prepends ComputeBudget and appends Lighthouse), and a fresh wallet with no devnet
+SOL was told "AccountNotFound".
+
+**Rule.** Walk the shortest path a stranger can take and make it the default: install → play.
+Self-play (the agent's own key is the player) needs no grant and no wallet; the first `play`
+sets up, claims the one-time devnet credits and seals. Delegation to a human's wallet stays as
+the opt-in for people who want the record on their own key. Every refusal names the exact
+missing thing (devnet SOL for address X; faucet refused) - never a generic code.
+
+**Checks.** `test_wallet_kept_transaction.mjs` (10 cases); fresh-host self-play sealed on devnet
+(players `E3eyR3HCrTA2ZyrqTLW8vLQiYt1dFT2efHbwcSrfGQ3s`, `4wfJQhkmKv3GcYadxx2AgCMb9v5XcHe8RncAGdnUUy2c`, nonce 0
+each) via `data/brain/scratch/rx_self.cmd` on the laptop. Still true: the public devnet faucet is
+rate limited per IP; a host whose faucet quota is spent gets `DELEGATE_FEE_BALANCE_REQUIRED`
+with the address to fund.
+
 ## Already documented elsewhere, not restated here
 
 - **`jsonb` does not preserve object key order**, so hashing `JSON.stringify` output makes a
