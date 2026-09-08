@@ -54,7 +54,8 @@ function validateIdentity(identity, web3) {
     identity.economyHash === CONFIG.economyHash && identity.rulesetHash === CONFIG.rulesetHash &&
     typeof identity.player === 'string' && typeof identity.delegate === 'string' && /^[a-f0-9]{32}$/.test(identity.grantId), 'STATE_IDENTITY_MISMATCH');
   const player = new web3.PublicKey(identity.player), delegate = new web3.PublicKey(identity.delegate);
-  fail(player.toBase58() === identity.player && delegate.toBase58() === identity.delegate && !player.equals(delegate), 'STATE_IDENTITY_MISMATCH');
+  // player === delegate is self-play (the agent's own devnet wallet); distinct keys are delegation.
+  fail(player.toBase58() === identity.player && delegate.toBase58() === identity.delegate, 'STATE_IDENTITY_MISMATCH');
   return identity;
 }
 export function readPublicIdentity(dir = stateRoot()) {
@@ -86,7 +87,10 @@ export function recoverLock(identity, dir, { checkPid = pid => process.kill(pid,
   return { ok: true, code: 'DEAD_PROCESS_LOCK_RECOVERED', previousPid: record.pid, noTransactionSent: true,
     reply: 'The exited process’s lock was removed. Your saved prediction and signer were preserved. Reconcile the same source command ID before any further action.' };
 }
+export const isSelfPlay = identity => identity.player === identity.delegate;
 function setupResult(identity) {
+  if (isSelfPlay(identity)) return { ok: true, code: 'SELF_PLAY_READY', scope: 'DEVNET_TEST_CREDITS_ONLY', ...identity, noTransactionSent: true,
+    reply: 'Your agent plays with its own devnet wallet ' + identity.player + '. Nothing to sign anywhere else: the first play claims 10,000 devnet test credits and seals the prediction. Devnet test credits; no RCX payout.' };
   const url = new URL('https://ratchetx.xyz/agent-setup');
   url.searchParams.set('delegate', identity.delegate); url.searchParams.set('grant', identity.grantId); url.searchParams.set('player', identity.player);
   return { ok: true, code: 'OWNER_GRANT_REQUIRED', scope: 'DEVNET_TEST_CREDITS_ONLY', ...identity,
@@ -94,12 +98,16 @@ function setupResult(identity) {
     reply: 'Your devnet agent is ready for setup. Open this link in your player wallet to choose its limits: ' + url + '\nNo grant or transaction has been sent.' };
 }
 function initialize(playerText, dir) {
-  fail(typeof playerText === 'string', 'PLAYER_REQUIRED');
-  const web3 = loadWeb3(), player = new web3.PublicKey(playerText).toBase58();
-  fail(player === playerText && player !== '11111111111111111111111111111111', 'INVALID_PLAYER');
+  const web3 = loadWeb3();
+  // No --player (or --player self): the agent's own key is the player. Anyone on X can play
+  // without a wallet of their own; a human who wants the record on THEIR wallet passes it.
+  const self = playerText === undefined || playerText === 'self';
+  let player = null;
+  if (!self) { fail(typeof playerText === 'string', 'PLAYER_REQUIRED'); player = new web3.PublicKey(playerText).toBase58();
+    fail(player === playerText && player !== '11111111111111111111111111111111', 'INVALID_PLAYER'); }
   privateRoot(dir);
   if (fs.existsSync(path.join(dir, PUBLIC_IDENTITY))) {
-    const identity = readPublicIdentity(dir); fail(identity.player === player, 'STATE_PLAYER_CONFLICT');
+    const identity = readPublicIdentity(dir); fail(self ? isSelfPlay(identity) : identity.player === player, 'STATE_PLAYER_CONFLICT');
     fail(fs.existsSync(path.join(dir, PRIVATE_IDENTITY)), 'LOCAL_SIGNER_MISSING');
     return setupResult(identity);
   }
@@ -107,11 +115,11 @@ function initialize(playerText, dir) {
   if (fs.existsSync(path.join(dir, PRIVATE_IDENTITY))) {
     privateRecord = readStateFile(dir, PRIVATE_IDENTITY);
     validateIdentity(privateRecord.identity, web3);
-    fail(privateRecord.identity.player === player, 'STATE_PLAYER_CONFLICT');
+    fail(self ? isSelfPlay(privateRecord.identity) : privateRecord.identity.player === player, 'STATE_PLAYER_CONFLICT');
   } else {
     const signer = web3.Keypair.generate();
     const identity = { schema: 1, scope: 'DEVNET_AGENT_LOCAL', clusterGenesis: GENESIS,
-      economyHash: CONFIG.economyHash, rulesetHash: CONFIG.rulesetHash, player,
+      economyHash: CONFIG.economyHash, rulesetHash: CONFIG.rulesetHash, player: self ? signer.publicKey.toBase58() : player,
       delegate: signer.publicKey.toBase58(), grantId: randomBytes(16).toString('hex') };
     privateRecord = { identity, secret: Buffer.from(signer.secretKey).toString('base64') };
     createStateFile(dir, PRIVATE_IDENTITY, privateRecord);
@@ -156,8 +164,16 @@ function connectionFor(web3) {
   fail(url.protocol === 'https:' || url.protocol === 'http:' && ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname), 'UNSAFE_RPC_URL');
   fail(!url.username && !url.password, 'UNSAFE_RPC_URL');
   // Every chain action additionally validates the devnet genesis and pinned generation.
-  const connection = new web3.Connection(endpoint, { commitment: 'confirmed', disableRetryOnRateLimit: true,
-    fetch: (input, init) => fetch(input, { ...init, signal: AbortSignal.timeout(20000) }) });
+  // The public devnet RPC rate-limits by IP; a first play (claim + reads + seal) is a burst. Retry
+  // 429 with backoff instead of failing the whole prediction on a free endpoint's mood.
+  const patientFetch = async (input, init) => {
+    for (let attempt = 0; ; attempt++) {
+      const response = await fetch(input, { ...init, signal: AbortSignal.timeout(20000) });
+      if (response.status !== 429 || attempt >= 5) return response;
+      await new Promise(resolve => setTimeout(resolve, 500 * 2 ** attempt));
+    }
+  };
+  const connection = new web3.Connection(endpoint, { commitment: 'confirmed', disableRetryOnRateLimit: true, fetch: patientFetch });
   connection.confirmTransaction = (strategy, commitment) => confirmWithHttp(connection, strategy, commitment);
   return connection;
 }
@@ -180,7 +196,37 @@ export async function ensureDevnetFeeBalance(identity, web3, connection, { airdr
     return { before, after, airdrop: signature };
   } catch (error) { return { before, after: before, airdrop: 'failed: ' + (error?.message || String(error)).slice(0, 120) }; }
 }
+async function selfView(identity, web3, connection, signer = null) {
+  const { createBrowserGame } = await import('../../../lib/g2/browser-game.mjs');
+  const wallet = signer ? { publicKey: signer.publicKey, signTransaction: async tx => { tx.sign([signer]); return tx; } }
+    : { publicKey: new web3.PublicKey(identity.player), signTransaction: () => { throw new Error('read-only'); } };
+  const mem = new Map();
+  const storage = { getItem: k => mem.has(k) ? mem.get(k) : null, setItem: (k, v) => mem.set(k, v), removeItem: k => mem.delete(k), key: i => [...mem.keys()][i], get length() { return mem.size; } };
+  return createBrowserGame({ web3, connection, config: CONFIG, wallet, storage, cryptoImpl: webcrypto });
+}
+// Self-play: make sure the agent wallet holds fee SOL and test credits before a seal. Claims once.
+async function ensureSelfCredits(identity, web3, connection, signer) {
+  await ensureDevnetFeeBalance(identity, web3, connection);
+  const game = await selfView(identity, web3, connection, signer);
+  const before = await game.load();
+  if (before.ledger && before.ledger.credits >= before.economy.args.minStake) return { claimed: null, credits: before.ledger.credits };
+  fail(!before.ledger || (before.ledger.legacyCredits === 0n && before.ledger.legacyXp === 0n), 'INSUFFICIENT_CREDITS');
+  const out = await game.claim();
+  return { claimed: out.signature, credits: out.ledger.credits };
+}
 async function preflight(identity, web3, connection) {
+  if (isSelfPlay(identity)) {
+    const funding = await ensureDevnetFeeBalance(identity, web3, connection);
+    const view = await (await selfView(identity, web3, connection)).load();
+    const credits = view.ledger?.credits ?? 0n, claimable = !view.ledger || (view.ledger.legacyCredits === 0n && view.ledger.legacyXp === 0n);
+    const ready = Number(funding.after) > 0 && (credits >= view.economy.args.minStake || claimable);
+    return publicJson({ ok: ready, code: ready ? 'PREFLIGHT_READY' : Number(funding.after) === 0 ? 'DELEGATE_FEE_BALANCE_REQUIRED' : 'NO_TEST_CREDIT_ALLOCATION',
+      scope: 'DEVNET_TEST_CREDITS_ONLY', mode: 'self-play', player: identity.player, delegate: identity.delegate, playerCredits: String(credits), claimPending: claimable && credits < view.economy.args.minStake,
+      delegateLamports: String(funding.after), feeFunding: funding.airdrop, readOnly: true, noTransactionSent: true,
+      reply: ready ? (credits >= view.economy.args.minStake ? 'Devnet agent ready: ' + credits + ' test credits.' : 'Devnet agent ready. The first play claims 10,000 test credits, then seals.')
+        : Number(funding.after) === 0 ? 'Your agent needs devnet SOL for transaction fees and account rent. Its public address: ' + identity.delegate
+        : 'This agent wallet has no test credits left and its one-time claim is used. No prediction can be sent.' });
+  }
   const actions = createDelegateActions({ web3, connection, config: CONFIG, cryptoImpl: webcrypto });
   const context = await actions.readGrant(identity);
   const funding = await ensureDevnetFeeBalance(identity, web3, connection);
@@ -234,6 +280,8 @@ export async function runCli(argv, { rootDir = stateRoot() } = {}) {
   const { command, flags } = argumentsFor(argv);
   if (command === 'help') return { ok: true, code: 'HELP', reply: 'RatchetX G2 devnet: init --player PUBLIC_KEY; preflight; play --say USER_WORDS --command-id SOURCE_POST_ID; status; reconcile --command-id SOURCE_POST_ID; reveal --command-id SOURCE_POST_ID; finish --command-id SOURCE_POST_ID; recover-lock. Keep one persistent private state directory. Test credits only. Pyth prices · https://ratchetx.xyz/play' };
   if (command === 'init' || command === 'setup') return initialize(flags['--player'], rootDir);
+  // A public X command on a fresh host must not die on SETUP_REQUIRED: set up self-play and go on.
+  if (!fs.existsSync(path.join(rootDir, PUBLIC_IDENTITY))) initialize(undefined, rootDir);
   const identity = readPublicIdentity(rootDir);
   if (command === 'recover-lock') return recoverLock(identity, rootDir);
   const web3 = loadWeb3(), connection = connectionFor(web3);
@@ -248,14 +296,17 @@ export async function runCli(argv, { rootDir = stateRoot() } = {}) {
   try {
     if (command === 'status') return await runner.status();
     if (command === 'finish') return await finishCommand(runner, flags['--command-id']);
-    if (command === 'play') { await ensureDevnetFeeBalance(identity, web3, connection); return await runner.runCommand({ commandId: flags['--command-id'], text: flags['--say'] }); }
+    if (command === 'play') {
+      if (isSelfPlay(identity)) await ensureSelfCredits(identity, web3, connection, keypair); else await ensureDevnetFeeBalance(identity, web3, connection);
+      return await runner.runCommand({ commandId: flags['--command-id'], text: flags['--say'] });
+    }
     return await runner[command]({ commandId: flags['--command-id'] });
   } finally { if (keypair) keypair.secretKey.fill(0); }
 }
 const SAFE_ERRORS = new Set(['NODE_20_11_REQUIRED', 'RUNTIME_INTEGRITY_FAILED', 'STATE_HOME_MUST_BE_ABSOLUTE', 'UNSAFE_STATE_HOME', 'STATE_HOME_PERMISSIONS',
   'UNSAFE_STATE_FILE', 'STATE_FILE_PERMISSIONS', 'STATE_IDENTITY_MISMATCH', 'SETUP_REQUIRED', 'PLAYER_REQUIRED', 'INVALID_PLAYER',
   'STATE_PLAYER_CONFLICT', 'LOCAL_SIGNER_MISSING', 'LOCAL_SIGNER_MISMATCH', 'UNSAFE_RPC_URL', 'INVALID_ARGUMENTS', 'COMMAND_ID_REQUIRED', 'USER_TEXT_REQUIRED', 'READ_ONLY_COMMAND', 'SESSION_BUSY_OR_RECOVERY_LOCK',
-  'INVALID_RECOVERY_LOCK', 'SESSION_PROCESS_STILL_RUNNING_OR_UNKNOWN', 'RECOVERY_LOCK_CHANGED']);
+  'INVALID_RECOVERY_LOCK', 'SESSION_PROCESS_STILL_RUNNING_OR_UNKNOWN', 'RECOVERY_LOCK_CHANGED', 'INSUFFICIENT_CREDITS']);
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   try { process.stdout.write(JSON.stringify(await runCli(process.argv.slice(2)), (_key, v) => typeof v === 'bigint' ? v.toString() : v) + '\n'); }
   catch (error) {
