@@ -9,9 +9,9 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "2.2.0"
-  runtime-sha256: "accd94022de3ad605d423b04817e957d2a860c540d757b12595fef4ae5a0d0e0"
-  installer-sha256: "a1d74ac7178f820069283ba94dbb35fa715eaeb6d9f01514030de3fc66d760d6"
+  version: "2.3.0"
+  runtime-sha256: "e0c9830591c97880891d868ee9c1b1dc2977c664aba20d136f013db3965807ef"
+  installer-sha256: "e0a7cba4188981c25ba9078c592c0dfe20e304d0c8a41baedc72462165d4e877"
 ---
 
 # RatchetX G2 devnet
@@ -51,8 +51,10 @@ Initialization generates an agent key **inside that agent runtime** and prints
 only its public address, grant ID and setup link. Show `reply` verbatim. The
 player opens that link in their wallet, selects explicit limits, and signs the
 on-chain grant. The delegate needs devnet SOL for network fees/account rent.
-Test-credit admission remains limited to allocated wallets; setup does not mint
-credits or migrate any old balance. Never ask for the player's private key.
+Any wallet may claim 10,000 devnet test credits once, by signing one devnet
+transaction at https://ratchetx.xyz/play; the program opens that door only on the
+devnet economy. Setup itself does not mint credits or migrate any old balance.
+Never ask for the player's private key.
 
 ```sh
 node "$HOME/.ratchetx-g2/run.mjs" preflight

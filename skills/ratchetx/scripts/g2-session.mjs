@@ -196,7 +196,7 @@ async function preflight(identity, web3, connection) {
     usage: context.usage, playerCredits: String(context.ledger?.credits ?? 0n), delegateLamports: String(balance), feeFunding: funding.airdrop, readOnly: true, noTransactionSent: true,
     reply: ready ? 'Devnet agent grant checked. Ready within your on-chain limits; fees and account rent are checked before each shot.' :
       !context.grant ? 'One setup step remains: approve this agent’s limits in your player wallet. ' + setupResult(identity).setupUrl :
-      !allocated ? 'This player has no available devnet test-credit allocation. No prediction can be sent.' :
+      !allocated ? 'This player has no devnet test credits yet. Any wallet can claim 10,000 once at https://ratchetx.xyz/play (a devnet transaction the player signs); then play. No prediction was sent.' :
       balance === 0 ? 'Your agent needs devnet SOL for transaction fees and account rent. Its public address: ' + identity.delegate :
       'The current grant cannot accept a new shot yet. Check its remaining limits and expiry on the setup page.' });
 }
