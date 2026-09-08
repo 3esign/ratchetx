@@ -37,7 +37,7 @@
       "updatedAt": "2026-08-30T00:00:00Z",
       "metadata": {
         "freeDemo": true,
-        "remoteMcp": "https://ratchetx.xyz/api/mcp",
+        "remoteMcp": "https://ratchetx.xyz/api/g2-mcp",
         "installationRequired": false,
         "rankedMinimumCalls": 10,
         "canonicalSettlement": "server",
@@ -174,7 +174,7 @@
         "gauntletId": "first-contact-001",
         "status": "open",
         "page": "https://ratchetx.xyz/gauntlet",
-        "remoteMcp": "https://ratchetx.xyz/api/mcp",
+        "remoteMcp": "https://ratchetx.xyz/api/g2-mcp",
         "authenticationRequired": false,
         "paymentRequired": false,
         "monetaryReward": false,
@@ -210,7 +210,7 @@
       "updatedAt": "2026-09-02T00:00:00Z",
       "metadata": {
         "format": "agentskills.io",
-        "remoteMcp": "https://ratchetx.xyz/api/mcp"
+        "remoteMcp": "https://ratchetx.xyz/api/g2-mcp"
       }
     },
     {
