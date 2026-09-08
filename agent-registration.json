@@ -50,8 +50,8 @@
     },
     {
       "name": "Agent Skill",
-      "endpoint": "https://ratchetx.xyz/skills/ratchetx-g2/SKILL.md",
-      "version": "0.1.0"
+      "endpoint": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
+      "version": "2.2.0"
     },
     {
       "name": "OpenAPI",
@@ -85,6 +85,5 @@
   "supportedTrust": [
     "reputation",
     "crypto-economic"
-  ],
-  "version": "0.1.0"
+  ]
 }

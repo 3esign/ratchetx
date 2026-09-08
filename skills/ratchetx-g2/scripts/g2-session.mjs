@@ -161,10 +161,30 @@ function connectionFor(web3) {
   connection.confirmTransaction = (strategy, commitment) => confirmWithHttp(connection, strategy, commitment);
   return connection;
 }
+// Devnet fee self-funding. The delegate is a throwaway devnet key that only pays network
+// fees and rent; the devnet faucet is free and needs no credential, so an agent host never has
+// to hand-fund it. Guarded to the pinned devnet genesis: on any other cluster this is a no-op.
+// Failure (rate limit, faucet down) is reported, never thrown - the caller still sees the true balance.
+export const FEE_FLOOR_LAMPORTS = 5_000_000n;      // 0.005 SOL: below this a shot may not cover rent + fees
+export const FEE_AIRDROP_LAMPORTS = 50_000_000;    // 0.05 SOL per top-up, well under the faucet cap
+export async function ensureDevnetFeeBalance(identity, web3, connection, { airdrop = (k, l) => connection.requestAirdrop(k, l) } = {}) {
+  const key = new web3.PublicKey(identity.delegate);
+  const before = BigInt(await connection.getBalance(key, 'confirmed'));
+  if (before >= FEE_FLOOR_LAMPORTS) return { before, after: before, airdrop: null };
+  if (identity.clusterGenesis !== GENESIS || await connection.getGenesisHash() !== GENESIS) return { before, after: before, airdrop: 'skipped: not devnet' };
+  try {
+    const signature = await airdrop(key, FEE_AIRDROP_LAMPORTS);
+    const { blockhash: _b, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
+    await connection.confirmTransaction({ signature, lastValidBlockHeight }, 'confirmed');
+    const after = BigInt(await connection.getBalance(key, 'confirmed'));
+    return { before, after, airdrop: signature };
+  } catch (error) { return { before, after: before, airdrop: 'failed: ' + (error?.message || String(error)).slice(0, 120) }; }
+}
 async function preflight(identity, web3, connection) {
   const actions = createDelegateActions({ web3, connection, config: CONFIG, cryptoImpl: webcrypto });
   const context = await actions.readGrant(identity);
-  const balance = await connection.getBalance(new web3.PublicKey(identity.delegate), 'confirmed');
+  const funding = await ensureDevnetFeeBalance(identity, web3, connection);
+  const balance = Number(funding.after);
   const permission = context.usage?.minimumStakePermission;
   const allocated = !!context.ledger && context.ledger.credits >= context.economy.args.minStake;
   const ready = context.kind === 'account' && permission?.ok === true && balance > 0 && allocated;
@@ -173,7 +193,7 @@ async function preflight(identity, web3, connection) {
     grantAddress: context.address.toBase58(), grantPresent: !!context.grant, grantHash: context.grantHash,
     grant: context.grant ? { maxStake: context.grant.maxStake, maxGrossStake: context.grant.maxGrossStake, maxShots: context.grant.maxShots,
       expiresAtTs: context.grant.expiresAtTs, minIntervalSeconds: context.grant.minIntervalSeconds } : null,
-    usage: context.usage, playerCredits: String(context.ledger?.credits ?? 0n), delegateLamports: String(balance), readOnly: true, noTransactionSent: true,
+    usage: context.usage, playerCredits: String(context.ledger?.credits ?? 0n), delegateLamports: String(balance), feeFunding: funding.airdrop, readOnly: true, noTransactionSent: true,
     reply: ready ? 'Devnet agent grant checked. Ready within your on-chain limits; fees and account rent are checked before each shot.' :
       !context.grant ? 'One setup step remains: approve this agent’s limits in your player wallet. ' + setupResult(identity).setupUrl :
       !allocated ? 'This player has no available devnet test-credit allocation. No prediction can be sent.' :
@@ -228,7 +248,7 @@ export async function runCli(argv, { rootDir = stateRoot() } = {}) {
   try {
     if (command === 'status') return await runner.status();
     if (command === 'finish') return await finishCommand(runner, flags['--command-id']);
-    if (command === 'play') return await runner.runCommand({ commandId: flags['--command-id'], text: flags['--say'] });
+    if (command === 'play') { await ensureDevnetFeeBalance(identity, web3, connection); return await runner.runCommand({ commandId: flags['--command-id'], text: flags['--say'] }); }
     return await runner[command]({ commandId: flags['--command-id'] });
   } finally { if (keypair) keypair.secretKey.fill(0); }
 }

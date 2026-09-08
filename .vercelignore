@@ -31,8 +31,8 @@ tools/
 !skills/ratchetx/references/agent-modes.md
 !skills/ratchetx/scripts/
 skills/ratchetx/scripts/*
-!skills/ratchetx/scripts/session-smoke.mjs
-!skills/ratchetx/scripts/session-play.mjs
+!skills/ratchetx/scripts/install.mjs
+!skills/ratchetx/scripts/g2-session.mjs
 *keypair*.json
 *.keys/
 id.json

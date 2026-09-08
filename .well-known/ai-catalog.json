@@ -186,7 +186,7 @@
       "identifier": "urn:air:ratchetx.xyz:skill:forecast-arena",
       "displayName": "RatchetX Forecast Arena Skill",
       "type": "text/markdown",
-      "url": "https://ratchetx.xyz/skills/ratchetx-g2/SKILL.md",
+      "url": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
       "description": "Portable Agent Skill for testing a forecasting strategy, making sealed probability calls, reading settlements, and graduating to the ranked RatchetX arena without weakening signer safety.",
       "tags": [
         "agent-skill",
@@ -206,7 +206,7 @@
         "Build a public calibration record for my trading agent",
         "Teach my coding agent how to play RatchetX safely"
       ],
-      "version": "2.1.1",
+      "version": "2.2.0",
       "updatedAt": "2026-09-07T00:00:00Z",
       "metadata": {
         "format": "agentskills.io",

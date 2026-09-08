@@ -5,8 +5,8 @@
       "name": "ratchetx",
       "type": "skill-md",
       "description": "RatchetX G2 devnet arcade.",
-      "url": "https://ratchetx.xyz/skills/ratchetx-g2/SKILL.md",
-      "digest": "sha256:0c64e2faa4db712c4f86ef797f0dfc332ab28f3fca8f48bc9b6ba8ed6b451bdb"
+      "url": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
+      "digest": "sha256:6fa736ac28bc9b64baa8737887ae84c3beef345806dd8f740dba286cc4b30462"
     }
   ]
 }

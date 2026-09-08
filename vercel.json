@@ -14,8 +14,12 @@
       "destination": "/lib/g2/agent-setup.html"
     },
     {
+      "source": "/proof",
+      "destination": "/lib/g2/play.html"
+    },
+    {
       "source": "/agents",
-      "destination": "/agents.html"
+      "destination": "/lib/g2/agent-guide.html"
     },
     {
       "source": "/gauntlet",
@@ -183,6 +187,58 @@
         {
           "key": "Access-Control-Allow-Headers",
           "value": "X-CSRF-Token, X-Requested-With, Accept, Accept-Version, Content-Length, Content-MD5, Content-Type, Date, X-Api-Version, X-Action-Version, X-Blockchain-Ids"
+        }
+      ]
+    },
+    {
+      "source": "/skills/ratchetx/SKILL.md",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Content-Type",
+          "value": "text/markdown; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/skills/ratchetx/scripts/install.mjs",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Content-Type",
+          "value": "text/javascript; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/skills/ratchetx-g2/scripts/g2-session.mjs",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Content-Type",
+          "value": "text/javascript; charset=utf-8"
+        }
+      ]
+    },
+    {
+      "source": "/skills/ratchetx/scripts/g2-session.mjs",
+      "headers": [
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Content-Type",
+          "value": "text/javascript; charset=utf-8"
         }
       ]
     }
