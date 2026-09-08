@@ -50,8 +50,8 @@
     },
     {
       "name": "Agent Skill",
-      "endpoint": "https://ratchetx.xyz/skills/ratchetx/SKILL.md",
-      "version": "1.6.4"
+      "endpoint": "https://ratchetx.xyz/skills/ratchetx-g2/SKILL.md",
+      "version": "0.1.0"
     },
     {
       "name": "OpenAPI",
