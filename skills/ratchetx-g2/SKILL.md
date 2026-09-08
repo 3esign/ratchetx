@@ -9,7 +9,7 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "2.1.0"
+  version: "2.1.1"
   runtime-sha256: "e01b2c1b4113419154bdfac5815f354a63717e6248487adf65a58db290ea57f3"
   installer-sha256: "221b734356cf38f3902b75684cb3f3438f806416b2824bee2ad4e2fbf1462297"
 ---
@@ -120,7 +120,7 @@ directory or create a replacement journal.
 Do not enable public play routing on a host that cannot reliably return to
 reveal within that window.
 
-The exact aliases `@bankrbot play` and `$RCX play` map directly to this RatchetX G2 play command.
+The exact aliases `@bankrbot play`, `@bankrbot rcx play`, `rcx play`, and `$RCX play` map directly to this RatchetX G2 play command.
 
 ## Honest boundaries
 

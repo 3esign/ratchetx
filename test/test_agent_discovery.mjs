@@ -9,7 +9,7 @@ const read = p => fs.readFileSync(new URL(p, import.meta.url), 'utf8');
 const catalog = JSON.parse(read('../.well-known/ai-catalog.json'));
 const mcp = JSON.parse(read('../.well-known/mcp.json'));
 const skillIndex = JSON.parse(read('../.well-known/agent-skills/index.json'));
-const skillBytes = fs.readFileSync(new URL('../skills/ratchetx/SKILL.md', import.meta.url));
+const skillBytes = fs.readFileSync(new URL('../skills/ratchetx-g2/SKILL.md', import.meta.url));
 const skill = skillBytes.toString('utf8');
 const llms = read('../llms.txt');
 const sitemap = read('../sitemap.xml');

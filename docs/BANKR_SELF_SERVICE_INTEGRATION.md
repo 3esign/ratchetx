@@ -50,7 +50,7 @@ catalog approval is a prerequisite for this path.
 
 At 2026-08-30T10:31:19.959Z a credential-free GET of the public Ratchet skill
 returned HTTP 200 (9,089 bytes) with the correct skill name and MCP URL:
-https://raw.githubusercontent.com/3esign/ratchetx/main/skills/ratchetx/SKILL.md
+https://raw.githubusercontent.com/3esign/ratchetx/main/skills/ratchetx-g2/SKILL.md
 
 No Bankr wallet/API key was used. No external app or skill was installed this turn.
 
@@ -59,7 +59,7 @@ No Bankr wallet/API key was used. No external app or skill was installed this tu
 Existing install command for Bankr chat:
 
 ```text
-Install the ratchetx skill from https://github.com/3esign/ratchetx/tree/main/skills/ratchetx
+Install the ratchetx skill from https://github.com/3esign/ratchetx/tree/main/skills/ratchetx-g2
 ```
 
 The existing skill supports Pyth inspection and demo play. It is not a new signing
@@ -177,7 +177,7 @@ challenge. Native transaction signing is still unproven by Bankr's reply.
 
 We can build this using self-service skills/apps; no platform-team changes.
 Install our public ratchetx skill from
-https://github.com/3esign/ratchetx/tree/main/skills/ratchetx and prepare a PRIVATE,
+https://github.com/3esign/ratchetx/tree/main/skills/ratchetx-g2 and prepare a PRIVATE,
 viewer-scoped Ratchet cockpit for public context/board/proof reads only.
 
 Inspect the actual signing schemas available in your private web runtime and X
