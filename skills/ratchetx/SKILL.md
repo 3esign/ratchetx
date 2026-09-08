@@ -9,9 +9,9 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "2.3.2"
-  runtime-sha256: "3cd4669f631f54ea81ed6f0154a782ab1976dad4543635c2ad265d970507b6c1"
-  installer-sha256: "db98ff84e7a6ba30d0fc6872e3e20fad00a51f38ba6ed16af3763ac1aac68978"
+  version: "2.4.0"
+  runtime-sha256: "fd362e51b0f361d1cb9ebb455093b63fdb91d44588e091cab3d92783a67ad8c3"
+  installer-sha256: "091c77944f4528db7dec017cf7b786c8e0ebe074f8e5ec3f2a3429bd6cbe9bc1"
 ---
 
 # RatchetX G2 devnet
@@ -39,22 +39,26 @@ only the installed `run.mjs` contains the complete runtime dependency tree.
 
 ```sh
 node scripts/install.mjs
-node "$HOME/.ratchetx-g2/run.mjs" init --player PLAYER_PUBLIC_SOLANA_ADDRESS
+node "$HOME/.ratchetx-g2/run.mjs" init
 ```
 
-The authenticated owner of this private Bankr session explicitly chooses the
-public Solana player address. It may be an external wallet; it does not have
-to be Bankr's native wallet. Never infer ownership from an X handle or a post.
-Entering an address grants no permission. Only the player's signature on the
-on-chain grant binds that wallet to this delegate and the chosen limits.
-Initialization generates an agent key **inside that agent runtime** and prints
-only its public address, grant ID and setup link. Show `reply` verbatim. The
-player opens that link in their wallet, selects explicit limits, and signs the
-on-chain grant. The delegate needs devnet SOL for network fees/account rent.
-Any wallet may claim 10,000 devnet test credits once, by signing one devnet
-transaction at https://ratchetx.xyz/play; the program opens that door only on the
-devnet economy. Setup itself does not mint credits or migrate any old balance.
-Never ask for the player's private key.
+**Default: the agent plays with its own devnet wallet.** `init` with no address
+(or `--player self`) generates a key inside this agent runtime and makes it the
+player. Nothing has to be signed anywhere else: the first `play` claims 10,000
+devnet test credits for that wallet and seals the prediction. A public X command
+on a fresh host may skip `init` entirely; `play` sets self-play up on the way.
+The agent wallet needs a little devnet SOL for fees and rent; the runner asks the
+devnet faucet itself and, if the faucet is rate limited, reports the address to fund.
+
+**Optional: play on the human's own wallet.** Only if the authenticated owner of
+this private session explicitly asks for their record to live on their wallet:
+`init --player THEIR_PUBLIC_SOLANA_ADDRESS`. That is delegation - the reply
+carries a setup link the player opens in their wallet to choose limits and sign
+the on-chain grant, and that player claims their own 10,000 test credits once at
+https://ratchetx.xyz/play. Never infer ownership from an X handle or a post;
+entering an address grants nothing, only the player's signature does. Show every
+`reply` verbatim. Setup never mints credits or migrates an old balance. Never ask
+for anyone's private key.
 
 ```sh
 node "$HOME/.ratchetx-g2/run.mjs" preflight
