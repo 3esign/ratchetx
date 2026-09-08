@@ -1,1 +1,0 @@
-SUPERSEDED, review-only evidence (2026-09-04T22:54Z run of the pre-hardening tool). Pairs C8ww PDAs with the historical US517-baked artifact 8d913a5d… . NOT canonical, EXCLUDED from any swap (per Sol LANDMINE 22:56Z). Regenerate from the C8ww-baked ELF with the hardened tool; canonical output will be staged-C8wwxU only when the artifact embeds C8ww.

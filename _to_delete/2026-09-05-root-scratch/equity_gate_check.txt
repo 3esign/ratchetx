@@ -1,19 +1,0 @@
-RatchetX equity feed gate check 
-RPC:  
- 
-gate check · https://api.mainnet-beta.solana.com · shards 0..255
-
-  …20%  …39%  …59%  …78%  …98%✗ TSLA Index not pushed on any shard 0..255 — not sponsored on Solana
-✗ TSLA US    not pushed on any shard 0..255 — not sponsored on Solana
-✗ NVDA Index not pushed on any shard 0..255 — not sponsored on Solana
-✗ NVDA US    not pushed on any shard 0..255 — not sponsored on Solana
-✗ PLTR Index not pushed on any shard 0..255 — not sponsored on Solana
-✗ PLTR US    not pushed on any shard 0..255 — not sponsored on Solana
-✗ COIN Index not pushed on any shard 0..255 — not sponsored on Solana
-✗ COIN US    not pushed on any shard 0..255 — not sponsored on Solana
-✗ HOOD Index not pushed on any shard 0..255 — not sponsored on Solana
-✗ HOOD US    not pushed on any shard 0..255 — not sponsored on Solana
-
-✓ = shard 0 + receiver-owned: readable by the core program as built (0 usable now).
-~ = pushed on another shard: readable only if the core switches or adds that shard (a program change, before freeze).
-✗ = not pushed anywhere: pull-only feed; the program cannot use it.

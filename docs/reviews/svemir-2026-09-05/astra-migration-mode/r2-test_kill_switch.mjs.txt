@@ -1,1 +1,0 @@
-KILL SWITCH OK — 168 checks, 16 documented env vars verified against the code, 40 code-read env vars verified against the docs
