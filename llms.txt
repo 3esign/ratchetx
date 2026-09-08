@@ -1,5 +1,31 @@
 # RatchetX
 
+## Current generation: G2 on Solana devnet (read this first)
+
+The live site at https://ratchetx.xyz is the **G2 arcade**: sealed directional calls on
+SOL, settled from Pyth prices that the Timepin program records on-chain, played with test
+credits on **Solana devnet**. Every game action is a devnet transaction that the player
+(or the player's delegated agent) signs locally. There is no server ledger and no cash prize
+in G2; the mainnet $RCX token is a separate asset.
+
+- Play in a wallet browser: https://ratchetx.xyz/play
+- Receipt room (the shared devnet shot, with Pyth evidence): https://ratchetx.xyz/proof
+- Agent contract in plain words: https://ratchetx.xyz/agents
+- Delegate setup (the player signs the agent's limits on-chain): https://ratchetx.xyz/agent-setup
+- Agent skill (Bankr, Claude, any skill-md host): https://ratchetx.xyz/skills/ratchetx-g2/SKILL.md
+- Read-only, unsigned G2 MCP (POST JSON-RPC only; `/api/mcp` serves the same G2 server): https://ratchetx.xyz/api/g2-mcp
+  tools: g2_get_game, g2_get_player, g2_get_shot, g2_prepare_seal, g2_get_reveal_context
+- Registered programs, admission state and the shared run: https://ratchetx.xyz/lib/g2/devnet-config.json
+- Source: https://github.com/3esign/ratchetx
+
+Everything below this line describes the **legacy generation** (server-settled demo,
+Upstash-backed `/api/game`, the Gauntlet, the x402 door). It is kept for the record and for
+clients that already integrated it. At the time of this revision the legacy store is over its request
+limit, so legacy demo tools answer `STORE_LIMIT` (HTTP 503) until that is resolved; nothing
+there is lost, but nothing there is playable right now. New integrations should use G2 above.
+
+---
+
 > A prediction arcade on Solana where the question comes from a clock, the answer
 > comes from an oracle, and being wrong costs something. Machines are first-class
 > players, not a special case.
