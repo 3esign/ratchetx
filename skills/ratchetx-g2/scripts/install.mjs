@@ -8,7 +8,7 @@ import { gunzipSync } from 'node:zlib';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // Updated by scripts/build-g2-agent-runtime.mjs from the exact packaged public files.
-const RELEASE = {"schema":1,"url":"https://ratchetx.xyz/releases/g2-agent-runtime.json.gz","sha256":"323b39b1ba1ded1b768ae43ebbc47f8d5eb2f64d914f3368c6acd0280278f4d0","bytes":321188,"entry":"skills/ratchetx-g2/scripts/g2-session.mjs"};
+const RELEASE = {"schema":1,"url":"https://ratchetx.xyz/releases/g2-agent-runtime.json.gz","sha256":"bee1835cf7787698bdb902deffef53ad48caf9d981872e9b61340c6d0487ef72","bytes":321381,"entry":"skills/ratchetx-g2/scripts/g2-session.mjs"};
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const fail = (ok, code) => { if (!ok) { const e = new Error(code); e.code = code; throw e; } };
 const boundedPath = (root, name) => {
