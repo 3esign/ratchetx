@@ -372,6 +372,27 @@ each) via `data/brain/scratch/rx_self.cmd` on the laptop. Still true: the public
 rate limited per IP; a host whose faucet quota is spent gets `DELEGATE_FEE_BALANCE_REQUIRED`
 with the address to fund.
 
+## 19 · A keeper that dies on one 429 voids everybody's game
+
+**What happened (2026-09-09).** The devnet keeper had been dead for ~30 minutes (public RPC
+answered 429, web3.js threw, the process exited, nothing restarted it). Every shot sealed in that
+window voided. After a restart loop was added, one capture_first at an entry target was still
+lost to a 429 and the first X-originated Bankr game (`3iknRADm…`, nonce 0) voided while a
+neighbouring shot sealed ten minutes earlier settled to a HIT.
+
+**Rule.** On a free RPC, every call - reads, simulations, sends, confirmations - retries with
+backoff, and the process is supervised by something that restarts it. A keeper is only as
+permissionless as it is alive; "anyone may run one" is not the same as "one is running".
+
+**Checks.** `ops/g2-crank/public-evidence.mjs` `withReadRetries` now covers every RPC method with
+six attempts; the keeper itself lived only on `codex/g2-public-keeper` and is on `main` from
+be14cee with its tests; `KEEPER_LOOP.cmd` on the laptop restarts it. Evidence of the stateless
+path that survives all this: seed agent `6T66H7…` nonce 1 - sealed, captured, terms recovered
+from the seed against the commitment, revealed, HIT +11 XP (terminal
+2CPWuQ5Aq3XxyZ9QK4jjL7vxFP2CpGLm7ZXCQrcv9SiNBcgmHudf23cS3dCtNXT9yj79jXxK9RzFSNoKYVvFr2b3).
+Still open: a second keeper on another IP (the PC, or the VPS) so one throttled address is not
+the whole game.
+
 ## Already documented elsewhere, not restated here
 
 - **`jsonb` does not preserve object key order**, so hashing `JSON.stringify` output makes a
