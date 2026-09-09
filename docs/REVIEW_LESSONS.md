@@ -393,6 +393,27 @@ from the seed against the commitment, revealed, HIT +11 XP (terminal
 Still open: a second keeper on another IP (the PC, or the VPS) so one throttled address is not
 the whole game.
 
+## 20 · Touching one `.rs` line un-greens six gate rows, silently
+
+**What happened (2026-09-09).** `claim_devnet_credits` was added to Core, rebuilt, verified
+(receipt PASS), deployed to devnet and shipped. What nobody re-ran was the mainnet gate. A day
+later it read **9 of 21 blocking**: C1 said "receipt describes different bytes: src/lib.rs", and
+the downgrade pass then stripped GO from C2, R1, R2, R3, M1, M2, M3 and I2 with the same honest
+sentence - *the source text says yes, but C1 is not GO, so this text is not yet a program*. The
+artifacts and golden vectors were current; only `docs/receipts/compile-*.json` was stale. Six
+rows had been reporting green on the strength of a receipt describing code that no longer existed.
+
+**Rule.** A change to any `.rs` file is not finished until the compile receipt is regenerated on a
+machine with the toolchain (`COMPILE_HOST=<host> node tools/compile-receipt.mjs`) **and**
+`node tools/mainnet-go-check.mjs` has been read again. Building the `.so` is not the same evidence
+as compiling the crate: B1/B2 can be green while C1 is red, and that combination is exactly what
+hides the problem.
+
+**Check.** The gate itself catches it - the failure text names the file. What was missing was
+running the gate at all after a source change. Receipts regenerated on the laptop (core: check 0,
+test 0, 29 passed; timepin: 28 passed, hashes unchanged, host name filled in) and the gate reads
+ALL CHECKS PASS again (2502158, 1bd323c).
+
 ## Already documented elsewhere, not restated here
 
 - **`jsonb` does not preserve object key order**, so hashing `JSON.stringify` output makes a
