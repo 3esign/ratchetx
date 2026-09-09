@@ -20,14 +20,22 @@ export async function readClock(connection) {
   requireFact(out.slot > 0n && out.nowTs > 0n, 'invalid real Clock values'); return out;
 }
 
-export function withReadRetries(connection, pause = sleep) {
+// The public devnet RPC answers a burst with 429 and web3.js turns that into a thrown error. A
+// keeper that dies on one such answer voids everybody's shot (2026-09-09: capture_first at the entry
+// target was lost to a 429 and the game was voided). Every RPC method - reads, simulations, sends,
+// confirmations, airdrops - retries with a real backoff before giving up.
+export function withReadRetries(connection, pause = sleep, { attempts = 6 } = {}) {
   return new Proxy(connection, { get(target, name) {
     const value = target[name]; if (typeof value !== 'function') return value;
-    if (!String(name).startsWith('get')) return value.bind(target);
+    if (!/^(get|send|simulate|confirm|request)/.test(String(name))) return value.bind(target);
     return async (...args) => {
       for (let attempt = 0; ; attempt++) {
         try { return await value.apply(target, args); }
-        catch (error) { if (attempt >= 2 || !/\b429\b|too many requests/i.test(String(error.message))) throw error; await pause(2000 * (attempt + 1)); }
+        catch (error) {
+          const throttled = /\b429\b|too many requests|rate.?limit|fetch failed|ECONNRESET|ETIMEDOUT/i.test(String(error?.message || error));
+          if (attempt >= attempts - 1 || !throttled) throw error;
+          await pause(Math.min(30000, 1500 * 2 ** attempt));
+        }
       }
     };
   } });
