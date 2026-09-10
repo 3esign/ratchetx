@@ -103,3 +103,13 @@ test('seed play phases identify the failing step', () => {
     assert.match(seedAgent, new RegExp("phase: '" + phase + "'"), 'missing seed phase ' + phase);
   }
 });
+
+test('seed play does not require a closed-shot archive lookup before a new seal', () => {
+  const seedAgent = fs.readFileSync(new URL('../lib/g2/seed-agent.mjs', import.meta.url), 'utf8');
+  assert.match(seedAgent, /let latest = null;\s+if \(Number\(view\.ledger\?\.open \|\| 0\) > 0\) \{\s+onStatus\(\{ phase: 'play-advance' \}\);\s+latest = await advance\(view\);\s+\}/,
+    'play should only advance an existing open shot before deciding whether to seal a new one');
+  assert.match(seedAgent, /async function status\(\) \{\s+const view = await game\.load\(\);\s+const latest = await advance\(view\);/,
+    'status still needs archive lookup for already closed shots');
+  assert.match(runtime, /getSignaturesForAddress\|signatures for address/,
+    'shot archive lookup failures should not be classified as UNEXPECTED');
+});

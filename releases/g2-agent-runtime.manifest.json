@@ -1,8 +1,8 @@
 {
   "schema": 1,
   "url": "https://raw.githubusercontent.com/3esign/ratchetx/main/releases/g2-agent-runtime.json.gz",
-  "sha256": "5db8e09adb62f99e3fc69ef9d0687fa36e38641449c4900477a75639e9931742",
-  "bytes": 326209,
+  "sha256": "0991f0a09c74510749d3a13a9b6b0b0b05ae3ea8a95fad8b777f8f06b7cd616c",
+  "bytes": 326354,
   "entry": "skills/ratchetx-g2/scripts/g2-session.mjs",
   "scope": "DEVNET_AGENT_RUNTIME",
   "node": ">=20.11",
@@ -20,7 +20,7 @@
       "format": "existing browser IIFE; Node stdlib loader"
     }
   },
-  "sourceBytes": 820546,
+  "sourceBytes": 820785,
   "files": [
     {
       "path": "lib/g2/agent-session.mjs",
@@ -69,8 +69,8 @@
     },
     {
       "path": "lib/g2/seed-agent.mjs",
-      "sha256": "648b582d365d049a49df4f68d54a07a0241995fbe3f73c47be5fcb8dc169583a",
-      "bytes": 11318
+      "sha256": "7967b8ef1972256ab91010bd0b8a28fec4be969c02d2e42e8006033c94fd8736",
+      "bytes": 11391
     },
     {
       "path": "lib/g2/shot-receipt.mjs",
@@ -89,8 +89,8 @@
     },
     {
       "path": "skills/ratchetx-g2/scripts/g2-session.mjs",
-      "sha256": "d4e88482d97f120931e041e2c4bae4a53639295e80582c382a1d394ff5566692",
-      "bytes": 34294
+      "sha256": "5844783d4f084571ea0aaf7e091d6cbad7429ba6d22f9508095e8047c50450eb",
+      "bytes": 34460
     },
     {
       "path": "skills/ratchetx/scripts/session-play.mjs",

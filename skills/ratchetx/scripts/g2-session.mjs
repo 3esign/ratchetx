@@ -27,7 +27,7 @@ function publicErrorKind(error) {
   if (/ERR_MODULE_NOT_FOUND|Cannot find module|ENOENT|no such file|not found/i.test(parts)) return 'RUNTIME_RESOURCE';
   if (/EACCES|EPERM|permission/i.test(parts)) return 'HOST_PERMISSION';
   if (/Cannot read properties|is not a function|undefined|null/i.test(parts)) return 'RUNTIME_TYPE';
-  if (/Simulation refused|InstructionError|Custom|Transaction failed|Transaction simulation failed|custom program error|blockhash|signature|insufficient on-chain credits|too many open shots|stake outside Economy bounds|Claim test credits|target grid|Shot|Ledger|Economy|Ruleset|Need/i.test(parts)) return 'CHAIN_OR_STATE';
+  if (/Simulation refused|InstructionError|Custom|Transaction failed|Transaction simulation failed|custom program error|blockhash|signature|insufficient on-chain credits|too many open shots|stake outside Economy bounds|Claim test credits|target grid|Shot|Ledger|Economy|Ruleset|Need|RPC returned|transaction-unavailable|shot-account-absent|getSignaturesForAddress|signatures for address|getTransaction|getMultipleAccounts|Receipt extraction|archive/i.test(parts)) return 'CHAIN_OR_STATE';
   return 'UNEXPECTED';
 }
 const publicErrorRef = error => createHash('sha256').update(String(error?.code || error?.message || error || 'unknown')).digest('hex').slice(0, 8);
