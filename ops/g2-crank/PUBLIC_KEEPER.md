@@ -86,6 +86,38 @@ operator profits.
 
 Until real volume exists, running this is a contribution, not a business.
 
+## Choosing an RPC
+
+`--rpc` is required and never guessed, and the endpoint you choose is the single
+most likely thing to cost you a game. Measured 2026-09-10, a lagging node behind a
+load-balanced endpoint blinded a keeper for five minutes and a capturable target
+expired. The retry path now absorbs that, but only for about a minute.
+
+Two keyless devnet endpoints were probed with the calls a keeper actually makes -
+`getProgramAccounts` with memcmp filters, `getMultipleAccounts` with
+`minContextSlot`, `getSignaturesForAddress`, `getTransaction`,
+`getLatestBlockhash`, `getBlockTime` - at the cadence a keeper actually uses
+(account reads 2.5s apart, Shot scans 5s apart):
+
+| Endpoint | Result |
+|---|---|
+| `https://api.devnet.solana.com` | all calls pass, 0 failures at keeper cadence |
+| `https://devnet.rpcpool.com` | all calls pass, 0 failures at keeper cadence |
+
+Both honour `minContextSlot`, which the Shot scan depends on. Neither survives a
+burst: twenty `getProgramAccounts` back to back trips a rate limit that then
+rejects paced calls for a while afterwards, so do not tighten the sweep interval.
+
+Five other public endpoints were refused outright and are listed so nobody
+re-tests them: `solana-devnet-rpc.publicnode.com` (404),
+`solana-devnet.drpc.org` (devnet is a paid plan), `endpoints.omniatech.io` (521),
+`rpc.ankr.com/solana_devnet` (API key required), `api.devnet.rpcpool.com` (IP
+blocked), `solana-devnet.g.alchemy.com/v2/demo` (429).
+
+**If you are the second or third keeper, pick a DIFFERENT endpoint from the one
+already running.** Two keepers on one endpoint are two machines behind one point
+of failure, which looks like redundancy and is not.
+
 ## Migration and interruption
 
 The old command now needs `--operator`. Its schema-1 bootstrap journal is rejected
