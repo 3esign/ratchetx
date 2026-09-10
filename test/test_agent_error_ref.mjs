@@ -83,3 +83,23 @@ test('a suppressed runtime failure carries a public phase and kind', () => {
   assert.match(output.reply, /phase seed-identity kind CONFIGURATION/);
   assert.doesNotMatch(output.reply, /at least 16 characters/i);
 });
+
+
+test('seed play pre-submit failures return a safe public result', () => {
+  assert.match(runtime, /function seededPlayFailure\(error, identity\)/,
+    'seed play should not fall through the generic public catch for pre-submit failures');
+  assert.match(runtime, /noTransactionSent: !maybeTransactionSent/,
+    'the public result must distinguish pre-submit failures from uncertain submitted transactions');
+  assert.match(runtime, /catch \(error\) \{ return seededPlayFailure\(error, identity\); \}/,
+    'seed play must wrap agent.play directly');
+  assert.match(runtime, /Simulation refused\|InstructionError\|Custom/,
+    'chain refusals should be categorized without exposing raw simulation details');
+});
+
+
+test('seed play phases identify the failing step', () => {
+  const seedAgent = fs.readFileSync(new URL('../lib/g2/seed-agent.mjs', import.meta.url), 'utf8');
+  for (const phase of ['play-classify', 'play-load', 'play-advance', 'play-intent', 'play-seal']) {
+    assert.match(seedAgent, new RegExp("phase: '" + phase + "'"), 'missing seed phase ' + phase);
+  }
+});

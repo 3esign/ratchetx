@@ -27,8 +27,24 @@ function publicErrorKind(error) {
   if (/ERR_MODULE_NOT_FOUND|Cannot find module|ENOENT|no such file|not found/i.test(parts)) return 'RUNTIME_RESOURCE';
   if (/EACCES|EPERM|permission/i.test(parts)) return 'HOST_PERMISSION';
   if (/Cannot read properties|is not a function|undefined|null/i.test(parts)) return 'RUNTIME_TYPE';
-  if (/Transaction simulation failed|custom program error|blockhash|signature/i.test(parts)) return 'CHAIN_REJECTED';
+  if (/Simulation refused|InstructionError|Custom|Transaction failed|Transaction simulation failed|custom program error|blockhash|signature|insufficient on-chain credits|too many open shots|stake outside Economy bounds|Claim test credits|target grid|Shot|Ledger|Economy|Ruleset|Need/i.test(parts)) return 'CHAIN_OR_STATE';
   return 'UNEXPECTED';
+}
+const publicErrorRef = error => createHash('sha256').update(String(error?.code || error?.message || error || 'unknown')).digest('hex').slice(0, 8);
+function seededPlayFailure(error, identity) {
+  const ref = publicErrorRef(error), kind = publicErrorKind(error);
+  const maybeTransactionSent = /^seed-(?:sending|confirming|reading|sealed)$/.test(publicPhase);
+  const code = maybeTransactionSent ? 'SEED_PLAY_CONFIRMATION_UNCERTAIN'
+    : kind === 'NETWORK_OR_RPC' || kind === 'RPC_RATE_LIMIT' ? 'SEED_PLAY_RPC_PRECHECK_FAILED'
+    : kind === 'CHAIN_OR_STATE' ? 'SEED_PLAY_CHAIN_PRECHECK_FAILED'
+    : 'SEED_PLAY_PRECHECK_FAILED';
+  const trace = code + ' ref ' + ref + ' phase ' + publicPhase + ' kind ' + kind;
+  return publicJson({ ok: false, code, scope: 'DEVNET_TEST_CREDITS_ONLY', mode: 'seed-self-play',
+    ...(identity?.player ? { player: identity.player } : {}), ref, phase: publicPhase, kind,
+    noTransactionSent: !maybeTransactionSent,
+    reply: maybeTransactionSent
+      ? 'RatchetX could not confirm this play after submit. Keep the same source command ID; do not create a replacement shot. ' + trace + '\nhttps://ratchetx.xyz/agent-setup'
+      : 'No prediction was sent. The seed agent reached play mode but could not prepare this shot before submit. Keep the same source command ID and try again. ' + trace + '\nhttps://ratchetx.xyz/agent-setup' });
 }
 let web3Cache;
 export function loadWeb3() {
@@ -323,7 +339,11 @@ async function runSeeded(command, flags, seed) {
       reply: ready ? 'Devnet agent ready (' + identity.player + '): ' + (credits >= view.economy.args.minStake ? credits + ' test credits.' : 'the first play claims 10,000 test credits, then seals.') : funding.after === 0n ? 'Your agent needs devnet SOL for fees and rent. Its public address: ' + identity.player : 'This agent wallet has no test credits left and its one-time claim is used.' }); }
   if (funding.after === 0n && command === 'play') return publicJson({ ok: false, code: 'DELEGATE_FEE_BALANCE_REQUIRED', scope: 'DEVNET_TEST_CREDITS_ONLY', mode: 'seed-self-play', player: identity.player, feeFunding: funding.airdrop, noTransactionSent: true,
     reply: 'No prediction was sent. The agent wallet ' + identity.player + ' has no devnet SOL for fees and rent, and the devnet faucet refused an airdrop just now. Send it a little devnet SOL (faucet.solana.com) and repeat the same command.' });
-  if (command === 'play') { setPublicPhase('seed-play'); return publicJson(await agent.play(flags['--say'])); }
+  if (command === 'play') {
+    setPublicPhase('seed-play');
+    try { return publicJson(await agent.play(flags['--say'])); }
+    catch (error) { return seededPlayFailure(error, identity); }
+  }
   if (command === 'finish') { setPublicPhase('seed-finish'); return publicJson(await agent.finish()); }
   setPublicPhase('seed-status');
   return publicJson(await agent.status()); // status, reconcile, reveal: the chain is the journal
@@ -386,9 +406,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     // discloses nothing (you cannot read a message back out of it) and it names
     // the failure exactly, so whoever has the source can find which throw it was.
     // Only attached when the code was suppressed; a named error needs no ref.
-    const ref = code === 'AGENT_CHECK_FAILED'
-      ? createHash('sha256').update(String(requested ?? 'unknown')).digest('hex').slice(0, 8)
-      : null;
+    const ref = code === 'AGENT_CHECK_FAILED' ? publicErrorRef(error) : null;
     const kind = code === 'AGENT_CHECK_FAILED' ? publicErrorKind(error) : null;
     const publicTrace = kind ? ' phase ' + publicPhase + ' kind ' + kind : '';
     process.stdout.write(JSON.stringify({ ok: false, code, ...(ref ? { ref, phase: publicPhase, kind } : {}), reply: 'RatchetX could not finish this check. Keep your current agent state and the same source command ID; do not create a replacement shot. ' + code + (ref ? ' ref ' + ref : '') + publicTrace + '\nhttps://ratchetx.xyz/agent-setup' }) + '\n');
