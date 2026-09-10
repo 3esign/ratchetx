@@ -88,12 +88,34 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   const source = fs.readFileSync(installer, 'utf8');
   fail(/^const RELEASE = \{[^\n]+\};$/m.test(source), 'Installer release pin marker missing');
   writeAtomic(installer, source.replace(/^const RELEASE = \{[^\n]+\};$/m, 'const RELEASE = ' + JSON.stringify(built.release) + ';'));
+  const installerDigest = sha(fs.readFileSync(installer));
   const skill = path.join(ROOT, 'skills/ratchetx-g2/SKILL.md');
   if (fs.existsSync(skill)) {
     const content = fs.readFileSync(skill, 'utf8');
     fail(/runtime-sha256: "[^"]+"/.test(content), 'Skill runtime pin marker missing');
     writeAtomic(skill, content.replace(/runtime-sha256: "[^"]+"/, 'runtime-sha256: "' + built.release.sha256 + '"')
-      .replace(/installer-sha256: "[^"]+"/, 'installer-sha256: "' + sha(fs.readFileSync(installer)) + '"'));
+      .replace(/installer-sha256: "[^"]+"/, 'installer-sha256: "' + installerDigest + '"'));
+  }
+  // THE MIRROR, AND IT IS NOT OPTIONAL. skills/ratchetx is the path the site
+  // tells a Bankr user to install from, and until 2026-09-10 nothing kept its
+  // pins in step with skills/ratchetx-g2. The consequence is quiet and total: an
+  // agent fetches the mirror's installer, that installer names the OLD archive,
+  // verifies it against the OLD hash, succeeds, and runs a client built for
+  // programs that no longer exist. A hash pin protects you from a corrupted
+  // download; nothing protects you from a faithful copy of the wrong thing
+  // except writing both at once, here.
+  const mirrorInstaller = path.join(ROOT, 'skills/ratchetx/scripts/install.mjs');
+  if (fs.existsSync(mirrorInstaller)) {
+    const source = fs.readFileSync(mirrorInstaller, 'utf8');
+    fail(/^const RELEASE = \{[^\n]+\};$/m.test(source), 'Mirror installer release pin marker missing');
+    writeAtomic(mirrorInstaller, source.replace(/^const RELEASE = \{[^\n]+\};$/m, 'const RELEASE = ' + JSON.stringify(built.release) + ';'));
+    const mirrorSkill = path.join(ROOT, 'skills/ratchetx/SKILL.md');
+    if (fs.existsSync(mirrorSkill)) {
+      const content = fs.readFileSync(mirrorSkill, 'utf8');
+      fail(/runtime-sha256: "[^"]+"/.test(content), 'Mirror skill runtime pin marker missing');
+      writeAtomic(mirrorSkill, content.replace(/runtime-sha256: "[^"]+"/, 'runtime-sha256: "' + built.release.sha256 + '"')
+        .replace(/installer-sha256: "[^"]+"/, 'installer-sha256: "' + sha(fs.readFileSync(mirrorInstaller)) + '"'));
+    }
   }
   process.stdout.write(JSON.stringify({ ok: true, code: 'RUNTIME_BUILT', ...built.release, sourceBytes: built.manifest.sourceBytes, files: built.manifest.files.map(row => row.path) }) + '\n');
 }
