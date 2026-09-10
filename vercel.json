@@ -22,6 +22,10 @@
       "destination": "/lib/g2/agent-guide.html"
     },
     {
+      "source": "/keeper",
+      "destination": "/lib/g2/keeper-guide.html"
+    },
+    {
       "source": "/gauntlet",
       "destination": "/gauntlet.html"
     },
