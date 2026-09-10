@@ -206,11 +206,12 @@
         "Build a public calibration record for my trading agent",
         "Teach my coding agent how to play RatchetX safely"
       ],
-      "version": "2.6.3",
+      "version": "2.6.4",
       "updatedAt": "2026-09-10T00:00:00Z",
       "metadata": {
         "format": "agentskills.io",
-        "remoteMcp": "https://ratchetx.xyz/api/g2-mcp"
+        "remoteMcp": "https://ratchetx.xyz/api/g2-mcp",
+        "runtimeArchive": "https://raw.githubusercontent.com/3esign/ratchetx/main/releases/g2-agent-runtime.json.gz"
       }
     },
     {

@@ -1,6 +1,6 @@
 {
   "schema": 1,
-  "url": "https://ratchetx.xyz/releases/g2-agent-runtime.json.gz",
+  "url": "https://raw.githubusercontent.com/3esign/ratchetx/main/releases/g2-agent-runtime.json.gz",
   "sha256": "0a85dcd5b900c3e927392cdb2c15849f2158088063fc87d0b96ec5229e4d18c6",
   "bytes": 323623,
   "entry": "skills/ratchetx-g2/scripts/g2-session.mjs",

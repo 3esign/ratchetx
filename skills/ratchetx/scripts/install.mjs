@@ -8,7 +8,7 @@ import { gunzipSync } from 'node:zlib';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // Updated by scripts/build-g2-agent-runtime.mjs from the exact packaged public files.
-const RELEASE = {"schema":1,"url":"https://ratchetx.xyz/releases/g2-agent-runtime.json.gz","sha256":"0a85dcd5b900c3e927392cdb2c15849f2158088063fc87d0b96ec5229e4d18c6","bytes":323623,"entry":"skills/ratchetx-g2/scripts/g2-session.mjs"};
+const RELEASE = {"schema":1,"url":"https://raw.githubusercontent.com/3esign/ratchetx/main/releases/g2-agent-runtime.json.gz","sha256":"0a85dcd5b900c3e927392cdb2c15849f2158088063fc87d0b96ec5229e4d18c6","bytes":323623,"entry":"skills/ratchetx-g2/scripts/g2-session.mjs"};
 const sha = bytes => createHash('sha256').update(bytes).digest('hex');
 const fail = (ok, code) => { if (!ok) { const e = new Error(code); e.code = code; throw e; } };
 const boundedPath = (root, name) => {
@@ -65,7 +65,7 @@ export async function install({ archiveFile, home = process.env.RATCHET_G2_HOME 
     const stat = fs.lstatSync(archiveFile); fail(stat.isFile() && !stat.isSymbolicLink() && stat.size <= 4_000_000, 'UNSAFE_ARCHIVE_FILE');
     bytes = fs.readFileSync(archiveFile);
   } else {
-    fail(/^https:\/\/ratchetx\.xyz\/releases\/g2-agent-runtime\.json\.gz$/.test(release.url), 'UNSAFE_PACKAGE_URL');
+    fail(/^https:\/\/raw\.githubusercontent\.com\/3esign\/ratchetx\/main\/releases\/g2-agent-runtime\.json\.gz$/.test(release.url), 'UNSAFE_PACKAGE_URL');
     const response = await fetchImpl(release.url, { redirect: 'error', signal: AbortSignal.timeout(60000) });
     fail(response.ok, 'PACKAGE_DOWNLOAD_FAILED');
     const reader = response.body.getReader(), chunks = []; let size = 0;

@@ -9,9 +9,9 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "2.6.3"
+  version: "2.6.4"
   runtime-sha256: "0a85dcd5b900c3e927392cdb2c15849f2158088063fc87d0b96ec5229e4d18c6"
-  installer-sha256: "7381f83533f7edfb080726524e5384c80010192b3dc22a0ce03613aaf3954c3c"
+  installer-sha256: "34d353dafbf73d5b5a26a1b8e022dbf8c20bddddec95859f71b43c6383ae90d5"
 ---
 
 # RatchetX G2 devnet
@@ -29,7 +29,7 @@ verifies the runtime package SHA-256 and every included file before installing.
 It adds no npm dependency and does not request or transfer any wallet key.
 
 If Bankr has not materialized the `scripts/install.mjs` resource, fetch
-`https://ratchetx.xyz/skills/ratchetx-g2/scripts/install.mjs` into the agent's
+`https://raw.githubusercontent.com/3esign/ratchetx/main/skills/ratchetx/scripts/install.mjs` into the agent's
 private persistent workspace. Require an HTTP 200 response and verify the
 saved bytes against the exact `installer-sha256` in this skill's metadata
 before execution. A missing response or hash mismatch stops installation;

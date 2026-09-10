@@ -47,3 +47,10 @@ test('the Bankr-facing mirror exposes the same G2 runtime source', () => {
   assert.equal(read('skills/ratchetx/scripts/g2-session.mjs'), read('skills/ratchetx-g2/scripts/g2-session.mjs'),
     'Bankr mirrors companion resources from skills/ratchetx, so its g2-session.mjs cannot lag the packaged runtime source');
 });
+
+test('the installer downloads the pinned runtime from GitHub while Vercel is blocked', () => {
+  const installer = read('skills/ratchetx/scripts/install.mjs');
+  const release = JSON.parse(installer.match(/^const RELEASE = (\{[^\n]+\});$/m)?.[1] ?? '{}');
+  assert.equal(release.url, 'https://raw.githubusercontent.com/3esign/ratchetx/main/releases/g2-agent-runtime.json.gz');
+  assert.match(installer, /raw\\\.githubusercontent\\\.com\\\/3esign\\\/ratchetx\\\/main\\\/releases\\\/g2-agent-runtime\\\.json\\\.gz/);
+});

@@ -69,7 +69,7 @@ export function buildRuntime(root = ROOT) {
     generation: { clusterGenesis: config.clusterGenesis, core: config.programs.core, timepin: config.programs.timepin, economyHash: config.economyHash, rulesetHash: config.rulesetHash },
     dependencies: { '@solana/web3.js': { version: '1.98.4', sha256: EXPECTED_VENDOR, format: 'existing browser IIFE; Node stdlib loader' } }, files };
   const archive = gzipSync(Buffer.from(JSON.stringify(value)), { level: 9 });
-  const release = { schema: 1, url: 'https://ratchetx.xyz/releases/g2-agent-runtime.json.gz', sha256: sha(archive), bytes: archive.length, entry: ENTRY };
+  const release = { schema: 1, url: 'https://raw.githubusercontent.com/3esign/ratchetx/main/releases/g2-agent-runtime.json.gz', sha256: sha(archive), bytes: archive.length, entry: ENTRY };
   const manifest = { ...release, scope: value.scope, node: value.node, generation: value.generation, dependencies: value.dependencies,
     sourceBytes: files.reduce((sum, row) => sum + row.bytes, 0), files: files.map(({ base64: _omitted, ...publicRow }) => publicRow) };
   return { archive, release, manifest };
