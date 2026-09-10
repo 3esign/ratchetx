@@ -68,15 +68,19 @@
 <tr class="total"><td>Net, one game, one player</td><td class="num neg">−2 439 520 lamports</td></tr>
 </tbody></table>
 
-<div class="warn"><p><strong>Read that total again before you fund anything.</strong> A keeper serving one player loses about 0.0024 SOL per game. On devnet that is play money and it does not matter. It is stated here because a page that showed you only the +45 000 would be lying by arrangement.</p></div>
+<div class="warn"><p><strong>That table was measured on 10 September 2026, and it is the reason the programs changed the same day.</strong> Almost all of the loss was one thing: recording a captured price created a permanent 1 254 760-lamport account that no instruction could close, so the capital was spent rather than lent.</p></div>
 
-<p>Almost all of it is one thing: <strong>rent that never comes back.</strong> Recording a captured price creates a permanent account costing 1 254 760 lamports, and there is no instruction that closes it — the game reads that account when it activates and when it settles, and the evidence layer has no working count of how many games still depend on it. So the capital is spent, not lent.</p>
+<h3>The rent comes back now</h3>
 
-<h3>Why this is a volume problem, not a dead end</h3>
+<p>Timepin counts the games that depend on each target. A game takes a hold when it is sealed and gives it back when it ends — and giving it back needs no signature from anyone, because the proof is that the game's account is gone, which only the program that owned it could have done. Once the last hold is gone and a week has passed, the Need and the captured price are closed and each refund goes to the address that paid: yours, for every price you captured.</p>
 
-<p>A target time is shared. The price at 14:05 is the same price for everyone who aimed at 14:05, so the first keeper to capture it pays for all of them, and every player after that costs two 5 000-lamport signatures and earns 90 000. Break-even is roughly <strong>28 shots per target time</strong>. Below it an operator subsidises the arcade; above it an operator profits.</p>
+<p>So the ledger above is now a <strong>float, not a fire</strong>. You front the capture rent and you get it back. What you keep is the 45 000 per paid step. Run <code>ops/g2-crank/sweep-rent.mjs</code> — nobody is paid to call it, and you should call it anyway, because one of those refund addresses is yours.</p>
 
-<p>Today the arcade is nowhere near that. So: running a keeper right now is a contribution, not a business. If that is not what you came for, this is the honest moment to close the tab.</p>
+<h3>It is still not a business yet</h3>
+
+<p>A target time is shared. The price at 14:05 is the same price for everyone who aimed at 14:05, so the first keeper to capture it pays for all of them, and every player after that costs two 5 000-lamport signatures and earns 90 000. With the rent refundable the remaining cost is signatures — but the arcade is small, and at this size the earnings are small with it.</p>
+
+<p>Running a keeper right now is a contribution more than a living. If that is not what you came for, this is the honest moment to close the tab.</p>
 
 <h2>Why do it anyway</h2>
 
@@ -126,7 +130,9 @@ npm ci --omit=dev</code></pre>
 
 <h2>What is still broken</h2>
 
-<p>The evidence rent above does not come back, and it should. The fix is a reference count in the evidence layer — a game holds the target it depends on and releases it when it ends, and the last release refunds whoever paid — so that the capital becomes a float instead of a fire. The program names this as work for a later generation, and it is not done. Until it is, mainnet economics for this arcade are unsettled, and saying otherwise would be a sales pitch.</p>
+<p>The reference count above is deployed and the release half is proved on chain. The <em>close</em> half is not: it is gated behind a seven-day delay, that delay was not shortened to make a nicer demonstration, and so far it has only ever run in a test where the clock can be moved. The first real close will happen on its own, from a daily sweep, about a week after 10 September 2026.</p>
+
+<p>And devnet is a rehearsal in every other way too: the programs keep an upgrade authority, the network is periodically reset, and mainnet economics for this arcade remain unsettled. Saying otherwise would be a sales pitch.</p>
 
 <p class="muted" style="margin-top:36px">Devnet only. Test credits, no payout, and the network is periodically reset — nothing here is permanent. The <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" rel="noopener">RCX</a> token is a separate mainnet asset and is not distributed by any keeper.</p>
 
