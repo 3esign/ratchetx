@@ -132,9 +132,9 @@
     }
   },
   "localSbfEvidence": {
-    "path": "ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so",
-    "size": 375944,
-    "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+    "path": "ratchetx-onchain-sbf/bbf2358ca0afe48d5345f349bc286090738c20ecad28ad1dba4a18e1eed54f72/rcx_timepin_v2.so",
+    "size": 411560,
+    "sha256": "bbf2358ca0afe48d5345f349bc286090738c20ecad28ad1dba4a18e1eed54f72",
     "elfFlags": 3,
     "sbpfVersion": 3,
     "releaseArtifact": false,

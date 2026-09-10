@@ -4,13 +4,13 @@
   "repoPath": "onchain/ratchet-core-g2/programs/ratchet-core-g2",
   "files": {
     "Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
-    "src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-    "src/lib.rs": "cdf7210b865c55f65f617b422a0d979ffb3bbeff7096df0cc715d5ef58461e78",
+    "src/foreign_timepin.rs": "348eec6f1f010a3df26649b8719fadb392e46292365800980859bc2bb245bd97",
+    "src/lib.rs": "852e1bd0c2b11da369ed0ec906e144551a911a8cf4e8d503e8afb0a10e461bd5",
     "src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563"
   },
   "toolchain": "cargo 1.98.0 (797e8a9bc 2026-08-05)",
   "compiledOn": "3esign laptop",
-  "generatedAt": "2026-09-10T00:50:31.820Z",
+  "generatedAt": "2026-09-10T12:03:37.547Z",
   "check": {
     "exit": 0
   },

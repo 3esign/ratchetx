@@ -895,7 +895,9 @@ fn capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds
         .unwrap();
     let captured = world.svm.get_account(&candidate).unwrap();
     assert_eq!(captured.owner, program_id());
-    assert_eq!(captured.data.len(), 119);
+    // 151 since 2026-09-10: CandidateV2 carries rent_payer so the capture rent
+    // has an address to be returned to.
+    assert_eq!(captured.data.len(), 151);
     assert_eq!(
         &captured.data[..8],
         &discriminator("account", "CandidateV2")
@@ -1196,18 +1198,20 @@ fn exact_live_mainnet_snapshot_registers_opens_and_captures() {
     let candidate_data = svm.get_account(&candidate).unwrap().data;
     assert_eq!(need_data[11], 1);
     assert_eq!(&need_data[68..100], &message_hash);
-    assert_eq!(candidate_data.len(), 119);
+    assert_eq!(candidate_data.len(), 151);
     assert_eq!(
         &candidate_data[..8],
         &discriminator("account", "CandidateV2")
     );
     assert_eq!(&candidate_data[11..43], need.as_ref());
+    // 127/135, not 95/103: rent_payer occupies 43..75 since 2026-09-10 and every
+    // field after `need` moved by 32. These read posted_slot and capture_slot.
     assert_eq!(
-        u64::from_le_bytes(candidate_data[95..103].try_into().unwrap()),
+        u64::from_le_bytes(candidate_data[127..135].try_into().unwrap()),
         posted_slot
     );
     assert_eq!(
-        u64::from_le_bytes(candidate_data[103..111].try_into().unwrap()),
+        u64::from_le_bytes(candidate_data[135..143].try_into().unwrap()),
         LIVE_SNAPSHOT_SLOT
     );
     assert!(svm.get_account(&work_page_address(&need)).is_none());

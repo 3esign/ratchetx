@@ -39,7 +39,12 @@ pub const NEED_EXPIRED: u8 = 4;
 // why test/test_core_reads_what_timepin_writes.mjs reads BOTH crates.
 pub const NEED_ACCOUNT_LEN: usize = 8 + 160;
 pub const EVIDENCE_SPEC_ACCOUNT_LEN: usize = 8 + 254;
-pub const CANDIDATE_ACCOUNT_LEN: usize = 8 + 111;
+// 8 + 143 since 2026-09-10, when CandidateV2 gained rent_payer so the capture
+// rent could be given back. decode_exact demands EQUALITY, so this number and
+// Timepin's CandidateV2::LEN are one fact written twice; test_foreign_timepin_abi
+// is what stops the two copies from drifting, and it is the test that caught
+// this one before it reached a chain.
+pub const CANDIDATE_ACCOUNT_LEN: usize = 8 + 143;
 pub const EVIDENCE_POLICY_CANONICAL_LEN: usize = 134;
 pub const EVIDENCE_SPEC_CANONICAL_LEN: usize = 214;
 
@@ -102,6 +107,9 @@ struct CandidateV2AccountView {
     pub schema: u16,
     pub bump: u8,
     pub need: Pubkey,
+    /// Read only to keep the field offsets after it correct. Core never uses it:
+    /// who paid for the account is not a fact about the price.
+    pub rent_payer: Pubkey,
     pub price: i64,
     pub conf: u64,
     pub exponent: i32,
@@ -820,6 +828,10 @@ mod tests {
             schema: TIMEPIN_SCHEMA_V2,
             bump: 0,
             need: need_key,
+            // Zeroed on purpose: Core never reads rent_payer - who paid for the
+            // account is not a fact about the price - but its 32 bytes are what
+            // keep every field after it at the offset Timepin writes.
+            rent_payer: Pubkey::default(),
             price: 10_000,
             conf: 10,
             exponent: -8,

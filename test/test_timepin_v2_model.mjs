@@ -184,8 +184,11 @@ VECTOR_SPEC.evidencePolicyHash = evidencePolicyHash(VECTOR_SPEC);
   equal(EVIDENCE_SPEC_V2_ACCOUNT_LEN, 262, 'stored spec account length');
   equal(TIMEPIN_NEED_V2_PAYLOAD_LEN, 160, 'Need payload length');
   equal(TIMEPIN_NEED_V2_ACCOUNT_LEN, 168, 'Need account length');
-  equal(CANDIDATE_V2_PAYLOAD_LEN, 111, 'Candidate payload length');
-  equal(CANDIDATE_V2_ACCOUNT_LEN, 119, 'Candidate account length');
+  // 111/119 until 2026-09-10, when CandidateV2 gained rent_payer so the capture
+  // rent could be returned to whoever paid it. Written out, not derived: a
+  // derived number agrees with any change to the struct.
+  equal(CANDIDATE_V2_PAYLOAD_LEN, 143, 'Candidate payload length');
+  equal(CANDIDATE_V2_ACCOUNT_LEN, 151, 'Candidate account length');
   equal(encodeEvidencePolicy(VECTOR_SPEC).length, 134, 'encoded policy length');
   equal(encodeEvidenceSpec(VECTOR_SPEC).length, 214, 'encoded spec length');
   bytes(encodeEvidencePolicy(VECTOR_SPEC), hex(registerVector.evidencePolicy.canonicalBytesHex),

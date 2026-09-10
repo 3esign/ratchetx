@@ -56,13 +56,12 @@ const BASELINE = {
   // lifecycle that writes them did not". These eleven come OUT in I1 - this
   // baseline exists so that the gate is honest between the ruling and the edit,
   // and every one of these lines should be deleted in the same commit.
-  // The lead ruled open_refs STAYS because M1 needs it. That ruling is about
-  // the FUTURE: as of this commit the field is set to 0 at open and nothing
-  // increments or decrements it, so close_need built on it today would find
-  // every Need at zero references and delete evidence a live shot still needs -
-  // which is OpusC's M1 P0 at 15:49Z, stated as a property of the bytes rather
-  // than of the design. This entry is what M1 deletes.
-  'rcx-timepin-v2 TimepinNeedV2.open_refs': 'M1 - close_need writes the counter',
+  // open_refs was here, with the note "M1 - close_need writes the counter" and
+  // the observation that a close built on a counter nobody increments would
+  // delete evidence a live shot still needs. Deleted 2026-09-10: hold_need
+  // increments it, release_hold decrements it, and close_need refuses while it
+  // is above zero. The baseline can only get shorter, and this is it getting
+  // shorter.
   // NOT mine, NOT today's, and I am not proposing a fix: PlayerLedger carries
   // streak and best, 8 bytes in a permanent per-player account, and neither is
   // written anywhere on chain. The pair is maintained OFF chain in

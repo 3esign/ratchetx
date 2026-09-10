@@ -76,7 +76,10 @@ export const TIMEPIN_EVIDENCE_SPEC_ACCOUNT_LEN = 262;
 // them, and the observation lives where it has always lived, in the CandidateV2
 // account below.
 export const TIMEPIN_NEED_ACCOUNT_LEN = 168;
-export const TIMEPIN_CANDIDATE_ACCOUNT_LEN = 119;
+// 8 + 143 since 2026-09-10: CandidateV2 gained rent_payer, a 32-byte field
+// after `need`, so that the capture rent has an address to be returned to.
+// Every offset below it moved by 32.
+export const TIMEPIN_CANDIDATE_ACCOUNT_LEN = 151;
 export const TIMEPIN_FULL_VERIFICATION = 1;
 
 export const ENTRY_MODE = Object.freeze({
@@ -1031,16 +1034,16 @@ export function authenticateTimepinCandidate({
   const record = {
     messageHash: bytes32(expectedMessageHash, 'expectedMessageHash'),
     feedId: bytes32(evidenceSpec.feedId, 'evidenceSpec.feedId'),
-    price: data.readBigInt64LE(43),
-    conf: data.readBigUInt64LE(51),
-    exponent: data.readInt32LE(59),
-    publishTime: data.readBigInt64LE(63),
-    prevPublishTime: data.readBigInt64LE(71),
-    emaPrice: data.readBigInt64LE(79),
-    emaConf: data.readBigUInt64LE(87),
-    postedSlot: data.readBigUInt64LE(95),
-    captureSlot: data.readBigUInt64LE(103),
-    captureTs: data.readBigInt64LE(111),
+    price: data.readBigInt64LE(75),
+    conf: data.readBigUInt64LE(83),
+    exponent: data.readInt32LE(91),
+    publishTime: data.readBigInt64LE(95),
+    prevPublishTime: data.readBigInt64LE(103),
+    emaPrice: data.readBigInt64LE(111),
+    emaConf: data.readBigUInt64LE(119),
+    postedSlot: data.readBigUInt64LE(127),
+    captureSlot: data.readBigUInt64LE(135),
+    captureTs: data.readBigInt64LE(143),
   };
   const candidate = {
     key: bytes32(account.key, 'candidate.key'),
@@ -1049,6 +1052,7 @@ export function authenticateTimepinCandidate({
     schema: data.readUInt16LE(8),
     bump: data.readUInt8(10),
     need: data.subarray(11, 43),
+    rentPayer: data.subarray(43, 75),
     record,
   };
   if (candidate.schema !== TIMEPIN_SCHEMA_V2)

@@ -415,10 +415,16 @@ const sealIx = await client.sealForwardIx({
   scoreDay: timing.scoreDay,
 });
 assert.equal(sealIx.data.length, 72);
+// player, economy, ruleset, ledger, player_day, rank_shard, history_page, shot,
+// entry_need, exit_need, entry_hold, exit_hold, timepin_program, system_program.
+// The two Needs became writable and the two holds appeared on 2026-09-10: the
+// seal now takes a Timepin hold on each target, which is what lets the evidence
+// rent be returned once every game on that target has ended.
 assert.deepEqual(flags(sealIx), [
   [true, true], [false, false], [false, false], [false, true],
   [false, true], [false, true], [false, true], [false, true],
-  [false, false], [false, false], [false, false],
+  [false, true], [false, true], [false, true], [false, true],
+  [false, false], [false, false],
 ]);
 assert.deepEqual(asBuffer(sealIx.data.subarray(0, 8)),
   disc('global', 'seal_forward'));
