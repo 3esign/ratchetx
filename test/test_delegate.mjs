@@ -17,6 +17,7 @@ const ok = (c, msg) => { checks += 1; assert.ok(c, msg); };
 const eq = (a, b, msg) => { checks += 1; assert.equal(a, b, msg); };
 
 const CORE = 'ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL';
+const TIMEPIN = 'C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp';
 const key = n => web3.Keypair.generate().publicKey.toBase58();
 const PLAYER = key(), DELEGATE = key(), ECONOMY = key(), RULESET = key();
 const LEDGER = key(), DAY = key(), SHARD = key(), PAGE = key(), SHOT = key();
@@ -62,6 +63,7 @@ const count = name => rust[name].accounts.length;
     programId: CORE, delegate: DELEGATE, economy: ECONOMY, ruleset: RULESET, grantAddress: key(),
     ledger: LEDGER, playerDay: DAY, rankShard: SHARD, historyPage: PAGE, shot: SHOT,
     entryNeed: NEED_A, exitNeed: NEED_B,
+    entryHold: key(), exitHold: key(), timepinProgram: TIMEPIN,
     nonce: 0, commit: H32, stake: 300, entryTargetTs: 1788653100, scoreDay: 20702,
   });
   eq(ix.keys.length, count('seal_forward_delegated'), 'seal_forward_delegated has the wrong number of accounts');

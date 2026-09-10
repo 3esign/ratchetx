@@ -81,7 +81,9 @@ export function authenticateSource(spec, address, info) {
 
 export function decodeCandidateAccount(spec, need, hash, address, info) {
   fact(info && !info.executable && info.owner.equals(pk(PROGRAMS.timepin)), 'Candidate owner/executable mismatch');
-  const b = Buffer.from(info.data); fact(b.length === 119, 'Candidate exact length mismatch');
+  // 151 since 2026-09-10: CandidateV2 carries rent_payer so the capture rent has
+  // an address to be returned to.
+  const b = Buffer.from(info.data); fact(b.length === 151, 'Candidate exact length mismatch');
   same(b.subarray(0, 8), Buffer.from(sha('account:CandidateV2').slice(0, 16), 'hex'), 'Candidate discriminator mismatch');
   let o = 8;
   const u8 = () => b[o++], u16 = () => { const n = b.readUInt16LE(o); o += 2; return n; };
@@ -89,7 +91,7 @@ export function decodeCandidateAccount(spec, need, hash, address, info) {
   const i64 = () => { const n = b.readBigInt64LE(o); o += 8; return n; };
   const u64 = () => { const n = b.readBigUInt64LE(o); o += 8; return n; };
   const i32 = () => { const n = b.readInt32LE(o); o += 4; return n; };
-  const c = { address: pk(address).toBuffer(), schema: u16(), bump: u8(), need: take(32), price: i64(), conf: u64(), exponent: i32(),
+  const c = { address: pk(address).toBuffer(), schema: u16(), bump: u8(), need: take(32), rentPayer: take(32), price: i64(), conf: u64(), exponent: i32(),
     publishTime: i64(), prevPublishTime: i64(), emaPrice: i64(), emaConf: u64(), postedSlot: u64(), captureSlot: u64(), captureTs: i64() };
   fact(o === b.length, 'Candidate trailing bytes');
   const valid = validateCandidate(spec, need, c, hash, pk(PROGRAMS.timepin).toBuffer()); fact(valid.ok, 'Candidate invalid: ' + valid.code);

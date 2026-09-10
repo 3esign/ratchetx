@@ -151,52 +151,48 @@ check('R3', 'the reveal deadline is set at settlement, not at seal', () => {
 }, 'Opus A');
 
 // ---- the money ------------------------------------------------------------
-check('M1', 'the permanent Need rent is DECLARED, since it cannot be refunded', () => {
-  // REWRITTEN 2026-09-05 18:2xZ. I specified this row as "close_need exists,
-  // guarded by open_refs == 0". Opus C proved the guard is 0 == 0 before he
-  // stood down, and he is right: open_refs occurs four times in the repository -
-  // the declaration, the `= 0` in open_need, and two test fixtures. Nothing
-  // increments it. No Timepin instruction knows a shot exists, and Core reads
-  // Needs read-only, so nothing ever could.
+check('M1', 'the evidence rent can come back, and the counter that allows it is real', () => {
+  // REWRITTEN 2026-09-10, on the instruction the previous version of this row
+  // left behind: "If a real hold/release counter landed, delete this row and
+  // write one that tests the counter." It landed.
   //
-  // A Need is SHARED - one per (spec, target_ts) however many shots point at it -
-  // and closing deletes the account settle_final and the void path both read. On
-  // a vacuous guard, one permissionless close strands every shot on that target
-  // permanently. A retention timer is not a substitute: R3 sets
-  // shot.reveal_deadline_ts = max(now + reveal_window, projection) AT SETTLEMENT,
-  // so after R3 a shot's life has no upper bound computable from the Need. I made
-  // that worse today myself.
+  // The row it replaces refused SILENCE about a permanent cost, because in that
+  // generation open_refs was declared and incremented by nothing, so close_need
+  // would have been guarded by 0 == 0 and one permissionless close would have
+  // stranded every shot on that target. That is no longer the shape of the
+  // program, so asking the manifest to declare a burn would now be asking it to
+  // declare something untrue.
   //
-  // So M1 does not ship in this generation, and this row stops asking for the
-  // instruction and starts refusing SILENCE about the cost. The rent is real,
-  // permanent, and payable by whoever opens the Need. It must be written where a
-  // player can find it before the first mainnet transaction, not discovered
-  // afterwards.
-  //
-  // The number is derived, not typed: the account is 8 + 160 = 168 bytes, and
-  // Solana rent exemption is (128 + data_len) * 3480 * 2 = 296 * 6960 =
-  // 2,060,160 lamports. Needs are init_if_needed with payer = actor, so this is
-  // charged per target ACTUALLY PLAYED, not per grid slot - the 1,083 SOL/year
-  // figure for one feed at a 60-second grid is the fully played upper bound.
-  const NEED_ACCOUNT_BYTES = 168;
-  const LAMPORTS = (128 + NEED_ACCOUNT_BYTES) * 3480 * 2;
+  // Four conditions, and every one of them is load-bearing:
+  //   1. hold_need INCREMENTS open_refs. Without this the counter is decoration.
+  //   2. release_hold requires the holder account to be GONE. This is what makes
+  //      a release unforgeable without asking Core to sign - only the program
+  //      that owned the Shot could have closed it.
+  //   3. close_need refuses while open_refs != 0. The guard, not the clock.
+  //   4. CORE TAKES THE HOLD AT SEAL, on all four seal paths. A counter nobody
+  //      feeds is the exact defect this row was written about the first time,
+  //      and three green conditions above with this one missing would be that
+  //      defect wearing a passing grade.
   const src = (read(R + 'lifecycle.rs') || '') + (read(R + 'lib.rs') || '');
-  if (/pub fn close_need/.test(src)) {
-    return { ok: false, detail: 'close_need EXISTS. It must not, while open_refs is never incremented: '
-      + 'one permissionless close strands every shot on that target. If a real hold/release counter '
-      + 'landed, delete this row and write one that tests the counter.' };
-  }
-  const m = read(MANIFEST);
-  if (!m) return { ok: false, detail: 'manifest missing' };
-  const j = JSON.parse(m);
-  const flat = JSON.stringify(j);
-  const declared = flat.includes(String(LAMPORTS));
-  return { ok: declared, pending: !declared,
-    detail: declared
-      ? `permanent Need rent declared as ${LAMPORTS} lamports per target played`
-      : `the manifest does not state the permanent Need rent. It is ${LAMPORTS} lamports `
-        + `((128 + ${NEED_ACCOUNT_BYTES}) * 3480 * 2) per target played, it is never refunded in this `
-        + `generation, and a player pays it. Put the exact number in the manifest.` };
+  const core = (read(C + 'lib.rs') || '');
+  const missing = [];
+  if (!/pub fn hold_need_handler[\s\S]*?open_refs[\s\S]*?checked_add\(1\)/.test(src))
+    missing.push('hold_need does not increment open_refs');
+  if (!/pub fn release_hold_handler[\s\S]*?HolderStillLive/.test(src))
+    missing.push('release_hold does not require the holder account to be gone');
+  if (!/pub fn close_need_handler[\s\S]*?open_refs == 0[\s\S]*?NeedStillHeld/.test(src))
+    missing.push('close_need does not refuse a held Need');
+  const holds = (core.match(/hold_need_for_shot\(/g) || []).length;
+  // Two calls in each of the four seal paths. The helper's own definition is
+  // `fn hold_need_for_shot<'info>(` and does not match this pattern, which is
+  // why the number is 8 and not 9 - checked against the file rather than
+  // reasoned about, after the first version of this row asked for 9 and failed.
+  if (holds < 8)
+    missing.push(`Core calls hold_need_for_shot ${holds} times; four seal paths need two each`);
+  return { ok: missing.length === 0, pending: missing.length > 0,
+    detail: missing.length === 0
+      ? 'open_refs is incremented at seal, decremented only against a closed Shot, and blocks close_need'
+      : missing.join('; ') };
 }, 'Opus A');
 
 check('M2', 'a finished PlayerDay can be closed and its rent returned', () => {

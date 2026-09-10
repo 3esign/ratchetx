@@ -480,11 +480,26 @@
         },
         {
           "name": "entry_need",
-          "mut": false,
+          "mut": true,
           "signer": false
         },
         {
           "name": "exit_need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "entry_hold",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "exit_hold",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "timepin_program",
           "mut": false,
           "signer": false
         },
@@ -545,11 +560,26 @@
         },
         {
           "name": "entry_need",
-          "mut": false,
+          "mut": true,
           "signer": false
         },
         {
           "name": "exit_need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "entry_hold",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "exit_hold",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "timepin_program",
           "mut": false,
           "signer": false
         },
@@ -610,7 +640,7 @@
         },
         {
           "name": "entry_need",
-          "mut": false,
+          "mut": true,
           "signer": false
         },
         {
@@ -620,6 +650,21 @@
         },
         {
           "name": "exit_need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "entry_hold",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "exit_hold",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "timepin_program",
           "mut": false,
           "signer": false
         },
@@ -685,7 +730,7 @@
         },
         {
           "name": "entry_need",
-          "mut": false,
+          "mut": true,
           "signer": false
         },
         {
@@ -695,6 +740,21 @@
         },
         {
           "name": "exit_need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "entry_hold",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "exit_hold",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "timepin_program",
           "mut": false,
           "signer": false
         },
@@ -1517,6 +1577,96 @@
         },
         {
           "name": "work_page",
+          "mut": true,
+          "signer": false
+        }
+      ]
+    },
+    "hold_need": {
+      "context": "HoldNeed",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "holder",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "hold",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "system_program",
+          "mut": false,
+          "signer": false
+        }
+      ]
+    },
+    "release_hold": {
+      "context": "ReleaseHold",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "holder",
+          "mut": false,
+          "signer": false
+        },
+        {
+          "name": "hold",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "rent_refund",
+          "mut": true,
+          "signer": false
+        }
+      ]
+    },
+    "close_need": {
+      "context": "CloseNeed",
+      "accounts": [
+        {
+          "name": "actor",
+          "mut": true,
+          "signer": true
+        },
+        {
+          "name": "need",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "need_rent_refund",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "candidate",
+          "mut": true,
+          "signer": false
+        },
+        {
+          "name": "candidate_rent_refund",
           "mut": true,
           "signer": false
         }

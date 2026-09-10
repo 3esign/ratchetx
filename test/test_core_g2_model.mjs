@@ -222,6 +222,11 @@ const makeCandidate = ({ timepinProgram, need, record }) => {
   ]);
   const data = Buffer.concat([
     CANDIDATE_DISC, u16(TIMEPIN_SCHEMA_V2), u8(derived.bump), need.key,
+    // rent_payer, 32 bytes, since 2026-09-10. Zeroed here on purpose: Core never
+    // reads it - who paid for the account is not a fact about the price - but
+    // every field after it moved by 32, and a fixture that skipped it would
+    // decode a price out of the wrong bytes and still call itself green.
+    Buffer.alloc(32),
     i64(record.price), u64(record.conf),
     i32(record.exponent), i64(record.publishTime),
     i64(record.prevPublishTime), i64(record.emaPrice), u64(record.emaConf),
@@ -528,7 +533,7 @@ eq(TIMEPIN_EVIDENCE_SPEC_ACCOUNT_LEN, 262,
 // header + 4 open_refs + 32 rent_payer = 168, and the Rust constant this mirrors
 // is foreign_timepin.rs NEED_ACCOUNT_LEN.
 eq(TIMEPIN_NEED_ACCOUNT_LEN, 168, 'Need account bytes: header plus the two rent fields');
-eq(TIMEPIN_CANDIDATE_ACCOUNT_LEN, 119, 'compact Candidate account bytes');
+eq(TIMEPIN_CANDIDATE_ACCOUNT_LEN, 151, 'compact Candidate account bytes');
 eq(encodeTimepinEvidencePolicy(evidenceSpec).length, 134,
   'Timepin policy encoding exact');
 eq(encodeTimepinEvidenceSpec(evidenceSpec).length, 214,
@@ -1631,19 +1636,22 @@ throwsCode(() => factAuth({
 throwsCode(() => factAuth({
   ...entryFinal,
   candidate: mutate(entryFinal.candidate, value => {
-    value.data.writeInt32LE(CORE_MIN_EXPONENT - 1, 59);
+    value.data.writeInt32LE(CORE_MIN_EXPONENT - 1, 91);
   }),
 }), 'TIMEPIN_CANDIDATE_EXPONENT');
 throwsCode(() => factAuth({
   ...entryFinal,
   candidate: mutate(entryFinal.candidate, value => {
-    value.data.writeInt32LE(CORE_MAX_EXPONENT + 1, 59);
+    value.data.writeInt32LE(CORE_MAX_EXPONENT + 1, 91);
   }),
 }), 'TIMEPIN_CANDIDATE_EXPONENT');
 throwsCode(() => factAuth({
   ...entryFinal,
   candidate: mutate(entryFinal.candidate, value => {
-    value.data[43] ^= 1;
+    // 75, not 43: rent_payer now occupies 43..75 and is deliberately NOT part of
+    // the price message hash, so flipping a bit there proves nothing. This is
+    // the first byte of `price`, which is.
+    value.data[75] ^= 1;
   }),
 }), 'TIMEPIN_CANDIDATE_MESSAGE_HASH');
 throwsCode(() => factAuth({

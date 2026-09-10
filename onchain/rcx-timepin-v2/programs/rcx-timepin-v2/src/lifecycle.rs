@@ -21,6 +21,53 @@ use crate::{
 };
 
 pub const CANDIDATE_SEED: &[u8] = b"candidate";
+pub const HOLD_SEED: &[u8] = b"hold";
+
+/// How long after a Need goes terminal its accounts stay, even with no holds.
+///
+/// This is a BELT, NOT THE GUARANTEE. The guarantee is `open_refs`: a Need with
+/// a live holder cannot be closed at any age. The delay exists because the
+/// counter can only protect games that took a hold, and a game sealed by an
+/// older Core did not. Seven days is longer than any game this program can
+/// produce has ever taken to reach a terminal state, and costs nothing but
+/// patience to whoever wants their rent back.
+pub const NEED_CLOSE_DELAY_SECONDS: i64 = 7 * 24 * 60 * 60;
+
+/// A single game's claim on the evidence for one target time.
+///
+/// `TimepinNeedV2::open_refs` has existed since the first version, was set to
+/// zero at `open_need`, and was incremented by nothing - the program said so
+/// against itself in a comment. A count nobody increments is not a guard, and
+/// its absence is why the rent for both the Need and the captured price was
+/// permanent: nothing on chain could ever say "the last game that needed this
+/// has finished."
+///
+/// One of these accounts is that increment, made concrete so it cannot be
+/// double-counted. `init` makes a second hold for the same (need, holder)
+/// impossible; closing it makes a second release impossible. The holder is a
+/// Core Shot address, and RELEASE IS PERMISSIONLESS AND NEEDS NO SIGNATURE:
+/// the caller passes the Shot itself, and Timepin releases only once that
+/// account is gone - system-owned, empty, no lamports - which is exactly what
+/// Core's terminal archive leaves behind. So no Core instruction had to grow an
+/// account to release, and a game that never ends simply holds forever, which
+/// is the behaviour this program already had.
+#[account]
+#[derive(Debug, PartialEq, Eq)]
+pub struct NeedHoldV2 {
+    pub schema: u16,
+    pub bump: u8,
+    pub need: Pubkey,
+    /// The Core Shot address whose life this hold tracks.
+    pub holder: Pubkey,
+    /// The only address this hold's own rent is ever refunded to.
+    pub rent_payer: Pubkey,
+    pub opened_slot: u64,
+}
+
+impl NeedHoldV2 {
+    pub const LEN: usize = 2 + 1 + 32 + 32 + 32 + 8;
+}
+
 pub const WORK_MANIFEST_SEED: &[u8] = b"work_manifest";
 pub const WORK_PAGE_SEED: &[u8] = b"work_page";
 pub const WORK_MANIFEST_SCHEMA_VERSION: u16 = 1;
@@ -497,6 +544,18 @@ pub struct CandidateV2 {
     pub schema: u16,
     pub bump: u8,
     pub need: Pubkey,
+    /// The only address `close_need` will ever refund this account's rent to.
+    ///
+    /// Without it the capture rent was spent, not lent: a keeper paid 1 254 760
+    /// lamports to record a price and there was no address on chain saying whose
+    /// money it had been. Measured on devnet 2026-09-10, that made a keeper
+    /// serving one player lose 2 439 520 lamports per game while earning 90 000 -
+    /// the reason no stranger could be honestly invited to run one.
+    ///
+    /// It is NOT part of price_message_hash and must never become part of it:
+    /// that hash is the signed Pyth message, and who paid for the account is not
+    /// a fact about the price.
+    pub rent_payer: Pubkey,
     pub price: i64,
     pub conf: u64,
     pub exponent: i32,
@@ -510,7 +569,11 @@ pub struct CandidateV2 {
 }
 
 impl CandidateV2 {
-    pub const LEN: usize = 111;
+    // 111 before rent_payer; a Pubkey is 32. Changing this changes the account
+    // length authenticate_candidate demands, so a candidate written by the older
+    // program is not readable by this one - the upgrade is deliberately not
+    // silent, and must land when no game is mid-flight.
+    pub const LEN: usize = 143;
 }
 
 pub fn open_work_manifest_handler(ctx: Context<OpenWorkManifest>, work_kind: u8) -> Result<()> {
@@ -840,6 +903,7 @@ pub fn capture_first_handler(
                 &mut ctx.accounts.candidate,
                 ctx.bumps.candidate,
                 need_key,
+                actor,
                 &candidate,
             );
             apply_optional_work_completions(
@@ -1012,6 +1076,7 @@ pub fn capture_conflict_handler(
         &mut ctx.accounts.candidate_b,
         ctx.bumps.candidate_b,
         need_key,
+        ctx.accounts.actor.key(),
         &candidate,
     );
     let need = &mut ctx.accounts.need;
@@ -1341,6 +1406,7 @@ fn load_evidence(
         schema: SCHEMA_VERSION,
         bump: 0,
         need: Pubkey::default(),
+        rent_payer: Pubkey::default(),
         price: message.price,
         conf: message.conf,
         exponent: message.exponent,
@@ -1409,11 +1475,18 @@ fn authenticate_candidate(
     Ok(())
 }
 
-fn write_candidate(destination: &mut CandidateV2, bump: u8, need: Pubkey, candidate: &CandidateV2) {
+fn write_candidate(
+    destination: &mut CandidateV2,
+    bump: u8,
+    need: Pubkey,
+    rent_payer: Pubkey,
+    candidate: &CandidateV2,
+) {
     *destination = CandidateV2 {
         schema: SCHEMA_VERSION,
         bump,
         need,
+        rent_payer,
         price: candidate.price,
         conf: candidate.conf,
         exponent: candidate.exponent,
@@ -1537,6 +1610,22 @@ pub enum TimepinLifecycleError {
     PostTargetLagTooLarge,
     #[msg("signed publication is after the source deadline")]
     SourceAfterDeadline,
+    #[msg("hold does not belong to this Need and holder")]
+    CorruptHold,
+    #[msg("rent refund is not the address that paid")]
+    WrongRentRefund,
+    #[msg("open reference count would overflow")]
+    HoldOverflow,
+    #[msg("open reference count would go below zero")]
+    HoldUnderflow,
+    #[msg("the holding game still exists on chain")]
+    HolderStillLive,
+    #[msg("Need has not reached a terminal state")]
+    NeedNotTerminal,
+    #[msg("Need is still held by at least one game")]
+    NeedStillHeld,
+    #[msg("Need cannot be closed this soon after its capture deadline")]
+    NeedCloseTooEarly,
     #[msg("Pyth price must be positive")]
     NonPositivePrice,
     #[msg("Pyth exponent is outside the policy range")]
@@ -1615,6 +1704,305 @@ pub enum TimepinLifecycleError {
     // refusing the wrong price, and the message says so plainly.
     #[msg("a later print cannot replace an earlier admissible capture")]
     CaptureIsNotEarlier,
+}
+
+// ---------------------------------------------------------------------------
+// Rent that comes back.
+//
+// Before this, both permanent accounts in the evidence layer were paid for and
+// never returned: the Need (1 503 680 lamports, paid by the player at seal) and
+// the CandidateV2 recording the captured price (1 254 760, paid by the keeper).
+// Measured on devnet 2026-09-10, that made a keeper serving one player lose
+// 2 439 520 lamports per game against 90 000 earned - which is why no stranger
+// could honestly be invited to run one.
+//
+// Nothing here shortens the life of evidence a live game depends on. Closing
+// requires all three of: a terminal Need, zero holds, and a week past the
+// capture deadline. Every failure mode degrades to the old behaviour - an
+// account that stays - rather than to a game that cannot settle.
+// ---------------------------------------------------------------------------
+
+#[derive(Accounts)]
+pub struct HoldNeed<'info> {
+    #[account(mut)]
+    pub actor: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [
+            NEED_SEED,
+            SCHEMA_SEED.as_ref(),
+            need.evidence_spec_hash.as_ref(),
+            need.target_ts.to_le_bytes().as_ref(),
+        ],
+        bump = need.bump,
+    )]
+    pub need: Box<Account<'info, TimepinNeedV2>>,
+    /// CHECK: the address whose life this hold tracks. It is recorded, never
+    /// read: a hold only ever DELAYS a close, so creating one for somebody
+    /// else's game can waste the caller's rent and can harm nothing.
+    pub holder: UncheckedAccount<'info>,
+    #[account(
+        init,
+        payer = actor,
+        space = 8 + NeedHoldV2::LEN,
+        seeds = [HOLD_SEED, need.key().as_ref(), holder.key().as_ref()],
+        bump,
+    )]
+    pub hold: Box<Account<'info, NeedHoldV2>>,
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ReleaseHold<'info> {
+    #[account(mut)]
+    pub actor: Signer<'info>,
+    #[account(
+        mut,
+        seeds = [
+            NEED_SEED,
+            SCHEMA_SEED.as_ref(),
+            need.evidence_spec_hash.as_ref(),
+            need.target_ts.to_le_bytes().as_ref(),
+        ],
+        bump = need.bump,
+    )]
+    pub need: Box<Account<'info, TimepinNeedV2>>,
+    /// CHECK: the recorded holder. The handler requires this account to be gone
+    /// - system-owned, empty, no lamports - which is what a closed Core Shot is.
+    pub holder: UncheckedAccount<'info>,
+    #[account(
+        mut,
+        close = rent_refund,
+        seeds = [HOLD_SEED, need.key().as_ref(), holder.key().as_ref()],
+        bump = hold.bump,
+        constraint = hold.need == need.key() @ TimepinLifecycleError::CorruptHold,
+        constraint = hold.holder == holder.key() @ TimepinLifecycleError::CorruptHold,
+    )]
+    pub hold: Box<Account<'info, NeedHoldV2>>,
+    /// CHECK: pinned to the address that paid for this hold, and to no other.
+    #[account(mut, address = hold.rent_payer @ TimepinLifecycleError::WrongRentRefund)]
+    pub rent_refund: UncheckedAccount<'info>,
+}
+
+#[derive(Accounts)]
+pub struct CloseNeed<'info> {
+    #[account(mut)]
+    pub actor: Signer<'info>,
+    #[account(
+        mut,
+        close = need_rent_refund,
+        seeds = [
+            NEED_SEED,
+            SCHEMA_SEED.as_ref(),
+            need.evidence_spec_hash.as_ref(),
+            need.target_ts.to_le_bytes().as_ref(),
+        ],
+        bump = need.bump,
+    )]
+    pub need: Box<Account<'info, TimepinNeedV2>>,
+    /// CHECK: pinned to the address that opened the Need, and to no other.
+    #[account(mut, address = need.rent_payer @ TimepinLifecycleError::WrongRentRefund)]
+    pub need_rent_refund: UncheckedAccount<'info>,
+    /// CHECK: the captured price for this Need, authenticated in the handler.
+    /// A Need that expired unanswered has none; pass the Need itself to say so.
+    #[account(mut)]
+    pub candidate: UncheckedAccount<'info>,
+    /// CHECK: pinned in the handler to the address that paid for the candidate.
+    #[account(mut)]
+    pub candidate_rent_refund: UncheckedAccount<'info>,
+}
+
+/// Record that one game depends on this target's evidence.
+///
+/// Permissionless on purpose. A hold can only make an account live LONGER, so
+/// there is no attack in taking one out for a game that is not yours, only a
+/// waste of your own rent. Core takes one per Need at seal, which is what makes
+/// the count trustworthy for games sealed by this generation.
+pub fn hold_need_handler(ctx: Context<HoldNeed>) -> Result<()> {
+    validate_need_shape(&ctx.accounts.need)?;
+    // ANY STATE, AND THAT IS DELIBERATE. This first refused a terminal Need and a
+    // shut capture window, on the reasoning that such a Need is about to be
+    // finished with. The exact-SBF suite refused that reasoning within the hour:
+    // seal_observed exists precisely to seal against an entry target whose price
+    // is ALREADY captured and finalized, and that shot reads the Need and its
+    // candidate later, at settle. So the case my caution forbade was the case
+    // most in need of a hold. Holding is never unsafe - it can only make an
+    // account outlive its rent refund - so there is nothing left here to guard.
+    let clock = Clock::get()?;
+    let need_key = ctx.accounts.need.key();
+    let hold = &mut ctx.accounts.hold;
+    hold.schema = SCHEMA_VERSION;
+    hold.bump = ctx.bumps.hold;
+    hold.need = need_key;
+    hold.holder = ctx.accounts.holder.key();
+    hold.rent_payer = ctx.accounts.actor.key();
+    hold.opened_slot = clock.slot;
+    let need = &mut ctx.accounts.need;
+    need.open_refs = need
+        .open_refs
+        .checked_add(1)
+        .ok_or(TimepinLifecycleError::HoldOverflow)?;
+    emit!(NeedHeld {
+        need: need_key,
+        holder: hold.holder,
+        open_refs: need.open_refs,
+        actor: ctx.accounts.actor.key(),
+    });
+    Ok(())
+}
+
+/// Give back one hold, once its game is over.
+///
+/// No signature from the holder is required, and that is the point: asking Core
+/// to sign here would have meant adding accounts to reveal, forfeit and three
+/// void paths, and a game whose owner walks away would hold evidence for ever.
+/// Instead the proof is the absence of the Shot. Core's terminal archive closes
+/// it - system-owned, zero data, zero lamports - and a closed account is a fact
+/// any caller can present and nobody can forge, because only the owning program
+/// can close an account it owns.
+pub fn release_hold_handler(ctx: Context<ReleaseHold>) -> Result<()> {
+    let holder = &ctx.accounts.holder;
+    require!(
+        holder.lamports() == 0
+            && holder.data_is_empty()
+            && *holder.owner == anchor_lang::system_program::ID,
+        TimepinLifecycleError::HolderStillLive
+    );
+    let need = &mut ctx.accounts.need;
+    need.open_refs = need
+        .open_refs
+        .checked_sub(1)
+        .ok_or(TimepinLifecycleError::HoldUnderflow)?;
+    emit!(NeedReleased {
+        need: need.key(),
+        holder: holder.key(),
+        open_refs: need.open_refs,
+        actor: ctx.accounts.actor.key(),
+    });
+    Ok(())
+}
+
+/// Return the rent for a target time no game can still be waiting on.
+///
+/// Three conditions, all necessary. Terminal, so no capture can still arrive.
+/// Zero holds, so no game sealed by this generation still points here. And a
+/// week past the capture deadline, which is the belt described at
+/// NEED_CLOSE_DELAY_SECONDS - it protects the games the counter cannot see.
+pub fn close_need_handler(ctx: Context<CloseNeed>) -> Result<()> {
+    let need_key = ctx.accounts.need.key();
+    validate_need_shape(&ctx.accounts.need)?;
+    require!(
+        matches!(ctx.accounts.need.state, NEED_FINAL | NEED_EXPIRED | NEED_AMBIGUOUS),
+        TimepinLifecycleError::NeedNotTerminal
+    );
+    require!(
+        ctx.accounts.need.open_refs == 0,
+        TimepinLifecycleError::NeedStillHeld
+    );
+    let clock = Clock::get()?;
+    let earliest = ctx
+        .accounts
+        .need
+        .capture_deadline_ts
+        .checked_add(NEED_CLOSE_DELAY_SECONDS)
+        .ok_or(TimepinLifecycleError::TimestampOverflow)?;
+    require!(
+        clock.unix_timestamp >= earliest,
+        TimepinLifecycleError::NeedCloseTooEarly
+    );
+
+    // The captured price, if there is one. A Need that expired unanswered has no
+    // candidate, and the caller says so by passing the Need in its place.
+    let candidate_info = ctx.accounts.candidate.to_account_info();
+    let mut candidate_refunded = 0u64;
+    if candidate_info.key() != need_key {
+        let candidate_hash = ctx.accounts.need.candidate_a_hash;
+        require!(candidate_hash != [0; 32], TimepinLifecycleError::CorruptNeed);
+        let (expected_key, _bump) = Pubkey::find_program_address(
+            &[CANDIDATE_SEED, need_key.as_ref(), candidate_hash.as_ref()],
+            &crate::ID,
+        );
+        require_keys_eq!(
+            candidate_info.key(),
+            expected_key,
+            TimepinLifecycleError::WrongCandidatePda
+        );
+        require_keys_eq!(
+            *candidate_info.owner,
+            crate::ID,
+            TimepinLifecycleError::CorruptCandidate
+        );
+        require!(
+            candidate_info.data_len() == 8 + CandidateV2::LEN,
+            TimepinLifecycleError::CorruptCandidate
+        );
+        let stored: CandidateV2 = {
+            let data = candidate_info
+                .try_borrow_data()
+                .map_err(|_| error!(TimepinLifecycleError::CorruptCandidate))?;
+            let mut slice: &[u8] = &data;
+            CandidateV2::try_deserialize(&mut slice)
+                .map_err(|_| error!(TimepinLifecycleError::CorruptCandidate))?
+        };
+        require!(
+            stored.schema == SCHEMA_VERSION && stored.need == need_key,
+            TimepinLifecycleError::CorruptCandidate
+        );
+        require_keys_eq!(
+            ctx.accounts.candidate_rent_refund.key(),
+            stored.rent_payer,
+            TimepinLifecycleError::WrongRentRefund
+        );
+        candidate_refunded = candidate_info.lamports();
+        let refund = ctx.accounts.candidate_rent_refund.to_account_info();
+        **refund.try_borrow_mut_lamports()? = refund
+            .lamports()
+            .checked_add(candidate_refunded)
+            .ok_or(TimepinLifecycleError::TimestampOverflow)?;
+        **candidate_info.try_borrow_mut_lamports()? = 0;
+        candidate_info.assign(&anchor_lang::system_program::ID);
+        candidate_info.resize(0)?;
+    }
+
+    emit!(NeedClosed {
+        need: need_key,
+        need_refunded: ctx.accounts.need.to_account_info().lamports(),
+        need_rent_payer: ctx.accounts.need.rent_payer,
+        candidate_refunded,
+        candidate_rent_payer: if candidate_refunded == 0 {
+            Pubkey::default()
+        } else {
+            ctx.accounts.candidate_rent_refund.key()
+        },
+        actor: ctx.accounts.actor.key(),
+    });
+    Ok(())
+}
+
+#[event]
+pub struct NeedHeld {
+    pub need: Pubkey,
+    pub holder: Pubkey,
+    pub open_refs: u32,
+    pub actor: Pubkey,
+}
+
+#[event]
+pub struct NeedReleased {
+    pub need: Pubkey,
+    pub holder: Pubkey,
+    pub open_refs: u32,
+    pub actor: Pubkey,
+}
+
+#[event]
+pub struct NeedClosed {
+    pub need: Pubkey,
+    pub need_refunded: u64,
+    pub need_rent_payer: Pubkey,
+    pub candidate_refunded: u64,
+    pub candidate_rent_payer: Pubkey,
+    pub actor: Pubkey,
 }
 
 #[cfg(test)]
@@ -1912,6 +2300,7 @@ mod tests {
             schema: SCHEMA_VERSION,
             bump: 254,
             need: Pubkey::new_from_array([5; 32]),
+            rent_payer: Pubkey::new_from_array([6; 32]),
             price: 10_000,
             conf: 10,
             exponent: -8,
@@ -1929,8 +2318,26 @@ mod tests {
     fn compact_candidate_and_work_abi_sizes_are_exact() {
         let mut candidate_bytes = Vec::new();
         candidate().try_serialize(&mut candidate_bytes).unwrap();
-        assert_eq!(CandidateV2::LEN, 111);
-        assert_eq!(candidate_bytes.len(), 119);
+        // 111/119 until 2026-09-10, when rent_payer was added so the capture
+        // rent could be given back. Both numbers are written out rather than
+        // derived, because deriving them would make this test agree with any
+        // change to the struct - which is the one thing it exists to refuse.
+        assert_eq!(CandidateV2::LEN, 143);
+        assert_eq!(candidate_bytes.len(), 151);
+
+        let mut hold_bytes = Vec::new();
+        NeedHoldV2 {
+            schema: SCHEMA_VERSION,
+            bump: 254,
+            need: Pubkey::new_from_array([5; 32]),
+            holder: Pubkey::new_from_array([6; 32]),
+            rent_payer: Pubkey::new_from_array([7; 32]),
+            opened_slot: 9,
+        }
+        .try_serialize(&mut hold_bytes)
+        .unwrap();
+        assert_eq!(NeedHoldV2::LEN, 107);
+        assert_eq!(hold_bytes.len(), 115);
 
         let mut record_bytes = Vec::new();
         WorkRecord {

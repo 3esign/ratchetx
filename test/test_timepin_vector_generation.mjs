@@ -67,7 +67,9 @@ test('explicit adapter-1 baseline regenerates every stored account and rent suff
     assert.equal(bytes.subarray(100, 132).toString('hex'), value.candidateBHashHex);
   }
   assert.equal(Buffer.from(r.evidenceSpec.accountBytesHex, 'hex').length, 262);
-  assert.equal(Buffer.from(l.goldenMessages.a.accountBytesHex, 'hex').length, 119);
+  // 151 since 2026-09-10: CandidateV2 carries rent_payer so the capture rent has
+  // an address to be returned to.
+  assert.equal(Buffer.from(l.goldenMessages.a.accountBytesHex, 'hex').length, 151);
   assert.equal(Buffer.from(l.accounts.WorkManifest.firstCapture.accountBytesHex, 'hex').length, 42);
   assert.equal(Buffer.from(l.accounts.WorkPage.emptyAccountBytesHex, 'hex').length, 47);
   assert.equal(Buffer.from(l.accounts.WorkPage.reservedFirstAccountBytesHex, 'hex').length, 153);

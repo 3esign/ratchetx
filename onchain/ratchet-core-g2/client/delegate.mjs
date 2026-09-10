@@ -116,6 +116,7 @@ export function revokeDelegateIx(web3, { programId, player, economy, ruleset, gr
 export function sealForwardDelegatedIx(web3, {
   programId, delegate, economy, ruleset, grantAddress,
   ledger, playerDay, rankShard, historyPage, shot, entryNeed, exitNeed,
+  entryHold, exitHold, timepinProgram,
   nonce, commit, stake, entryTargetTs, scoreDay,
 }) {
   return new web3.TransactionInstruction({
@@ -130,8 +131,14 @@ export function sealForwardDelegatedIx(web3, {
       meta(new web3.PublicKey(rankShard), false, true),
       meta(new web3.PublicKey(historyPage), false, true),
       meta(new web3.PublicKey(shot), false, true),
-      meta(new web3.PublicKey(entryNeed)),
-      meta(new web3.PublicKey(exitNeed)),
+      // Writable since 2026-09-10: the seal takes a Timepin hold on each target,
+      // which moves the Need's open_refs. Those two holds are what let the
+      // evidence rent be returned once every game on the target has ended.
+      meta(new web3.PublicKey(entryNeed), false, true),
+      meta(new web3.PublicKey(exitNeed), false, true),
+      meta(new web3.PublicKey(entryHold), false, true),
+      meta(new web3.PublicKey(exitHold), false, true),
+      meta(new web3.PublicKey(timepinProgram)),
       meta(web3.SystemProgram.programId),
     ],
     data: Buffer.concat([

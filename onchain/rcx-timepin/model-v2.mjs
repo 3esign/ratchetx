@@ -35,8 +35,12 @@ export const EVIDENCE_SPEC_V2_ACCOUNT_LEN = 262;
 // decode a Need - test/test_foreign_timepin_abi.mjs is what says so.
 export const TIMEPIN_NEED_V2_PAYLOAD_LEN = 160;
 export const TIMEPIN_NEED_V2_ACCOUNT_LEN = 168;
-export const CANDIDATE_V2_PAYLOAD_LEN = 111;
-export const CANDIDATE_V2_ACCOUNT_LEN = 119;
+// 111/119 until 2026-09-10, when CandidateV2 gained rent_payer so the capture
+// rent has an address to be returned to. The field sits after `need` and is
+// deliberately outside price_message_hash: who paid for the account is not a
+// fact about the price.
+export const CANDIDATE_V2_PAYLOAD_LEN = 143;
+export const CANDIDATE_V2_ACCOUNT_LEN = 151;
 
 export const WORK_MANIFEST_SCHEMA_VERSION = 1;
 export const COMPLETION_SCHEMA_VERSION = 1;
@@ -778,7 +782,9 @@ export function evaluateCapture(spec, need, sourceAccount, context, programId) {
 export function encodeCandidateV2(candidate) {
   const payload = Buffer.concat([
     u16(candidate.schema, 'candidate.schema'), u8(candidate.bump, 'candidate.bump'),
-    bytes32(candidate.need, 'candidate.need'), i64(candidate.price, 'candidate.price'),
+    bytes32(candidate.need, 'candidate.need'),
+    bytes32(candidate.rentPayer ?? Buffer.alloc(32), 'candidate.rentPayer'),
+    i64(candidate.price, 'candidate.price'),
     u64(candidate.conf, 'candidate.conf'), i32(candidate.exponent, 'candidate.exponent'),
     i64(candidate.publishTime, 'candidate.publishTime'),
     i64(candidate.prevPublishTime, 'candidate.prevPublishTime'),

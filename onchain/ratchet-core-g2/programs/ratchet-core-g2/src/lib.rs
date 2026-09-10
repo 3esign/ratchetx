@@ -1060,6 +1060,27 @@ pub mod ratchet_core_g2 {
                 .checked_mul(WORKER_UNITS)
                 .ok_or(CoreG2Error::MathOverflow)?,
         )?;
+        // The evidence this game will need, held for as long as the game lives.
+        // Two calls, because a forward shot points at two target times, and the
+        // Need for each is shared with every other game aiming at the same
+        // moment. Placed after the Shot exists: the hold records the Shot's
+        // address, and its release is proved later by that address being gone.
+        hold_need_for_shot(
+            &ctx.accounts.timepin_program,
+            &ctx.accounts.player.to_account_info(),
+            &ctx.accounts.entry_need,
+            &ctx.accounts.shot.to_account_info(),
+            &ctx.accounts.entry_hold,
+            &ctx.accounts.system_program,
+        )?;
+        hold_need_for_shot(
+            &ctx.accounts.timepin_program,
+            &ctx.accounts.player.to_account_info(),
+            &ctx.accounts.exit_need,
+            &ctx.accounts.shot.to_account_info(),
+            &ctx.accounts.exit_hold,
+            &ctx.accounts.system_program,
+        )?;
         record_accepted(&mut ctx.accounts.player_day, &mut ctx.accounts.rank_shard)?;
         emit!(ShotSealed {
             shot: ctx.accounts.shot.key(),
@@ -1234,6 +1255,27 @@ pub mod ratchet_core_g2 {
                 .checked_mul(WORKER_UNITS)
                 .ok_or(CoreG2Error::MathOverflow)?,
         )?;
+        // The evidence this game will need, held for as long as the game lives.
+        // Two calls, because a forward shot points at two target times, and the
+        // Need for each is shared with every other game aiming at the same
+        // moment. Placed after the Shot exists: the hold records the Shot's
+        // address, and its release is proved later by that address being gone.
+        hold_need_for_shot(
+            &ctx.accounts.timepin_program,
+            &ctx.accounts.delegate.to_account_info(),
+            &ctx.accounts.entry_need,
+            &ctx.accounts.shot.to_account_info(),
+            &ctx.accounts.entry_hold,
+            &ctx.accounts.system_program,
+        )?;
+        hold_need_for_shot(
+            &ctx.accounts.timepin_program,
+            &ctx.accounts.delegate.to_account_info(),
+            &ctx.accounts.exit_need,
+            &ctx.accounts.shot.to_account_info(),
+            &ctx.accounts.exit_hold,
+            &ctx.accounts.system_program,
+        )?;
         record_accepted(&mut ctx.accounts.player_day, &mut ctx.accounts.rank_shard)?;
         emit!(ShotSealed {
             shot: ctx.accounts.shot.key(),
@@ -1395,6 +1437,27 @@ pub mod ratchet_core_g2 {
                 .cleanup_bond_lamports
                 .checked_mul(WORKER_UNITS)
                 .ok_or(CoreG2Error::MathOverflow)?,
+        )?;
+        // The evidence this game will need, held for as long as the game lives.
+        // Two calls, because a forward shot points at two target times, and the
+        // Need for each is shared with every other game aiming at the same
+        // moment. Placed after the Shot exists: the hold records the Shot's
+        // address, and its release is proved later by that address being gone.
+        hold_need_for_shot(
+            &ctx.accounts.timepin_program,
+            &ctx.accounts.player.to_account_info(),
+            &ctx.accounts.entry_need,
+            &ctx.accounts.shot.to_account_info(),
+            &ctx.accounts.entry_hold,
+            &ctx.accounts.system_program,
+        )?;
+        hold_need_for_shot(
+            &ctx.accounts.timepin_program,
+            &ctx.accounts.player.to_account_info(),
+            &ctx.accounts.exit_need,
+            &ctx.accounts.shot.to_account_info(),
+            &ctx.accounts.exit_hold,
+            &ctx.accounts.system_program,
         )?;
         record_accepted(&mut ctx.accounts.player_day, &mut ctx.accounts.rank_shard)?;
         emit!(ShotSealed {
@@ -1585,6 +1648,27 @@ pub mod ratchet_core_g2 {
                 .cleanup_bond_lamports
                 .checked_mul(WORKER_UNITS)
                 .ok_or(CoreG2Error::MathOverflow)?,
+        )?;
+        // The evidence this game will need, held for as long as the game lives.
+        // Two calls, because a forward shot points at two target times, and the
+        // Need for each is shared with every other game aiming at the same
+        // moment. Placed after the Shot exists: the hold records the Shot's
+        // address, and its release is proved later by that address being gone.
+        hold_need_for_shot(
+            &ctx.accounts.timepin_program,
+            &ctx.accounts.delegate.to_account_info(),
+            &ctx.accounts.entry_need,
+            &ctx.accounts.shot.to_account_info(),
+            &ctx.accounts.entry_hold,
+            &ctx.accounts.system_program,
+        )?;
+        hold_need_for_shot(
+            &ctx.accounts.timepin_program,
+            &ctx.accounts.delegate.to_account_info(),
+            &ctx.accounts.exit_need,
+            &ctx.accounts.shot.to_account_info(),
+            &ctx.accounts.exit_hold,
+            &ctx.accounts.system_program,
         )?;
         record_accepted(&mut ctx.accounts.player_day, &mut ctx.accounts.rank_shard)?;
         emit!(ShotSealed {
@@ -2896,10 +2980,25 @@ pub struct SealForward<'info> {
         bump,
     )]
     pub shot: Box<Account<'info, Shot>>,
-    /// CHECK: authenticated as an exact read-only Timepin Need.
+    /// CHECK: authenticated as an exact Timepin Need. Writable since 2026-09-10:
+    /// sealing takes a hold on this target, which moves the Need's open_refs, so
+    /// the account can no longer be read-only.
+    #[account(mut)]
     pub entry_need: UncheckedAccount<'info>,
-    /// CHECK: authenticated as an exact read-only Timepin Need.
+    /// CHECK: authenticated as an exact Timepin Need. Writable for the same
+    /// reason as entry_need.
+    #[account(mut)]
     pub exit_need: UncheckedAccount<'info>,
+    /// CHECK: the Timepin hold this seal takes on the entry target. Its address
+    /// is enforced by Timepin's own seeds; Core only forwards it.
+    #[account(mut)]
+    pub entry_hold: UncheckedAccount<'info>,
+    /// CHECK: the Timepin hold this seal takes on the exit target.
+    #[account(mut)]
+    pub exit_hold: UncheckedAccount<'info>,
+    /// CHECK: pinned to the Timepin program this economy was registered against.
+    #[account(address = economy.args.timepin_program @ CoreG2Error::WrongTimepinProgram)]
+    pub timepin_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -2990,10 +3089,25 @@ pub struct SealForwardDelegated<'info> {
         bump,
     )]
     pub shot: Box<Account<'info, Shot>>,
-    /// CHECK: authenticated as an exact read-only Timepin Need.
+    /// CHECK: authenticated as an exact Timepin Need. Writable since 2026-09-10:
+    /// sealing takes a hold on this target, which moves the Need's open_refs, so
+    /// the account can no longer be read-only.
+    #[account(mut)]
     pub entry_need: UncheckedAccount<'info>,
-    /// CHECK: authenticated as an exact read-only Timepin Need.
+    /// CHECK: authenticated as an exact Timepin Need. Writable for the same
+    /// reason as entry_need.
+    #[account(mut)]
     pub exit_need: UncheckedAccount<'info>,
+    /// CHECK: the Timepin hold this seal takes on the entry target. Its address
+    /// is enforced by Timepin's own seeds; Core only forwards it.
+    #[account(mut)]
+    pub entry_hold: UncheckedAccount<'info>,
+    /// CHECK: the Timepin hold this seal takes on the exit target.
+    #[account(mut)]
+    pub exit_hold: UncheckedAccount<'info>,
+    /// CHECK: pinned to the Timepin program this economy was registered against.
+    #[account(address = economy.args.timepin_program @ CoreG2Error::WrongTimepinProgram)]
+    pub timepin_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -3070,11 +3184,25 @@ pub struct SealObserved<'info> {
     /// CHECK: exact foreign account checks are performed by the Timepin consumer.
     pub evidence_spec: UncheckedAccount<'info>,
     /// CHECK: exact foreign account checks are performed by the Timepin consumer.
+    /// Writable since 2026-09-10: sealing takes a hold on this target.
+    #[account(mut)]
     pub entry_need: UncheckedAccount<'info>,
     /// CHECK: exact foreign account checks are performed by the Timepin consumer.
     pub entry_candidate: UncheckedAccount<'info>,
-    /// CHECK: authenticated as an exact read-only Timepin Need.
+    /// CHECK: authenticated as an exact Timepin Need. Writable for the same
+    /// reason as entry_need.
+    #[account(mut)]
     pub exit_need: UncheckedAccount<'info>,
+    /// CHECK: the Timepin hold this seal takes on the entry target. Its address
+    /// is enforced by Timepin's own seeds; Core only forwards it.
+    #[account(mut)]
+    pub entry_hold: UncheckedAccount<'info>,
+    /// CHECK: the Timepin hold this seal takes on the exit target.
+    #[account(mut)]
+    pub exit_hold: UncheckedAccount<'info>,
+    /// CHECK: pinned to the Timepin program this economy was registered against.
+    #[account(address = economy.args.timepin_program @ CoreG2Error::WrongTimepinProgram)]
+    pub timepin_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -3169,11 +3297,25 @@ pub struct SealObservedDelegated<'info> {
     /// CHECK: exact foreign account checks are performed by the Timepin consumer.
     pub evidence_spec: UncheckedAccount<'info>,
     /// CHECK: exact foreign account checks are performed by the Timepin consumer.
+    /// Writable since 2026-09-10: sealing takes a hold on this target.
+    #[account(mut)]
     pub entry_need: UncheckedAccount<'info>,
     /// CHECK: exact foreign account checks are performed by the Timepin consumer.
     pub entry_candidate: UncheckedAccount<'info>,
-    /// CHECK: authenticated as an exact read-only Timepin Need.
+    /// CHECK: authenticated as an exact Timepin Need. Writable for the same
+    /// reason as entry_need.
+    #[account(mut)]
     pub exit_need: UncheckedAccount<'info>,
+    /// CHECK: the Timepin hold this seal takes on the entry target. Its address
+    /// is enforced by Timepin's own seeds; Core only forwards it.
+    #[account(mut)]
+    pub entry_hold: UncheckedAccount<'info>,
+    /// CHECK: the Timepin hold this seal takes on the exit target.
+    #[account(mut)]
+    pub exit_hold: UncheckedAccount<'info>,
+    /// CHECK: pinned to the Timepin program this economy was registered against.
+    #[account(address = economy.args.timepin_program @ CoreG2Error::WrongTimepinProgram)]
+    pub timepin_program: UncheckedAccount<'info>,
     pub system_program: Program<'info, System>,
 }
 
@@ -3846,6 +3988,63 @@ fn reserve_history_slot<'info>(
     // final size. payer and system_program stay in the signature so the call sites
     // are untouched by this change; they are simply no longer spent here.
     let _ = (payer, system_program);
+    Ok(())
+}
+
+/// Anchor's `global:hold_need` discriminator, written out rather than derived.
+///
+/// Core does not depend on the Timepin crate - it reads Timepin accounts as raw
+/// bytes in foreign_timepin.rs, which is what keeps the dependency running one
+/// way. So the call is built by hand, and these eight bytes are the whole
+/// interface. They are pinned by a test rather than computed here, because a
+/// value computed at both ends agrees with itself even when it is wrong.
+pub const TIMEPIN_HOLD_NEED_DISCRIMINATOR: [u8; 8] = [45, 53, 168, 25, 201, 251, 83, 118];
+
+/// Take a Timepin hold for this Shot on one target's evidence.
+///
+/// This is the increment that `TimepinNeedV2::open_refs` never had. Without it
+/// nothing on chain could say "the last game that needed this target has
+/// finished", so the Need's rent and the captured price's rent were spent rather
+/// than lent - measured 2026-09-10 as 2 439 520 lamports lost per game by a
+/// keeper serving one player.
+///
+/// The rent for the hold itself is paid by whoever pays for the seal, and comes
+/// back to that same address when the hold is released. Releasing needs no
+/// signature from anybody: Timepin accepts the closed Shot as proof, which is
+/// why no terminal instruction in this program had to grow an account.
+fn hold_need_for_shot<'info>(
+    timepin_program: &UncheckedAccount<'info>,
+    actor: &AccountInfo<'info>,
+    need: &UncheckedAccount<'info>,
+    shot: &AccountInfo<'info>,
+    hold: &UncheckedAccount<'info>,
+    system_program: &Program<'info, System>,
+) -> Result<()> {
+    let instruction = anchor_lang::solana_program::instruction::Instruction {
+        program_id: timepin_program.key(),
+        accounts: vec![
+            anchor_lang::solana_program::instruction::AccountMeta::new(actor.key(), true),
+            anchor_lang::solana_program::instruction::AccountMeta::new(need.key(), false),
+            anchor_lang::solana_program::instruction::AccountMeta::new_readonly(shot.key(), false),
+            anchor_lang::solana_program::instruction::AccountMeta::new(hold.key(), false),
+            anchor_lang::solana_program::instruction::AccountMeta::new_readonly(
+                system_program.key(),
+                false,
+            ),
+        ],
+        data: TIMEPIN_HOLD_NEED_DISCRIMINATOR.to_vec(),
+    };
+    anchor_lang::solana_program::program::invoke(
+        &instruction,
+        &[
+            actor.clone(),
+            need.to_account_info(),
+            shot.clone(),
+            hold.to_account_info(),
+            system_program.to_account_info(),
+            timepin_program.to_account_info(),
+        ],
+    )?;
     Ok(())
 }
 

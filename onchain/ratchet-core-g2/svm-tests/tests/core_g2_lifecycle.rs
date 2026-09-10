@@ -509,6 +509,15 @@ fn need_pda(spec_hash: &[u8; 32], target: i64) -> (Pubkey, u8) {
     )
 }
 
+/// One game's claim on one target's evidence. Sealing creates two of these, and
+/// they are what makes TimepinNeedV2::open_refs a real count at last.
+fn need_hold_pda(need: &Pubkey, holder: &Pubkey) -> (Pubkey, u8) {
+    Pubkey::find_program_address(
+        &[b"hold", need.as_ref(), holder.as_ref()],
+        &timepin_program(),
+    )
+}
+
 fn candidate_pda(need: &Pubkey, message_hash: &[u8; 32]) -> (Pubkey, u8) {
     Pubkey::find_program_address(
         &[b"candidate", need.as_ref(), message_hash],
@@ -1599,15 +1608,19 @@ impl World {
         assert_eq!(captured_need.data[11], 1);
         assert_eq!(read_hash(&captured_need.data, 68), message_hash);
         assert_eq!(captured_candidate.owner, timepin_program());
-        assert_eq!(captured_candidate.data.len(), 119);
+        // 151 since 2026-09-10: rent_payer sits at 43..75 so the capture rent has
+        // an address to be returned to, and every field after `need` moved by 32.
+        assert_eq!(captured_candidate.data.len(), 151);
         assert_eq!(
             &captured_candidate.data[..8],
             &discriminator("account", "CandidateV2")
         );
         assert_eq!(&captured_candidate.data[11..43], need.as_ref());
-        assert_eq!(read_i64(&captured_candidate.data, 43), price);
-        assert_eq!(read_i64(&captured_candidate.data, 63), target);
-        assert_eq!(read_i64(&captured_candidate.data, 111), target);
+        // The capturer paid for this account, and its address is now recorded.
+        assert_ne!(&captured_candidate.data[43..75], &[0u8; 32]);
+        assert_eq!(read_i64(&captured_candidate.data, 75), price);
+        assert_eq!(read_i64(&captured_candidate.data, 95), target);
+        assert_eq!(read_i64(&captured_candidate.data, 143), target);
 
         self.set_clock(target + CAPTURE_DEADLINE_OFFSET);
         self.send(
@@ -1654,6 +1667,10 @@ impl World {
         candidate_data.extend_from_slice(&SCHEMA.to_le_bytes());
         candidate_data.push(candidate_bump);
         candidate_data.extend_from_slice(need.as_ref());
+        // rent_payer. Zeroed in this hand-built fixture on purpose: Core never
+        // reads it, but every field after it moved by 32 and a fixture that
+        // skipped it would feed Core a price out of the wrong bytes.
+        candidate_data.extend_from_slice(&[0u8; 32]);
         candidate_data.extend_from_slice(&price.to_le_bytes());
         candidate_data.extend_from_slice(&conf.to_le_bytes());
         candidate_data.extend_from_slice(&exponent.to_le_bytes());
@@ -1664,7 +1681,7 @@ impl World {
         candidate_data.extend_from_slice(&posted_slot.to_le_bytes());
         candidate_data.extend_from_slice(&capture_slot.to_le_bytes());
         candidate_data.extend_from_slice(&target.to_le_bytes());
-        assert_eq!(candidate_data.len(), 119);
+        assert_eq!(candidate_data.len(), 151);
         self.put_timepin_account(candidate, candidate_data);
 
         let result_hash = hash_parts(&[TIMEPIN_SET_DOMAIN, need.as_ref(), &message_hash]);
@@ -1717,8 +1734,27 @@ impl World {
                         false,
                     ),
                     AccountMeta::new(shot_pda(&kernel.economy_hash, &player_key, nonce), false),
-                    AccountMeta::new_readonly(need_pda(&kernel.spec_hash, entry_target).0, false),
-                    AccountMeta::new_readonly(need_pda(&kernel.spec_hash, exit_target).0, false),
+                    // Writable, and followed by the two holds: the seal takes a
+                    // Timepin hold on each target, which moves open_refs.
+                    AccountMeta::new(need_pda(&kernel.spec_hash, entry_target).0, false),
+                    AccountMeta::new(need_pda(&kernel.spec_hash, exit_target).0, false),
+                    AccountMeta::new(
+                        need_hold_pda(
+                            &need_pda(&kernel.spec_hash, entry_target).0,
+                            &shot_pda(&kernel.economy_hash, &player_key, nonce),
+                        )
+                        .0,
+                        false,
+                    ),
+                    AccountMeta::new(
+                        need_hold_pda(
+                            &need_pda(&kernel.spec_hash, exit_target).0,
+                            &shot_pda(&kernel.economy_hash, &player_key, nonce),
+                        )
+                        .0,
+                        false,
+                    ),
+                    AccountMeta::new_readonly(timepin_program(), false),
                     AccountMeta::new_readonly(system_program(), false),
                 ],
             ),
@@ -1761,8 +1797,27 @@ impl World {
                         false,
                     ),
                     AccountMeta::new(shot_pda(&kernel.economy_hash, player, nonce), false),
-                    AccountMeta::new_readonly(need_pda(&kernel.spec_hash, entry_target).0, false),
-                    AccountMeta::new_readonly(need_pda(&kernel.spec_hash, exit_target).0, false),
+                    // Writable, and followed by the two holds: the seal takes a
+                    // Timepin hold on each target, which moves open_refs.
+                    AccountMeta::new(need_pda(&kernel.spec_hash, entry_target).0, false),
+                    AccountMeta::new(need_pda(&kernel.spec_hash, exit_target).0, false),
+                    AccountMeta::new(
+                        need_hold_pda(
+                            &need_pda(&kernel.spec_hash, entry_target).0,
+                            &shot_pda(&kernel.economy_hash, player, nonce),
+                        )
+                        .0,
+                        false,
+                    ),
+                    AccountMeta::new(
+                        need_hold_pda(
+                            &need_pda(&kernel.spec_hash, exit_target).0,
+                            &shot_pda(&kernel.economy_hash, player, nonce),
+                        )
+                        .0,
+                        false,
+                    ),
+                    AccountMeta::new_readonly(timepin_program(), false),
                     AccountMeta::new_readonly(system_program(), false),
                 ],
             ),
@@ -1812,13 +1867,86 @@ impl World {
                     ),
                     AccountMeta::new(shot_pda(&kernel.economy_hash, &player_key, nonce), false),
                     AccountMeta::new_readonly(kernel.spec, false),
-                    AccountMeta::new_readonly(entry.need, false),
+                    // Writable, and followed by the two holds: the seal takes a
+                    // Timepin hold on each target, which moves open_refs.
+                    AccountMeta::new(entry.need, false),
                     AccountMeta::new_readonly(entry.candidate, false),
-                    AccountMeta::new_readonly(need_pda(&kernel.spec_hash, exit_target).0, false),
+                    AccountMeta::new(need_pda(&kernel.spec_hash, exit_target).0, false),
+                    AccountMeta::new(
+                        need_hold_pda(
+                            &entry.need,
+                            &shot_pda(&kernel.economy_hash, &player_key, nonce),
+                        )
+                        .0,
+                        false,
+                    ),
+                    AccountMeta::new(
+                        need_hold_pda(
+                            &need_pda(&kernel.spec_hash, exit_target).0,
+                            &shot_pda(&kernel.economy_hash, &player_key, nonce),
+                        )
+                        .0,
+                        false,
+                    ),
+                    AccountMeta::new_readonly(timepin_program(), false),
                     AccountMeta::new_readonly(system_program(), false),
                 ],
             ),
             &[player],
+        )
+    }
+
+    fn release_hold(
+        &mut self,
+        actor: &Keypair,
+        need: &Pubkey,
+        holder: &Pubkey,
+        rent_refund: &Pubkey,
+    ) -> Result<(), String> {
+        let hold = need_hold_pda(need, holder).0;
+        self.send(
+            self.timepin_instruction(
+                "release_hold",
+                vec![],
+                vec![
+                    AccountMeta::new(actor.pubkey(), true),
+                    AccountMeta::new(*need, false),
+                    AccountMeta::new_readonly(*holder, false),
+                    AccountMeta::new(hold, false),
+                    AccountMeta::new(*rent_refund, false),
+                ],
+            ),
+            &[actor],
+        )
+    }
+
+    fn close_need(
+        &mut self,
+        actor: &Keypair,
+        need: &Pubkey,
+        need_rent_refund: &Pubkey,
+        candidate: Option<(Pubkey, Pubkey)>,
+        fallback: &Pubkey,
+    ) -> Result<(), String> {
+        // A Need that expired unanswered has no candidate, and the caller says so
+        // by passing the Need itself in that slot.
+        let (candidate_key, candidate_refund) = match candidate {
+            Some((key, refund)) => (key, refund),
+            None => (*need, *fallback),
+        };
+        self.send(
+            self.timepin_instruction(
+                "close_need",
+                vec![],
+                vec![
+                    AccountMeta::new(actor.pubkey(), true),
+                    AccountMeta::new(*need, false),
+                    AccountMeta::new(*need_rent_refund, false),
+                    AccountMeta::new(candidate_key, false),
+                    AccountMeta::new(candidate_refund, false),
+                ],
+            ),
+            &[actor],
         )
     }
 
@@ -2567,6 +2695,19 @@ fn seal_forward_account_keys(
         shot_pda(&kernel.economy_hash, player, nonce),
         need_pda(&kernel.spec_hash, entry_target).0,
         need_pda(&kernel.spec_hash, exit_target).0,
+        // The two Timepin holds, added 2026-09-10. A seal that does not take
+        // them leaves open_refs at zero for a target a live game depends on.
+        need_hold_pda(
+            &need_pda(&kernel.spec_hash, entry_target).0,
+            &shot_pda(&kernel.economy_hash, player, nonce),
+        )
+        .0,
+        need_hold_pda(
+            &need_pda(&kernel.spec_hash, exit_target).0,
+            &shot_pda(&kernel.economy_hash, player, nonce),
+        )
+        .0,
+        timepin_program(),
     ]
 }
 
@@ -2742,6 +2883,24 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
     let shot_key = shot_pda(&kernel.economy_hash, &player.pubkey(), nonce);
     let history_key = history_page_pda(&kernel.economy_hash, &player.pubkey(), 0);
     let work_key = work_page_pda(&kernel.economy_hash, &player.pubkey(), 0);
+
+    // THE COUNTER IS REAL NOW. open_refs sat at offset 132 of every Need since the
+    // first version, was set to zero at open_need and incremented by nothing, and
+    // that is why the evidence rent never came back: nothing on chain could say
+    // "the last game needing this target has finished". The seal above took one
+    // hold per target.
+    let entry_need_key = need_pda(&kernel.spec_hash, entry_target).0;
+    let exit_need_key = need_pda(&kernel.spec_hash, exit_target).0;
+    let open_refs = |world: &World, need: &Pubkey| {
+        read_u32(&world.svm.get_account(need).unwrap().data, 132)
+    };
+    assert_eq!(open_refs(&world, &entry_need_key), 1);
+    assert_eq!(open_refs(&world, &exit_need_key), 1);
+    let entry_hold_key = need_hold_pda(&entry_need_key, &shot_key).0;
+    assert_eq!(
+        world.svm.get_account(&entry_hold_key).unwrap().owner,
+        timepin_program()
+    );
     let sealed = world.svm.get_account(&shot_key).unwrap();
     assert_eq!(sealed.data.len(), SHOT_LEN);
     assert_eq!(&sealed.data[..8], &discriminator("account", "Shot"));
@@ -2874,6 +3033,71 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
         "Shot rent and cleanup remainder must return to immutable rent_refund"
     );
     assert_closed(&world, shot_key);
+
+    // ---- the rent comes back -------------------------------------------------
+    // The Shot is gone, which is the whole proof release needs: nobody signs for
+    // the holder, because only the program that owned that account could have
+    // closed it. A stranger performs the maintenance and the refunds still go to
+    // the addresses that paid.
+    let stranger = world.wallet();
+    let entry_hold_lamports = world.svm.get_account(&entry_hold_key).unwrap().lamports;
+    let sealer_before_release = world.svm.get_account(&player.pubkey()).unwrap().lamports;
+    world
+        .release_hold(&stranger, &entry_need_key, &shot_key, &player.pubkey())
+        .unwrap();
+    assert_eq!(open_refs(&world, &entry_need_key), 0);
+    assert!(world.svm.get_account(&entry_hold_key).is_none());
+    assert_eq!(
+        world.svm.get_account(&player.pubkey()).unwrap().lamports,
+        sealer_before_release + entry_hold_lamports,
+        "the hold's rent returns to whoever paid for the seal, exactly"
+    );
+
+    // Still held on the exit target, so the Need cannot be closed - and it is the
+    // counter refusing, not the clock: the clock is already a fortnight past.
+    world.set_clock(exit_target + 14 * 24 * 60 * 60);
+    let entry_candidate_key = candidate_pda(&entry_need_key, &entry.message_hash).0;
+    assert!(world
+        .close_need(
+            &stranger,
+            &exit_need_key,
+            &player.pubkey(),
+            None,
+            &player.pubkey()
+        )
+        .is_err());
+
+    // The entry target has no holders left, and a week has passed. Both accounts
+    // go, and each refund lands on the address that paid for that account: the
+    // Need on the sealer, the captured price on the keeper that captured it.
+    let need_lamports = world.svm.get_account(&entry_need_key).unwrap().lamports;
+    let candidate_lamports = world
+        .svm
+        .get_account(&entry_candidate_key)
+        .unwrap()
+        .lamports;
+    let sealer_before_close = world.svm.get_account(&player.pubkey()).unwrap().lamports;
+    let worker_before_close = world.svm.get_account(&worker.pubkey()).unwrap().lamports;
+    world
+        .close_need(
+            &stranger,
+            &entry_need_key,
+            &player.pubkey(),
+            Some((entry_candidate_key, worker.pubkey())),
+            &player.pubkey()
+        )
+        .unwrap();
+    assert!(world.svm.get_account(&entry_need_key).is_none());
+    assert!(world.svm.get_account(&entry_candidate_key).is_none());
+    assert_eq!(
+        world.svm.get_account(&player.pubkey()).unwrap().lamports,
+        sealer_before_close + need_lamports
+    );
+    assert_eq!(
+        world.svm.get_account(&worker.pubkey()).unwrap().lamports,
+        worker_before_close + candidate_lamports,
+        "the capture rent returns to the keeper that paid it - this is the whole change"
+    );
 
     let history = world.svm.get_account(&history_key).unwrap();
     assert_eq!(history.data.len(), HISTORY_BASE_LEN);

@@ -107,7 +107,9 @@ test('Candidate readback checks bytes, PDA/hash, length, owner and capture facts
   assert.equal(decodeCandidateAccount(ctx.modelSpec,needs[0],hash,pk(value.address),info).price,message.price);
   assert.throws(()=>decodeCandidateAccount(ctx.modelSpec,needs[0],zero,pk(value.address),info),/Candidate/);
   assert.throws(()=>decodeCandidateAccount(ctx.modelSpec,needs[0],hash,pk(value.address),{...info,data:Buffer.concat([info.data,byte(0)])}),/length/);
-  const data=Buffer.from(info.data);data[43]^=1;assert.throws(()=>decodeCandidateAccount(ctx.modelSpec,needs[0],hash,pk(value.address),{...info,data}),/Candidate/);
+  // 75, not 43: rent_payer occupies 43..75 now and is outside the price message
+  // hash on purpose, so a flip there proves nothing. 75 is the first byte of price.
+  const data=Buffer.from(info.data);data[75]^=1;assert.throws(()=>decodeCandidateAccount(ctx.modelSpec,needs[0],hash,pk(value.address),{...info,data}),/Candidate/);
   assert.throws(()=>decodeCandidateAccount(ctx.modelSpec,needs[0],hash,pk(value.address),{...info,owner:key(5)}),/owner/);
 });
 test('Core scheduler waits for the appropriate permanent Need and handles void/equality',()=>{
@@ -208,7 +210,7 @@ test('actual mocked capture loop writes WATCHING then verifies fresh Candidate; 
     const sender=async({instruction,mode,expect})=>{
       assert.equal(mode,'send');sends++;lastIx=instruction;assert.equal(expect.address,pk(needs[0].address).toBase58());
       const hash=Buffer.from(instruction.data).subarray(8);assert.deepEqual(hash,hashPriceMessage(message));
-      const captured=candidate(needs[0]),info=candidateInfo(captured);if(corrupt)info.data[43]^=1;
+      const captured=candidate(needs[0]),info=candidateInfo(captured);if(corrupt)info.data[75]^=1;  // price, not rent_payer: only the former is hashed
       map.set(pk(captured.address).toBase58(),info);
       map.set(pk(needs[0].address).toBase58(),{data:encodeTimepinNeedV2({...needs[0],state:'Candidate',candidateAHash:hash}),owner:pk(PROGRAMS.timepin),executable:false});
       return {sent:true,signature:bs58.encode(Buffer.alloc(64,3)),confirmation:{err:null},evidence:{evidence:true}};

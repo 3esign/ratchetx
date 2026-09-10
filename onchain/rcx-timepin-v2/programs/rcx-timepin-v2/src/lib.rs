@@ -240,6 +240,25 @@ pub mod rcx_timepin_v2 {
         lifecycle::finalize_handler(ctx)
     }
 
+    /// Record that one game depends on this target's evidence. Permissionless:
+    /// a hold only ever delays a close, so taking one out for somebody else's
+    /// game wastes your rent and harms nothing.
+    pub fn hold_need(ctx: Context<HoldNeed>) -> Result<()> {
+        lifecycle::hold_need_handler(ctx)
+    }
+
+    /// Give back one hold once its game is over. No holder signature: the proof
+    /// is that the holder's account is gone, which only its owning program can
+    /// have done.
+    pub fn release_hold(ctx: Context<ReleaseHold>) -> Result<()> {
+        lifecycle::release_hold_handler(ctx)
+    }
+
+    /// Return the rent for a target time no game can still be waiting on.
+    pub fn close_need(ctx: Context<CloseNeed>) -> Result<()> {
+        lifecycle::close_need_handler(ctx)
+    }
+
     pub fn expire(ctx: Context<ExpireNeed>) -> Result<()> {
         lifecycle::expire_handler(ctx)
     }

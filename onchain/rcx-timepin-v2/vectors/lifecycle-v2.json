@@ -74,8 +74,8 @@
         "message_hash_32"
       ],
       "discriminatorHex": "dcdf4108b3715f4f",
-      "payloadLength": 111,
-      "accountLength": 119,
+      "payloadLength": 143,
+      "accountLength": 151,
       "fields": "schema u16 | bump u8 | need Pubkey | price i64 | conf u64 | exponent i32 | publish_time i64 | prev_publish_time i64 | ema_price i64 | ema_conf u64 | posted_slot u64 | capture_slot u64 | capture_ts i64"
     },
     "WorkManifest": {
@@ -263,7 +263,7 @@
       "messageHashHex": "ab0c77a65cd62841d91dc3db38c97dc9c8748d12de1e26c3e35e9240715a03fd",
       "candidatePda": "7u1tfTVdxN6m959ocKMaBaeR7i2wMwon1cvK9XJLHEX4",
       "candidateBump": 255,
-      "accountBytesHex": "dcdf4108b3715f4f0200ffe712dd0432b087023d403e3184a2d324a7207da3828be455b18f03d0fa674ea44e61bc00000000003930000000000000faffffffb0d6496b0000000074d6496b000000004e61bc00000000003930000000000000e903000000000000ea03000000000000b0d6496b00000000"
+      "accountBytesHex": "dcdf4108b3715f4f0200ffe712dd0432b087023d403e3184a2d324a7207da3828be455b18f03d0fa674ea400000000000000000000000000000000000000000000000000000000000000004e61bc00000000003930000000000000faffffffb0d6496b0000000074d6496b000000004e61bc00000000003930000000000000e903000000000000ea03000000000000b0d6496b00000000"
     },
     "b": {
       "price": 12345679,
@@ -271,7 +271,7 @@
       "messageHashHex": "255922fc1ac24821459b79afd496eafd1fa9780585a6fac9ee42fce1ef08f1f2",
       "candidatePda": "5yK7Q59SF1tAEHBjfWSUBwCUXCdmB9JVn3QSVFvUx7nY",
       "candidateBump": 253,
-      "accountBytesHex": "dcdf4108b3715f4f0200fde712dd0432b087023d403e3184a2d324a7207da3828be455b18f03d0fa674ea44f61bc00000000003a30000000000000faffffffb0d6496b0000000074d6496b000000004f61bc00000000003a30000000000000e903000000000000ea03000000000000b0d6496b00000000"
+      "accountBytesHex": "dcdf4108b3715f4f0200fde712dd0432b087023d403e3184a2d324a7207da3828be455b18f03d0fa674ea400000000000000000000000000000000000000000000000000000000000000004f61bc00000000003a30000000000000faffffffb0d6496b0000000074d6496b000000004f61bc00000000003a30000000000000e903000000000000ea03000000000000b0d6496b00000000"
     }
   },
   "terminalVectors": {
@@ -285,9 +285,9 @@
     "proofLevel": "Pure deterministic synthetic adapter-1 ABI fixture; no runtime execution claim."
   },
   "localSbfEvidence": {
-    "path": "ratchetx-onchain-sbf/534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1/rcx_timepin_v2.so",
-    "size": 375944,
-    "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
+    "path": "ratchetx-onchain-sbf/bbf2358ca0afe48d5345f349bc286090738c20ecad28ad1dba4a18e1eed54f72/rcx_timepin_v2.so",
+    "size": 411560,
+    "sha256": "bbf2358ca0afe48d5345f349bc286090738c20ecad28ad1dba4a18e1eed54f72",
     "elfFlags": 3,
     "sbpfVersion": 3,
     "releaseArtifact": false,
