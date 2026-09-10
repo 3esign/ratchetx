@@ -241,6 +241,37 @@ export async function sendOperation(connection, signer, operation, journal, pers
   return { simulated: true, signature };
 }
 
+// A RUNAWAY GUARD MUST BOUND A RATE, NOT A LIFETIME. This used to read
+// `journal.events.length < 300`, which a healthy keeper trips for the same
+// reason a broken one does: by staying up. Measured 2026-09-10, the devnet
+// operator sat at 62 of 300 after a few days at roughly six records per game -
+// about forty games from a hard stop. And the stop is a throw the restart loop
+// re-enters immediately, so the keeper would not slow down, it would crash-loop
+// while every open game voided. The two balance bounds are what actually
+// protect money; the third only ever had to catch a keeper sending in a tight
+// loop, and that is a rate. Exported so the bound has a test of its own rather
+// than living unreachable inside the watch loop.
+export const FEE_BUDGET = Object.freeze({
+  minBalanceLamports: 50_000_000,
+  maxNetDecreaseLamports: 250_000_000,
+  maxRecordsPerWindow: 300,
+  windowMs: 3_600_000,
+});
+
+export function withinFeeBudget({ balance, startBalance, events = [], now = Date.now(), bounds = FEE_BUDGET }) {
+  if (!(balance >= bounds.minBalanceLamports)) return false;
+  if (!(startBalance - balance < bounds.maxNetDecreaseLamports)) return false;
+  const windowStart = now - bounds.windowMs;
+  let recent = 0;
+  for (const event of events) {
+    const at = Date.parse(event?.preparedAt ?? '');
+    // An undated record is counted: a journal that lost its timestamps must not
+    // become a journal with no rate bound at all.
+    if (!Number.isFinite(at) || at >= windowStart) recent++;
+  }
+  return recent < bounds.maxRecordsPerWindow;
+}
+
 export function parseArgs(argv) {
   const opt = { send: false, watch: false };
   let mode = false;
@@ -308,7 +339,7 @@ export async function main(argv = process.argv.slice(2)) {
         delete journal.lastError; persist();
         if (operation && opt.send) {
           const balance = await connection.getBalance(operator, 'confirmed');
-          fact(balance >= 50000000 && journal.startBalance - balance < 250000000 && journal.events.length < 300, 'Devnet keeper fee budget reached');
+          fact(withinFeeBudget({ balance, startBalance: journal.startBalance, events: journal.events }), 'Devnet keeper fee budget reached');
           const sent = await sendOperation(connection, signer, operation, journal, persist);
           console.log(json({ action: operation.name, subject: operation.subject, ...sent }).trim());
         }

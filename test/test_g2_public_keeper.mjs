@@ -9,7 +9,7 @@ import bs58 from 'bs58';
 import { createCoreG2Client } from '../lib/g2/client-v2.mjs';
 import { PROGRAMS, DEVNET_GENESIS } from '../ops/g2-crank/public-pins.mjs';
 import { assertChainBoundary, operatorKey, createJournal, assertJournal, assertMaintenance, pendingBytes } from '../ops/g2-crank/public-boundary.mjs';
-import { parseArgs, loadGame, publicTimepinInstruction, nextOperation, writeJournal, sendOperation, resolvePending } from '../ops/g2-crank/live.mjs';
+import { parseArgs, loadGame, publicTimepinInstruction, nextOperation, writeJournal, sendOperation, resolvePending, withinFeeBudget, FEE_BUDGET } from '../ops/g2-crank/live.mjs';
 
 // Public configuration only. Every signer below is synthetic and stays in RAM.
 // Connections are local stubs; no test constructs an RPC connection.
@@ -211,4 +211,45 @@ test('saved bytes refuse altered signature, payer, subject, program, instruction
   const extra = new web3.Transaction({ feePayer: signer.publicKey, ...recent }).add(operation.instruction, transfer);
   extra.sign(signer);
   assert.throws(() => pendingBytes({ ...journal, pending: { ...journal.pending, signedTransaction: extra.serialize().toString('base64'), signature: bs58.encode(extra.signature) } }), /signature\/payer/);
+});
+
+// The guard that used to end a keeper's life for the crime of staying up. It
+// counted every record the journal had ever written, so an operator serving real
+// games walked into the same wall as one sending in a loop - and the wall throws,
+// which the restart loop re-enters at once, so open games void while the process
+// spins. The bound is a rate now; these cases pin what it does and does not stop.
+test('the fee budget bounds a rate, not a lifetime, and still stops a drained or looping keeper', () => {
+  const now = Date.UTC(2026, 8, 10, 12, 0, 0);
+  const at = minutesAgo => new Date(now - minutesAgo * 60000).toISOString();
+  const healthy = { balance: 11_000_000_000, startBalance: 2_800_000_000, now };
+
+  // Thousands of records over a long life, six of them recent: this is exactly
+  // the keeper the old bound killed.
+  const longLife = [
+    ...Array.from({ length: 5000 }, (_, i) => ({ preparedAt: at(120 + i) })),
+    ...Array.from({ length: 6 }, () => ({ preparedAt: at(5) })),
+  ];
+  assert.equal(withinFeeBudget({ ...healthy, events: longLife }), true);
+
+  // A tight loop inside the window is still stopped.
+  const looping = Array.from({ length: FEE_BUDGET.maxRecordsPerWindow }, () => ({ preparedAt: at(1) }));
+  assert.equal(withinFeeBudget({ ...healthy, events: looping }), false);
+  assert.equal(withinFeeBudget({ ...healthy, events: looping.slice(1) }), true);
+
+  // Money bounds are untouched and independent of the rate.
+  assert.equal(withinFeeBudget({ ...healthy, balance: FEE_BUDGET.minBalanceLamports - 1, events: [] }), false);
+  assert.equal(withinFeeBudget({
+    balance: 1_000_000_000,
+    startBalance: 1_000_000_000 + FEE_BUDGET.maxNetDecreaseLamports,
+    events: [], now,
+  }), false);
+
+  // Topping the operator up raises the balance above where it started, which is
+  // a negative decrease - allowed, and the reason a funded operator keeps going.
+  assert.equal(withinFeeBudget({ balance: 11_000_000_000, startBalance: 2_800_000_000, events: [], now }), true);
+
+  // An undated record counts as recent. A journal that lost its timestamps must
+  // not become a journal with no rate bound at all.
+  const undated = Array.from({ length: FEE_BUDGET.maxRecordsPerWindow }, () => ({}));
+  assert.equal(withinFeeBudget({ ...healthy, events: undated }), false);
 });

@@ -124,9 +124,19 @@ This is not a claim of recovery from every power-loss, disk or RPC failure.
 
 This entrypoint retains its devnet safeguards: at most 50 concurrent shots, a
 0.05 SOL balance floor, a 0.25 SOL net-balance decrease guard relative to the
-journal's first run, and fewer than 300 completed/expired-unobserved records
-before preparing another transaction. Refunds and added funds affect the
-net-balance guard; it is not an accounting cap on total lifetime fees.
+journal's first run, and fewer than 300 records **prepared in the last hour**.
+Refunds and added funds affect the net-balance guard; it is not an accounting cap
+on total lifetime fees.
+
+That third bound used to count every record the journal had ever written. A
+runaway guard shaped as a lifetime counter stops a healthy keeper for the same
+reason it stops a broken one - staying up - and it stops it by throwing, which a
+restart loop re-enters immediately, so the process crash-loops while open games
+void. Measured 2026-09-10, this devnet operator stood at 62 of 300 at roughly six
+records per game: about forty games from that wall. The bound is now a rate over a
+one-hour window (`withinFeeBudget` in `ops/g2-crank/live.mjs`, covered by
+`test/test_g2_public_keeper.mjs`). An undated record counts as recent, so a journal
+that lost its timestamps fails closed rather than losing the bound.
 
 Permissionless means another operator can submit these same validated public
 actions. It does not guarantee that someone stays online, captures every eligible
