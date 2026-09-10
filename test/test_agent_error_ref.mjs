@@ -8,10 +8,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import { fileURLToPath } from 'node:url';
 import { refOf, candidates } from '../tools/explain-agent-ref.mjs';
 
 const runtime = fs.readFileSync(new URL('../skills/ratchetx-g2/scripts/g2-session.mjs', import.meta.url), 'utf8');
+const runtimePath = fileURLToPath(new URL('../skills/ratchetx-g2/scripts/g2-session.mjs', import.meta.url));
 
 test('the ref is attached only when the real code was suppressed', () => {
   // A named, allowlisted code is already the answer; adding a digest of it would
@@ -54,4 +57,15 @@ test('diagnose answers whether the seed is reaching the agent, without disclosin
   assert.match(runtime, /withheldEnvCount/, 'the count of hidden names should be visible, so nothing looks missing');
   assert.match(runtime, /is NOT set - on a host with no persistent disk/,
     'the reply must say what a missing seed causes, not only that it is missing');
+});
+
+test('diagnose works even when the seed and local identity are absent', () => {
+  const env = Object.fromEntries(Object.entries(process.env)
+    .filter(([key]) => key.toUpperCase() !== 'RATCHET_G2_SEED'));
+  const child = spawnSync(process.execPath, [runtimePath, 'diagnose'], { env, encoding: 'utf8' });
+  assert.equal(child.status, 0, child.stderr || child.stdout);
+  const output = JSON.parse(child.stdout);
+  assert.equal(output.code, 'DIAGNOSE');
+  assert.equal(output.seedProvided, false);
+  assert.match(output.reply, /RATCHET_G2_SEED is NOT set/);
 });

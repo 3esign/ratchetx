@@ -261,6 +261,18 @@ function argumentsFor(argv) {
   if (command === 'play') fail(typeof flags['--say'] === 'string' && flags['--say'].length > 0 && flags['--say'].length <= 4000, 'USER_TEXT_REQUIRED');
   return { command, flags };
 }
+function diagnoseResult() {
+  const sensitive = k => /SEED|SECRET|TOKEN|KEY|PASS/i.test(k);
+  const names = Object.keys(process.env);
+  return publicJson({ ok: true, code: 'DIAGNOSE', node: process.version, platform: process.platform,
+    envNames: names.filter(k => !sensitive(k)).sort(),
+    seedProvided: Boolean(process.env.RATCHET_G2_SEED),
+    withheldEnvCount: names.filter(sensitive).length,
+    cwd: process.cwd(),
+    homeWritable: (() => { try { fs.accessSync(os.homedir(), fs.constants.W_OK); return true; } catch { return false; } })(),
+    reply: 'Host diagnostics (names only, no values). RATCHET_G2_SEED '
+      + (process.env.RATCHET_G2_SEED ? 'IS set' : 'is NOT set - on a host with no persistent disk every command would build a new wallet, and a sealed prediction could never be revealed') + '.' });
+}
 // Resume one existing command. Never chooses an intent or creates another shot.
 export async function finishCommand(runner, commandId, { timeoutMs = 45 * 60 * 1000, pollMs = 30000,
   now = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
@@ -277,12 +289,12 @@ export async function finishCommand(runner, commandId, { timeoutMs = 45 * 60 * 1
   }
 }
 async function runSeeded(command, flags, seed) {
+  if (command === 'diagnose') return diagnoseResult();
   const web3 = loadWeb3(), connection = connectionFor(web3);
   const { seedIdentity, createSeedAgent } = await import('../../../lib/g2/seed-agent.mjs');
   const identity = { ...seedIdentity(web3, seed), economyHash: CONFIG.economyHash, rulesetHash: CONFIG.rulesetHash };
   if (command === 'init' || command === 'setup') { fail(flags['--player'] === undefined || flags['--player'] === 'self' || flags['--player'] === identity.player, 'STATE_PLAYER_CONFLICT');
     return publicJson({ ok: true, code: 'SELF_PLAY_READY', scope: 'DEVNET_TEST_CREDITS_ONLY', ...identity, noTransactionSent: true, reply: 'Your agent plays with its own seed-derived devnet wallet ' + identity.player + '. Nothing to sign anywhere else: the first play claims 10,000 devnet test credits and seals the prediction.' }); }
-  if (command === 'diagnose') return publicJson({ ok: true, code: 'DIAGNOSE', node: process.version, platform: process.platform, envNames: Object.keys(process.env).filter(k => !/SEED|SECRET|TOKEN|KEY|PASS/i.test(k)).sort(), cwd: process.cwd(), homeWritable: (() => { try { fs.accessSync(os.homedir(), fs.constants.W_OK); return true; } catch { return false; } })(), reply: 'Host diagnostics (names only, no values).' });
   if (command === 'recover-lock') return publicJson({ ok: true, code: 'NO_LOCK_IN_SEED_MODE', reply: 'Seed mode keeps no local lock or journal; nothing to recover.' });
   const funding = await ensureDevnetFeeBalance(identity, web3, connection);
   const agent = createSeedAgent({ web3, connection, config: CONFIG, seed, onStatus: s => { if (process.env.RATCHET_G2_DEBUG) console.error('..', s.phase); } });
@@ -297,9 +309,10 @@ async function runSeeded(command, flags, seed) {
   return publicJson(await agent.status()); // status, reconcile, reveal: the chain is the journal
 }
 export async function runCli(argv, { rootDir = stateRoot() } = {}) {
+  const { command, flags } = argumentsFor(argv);
+  if (command === 'diagnose') return diagnoseResult();
   const [major, minor] = process.versions.node.split('.').map(Number);
   fail(major > 20 || major === 20 && minor >= 11, 'NODE_20_11_REQUIRED');
-  const { command, flags } = argumentsFor(argv);
   // RATCHET_G2_SEED: stateless self-play for hosts without a persistent filesystem. Everything is
   // derived from the seed and read from the chain; nothing is written under the state root.
   if (process.env.RATCHET_G2_SEED && command !== 'help') return runSeeded(command, flags, process.env.RATCHET_G2_SEED);
@@ -337,7 +350,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   catch (error) {
     const requested = error?.code || error?.message;
     const code = SAFE_ERRORS.has(requested) ? requested : 'AGENT_CHECK_FAILED';
-    process.stdout.write(JSON.stringify({ ok: false, code, reply: 'RatchetX could not finish this check. Keep your current agent state and the same source command ID; do not create a replacement shot. ' + code + '\nhttps://ratchetx.xyz/agent-setup' }) + '\n');
+    // A REFERENCE, NOT A MESSAGE. SAFE_ERRORS keeps anything unrecognised out of
+    // a public X thread, which is right - and until 2026-09-10 it also kept it
+    // out of the OWNER's reach, so a real failure arrived as four words and a
+    // dead end. This is eight hex characters of sha256 over the same text: it
+    // discloses nothing (you cannot read a message back out of it) and it names
+    // the failure exactly, so whoever has the source can find which throw it was.
+    // Only attached when the code was suppressed; a named error needs no ref.
+    const ref = code === 'AGENT_CHECK_FAILED'
+      ? createHash('sha256').update(String(requested ?? 'unknown')).digest('hex').slice(0, 8)
+      : null;
+    process.stdout.write(JSON.stringify({ ok: false, code, ...(ref ? { ref } : {}), reply: 'RatchetX could not finish this check. Keep your current agent state and the same source command ID; do not create a replacement shot. ' + code + (ref ? ' ref ' + ref : '') + '\nhttps://ratchetx.xyz/agent-setup' }) + '\n');
     process.exitCode = 1;
   }
 }

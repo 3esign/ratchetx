@@ -80,6 +80,9 @@ function writeAtomic(file, bytes) {
   catch (error) { if (fs.existsSync(tmp)) fs.unlinkSync(tmp); throw error; }
 }
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
+  const runtimeSource = path.join(ROOT, 'skills/ratchetx-g2/scripts/g2-session.mjs');
+  const mirrorRuntime = path.join(ROOT, 'skills/ratchetx/scripts/g2-session.mjs');
+  if (fs.existsSync(mirrorRuntime)) writeAtomic(mirrorRuntime, fs.readFileSync(runtimeSource));
   const built = buildRuntime();
   fs.mkdirSync(path.join(ROOT, 'releases'), { recursive: true });
   writeAtomic(path.join(ROOT, 'releases/g2-agent-runtime.json.gz'), built.archive);

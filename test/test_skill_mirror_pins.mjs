@@ -42,3 +42,8 @@ test('both installers name the same release, and the declared installer digest i
     assert.equal(declared, actual, `${dir}/SKILL.md publishes an installer digest that is not its installer`);
   }
 });
+
+test('the Bankr-facing mirror exposes the same G2 runtime source', () => {
+  assert.equal(read('skills/ratchetx/scripts/g2-session.mjs'), read('skills/ratchetx-g2/scripts/g2-session.mjs'),
+    'Bankr mirrors companion resources from skills/ratchetx, so its g2-session.mjs cannot lag the packaged runtime source');
+});

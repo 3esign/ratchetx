@@ -261,6 +261,18 @@ function argumentsFor(argv) {
   if (command === 'play') fail(typeof flags['--say'] === 'string' && flags['--say'].length > 0 && flags['--say'].length <= 4000, 'USER_TEXT_REQUIRED');
   return { command, flags };
 }
+function diagnoseResult() {
+  const sensitive = k => /SEED|SECRET|TOKEN|KEY|PASS/i.test(k);
+  const names = Object.keys(process.env);
+  return publicJson({ ok: true, code: 'DIAGNOSE', node: process.version, platform: process.platform,
+    envNames: names.filter(k => !sensitive(k)).sort(),
+    seedProvided: Boolean(process.env.RATCHET_G2_SEED),
+    withheldEnvCount: names.filter(sensitive).length,
+    cwd: process.cwd(),
+    homeWritable: (() => { try { fs.accessSync(os.homedir(), fs.constants.W_OK); return true; } catch { return false; } })(),
+    reply: 'Host diagnostics (names only, no values). RATCHET_G2_SEED '
+      + (process.env.RATCHET_G2_SEED ? 'IS set' : 'is NOT set - on a host with no persistent disk every command would build a new wallet, and a sealed prediction could never be revealed') + '.' });
+}
 // Resume one existing command. Never chooses an intent or creates another shot.
 export async function finishCommand(runner, commandId, { timeoutMs = 45 * 60 * 1000, pollMs = 30000,
   now = Date.now, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = {}) {
@@ -277,34 +289,12 @@ export async function finishCommand(runner, commandId, { timeoutMs = 45 * 60 * 1
   }
 }
 async function runSeeded(command, flags, seed) {
+  if (command === 'diagnose') return diagnoseResult();
   const web3 = loadWeb3(), connection = connectionFor(web3);
   const { seedIdentity, createSeedAgent } = await import('../../../lib/g2/seed-agent.mjs');
   const identity = { ...seedIdentity(web3, seed), economyHash: CONFIG.economyHash, rulesetHash: CONFIG.rulesetHash };
   if (command === 'init' || command === 'setup') { fail(flags['--player'] === undefined || flags['--player'] === 'self' || flags['--player'] === identity.player, 'STATE_PLAYER_CONFLICT');
     return publicJson({ ok: true, code: 'SELF_PLAY_READY', scope: 'DEVNET_TEST_CREDITS_ONLY', ...identity, noTransactionSent: true, reply: 'Your agent plays with its own seed-derived devnet wallet ' + identity.player + '. Nothing to sign anywhere else: the first play claims 10,000 devnet test credits and seals the prediction.' }); }
-  if (command === 'diagnose') {
-    // A NAME IS NOT A SECRET, AND HIDING IT MADE THIS USELESS. The filter below
-    // drops any variable whose NAME matches SEED|SECRET|TOKEN|KEY|PASS, so that
-    // a screenshot of this reply cannot even hint at what is configured. On
-    // 2026-09-10 an owner ran this to answer one question - is RATCHET_G2_SEED
-    // reaching my agent - and the filter hid exactly that, while reporting
-    // 'status: ok'. A diagnostic that is silent about the thing it was run for
-    // is worse than none, because it looks like an answer.
-    //
-    // So: names of matching variables stay hidden, and their PRESENCE is
-    // reported as a boolean. No value, no length, no prefix - only whether the
-    // agent can see it at all, which is the whole question.
-    const sensitive = k => /SEED|SECRET|TOKEN|KEY|PASS/i.test(k);
-    const names = Object.keys(process.env);
-    return publicJson({ ok: true, code: 'DIAGNOSE', node: process.version, platform: process.platform,
-      envNames: names.filter(k => !sensitive(k)).sort(),
-      seedProvided: Boolean(process.env.RATCHET_G2_SEED),
-      withheldEnvCount: names.filter(sensitive).length,
-      cwd: process.cwd(),
-      homeWritable: (() => { try { fs.accessSync(os.homedir(), fs.constants.W_OK); return true; } catch { return false; } })(),
-      reply: 'Host diagnostics (names only, no values). RATCHET_G2_SEED '
-        + (process.env.RATCHET_G2_SEED ? 'IS set' : 'is NOT set - on a host with no persistent disk every command would build a new wallet, and a sealed prediction could never be revealed') + '.' });
-  }
   if (command === 'recover-lock') return publicJson({ ok: true, code: 'NO_LOCK_IN_SEED_MODE', reply: 'Seed mode keeps no local lock or journal; nothing to recover.' });
   const funding = await ensureDevnetFeeBalance(identity, web3, connection);
   const agent = createSeedAgent({ web3, connection, config: CONFIG, seed, onStatus: s => { if (process.env.RATCHET_G2_DEBUG) console.error('..', s.phase); } });
@@ -319,9 +309,10 @@ async function runSeeded(command, flags, seed) {
   return publicJson(await agent.status()); // status, reconcile, reveal: the chain is the journal
 }
 export async function runCli(argv, { rootDir = stateRoot() } = {}) {
+  const { command, flags } = argumentsFor(argv);
+  if (command === 'diagnose') return diagnoseResult();
   const [major, minor] = process.versions.node.split('.').map(Number);
   fail(major > 20 || major === 20 && minor >= 11, 'NODE_20_11_REQUIRED');
-  const { command, flags } = argumentsFor(argv);
   // RATCHET_G2_SEED: stateless self-play for hosts without a persistent filesystem. Everything is
   // derived from the seed and read from the chain; nothing is written under the state root.
   if (process.env.RATCHET_G2_SEED && command !== 'help') return runSeeded(command, flags, process.env.RATCHET_G2_SEED);
