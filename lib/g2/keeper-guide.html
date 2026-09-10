@@ -1,0 +1,137 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>RatchetX — Run a keeper</title><meta name="description" content="The arcade has no server. Anyone may perform the steps that move a game forward — here is what a keeper does, what it costs, and how to run one."><link rel="stylesheet" href="/lib/g2/game-page.css"><style>
+.keeper{max-width:760px;margin:0 auto;padding-bottom:40px}
+.keeper h1{margin:36px 0 18px}
+.keeper h2{font-size:26px;letter-spacing:-.6px;margin:44px 0 14px}
+.keeper h3{font-size:18px;margin:28px 0 10px}
+.keeper p,.keeper li{font-size:16px;line-height:1.75;color:#cfdbe4}
+.keeper strong{color:var(--ink)}
+.keeper table{width:100%;border-collapse:collapse;margin:20px 0;font-size:15px}
+.keeper th,.keeper td{text-align:left;padding:11px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.keeper th{color:var(--gold);font:650 13px/1.4 ui-monospace,Consolas,monospace;letter-spacing:.08em;text-transform:uppercase}
+.keeper td.num{font:600 15px/1.5 ui-monospace,Consolas,monospace;text-align:right;white-space:nowrap}
+.keeper td.neg{color:var(--red)}.keeper td.pos{color:var(--green)}
+.keeper tr.total td{border-top:1px solid var(--gold);border-bottom:0;font-weight:700}
+.keeper pre{background:#0b1520;border:1px solid var(--line);border-radius:10px;padding:16px;overflow-x:auto;font:14px/1.65 ui-monospace,Consolas,monospace;color:#d7e6ef}
+.keeper code{font:14px/1.5 ui-monospace,Consolas,monospace;color:var(--blue)}
+.keeper pre code{color:inherit}
+.keeper .card{background:linear-gradient(135deg,#142131,#101923);border:1px solid var(--line);border-radius:16px;padding:22px 24px;margin:24px 0}
+.keeper .card p:last-child{margin-bottom:0}
+.keeper .warn{border-left:3px solid var(--gold);background:#1e1b13;padding:16px 18px;border-radius:0 10px 10px 0;margin:24px 0}
+.keeper .warn p{color:#e8dcc0;margin:0}
+.keeper .lede{font-size:19px;line-height:1.7;color:var(--ink)}
+.keeper ul{padding-left:22px}
+.keeper li{margin-bottom:8px}
+.keeper .who{display:grid;gap:12px;margin:20px 0}
+.keeper .who div{display:flex;gap:14px;align-items:baseline;border-bottom:1px solid var(--line);padding-bottom:12px}
+.keeper .who b{color:var(--gold);font:650 13px/1.6 ui-monospace,Consolas,monospace;letter-spacing:.06em;min-width:110px}
+.keeper .who span{color:#cfdbe4;font-size:15px}
+@media(max-width:600px){.keeper th,.keeper td{padding:9px 6px;font-size:14px}.keeper .who div{flex-direction:column;gap:2px}}
+</style></head><body><div class="shell">
+<header class="top"><a class="brand" href="/play"><span class="gear">↗</span> Ratchet<span>X</span></a><nav><a href="/play">The game</a><a href="/agents">How to start</a><a href="/proof">The receipt room</a><a href="/keeper">Run a keeper</a></nav></header>
+<main class="keeper">
+
+<p class="eyebrow">FOR OPERATORS · SOLANA DEVNET</p>
+<h1>The arcade has no server.</h1>
+
+<p class="lede">Every game here needs someone to press buttons that <em>anyone</em> is allowed to press: fetch the Pyth price at the moment a prediction was aimed at, put it on chain, move the game to its next state. The program does not care who does it. A machine that does it is called a keeper.</p>
+
+<p>Right now two keepers are running. Both belong to the person who built this. That is a single point of failure wearing a costume, and this page exists to end it.</p>
+
+<h2>What a keeper actually does</h2>
+
+<p>Ten public instructions, and nothing else. Four on the evidence layer — capture the first admissible Pyth print for a target time, capture a conflicting one, finalize, expire — and six on the game — activate an entry, settle a final, void a pending entry, void an active shot, finalize a resolved void, forfeit. On-chain rules decide which of them is legal at any moment; the keeper only offers.</p>
+
+<h3>What a keeper cannot do</h3>
+<ul>
+<li><strong>It cannot see your prediction.</strong> Direction and confidence are sealed as a hash. The keeper moves a game it cannot read.</li>
+<li><strong>It cannot reveal for you.</strong> Your secret never leaves your side. If you never reveal, the game voids and your stake comes back — the keeper cannot take it.</li>
+<li><strong>It cannot choose the price.</strong> The rule is the earliest Pyth print at or after your target time, and finalize takes the minimum of everything submitted. A keeper that submits a flattering price submits a losing candidate.</li>
+<li><strong>It cannot lock anyone out.</strong> A second keeper may always do the same step. Whoever lands first wins it.</li>
+</ul>
+
+<h2>What it pays</h2>
+
+<p>Every step that anyone may perform pays one bond unit to whoever performs it, out of the deposit the player made when sealing. On devnet today one unit is 50 000 lamports.</p>
+
+<p>This was not always true. Until 10 September 2026 the only paid instruction was the one that ended a game — so a keeper earned for letting a game die and earned nothing for keeping it alive. The gradient pointed at neglect. It does not any more.</p>
+
+<h2>What it costs</h2>
+
+<p>Here is a complete real game, measured from one operator's own balance. Nothing is rounded and nothing is left out.</p>
+
+<table><thead><tr><th>Transaction</th><th>Operator</th></tr></thead><tbody>
+<tr><td><code>capture_first</code> — entry target</td><td class="num neg">−1 259 760</td></tr>
+<tr><td><code>capture_first</code> — exit target</td><td class="num neg">−1 259 760</td></tr>
+<tr><td><code>finalize</code> ×2</td><td class="num neg">−10 000</td></tr>
+<tr><td><code>activate_entry</code></td><td class="num pos">+45 000</td></tr>
+<tr><td><code>settle_final</code></td><td class="num pos">+45 000</td></tr>
+<tr class="total"><td>Net, one game, one player</td><td class="num neg">−2 439 520 lamports</td></tr>
+</tbody></table>
+
+<div class="warn"><p><strong>Read that total again before you fund anything.</strong> A keeper serving one player loses about 0.0024 SOL per game. On devnet that is play money and it does not matter. It is stated here because a page that showed you only the +45 000 would be lying by arrangement.</p></div>
+
+<p>Almost all of it is one thing: <strong>rent that never comes back.</strong> Recording a captured price creates a permanent account costing 1 254 760 lamports, and there is no instruction that closes it — the game reads that account when it activates and when it settles, and the evidence layer has no working count of how many games still depend on it. So the capital is spent, not lent.</p>
+
+<h3>Why this is a volume problem, not a dead end</h3>
+
+<p>A target time is shared. The price at 14:05 is the same price for everyone who aimed at 14:05, so the first keeper to capture it pays for all of them, and every player after that costs two 5 000-lamport signatures and earns 90 000. Break-even is roughly <strong>28 shots per target time</strong>. Below it an operator subsidises the arcade; above it an operator profits.</p>
+
+<p>Today the arcade is nowhere near that. So: running a keeper right now is a contribution, not a business. If that is not what you came for, this is the honest moment to close the tab.</p>
+
+<h2>Why do it anyway</h2>
+
+<ul>
+<li>Devnet SOL is free from the faucet. The loss is measured in play money.</li>
+<li>An arcade whose games only finish because one person's laptop is awake is not permissionless in any sense that matters. Every independent keeper makes that less true.</li>
+<li>You keep your own journal — a signed, replayable record of every maintenance action you performed. Nobody has to take your word for it, and you do not have to take ours.</li>
+</ul>
+
+<h2>Run one</h2>
+
+<p>Node 20.18.0 or newer; Node 22 recommended. Use the committed lockfile.</p>
+
+<pre><code>git clone --single-branch --branch main https://github.com/3esign/ratchetx.git
+cd ratchetx
+npm ci --omit=dev</code></pre>
+
+<h3>Read-only first</h3>
+
+<p>Dry-run is the default. It validates chain state and prints the next maintenance action, if any. It loads no key, signs nothing, sends nothing, writes no journal.</p>
+
+<pre><code>node ops/g2-crank/live.mjs \
+  --rpc https://api.devnet.solana.com \
+  --operator YOUR_PUBLIC_KEY</code></pre>
+
+<h3>Then send</h3>
+
+<pre><code>node ops/g2-crank/live.mjs \
+  --rpc https://api.devnet.solana.com \
+  --operator YOUR_PUBLIC_KEY \
+  --keypair /path/to/your/operator.json \
+  --journal /path/to/your/keeper.json \
+  --send --watch</code></pre>
+
+<p><strong>Generate that keypair on the machine that will use it.</strong> Do not copy a key between machines, do not keep one in a repository or a shared folder, and use an operator key that holds nothing you would miss. The journal records public maintenance transactions and game identities; it never holds a player secret.</p>
+
+<p>Every run re-validates the devnet genesis, both program addresses, the deployed program accounts, and the economy, ruleset and evidence hashes against their real on-chain relationships. Choosing a different operator changes none of those pins. Full operator notes, including crash recovery and the exact safety bounds, are in <a href="https://github.com/3esign/ratchetx/blob/main/ops/g2-crank/PUBLIC_KEEPER.md" rel="noopener">PUBLIC_KEEPER.md ↗</a>.</p>
+
+<h2>Who is running one today</h2>
+
+<div class="who">
+<div><b>LAPTOP</b><span>The author's machine, in Serbia. The original, and until today the only one.</span></div>
+<div><b>FRANKFURT</b><span>An independent Linux server under systemd, with a key generated on that host. Added 10 September 2026.</span></div>
+</div>
+
+<p>Two machines belonging to one person, funded from one payer, watching one public RPC, is <strong>redundancy</strong> — not decentralisation. The honest word is used deliberately. The third keeper is the one that changes the sentence, and it is not ours to run.</p>
+
+<h2>What is still broken</h2>
+
+<p>The evidence rent above does not come back, and it should. The fix is a reference count in the evidence layer — a game holds the target it depends on and releases it when it ends, and the last release refunds whoever paid — so that the capital becomes a float instead of a fire. The program names this as work for a later generation, and it is not done. Until it is, mainnet economics for this arcade are unsettled, and saying otherwise would be a sales pitch.</p>
+
+<p class="muted" style="margin-top:36px">Devnet only. Test credits, no payout, and the network is periodically reset — nothing here is permanent. The <a href="https://pump.fun/coin/FQb2EyaLZ9TWBemYmQ9zWtXcEwLiSXtz7j619ThQpump" rel="noopener">RCX</a> token is a separate mainnet asset and is not distributed by any keeper.</p>
+
+<p><a class="button" href="/agents">How to play →</a> &nbsp; <a class="button" href="/proof">Open a real receipt →</a></p>
+
+</main>
+<footer>RatchetX · Pyth prices, public receipts.<a href="/play">Back to the arcade →</a></footer>
+</div></body></html>
