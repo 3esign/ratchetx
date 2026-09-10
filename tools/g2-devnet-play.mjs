@@ -43,7 +43,12 @@ export function withReadRetries(connection, pause = sleep) {
     return async (...args) => {
       for (let attempt = 0; ; attempt++) {
         try { return await value.apply(target, args); }
-        catch (error) { if (attempt >= 2 || !/\b429\b|too many requests/i.test(String(error.message))) throw error; await pause(2000 * (attempt + 1)); }
+        // "Minimum context slot has not been reached" is a lagging node saying
+        // "not yet", not a failure: a public endpoint is many nodes behind one
+        // address, and a read that demands the slot an earlier read returned will
+        // meet one of the slower ones. Treating it as fatal blinded the keeper
+        // for five minutes on 2026-09-10 and voided a game.
+        catch (error) { if (attempt >= 2 || !/\b429\b|too many requests|minimum context slot/i.test(String(error.message))) throw error; await pause(2000 * (attempt + 1)); }
       }
     };
   } });

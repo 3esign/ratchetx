@@ -147,6 +147,11 @@ test('read-only 429 retry is bounded and never retries transaction sends or unre
   assert.equal(await wrapped.getSlot(),99);assert.deepEqual(waits,[2000,4000]);
   await assert.rejects(()=>wrapped.sendRawTransaction(),/429/);assert.equal(sends,1);
   let failed=0;await assert.rejects(()=>withReadRetries({getSlot:async()=>{failed++;throw Error('bad owner');}},async()=>{}).getSlot(),/owner/);assert.equal(failed,1);
+  // A lagging node behind a load-balanced endpoint says this, and it means "not
+  // yet", not "no". Treating it as fatal is what blinded the keeper for five
+  // minutes on 2026-09-10 while a capturable target expired.
+  let lagged=0;const laggedOk=await withReadRetries({getSlot:async()=>{if(++lagged<3)throw Error('Minimum context slot has not been reached');return 7;}},async()=>{}).getSlot();
+  assert.equal(laggedOk,7);assert.equal(lagged,3);
 });
 
 function terminalFixture(kind='hit'){

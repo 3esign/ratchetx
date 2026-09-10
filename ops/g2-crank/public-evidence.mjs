@@ -32,7 +32,20 @@ export function withReadRetries(connection, pause = sleep, { attempts = 6 } = {}
       for (let attempt = 0; ; attempt++) {
         try { return await value.apply(target, args); }
         catch (error) {
-          const throttled = /\b429\b|too many requests|rate.?limit|fetch failed|ECONNRESET|ETIMEDOUT/i.test(String(error?.message || error));
+          // "Minimum context slot has not been reached" belongs here, and leaving
+          // it out cost a real game on 2026-09-10. The keeper reads the Shots
+          // with getProgramAccounts, takes that response's slot, and demands at
+          // least that slot from the follow-up account reads - which is right,
+          // because Shots at slot N and Needs at slot N-50 are not one picture.
+          // But a public endpoint is many nodes behind one address, so the second
+          // call routinely lands on a node a few slots behind the first, and this
+          // error is that node saying "not yet", not a failure of anything. It
+          // was not in this list, so the read threw, the watch loop slept ten
+          // seconds and asked again with the same slot, and the keeper stayed
+          // blind for the five minutes it took to stop landing on lagging nodes.
+          // The entry target of player 6T66H7Wu's fourth game was capturable for
+          // 300 of those seconds and nobody captured it; the game voided.
+          const throttled = /\b429\b|too many requests|rate.?limit|fetch failed|ECONNRESET|ETIMEDOUT|minimum context slot/i.test(String(error?.message || error));
           if (attempt >= attempts - 1 || !throttled) throw error;
           await pause(Math.min(30000, 1500 * 2 ** attempt));
         }
