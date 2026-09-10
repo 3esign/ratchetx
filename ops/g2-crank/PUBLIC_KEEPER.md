@@ -4,11 +4,12 @@ The public keeper advances existing RatchetX G2 shots with any operator's own
 Solana fee payer. It can run on an independent machine or host; no Svemir account,
 player key, reveal salt, Bankr API, Supabase or Upstash is used by this entrypoint.
 Use Node **20.18.0 or newer**; Node 22 is recommended. The repository's existing
-locked dependencies are required; this patch adds none. A fresh checkout needs
-the published keeper branch, because the older main branch does not include it:
+locked dependencies are required; this entrypoint adds none. It is on `main` as of
+be14cee - the sentence that used to send readers to `codex/g2-public-keeper` was
+true when it was written and stale from the moment the branch merged:
 
 ```text
-git clone --single-branch --branch codex/g2-public-keeper https://github.com/3esign/ratchetx.git
+git clone --single-branch --branch main https://github.com/3esign/ratchetx.git
 cd ratchetx
 npm ci --omit=dev
 ```
@@ -50,6 +51,40 @@ Available actions are 10 public instructions: Timepin `capture_first`, `capture_
 destinations. Core rent refunds remain the shot's frozen destination; any cleanup
 bond paid to the actor goes to the selected operator. This command does not seal
 shots, choose a prediction, reveal, issue credits, or distribute RCX.
+
+## What it costs and what it pays
+
+Measured on devnet 2026-09-10, one complete shot, one operator, no other players
+on those target times (receipt: `docs/receipts/devnet-worker-economics-2026-09-10.md`):
+
+| Transaction | Operator delta |
+|---|---|
+| `capture_first` (entry target) | **-1 259 760** |
+| `capture_first` (exit target) | **-1 259 760** |
+| `finalize` x2 | -5 000 each |
+| `activate_entry` | **+45 000** |
+| `settle_final` | **+45 000** |
+| **Net** | **-2 439 520 lamports** |
+
+Core pays one bond unit (50 000 lamports here) for each permissionless step, so
+`activate_entry` and `settle_final` earn 45 000 net each. Timepin does not: the
+`CandidateV2` observation account is `init_if_needed, payer = actor`, costs
+1 254 760 lamports of rent, and there is no instruction that closes it. Core reads
+that account at `activate_entry` and `settle_final`, and Timepin has no working
+reference count (`open_refs` is declared and never incremented; the program says so
+in its own comments), so nothing can safely reclaim the rent today.
+
+**A single operator serving a single player therefore loses money.** State this
+plainly rather than discovering it after funding a wallet.
+
+The cost is per TARGET TIME, not per shot: a Need and its candidate are shared by
+every shot on the same target, so the second player on a target costs the operator
+only the two 5 000-lamport signatures and earns the same 90 000. Break-even is
+roughly 2 x 1 265 000 / 90 000, about **28 shots per target time** - each shot
+consumes two targets. Below that an operator subsidises the arcade; above it the
+operator profits.
+
+Until real volume exists, running this is a contribution, not a business.
 
 ## Migration and interruption
 
