@@ -21,8 +21,8 @@ test('the ref is attached only when the real code was suppressed', () => {
   // be noise in a reply people read on a phone.
   assert.match(runtime, /const ref = code === 'AGENT_CHECK_FAILED'/,
     'the ref must be conditional on the code having been suppressed');
-  assert.match(runtime, /\.\.\.\(ref \? \{ ref \} : \{\}\)/,
-    'a null ref must not appear in the JSON at all');
+  assert.match(runtime, /\.\.\.\(ref \? \{ ref, phase: publicPhase, kind \} : \{\}\)/,
+    'a null ref must not appear in the JSON at all, and suppressed refs must carry only coarse public trace fields');
 });
 
 test('the ref discloses nothing and is stable', () => {
@@ -68,4 +68,18 @@ test('diagnose works even when the seed and local identity are absent', () => {
   assert.equal(output.code, 'DIAGNOSE');
   assert.equal(output.seedProvided, false);
   assert.match(output.reply, /RATCHET_G2_SEED is NOT set/);
+});
+
+
+test('a suppressed runtime failure carries a public phase and kind', () => {
+  const env = { ...process.env, RATCHET_G2_SEED: 'short' };
+  const child = spawnSync(process.execPath, [runtimePath, 'init'], { env, encoding: 'utf8' });
+  assert.equal(child.status, 1, child.stderr || child.stdout);
+  const output = JSON.parse(child.stdout);
+  assert.equal(output.code, 'AGENT_CHECK_FAILED');
+  assert.match(output.ref, /^[0-9a-f]{8}$/);
+  assert.equal(output.phase, 'seed-identity');
+  assert.equal(output.kind, 'CONFIGURATION');
+  assert.match(output.reply, /phase seed-identity kind CONFIGURATION/);
+  assert.doesNotMatch(output.reply, /at least 16 characters/i);
 });

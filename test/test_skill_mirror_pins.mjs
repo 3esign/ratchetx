@@ -54,3 +54,12 @@ test('the installer downloads the pinned runtime from GitHub while Vercel is blo
   assert.equal(release.url, 'https://raw.githubusercontent.com/3esign/ratchetx/main/releases/g2-agent-runtime.json.gz');
   assert.match(installer, /raw\\\.githubusercontent\\\.com\\\/3esign\\\/ratchetx\\\/main\\\/releases\\\/g2-agent-runtime\\\.json\\\.gz/);
 });
+
+
+test('Bankr command dispatch updates the runtime before execution', () => {
+  const skill = read('skills/ratchetx/SKILL.md');
+  assert.match(skill, /run `node scripts\/install\.mjs` before each command dispatch/,
+    'Bankr must update the installed runtime even when run.mjs already exists');
+  assert.doesNotMatch(skill, /run\.mjs` is missing when a command arrives/,
+    'the old missing-file-only rule left Bankr on stale runtimes after skill updates');
+});

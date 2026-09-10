@@ -9,9 +9,9 @@ description: >-
 license: MIT
 metadata:
   author: 3esign
-  version: "2.6.4"
-  runtime-sha256: "0a85dcd5b900c3e927392cdb2c15849f2158088063fc87d0b96ec5229e4d18c6"
-  installer-sha256: "34d353dafbf73d5b5a26a1b8e022dbf8c20bddddec95859f71b43c6383ae90d5"
+  version: "2.6.5"
+  runtime-sha256: "3f138d3515c9486c9040cc8a64e0d94f72bcd971cfc6cf8f90e6c4002120bbc5"
+  installer-sha256: "70d08f8145c550bd74ac4e658672bbe512dc7edb48e5ef80289e9ba877cb77d7"
 ---
 
 # RatchetX G2 devnet
@@ -20,7 +20,7 @@ Make a call, seal it before the move, then check the two Pyth prices and
 public on-chain receipt. SOL, test credits, real devnet transactions.
 This generation has no cash prizes, token trades, swaps or funded RCX claim.
 
-## Install once in the agent's private persistent workspace
+## Install or update in the agent's private workspace
 
 Node 20.11 or newer and a persistent filesystem are required. Stage the
 companion `scripts/install.mjs` with this skill. Its exact SHA-256 is in the
@@ -42,8 +42,10 @@ node scripts/install.mjs
 node "$HOME/.ratchetx-g2/run.mjs" init
 ```
 
-If `$HOME/.ratchetx-g2/run.mjs` is missing when a command arrives (a fresh host), run the
-installer first, then the command - every time, not only once.
+On Bankr/X, run `node scripts/install.mjs` before each command dispatch. It is idempotent:
+it verifies the pinned runtime, updates `$HOME/.ratchetx-g2/run.mjs` when the skill version changes,
+and preserves the existing identity and journal. Do not skip the installer only because
+`$HOME/.ratchetx-g2/run.mjs` already exists.
 
 **Default: the agent plays with its own devnet wallet.** `init` with no address
 (or `--player self`) generates a key inside this agent runtime and makes it the
