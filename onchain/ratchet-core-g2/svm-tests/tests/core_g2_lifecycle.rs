@@ -2796,6 +2796,13 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
         assert_eq!(read_u64(&reserved.data, offset + 98), 0);
     }
 
+    // The incentive gradient. The seal deposited WORKER_UNITS bond units into the
+    // Shot; every permissionless step pays exactly one of them to whoever does it,
+    // so keeping a game alive earns as much as letting it die. Read on the Shot,
+    // not on the worker: LiteSVM charges signature fees, so worker balances are
+    // exact only here.
+    let shot_lamports_sealed = world.svm.get_account(&shot_key).unwrap().lamports;
+
     let entry = world
         .capture_and_finalize_timepin(&worker, kernel.spec_hash, entry_target, 10_000)
         .unwrap();
@@ -2804,6 +2811,7 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
         .unwrap();
     let active = world.svm.get_account(&shot_key).unwrap();
     assert_eq!(active.data[212], 2);
+    assert_eq!(active.lamports, shot_lamports_sealed - 5_000);
     assert_eq!(read_hash(&active.data, 383), entry.message_hash);
     assert_eq!(read_hash(&active.data, 415), entry.result_hash);
     let after_activation = world.svm.get_account(&work_key).unwrap();
@@ -2827,6 +2835,7 @@ fn full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page() 
         .unwrap();
     let awaiting = world.svm.get_account(&shot_key).unwrap();
     assert_eq!(awaiting.data[212], 3);
+    assert_eq!(awaiting.lamports, shot_lamports_sealed - 2 * 5_000);
     assert_eq!(read_hash(&awaiting.data, 475), exit.message_hash);
     assert_eq!(read_hash(&awaiting.data, 507), exit.result_hash);
     assert_eq!(awaiting.data[567], 1);
@@ -3667,6 +3676,7 @@ fn delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionle
         )
         .unwrap();
     let pending_shot = shot_pda(&kernel.economy_hash, &player.pubkey(), rejected_nonce);
+    let pending_shot_sealed_lamports = world.svm.get_account(&pending_shot).unwrap().lamports;
     let expired_entry = world
         .expire_timepin_need(&finalizer, kernel.spec_hash, pending_entry_target)
         .unwrap();
@@ -3676,6 +3686,14 @@ fn delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionle
         .unwrap();
     let player_after_void = world.svm.get_account(&player.pubkey()).unwrap().lamports;
     assert!(player_after_void > player_before_void);
+    // The void is a step like any other: the finalizer takes exactly one bond
+    // unit, and everything the seal put in above it - rent plus the two unspent
+    // units - goes back to the sealer. A stranger cannot profit by letting a
+    // game rot, because rotting pays the same one unit as advancing it.
+    assert_eq!(
+        player_after_void - player_before_void,
+        pending_shot_sealed_lamports - 5_000
+    );
     assert_closed(&world, pending_shot);
     assert!(world
         .svm

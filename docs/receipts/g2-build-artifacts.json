@@ -2,8 +2,8 @@
   "schema": 1,
   "status": "PASS",
   "evidenceTier": "exact-SBF (LiteSVM) and JS gates; no deployment or live-oracle acceptance",
-  "startedAt": "2026-09-08T19:59:03.357Z",
-  "mode": "verify-artifacts",
+  "startedAt": "2026-09-10T00:28:48.578Z",
+  "mode": "local",
   "toolchain": {
     "buildSbf": "4.3.0",
     "platformTools": "v1.56",
@@ -25,12 +25,12 @@
     "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
     "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
     "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-    "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
+    "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "cdf7210b865c55f65f617b422a0d979ffb3bbeff7096df0cc715d5ef58461e78",
     "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
     "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
     "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
     "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-    "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
+    "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "cc8ed198bd56cf330e84add5bfe73edbc5f5092a171d69d32e982c0f7d99d292",
     "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
     "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
     "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
@@ -56,9 +56,9 @@
     },
     "core": {
       "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-      "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-      "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-      "size": 1027064
+      "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78\\ratchet_core_g2.so",
+      "sha256": "ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78",
+      "size": 1027952
     }
   },
   "stages": [
@@ -114,7 +114,7 @@
         "--tools-version",
         "v1.56",
         "--sbf-out-dir",
-        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-g2-build-r3KipH\\raw\\timepin",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-g2-build-0jHrqS\\raw\\timepin",
         "--",
         "--locked"
       ],
@@ -166,7 +166,7 @@
         "--tools-version",
         "v1.56",
         "--sbf-out-dir",
-        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-g2-build-r3KipH\\raw\\core",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-g2-build-0jHrqS\\raw\\core",
         "--",
         "--locked"
       ],
@@ -199,10 +199,10 @@
       "command": "C:\\Program Files\\nodejs\\node.exe",
       "args": [
         "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
-        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78\\ratchet_core_g2.so",
         "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-        "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-        "1027064"
+        "ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78",
+        "1027952"
       ],
       "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
       "exit": 0,
@@ -227,10 +227,10 @@
       "command": "C:\\Program Files\\nodejs\\node.exe",
       "args": [
         "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
-        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78\\ratchet_core_g2.so",
         "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-        "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-        "1027064"
+        "ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78",
+        "1027952"
       ],
       "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
       "exit": 0,
@@ -303,9 +303,9 @@
           },
           "core": {
             "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
+            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78\\ratchet_core_g2.so",
+            "sha256": "ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78",
+            "size": 1027952
           }
         },
         "sourceHashes": {
@@ -314,12 +314,12 @@
           "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
+          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "cdf7210b865c55f65f617b422a0d979ffb3bbeff7096df0cc715d5ef58461e78",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
           "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
           "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
           "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
+          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "cc8ed198bd56cf330e84add5bfe73edbc5f5092a171d69d32e982c0f7d99d292",
           "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
           "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
           "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
@@ -367,10 +367,10 @@
             "result": "passed"
           }
         ],
-        "stdout": "\nrunning 4 tests\ntest conflict_total_order_rejects_later_replaces_earlier_and_finalizes ... ok\ntest expire_only_takes_an_open_unanswered_need_after_its_window ... ok\ntest finalize_of_an_open_need_without_a_candidate_is_refused ... ok\ntest finalize_waits_for_the_capture_window_and_then_finalizes ... ok\n\nsuccesses:\n\nsuccesses:\n    conflict_total_order_rejects_later_replaces_earlier_and_finalizes\n    expire_only_takes_an_open_unanswered_need_after_its_window\n    finalize_of_an_open_need_without_a_candidate_is_refused\n    finalize_waits_for_the_capture_window_and_then_finalizes\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.64s\n\n",
-        "stderr": "    Finished `test` profile [unoptimized] target(s) in 30.08s\n     Running tests\\conflict_finalize_expire.rs (target\\debug\\deps\\conflict_finalize_expire-a3e2d9cf9f7ae6b2.exe)\n",
-        "stdoutSha256": "9792c4908858e30762cfdaa8ca8153defcada606d4f8b5a1a4a7edab4308e4dc",
-        "stderrSha256": "2d00bafa877ae92c859d2631db5e818bb247c217fadb4631bf231d8116b4ae96",
+        "stdout": "\nrunning 4 tests\ntest conflict_total_order_rejects_later_replaces_earlier_and_finalizes ... ok\ntest expire_only_takes_an_open_unanswered_need_after_its_window ... ok\ntest finalize_of_an_open_need_without_a_candidate_is_refused ... ok\ntest finalize_waits_for_the_capture_window_and_then_finalizes ... ok\n\nsuccesses:\n\nsuccesses:\n    conflict_total_order_rejects_later_replaces_earlier_and_finalizes\n    expire_only_takes_an_open_unanswered_need_after_its_window\n    finalize_of_an_open_need_without_a_candidate_is_refused\n    finalize_waits_for_the_capture_window_and_then_finalizes\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.82s\n\n",
+        "stderr": "    Finished `test` profile [unoptimized] target(s) in 40.54s\n     Running tests\\conflict_finalize_expire.rs (target\\debug\\deps\\conflict_finalize_expire-a3e2d9cf9f7ae6b2.exe)\n",
+        "stdoutSha256": "e108643fdf6e53de9c20a54e6aaf550e5b47b380dc84814783f400909568388c",
+        "stderrSha256": "401a90f99dbc6fba75a50d21f862dccb4e10c89f5d145c1a0e2791d288273eae",
         "computeUnits": {
           "status": "unavailable",
           "measurements": []
@@ -419,9 +419,9 @@
           },
           "core": {
             "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
+            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78\\ratchet_core_g2.so",
+            "sha256": "ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78",
+            "size": 1027952
           }
         },
         "sourceHashes": {
@@ -430,12 +430,12 @@
           "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
+          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "cdf7210b865c55f65f617b422a0d979ffb3bbeff7096df0cc715d5ef58461e78",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
           "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
           "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
           "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
+          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "cc8ed198bd56cf330e84add5bfe73edbc5f5092a171d69d32e982c0f7d99d292",
           "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
           "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
           "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
@@ -491,10 +491,10 @@
             "result": "passed"
           }
         ],
-        "stdout": "\nrunning 6 tests\ntest capture_first_fails_with_truncated_data ... ok\ntest open_fails_with_invalid_discriminator ... ok\ntest open_fails_with_invalid_need_pda ... ok\ntest register_fails_with_invalid_pda ... ok\ntest register_ignores_trailing_bytes_without_changing_spec ... ok\ntest register_rejects_truncated_arguments_without_creating_spec ... ok\n\nsuccesses:\n\nsuccesses:\n    capture_first_fails_with_truncated_data\n    open_fails_with_invalid_discriminator\n    open_fails_with_invalid_need_pda\n    register_fails_with_invalid_pda\n    register_ignores_trailing_bytes_without_changing_spec\n    register_rejects_truncated_arguments_without_creating_spec\n\ntest result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 3.10s\n\n",
-        "stderr": "warning: constant `CAPTURE_SLOT` is never used\n  --> tests\\malformed_state.rs:26:7\n   |\n26 | const CAPTURE_SLOT: u64 = 1_100;\n   |       ^^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: constant `LIVE_SNAPSHOT_SLOT` is never used\n  --> tests\\malformed_state.rs:32:7\n   |\n32 | const LIVE_SNAPSHOT_SLOT: u64 = 444_338_968;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_RECEIVER_SLOT` is never used\n  --> tests\\malformed_state.rs:33:7\n   |\n33 | const LIVE_RECEIVER_SLOT: u64 = 417_825_260;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_WORMHOLE_SLOT` is never used\n  --> tests\\malformed_state.rs:34:7\n   |\n34 | const LIVE_WORMHOLE_SLOT: u64 = 417_825_233;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_PRICE_POSTED_SLOT` is never used\n  --> tests\\malformed_state.rs:35:7\n   |\n35 | const LIVE_PRICE_POSTED_SLOT: u64 = 444_338_800;\n   |       ^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_PRICE_PUBLISH_TS` is never used\n  --> tests\\malformed_state.rs:36:7\n   |\n36 | const LIVE_PRICE_PUBLISH_TS: i64 = 1_788_554_471;\n   |       ^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `live_wormhole_id` is never used\n  --> tests\\malformed_state.rs:57:4\n   |\n57 | fn live_wormhole_id() -> Pubkey {\n   |    ^^^^^^^^^^^^^^^^\n\nwarning: function `live_fixture` is never used\n   --> tests\\malformed_state.rs:194:4\n    |\n194 | fn live_fixture(name: &str, expected_len: usize, expected_sha256: &str) -> Vec<u8> {\n    |    ^^^^^^^^^^^^\n\nwarning: method `policy_hash` is never used\n   --> tests\\malformed_state.rs:303:8\n    |\n257 | impl SpecArgs {\n    | ------------- method in this implementation\n...\n303 |     fn policy_hash(&self) -> [u8; 32] {\n    |        ^^^^^^^^^^^\n\nwarning: function `send_instruction` is never used\n   --> tests\\malformed_state.rs:321:4\n    |\n321 | fn send_instruction(\n    |    ^^^^^^^^^^^^^^^^\n\nwarning: methods `set_programdata_slot`, `clone_programdata`, `set_config`, `send`, `put_price`, and `register_and_open` are never used\n   --> tests\\malformed_state.rs:470:8\n    |\n351 | impl World {\n    | ---------- methods in this implementation\n...\n470 |     fn set_programdata_slot(&mut self, program: Pubkey, slot: u64) {\n    |        ^^^^^^^^^^^^^^^^^^^^\n...\n477 |     fn clone_programdata(&mut self, source_program: Pubkey) -> Pubkey {\n    |        ^^^^^^^^^^^^^^^^^\n...\n487 |     fn set_config(&mut self, data: Vec<u8>) {\n    |        ^^^^^^^^^^\n...\n521 |     fn send(&mut self, instruction: Instruction) -> Result<u64, String> {\n    |        ^^^^\n...\n565 |     fn put_price(&mut self, posted_slot: u64) -> [u8; 32] {\n    |        ^^^^^^^^^\n...\n638 |     fn register_and_open(&mut self) -> (SpecArgs, [u8; 32]) {\n    |        ^^^^^^^^^^^^^^^^^\n\nwarning: `rcx-timepin-v2-svm-tests` (test \"malformed_state\") generated 11 warnings\n    Finished `test` profile [unoptimized] target(s) in 2.30s\n     Running tests\\malformed_state.rs (target\\debug\\deps\\malformed_state-99794573f2ac68a6.exe)\n",
-        "stdoutSha256": "ee73d8971e659f59339c81b0fca353c1b39d4781db6c1c6f2b2416f152a60772",
-        "stderrSha256": "13b3ff47a59c55eb5b483f7001847ce5be06bef369a500416ff70be839759e53",
+        "stdout": "\nrunning 6 tests\ntest capture_first_fails_with_truncated_data ... ok\ntest open_fails_with_invalid_discriminator ... ok\ntest open_fails_with_invalid_need_pda ... ok\ntest register_fails_with_invalid_pda ... ok\ntest register_ignores_trailing_bytes_without_changing_spec ... ok\ntest register_rejects_truncated_arguments_without_creating_spec ... ok\n\nsuccesses:\n\nsuccesses:\n    capture_first_fails_with_truncated_data\n    open_fails_with_invalid_discriminator\n    open_fails_with_invalid_need_pda\n    register_fails_with_invalid_pda\n    register_ignores_trailing_bytes_without_changing_spec\n    register_rejects_truncated_arguments_without_creating_spec\n\ntest result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.62s\n\n",
+        "stderr": "warning: constant `CAPTURE_SLOT` is never used\n  --> tests\\malformed_state.rs:26:7\n   |\n26 | const CAPTURE_SLOT: u64 = 1_100;\n   |       ^^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: constant `LIVE_SNAPSHOT_SLOT` is never used\n  --> tests\\malformed_state.rs:32:7\n   |\n32 | const LIVE_SNAPSHOT_SLOT: u64 = 444_338_968;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_RECEIVER_SLOT` is never used\n  --> tests\\malformed_state.rs:33:7\n   |\n33 | const LIVE_RECEIVER_SLOT: u64 = 417_825_260;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_WORMHOLE_SLOT` is never used\n  --> tests\\malformed_state.rs:34:7\n   |\n34 | const LIVE_WORMHOLE_SLOT: u64 = 417_825_233;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_PRICE_POSTED_SLOT` is never used\n  --> tests\\malformed_state.rs:35:7\n   |\n35 | const LIVE_PRICE_POSTED_SLOT: u64 = 444_338_800;\n   |       ^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_PRICE_PUBLISH_TS` is never used\n  --> tests\\malformed_state.rs:36:7\n   |\n36 | const LIVE_PRICE_PUBLISH_TS: i64 = 1_788_554_471;\n   |       ^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `live_wormhole_id` is never used\n  --> tests\\malformed_state.rs:57:4\n   |\n57 | fn live_wormhole_id() -> Pubkey {\n   |    ^^^^^^^^^^^^^^^^\n\nwarning: function `live_fixture` is never used\n   --> tests\\malformed_state.rs:194:4\n    |\n194 | fn live_fixture(name: &str, expected_len: usize, expected_sha256: &str) -> Vec<u8> {\n    |    ^^^^^^^^^^^^\n\nwarning: method `policy_hash` is never used\n   --> tests\\malformed_state.rs:303:8\n    |\n257 | impl SpecArgs {\n    | ------------- method in this implementation\n...\n303 |     fn policy_hash(&self) -> [u8; 32] {\n    |        ^^^^^^^^^^^\n\nwarning: function `send_instruction` is never used\n   --> tests\\malformed_state.rs:321:4\n    |\n321 | fn send_instruction(\n    |    ^^^^^^^^^^^^^^^^\n\nwarning: methods `set_programdata_slot`, `clone_programdata`, `set_config`, `send`, `put_price`, and `register_and_open` are never used\n   --> tests\\malformed_state.rs:470:8\n    |\n351 | impl World {\n    | ---------- methods in this implementation\n...\n470 |     fn set_programdata_slot(&mut self, program: Pubkey, slot: u64) {\n    |        ^^^^^^^^^^^^^^^^^^^^\n...\n477 |     fn clone_programdata(&mut self, source_program: Pubkey) -> Pubkey {\n    |        ^^^^^^^^^^^^^^^^^\n...\n487 |     fn set_config(&mut self, data: Vec<u8>) {\n    |        ^^^^^^^^^^\n...\n521 |     fn send(&mut self, instruction: Instruction) -> Result<u64, String> {\n    |        ^^^^\n...\n565 |     fn put_price(&mut self, posted_slot: u64) -> [u8; 32] {\n    |        ^^^^^^^^^\n...\n638 |     fn register_and_open(&mut self) -> (SpecArgs, [u8; 32]) {\n    |        ^^^^^^^^^^^^^^^^^\n\nwarning: `rcx-timepin-v2-svm-tests` (test \"malformed_state\") generated 11 warnings\n    Finished `test` profile [unoptimized] target(s) in 4.16s\n     Running tests\\malformed_state.rs (target\\debug\\deps\\malformed_state-99794573f2ac68a6.exe)\n",
+        "stdoutSha256": "a7ba463517454d417584a14a432b5045369d0ed123054f5a1129a2f80101e8ea",
+        "stderrSha256": "3f74fb25814c9c919525397c7ade15e94922ad03cb845033214a49346beca5d7",
         "computeUnits": {
           "status": "unavailable",
           "measurements": []
@@ -543,9 +543,9 @@
           },
           "core": {
             "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
+            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78\\ratchet_core_g2.so",
+            "sha256": "ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78",
+            "size": 1027952
           }
         },
         "sourceHashes": {
@@ -554,12 +554,12 @@
           "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
+          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "cdf7210b865c55f65f617b422a0d979ffb3bbeff7096df0cc715d5ef58461e78",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
           "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
           "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
           "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
+          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "cc8ed198bd56cf330e84add5bfe73edbc5f5092a171d69d32e982c0f7d99d292",
           "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
           "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
           "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
@@ -607,10 +607,10 @@
             "result": "passed"
           }
         ],
-        "stdout": "\nrunning 4 tests\ntest capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds ... ok\ntest exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts ... ok\ntest exact_live_mainnet_snapshot_registers_opens_and_captures ... ok\ntest registration_generation_mutants_fail_closed_and_roll_back ... ok\n\nsuccesses:\n\n---- capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds stdout ----\nTimepin v2 large-account capture CU: 51447\n\n---- exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts stdout ----\nTimepin v2 large-account CU: register=35535, open=22781; Receiver ProgramData=425984B, Wormhole ProgramData=671744B\npolicy_hash=88a2ab0b22ef195fb88756843549ad0fe4a9ad2fe11a26a4f95b7a3777aa5a1f spec_hash=ad7ea1f3961dc404fbe52feef6ac1a47480f92618de20499862d1bbd8a4679e3 spec_pda=7MJsnwEMjKjrw9YJG1rDvetGM8wrhbcQxyrDvjArMEe1 need_pda=ETp1e3Ayw7bf6JHXzE5zSyN1JjSRfpMFzzJwemQgavHy\n\n---- exact_live_mainnet_snapshot_registers_opens_and_captures stdout ----\nlive mainnet snapshot slot=444338968: register=42092 CU, open=22786 CU, capture=62567 CU; Receiver PD=416909B@417825260, configured Wormhole PD=656005B@417825233, PriceUpdate posted=444338800\n\n\nsuccesses:\n    capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds\n    exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts\n    exact_live_mainnet_snapshot_registers_opens_and_captures\n    registration_generation_mutants_fail_closed_and_roll_back\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.94s\n\n",
-        "stderr": "    Finished `test` profile [unoptimized] target(s) in 1.10s\n     Running tests\\registration_open.rs (target\\debug\\deps\\registration_open-d3da5428b76c5880.exe)\n",
-        "stdoutSha256": "43d0ea222c61d2e01db207a6352b0f59b981b6411668e672afa93b82ecf214c2",
-        "stderrSha256": "4c882dc9e984e8f07f0a9b6c720e3a2ad522adf0598b91e438f4c477588baefe",
+        "stdout": "\nrunning 4 tests\ntest capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds ... ok\ntest exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts ... ok\ntest exact_live_mainnet_snapshot_registers_opens_and_captures ... ok\ntest registration_generation_mutants_fail_closed_and_roll_back ... ok\n\nsuccesses:\n\n---- capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds stdout ----\nTimepin v2 large-account capture CU: 51447\n\n---- exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts stdout ----\nTimepin v2 large-account CU: register=35535, open=22781; Receiver ProgramData=425984B, Wormhole ProgramData=671744B\npolicy_hash=88a2ab0b22ef195fb88756843549ad0fe4a9ad2fe11a26a4f95b7a3777aa5a1f spec_hash=ad7ea1f3961dc404fbe52feef6ac1a47480f92618de20499862d1bbd8a4679e3 spec_pda=7MJsnwEMjKjrw9YJG1rDvetGM8wrhbcQxyrDvjArMEe1 need_pda=ETp1e3Ayw7bf6JHXzE5zSyN1JjSRfpMFzzJwemQgavHy\n\n---- exact_live_mainnet_snapshot_registers_opens_and_captures stdout ----\nlive mainnet snapshot slot=444338968: register=42092 CU, open=22786 CU, capture=62567 CU; Receiver PD=416909B@417825260, configured Wormhole PD=656005B@417825233, PriceUpdate posted=444338800\n\n\nsuccesses:\n    capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds\n    exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts\n    exact_live_mainnet_snapshot_registers_opens_and_captures\n    registration_generation_mutants_fail_closed_and_roll_back\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.08s\n\n",
+        "stderr": "    Finished `test` profile [unoptimized] target(s) in 1.64s\n     Running tests\\registration_open.rs (target\\debug\\deps\\registration_open-d3da5428b76c5880.exe)\n",
+        "stdoutSha256": "3236194e7ccda123c39a602f64cfff67613e0a2a7a3a3f6322fd39292ff73232",
+        "stderrSha256": "1078376555f7e05a9d89cda301b0daafd83118b9dfb67f135c87d634b79ecd10",
         "computeUnits": {
           "status": "emitted-log-lines",
           "measurements": [
@@ -685,9 +685,9 @@
           },
           "core": {
             "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
+            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78\\ratchet_core_g2.so",
+            "sha256": "ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78",
+            "size": 1027952
           }
         },
         "sourceHashes": {
@@ -696,12 +696,12 @@
           "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
+          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "cdf7210b865c55f65f617b422a0d979ffb3bbeff7096df0cc715d5ef58461e78",
           "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
           "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
           "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
           "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
+          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "cc8ed198bd56cf330e84add5bfe73edbc5f5092a171d69d32e982c0f7d99d292",
           "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
           "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
           "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
@@ -801,1242 +801,10 @@
             "result": "passed"
           }
         ],
-        "stdout": "\nrunning 17 tests\ntest delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless ... ok\ntest devnet_playground_credits_open_only_on_the_devnet_economy ... ok\ntest equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe ... ok\ntest full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page ... ok\ntest immutable_generation_registration_ledger_claim_and_history_are_permissionless ... ok\ntest observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless ... ok\ntest register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes ... ok\ntest reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay ... ok\ntest seal_forward_rejects_final_need ... ok\ntest settle_final_rejects_candidate_for_other_message_hash ... ok\ntest settle_final_rejects_candidate_need ... ok\ntest settle_final_rejects_lookalike_owned_need_and_candidate_bytes ... ok\ntest settle_final_rejects_other_final_need ... ok\ntest settle_final_rejects_shot_from_another_economy_and_ruleset ... ok\ntest settle_final_rejects_timepin_deadline_drift ... ok\ntest settle_final_replay_is_rejected ... ok\ntest void_active_shot_rejects_final_need ... ok\n\nsuccesses:\n\nsuccesses:\n    delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless\n    devnet_playground_credits_open_only_on_the_devnet_economy\n    equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe\n    full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page\n    immutable_generation_registration_ledger_claim_and_history_are_permissionless\n    observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless\n    register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes\n    reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay\n    seal_forward_rejects_final_need\n    settle_final_rejects_candidate_for_other_message_hash\n    settle_final_rejects_candidate_need\n    settle_final_rejects_lookalike_owned_need_and_candidate_bytes\n    settle_final_rejects_other_final_need\n    settle_final_rejects_shot_from_another_economy_and_ruleset\n    settle_final_rejects_timepin_deadline_drift\n    settle_final_replay_is_rejected\n    void_active_shot_rejects_final_need\n\ntest result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 8.52s\n\n",
+        "stdout": "\nrunning 17 tests\ntest delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless ... ok\ntest devnet_playground_credits_open_only_on_the_devnet_economy ... ok\ntest equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe ... ok\ntest full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page ... ok\ntest immutable_generation_registration_ledger_claim_and_history_are_permissionless ... ok\ntest observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless ... ok\ntest register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes ... ok\ntest reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay ... ok\ntest seal_forward_rejects_final_need ... ok\ntest settle_final_rejects_candidate_for_other_message_hash ... ok\ntest settle_final_rejects_candidate_need ... ok\ntest settle_final_rejects_lookalike_owned_need_and_candidate_bytes ... ok\ntest settle_final_rejects_other_final_need ... ok\ntest settle_final_rejects_shot_from_another_economy_and_ruleset ... ok\ntest settle_final_rejects_timepin_deadline_drift ... ok\ntest settle_final_replay_is_rejected ... ok\ntest void_active_shot_rejects_final_need ... ok\n\nsuccesses:\n\nsuccesses:\n    delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless\n    devnet_playground_credits_open_only_on_the_devnet_economy\n    equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe\n    full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page\n    immutable_generation_registration_ledger_claim_and_history_are_permissionless\n    observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless\n    register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes\n    reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay\n    seal_forward_rejects_final_need\n    settle_final_rejects_candidate_for_other_message_hash\n    settle_final_rejects_candidate_need\n    settle_final_rejects_lookalike_owned_need_and_candidate_bytes\n    settle_final_rejects_other_final_need\n    settle_final_rejects_shot_from_another_economy_and_ruleset\n    settle_final_rejects_timepin_deadline_drift\n    settle_final_replay_is_rejected\n    void_active_shot_rejects_final_need\n\ntest result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 7.93s\n\n",
         "stderr": "   Compiling ratchet-core-g2-svm-tests v0.1.0 (D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests)\n    Finished `test` profile [unoptimized] target(s) in 1m 50s\n     Running tests\\core_g2_lifecycle.rs (target\\debug\\deps\\core_g2_lifecycle-5e6d2568520ee0d7.exe)\n",
-        "stdoutSha256": "acba125d7cc9359bfb97c782d1df7e175614d69ea4e7df3b1fbb052c26d0fa1e",
+        "stdoutSha256": "281c7e02f7b9270ef4afbe83f1bb9535d51412bba8d1d818f5f32281abb8b208",
         "stderrSha256": "fa0986e19c76701bb2bd6220f439c423fe4a10a813660b0c1da4bc10e0966c12",
-        "computeUnits": {
-          "status": "unavailable",
-          "measurements": []
-        }
-      }
-    },
-    {
-      "name": "JS release gate",
-      "command": "C:\\WINDOWS\\system32\\cmd.exe",
-      "args": [
-        "/d",
-        "/s",
-        "/c",
-        "npm test"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
-      "exit": 1,
-      "signal": null
-    },
-    {
-      "name": "timepin reused artifact readback",
-      "command": "C:\\Program Files\\nodejs\\node.exe",
-      "args": [
-        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
-        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
-        "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-        "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
-        "375944"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
-      "exit": 0,
-      "signal": null
-    },
-    {
-      "name": "core reused artifact readback",
-      "command": "C:\\Program Files\\nodejs\\node.exe",
-      "args": [
-        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
-        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-        "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-        "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-        "1027064"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
-      "exit": 0,
-      "signal": null
-    },
-    {
-      "name": "Timepin vector check",
-      "command": "C:\\Program Files\\nodejs\\node.exe",
-      "args": [
-        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\repin-timepin-vectors.mjs",
-        "--check"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
-      "exit": 0,
-      "signal": null
-    },
-    {
-      "name": "timepin SVM target inventory",
-      "command": "cargo",
-      "args": [
-        "metadata",
-        "--locked",
-        "--no-deps",
-        "--format-version",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests",
-      "exit": 0,
-      "signal": null
-    },
-    {
-      "name": "timepin exact-SBF conflict_finalize_expire",
-      "command": "cargo",
-      "args": [
-        "test",
-        "--locked",
-        "--test",
-        "conflict_finalize_expire",
-        "--",
-        "--format",
-        "pretty",
-        "--show-output",
-        "--test-threads",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests",
-      "exit": 0,
-      "signal": null,
-      "execution": {
-        "schema": 1,
-        "program": "timepin",
-        "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-        "target": "conflict_finalize_expire",
-        "requiredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "discoveredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "artifactBindings": {
-          "timepin": {
-            "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
-            "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
-            "size": 375944
-          },
-          "core": {
-            "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
-          }
-        },
-        "sourceHashes": {
-          "onchain/ratchet-core-g2/Anchor.toml": "1963557e61e803deac292c3713f72e6043c5603e32ad440621dbbccabec31af3",
-          "onchain/ratchet-core-g2/Cargo.lock": "232cc73abc7fee35db0f94903ff80fc4d1a6110df66ecc9974fe186de10f46fa",
-          "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
-          "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
-          "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
-          "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
-          "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append.rs": "1c1ef318e856406767f2b2d1bf4c13a208a7ba147fc25ade293ae5aff6708967",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append2.rs": "cdd38b3019e3e1eedcdf1b1a2902cafe437d0be9f1a3edc44120e5b500581dfc",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_new.rs": "e17182a5a8433b31470579dbb055a7bad38bbc12d36021418ffacef39a9a2b49",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.lock": "dfe8b065d6b77448eabccfd6f2d1bb3c37b042590eb849a2b4918d2c853606a1",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.toml": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
-          "onchain/rcx-timepin-v2/svm-tests/fixtures/mainnet-2026-09-04/provenance.json": "c1764e7fb2c0763e9c39c65c15eb250c520cef57410c9a6bac6ae17c903d987b",
-          "onchain/rcx-timepin-v2/svm-tests/tests/conflict_finalize_expire.rs": "c440960c022f8f59fba1bad55e729ab498940432d0ca61cd8e2b78831a280ae2",
-          "onchain/rcx-timepin-v2/svm-tests/tests/malformed_state.rs": "fec2e45023b978d63d01f4738931b43bcb56de691f4a1f0fe8b9a67d07f2ec1d",
-          "onchain/rcx-timepin-v2/svm-tests/tests/registration_open.rs": "c5e7b86caf642e8e50f88de5adf37f815438150291fc794c5a5c935a0b1d2ab0"
-        },
-        "accepted": true,
-        "problems": [],
-        "exit": 0,
-        "signal": null,
-        "processError": null,
-        "reportedTests": 4,
-        "counts": {
-          "passed": 4,
-          "failed": 0,
-          "ignored": 0,
-          "measured": 0,
-          "filteredOut": 0
-        },
-        "tests": [
-          {
-            "name": "conflict_total_order_rejects_later_replaces_earlier_and_finalizes",
-            "result": "passed"
-          },
-          {
-            "name": "expire_only_takes_an_open_unanswered_need_after_its_window",
-            "result": "passed"
-          },
-          {
-            "name": "finalize_of_an_open_need_without_a_candidate_is_refused",
-            "result": "passed"
-          },
-          {
-            "name": "finalize_waits_for_the_capture_window_and_then_finalizes",
-            "result": "passed"
-          }
-        ],
-        "stdout": "\nrunning 4 tests\ntest conflict_total_order_rejects_later_replaces_earlier_and_finalizes ... ok\ntest expire_only_takes_an_open_unanswered_need_after_its_window ... ok\ntest finalize_of_an_open_need_without_a_candidate_is_refused ... ok\ntest finalize_waits_for_the_capture_window_and_then_finalizes ... ok\n\nsuccesses:\n\nsuccesses:\n    conflict_total_order_rejects_later_replaces_earlier_and_finalizes\n    expire_only_takes_an_open_unanswered_need_after_its_window\n    finalize_of_an_open_need_without_a_candidate_is_refused\n    finalize_waits_for_the_capture_window_and_then_finalizes\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.37s\n\n",
-        "stderr": "    Finished `test` profile [unoptimized] target(s) in 4.93s\n     Running tests\\conflict_finalize_expire.rs (target\\debug\\deps\\conflict_finalize_expire-a3e2d9cf9f7ae6b2.exe)\n",
-        "stdoutSha256": "ad204e9f8b825ba95aaeda18a6b98d1ad5b5383200f7f93227145e9253b6b7b6",
-        "stderrSha256": "1b577cf8e188efcfca4617fae8f5ce57a2fffacc9d02f50621d5fe40b275d0c3",
-        "computeUnits": {
-          "status": "unavailable",
-          "measurements": []
-        }
-      }
-    },
-    {
-      "name": "timepin exact-SBF malformed_state",
-      "command": "cargo",
-      "args": [
-        "test",
-        "--locked",
-        "--test",
-        "malformed_state",
-        "--",
-        "--format",
-        "pretty",
-        "--show-output",
-        "--test-threads",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests",
-      "exit": 0,
-      "signal": null,
-      "execution": {
-        "schema": 1,
-        "program": "timepin",
-        "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-        "target": "malformed_state",
-        "requiredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "discoveredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "artifactBindings": {
-          "timepin": {
-            "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
-            "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
-            "size": 375944
-          },
-          "core": {
-            "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
-          }
-        },
-        "sourceHashes": {
-          "onchain/ratchet-core-g2/Anchor.toml": "1963557e61e803deac292c3713f72e6043c5603e32ad440621dbbccabec31af3",
-          "onchain/ratchet-core-g2/Cargo.lock": "232cc73abc7fee35db0f94903ff80fc4d1a6110df66ecc9974fe186de10f46fa",
-          "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
-          "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
-          "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
-          "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
-          "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append.rs": "1c1ef318e856406767f2b2d1bf4c13a208a7ba147fc25ade293ae5aff6708967",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append2.rs": "cdd38b3019e3e1eedcdf1b1a2902cafe437d0be9f1a3edc44120e5b500581dfc",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_new.rs": "e17182a5a8433b31470579dbb055a7bad38bbc12d36021418ffacef39a9a2b49",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.lock": "dfe8b065d6b77448eabccfd6f2d1bb3c37b042590eb849a2b4918d2c853606a1",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.toml": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
-          "onchain/rcx-timepin-v2/svm-tests/fixtures/mainnet-2026-09-04/provenance.json": "c1764e7fb2c0763e9c39c65c15eb250c520cef57410c9a6bac6ae17c903d987b",
-          "onchain/rcx-timepin-v2/svm-tests/tests/conflict_finalize_expire.rs": "c440960c022f8f59fba1bad55e729ab498940432d0ca61cd8e2b78831a280ae2",
-          "onchain/rcx-timepin-v2/svm-tests/tests/malformed_state.rs": "fec2e45023b978d63d01f4738931b43bcb56de691f4a1f0fe8b9a67d07f2ec1d",
-          "onchain/rcx-timepin-v2/svm-tests/tests/registration_open.rs": "c5e7b86caf642e8e50f88de5adf37f815438150291fc794c5a5c935a0b1d2ab0"
-        },
-        "accepted": true,
-        "problems": [],
-        "exit": 0,
-        "signal": null,
-        "processError": null,
-        "reportedTests": 6,
-        "counts": {
-          "passed": 6,
-          "failed": 0,
-          "ignored": 0,
-          "measured": 0,
-          "filteredOut": 0
-        },
-        "tests": [
-          {
-            "name": "capture_first_fails_with_truncated_data",
-            "result": "passed"
-          },
-          {
-            "name": "open_fails_with_invalid_discriminator",
-            "result": "passed"
-          },
-          {
-            "name": "open_fails_with_invalid_need_pda",
-            "result": "passed"
-          },
-          {
-            "name": "register_fails_with_invalid_pda",
-            "result": "passed"
-          },
-          {
-            "name": "register_ignores_trailing_bytes_without_changing_spec",
-            "result": "passed"
-          },
-          {
-            "name": "register_rejects_truncated_arguments_without_creating_spec",
-            "result": "passed"
-          }
-        ],
-        "stdout": "\nrunning 6 tests\ntest capture_first_fails_with_truncated_data ... ok\ntest open_fails_with_invalid_discriminator ... ok\ntest open_fails_with_invalid_need_pda ... ok\ntest register_fails_with_invalid_pda ... ok\ntest register_ignores_trailing_bytes_without_changing_spec ... ok\ntest register_rejects_truncated_arguments_without_creating_spec ... ok\n\nsuccesses:\n\nsuccesses:\n    capture_first_fails_with_truncated_data\n    open_fails_with_invalid_discriminator\n    open_fails_with_invalid_need_pda\n    register_fails_with_invalid_pda\n    register_ignores_trailing_bytes_without_changing_spec\n    register_rejects_truncated_arguments_without_creating_spec\n\ntest result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.83s\n\n",
-        "stderr": "warning: constant `CAPTURE_SLOT` is never used\n  --> tests\\malformed_state.rs:26:7\n   |\n26 | const CAPTURE_SLOT: u64 = 1_100;\n   |       ^^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: constant `LIVE_SNAPSHOT_SLOT` is never used\n  --> tests\\malformed_state.rs:32:7\n   |\n32 | const LIVE_SNAPSHOT_SLOT: u64 = 444_338_968;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_RECEIVER_SLOT` is never used\n  --> tests\\malformed_state.rs:33:7\n   |\n33 | const LIVE_RECEIVER_SLOT: u64 = 417_825_260;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_WORMHOLE_SLOT` is never used\n  --> tests\\malformed_state.rs:34:7\n   |\n34 | const LIVE_WORMHOLE_SLOT: u64 = 417_825_233;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_PRICE_POSTED_SLOT` is never used\n  --> tests\\malformed_state.rs:35:7\n   |\n35 | const LIVE_PRICE_POSTED_SLOT: u64 = 444_338_800;\n   |       ^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_PRICE_PUBLISH_TS` is never used\n  --> tests\\malformed_state.rs:36:7\n   |\n36 | const LIVE_PRICE_PUBLISH_TS: i64 = 1_788_554_471;\n   |       ^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `live_wormhole_id` is never used\n  --> tests\\malformed_state.rs:57:4\n   |\n57 | fn live_wormhole_id() -> Pubkey {\n   |    ^^^^^^^^^^^^^^^^\n\nwarning: function `live_fixture` is never used\n   --> tests\\malformed_state.rs:194:4\n    |\n194 | fn live_fixture(name: &str, expected_len: usize, expected_sha256: &str) -> Vec<u8> {\n    |    ^^^^^^^^^^^^\n\nwarning: method `policy_hash` is never used\n   --> tests\\malformed_state.rs:303:8\n    |\n257 | impl SpecArgs {\n    | ------------- method in this implementation\n...\n303 |     fn policy_hash(&self) -> [u8; 32] {\n    |        ^^^^^^^^^^^\n\nwarning: function `send_instruction` is never used\n   --> tests\\malformed_state.rs:321:4\n    |\n321 | fn send_instruction(\n    |    ^^^^^^^^^^^^^^^^\n\nwarning: methods `set_programdata_slot`, `clone_programdata`, `set_config`, `send`, `put_price`, and `register_and_open` are never used\n   --> tests\\malformed_state.rs:470:8\n    |\n351 | impl World {\n    | ---------- methods in this implementation\n...\n470 |     fn set_programdata_slot(&mut self, program: Pubkey, slot: u64) {\n    |        ^^^^^^^^^^^^^^^^^^^^\n...\n477 |     fn clone_programdata(&mut self, source_program: Pubkey) -> Pubkey {\n    |        ^^^^^^^^^^^^^^^^^\n...\n487 |     fn set_config(&mut self, data: Vec<u8>) {\n    |        ^^^^^^^^^^\n...\n521 |     fn send(&mut self, instruction: Instruction) -> Result<u64, String> {\n    |        ^^^^\n...\n565 |     fn put_price(&mut self, posted_slot: u64) -> [u8; 32] {\n    |        ^^^^^^^^^\n...\n638 |     fn register_and_open(&mut self) -> (SpecArgs, [u8; 32]) {\n    |        ^^^^^^^^^^^^^^^^^\n\nwarning: `rcx-timepin-v2-svm-tests` (test \"malformed_state\") generated 11 warnings\n    Finished `test` profile [unoptimized] target(s) in 1.00s\n     Running tests\\malformed_state.rs (target\\debug\\deps\\malformed_state-99794573f2ac68a6.exe)\n",
-        "stdoutSha256": "58bc8a003cb31864bf192e63df841681c0a154884114880f0bbe441179cdbae0",
-        "stderrSha256": "1bd2061da8259de47d98bd04e3901c288e9a54c5947f2db198c1476cc2f1e7c1",
-        "computeUnits": {
-          "status": "unavailable",
-          "measurements": []
-        }
-      }
-    },
-    {
-      "name": "timepin exact-SBF registration_open",
-      "command": "cargo",
-      "args": [
-        "test",
-        "--locked",
-        "--test",
-        "registration_open",
-        "--",
-        "--format",
-        "pretty",
-        "--show-output",
-        "--test-threads",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests",
-      "exit": 0,
-      "signal": null,
-      "execution": {
-        "schema": 1,
-        "program": "timepin",
-        "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-        "target": "registration_open",
-        "requiredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "discoveredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "artifactBindings": {
-          "timepin": {
-            "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
-            "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
-            "size": 375944
-          },
-          "core": {
-            "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
-          }
-        },
-        "sourceHashes": {
-          "onchain/ratchet-core-g2/Anchor.toml": "1963557e61e803deac292c3713f72e6043c5603e32ad440621dbbccabec31af3",
-          "onchain/ratchet-core-g2/Cargo.lock": "232cc73abc7fee35db0f94903ff80fc4d1a6110df66ecc9974fe186de10f46fa",
-          "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
-          "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
-          "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
-          "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
-          "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append.rs": "1c1ef318e856406767f2b2d1bf4c13a208a7ba147fc25ade293ae5aff6708967",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append2.rs": "cdd38b3019e3e1eedcdf1b1a2902cafe437d0be9f1a3edc44120e5b500581dfc",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_new.rs": "e17182a5a8433b31470579dbb055a7bad38bbc12d36021418ffacef39a9a2b49",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.lock": "dfe8b065d6b77448eabccfd6f2d1bb3c37b042590eb849a2b4918d2c853606a1",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.toml": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
-          "onchain/rcx-timepin-v2/svm-tests/fixtures/mainnet-2026-09-04/provenance.json": "c1764e7fb2c0763e9c39c65c15eb250c520cef57410c9a6bac6ae17c903d987b",
-          "onchain/rcx-timepin-v2/svm-tests/tests/conflict_finalize_expire.rs": "c440960c022f8f59fba1bad55e729ab498940432d0ca61cd8e2b78831a280ae2",
-          "onchain/rcx-timepin-v2/svm-tests/tests/malformed_state.rs": "fec2e45023b978d63d01f4738931b43bcb56de691f4a1f0fe8b9a67d07f2ec1d",
-          "onchain/rcx-timepin-v2/svm-tests/tests/registration_open.rs": "c5e7b86caf642e8e50f88de5adf37f815438150291fc794c5a5c935a0b1d2ab0"
-        },
-        "accepted": true,
-        "problems": [],
-        "exit": 0,
-        "signal": null,
-        "processError": null,
-        "reportedTests": 4,
-        "counts": {
-          "passed": 4,
-          "failed": 0,
-          "ignored": 0,
-          "measured": 0,
-          "filteredOut": 0
-        },
-        "tests": [
-          {
-            "name": "capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds",
-            "result": "passed"
-          },
-          {
-            "name": "exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts",
-            "result": "passed"
-          },
-          {
-            "name": "exact_live_mainnet_snapshot_registers_opens_and_captures",
-            "result": "passed"
-          },
-          {
-            "name": "registration_generation_mutants_fail_closed_and_roll_back",
-            "result": "passed"
-          }
-        ],
-        "stdout": "\nrunning 4 tests\ntest capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds ... ok\ntest exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts ... ok\ntest exact_live_mainnet_snapshot_registers_opens_and_captures ... ok\ntest registration_generation_mutants_fail_closed_and_roll_back ... ok\n\nsuccesses:\n\n---- capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds stdout ----\nTimepin v2 large-account capture CU: 51447\n\n---- exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts stdout ----\nTimepin v2 large-account CU: register=35535, open=22781; Receiver ProgramData=425984B, Wormhole ProgramData=671744B\npolicy_hash=88a2ab0b22ef195fb88756843549ad0fe4a9ad2fe11a26a4f95b7a3777aa5a1f spec_hash=ad7ea1f3961dc404fbe52feef6ac1a47480f92618de20499862d1bbd8a4679e3 spec_pda=7MJsnwEMjKjrw9YJG1rDvetGM8wrhbcQxyrDvjArMEe1 need_pda=ETp1e3Ayw7bf6JHXzE5zSyN1JjSRfpMFzzJwemQgavHy\n\n---- exact_live_mainnet_snapshot_registers_opens_and_captures stdout ----\nlive mainnet snapshot slot=444338968: register=42092 CU, open=22786 CU, capture=62567 CU; Receiver PD=416909B@417825260, configured Wormhole PD=656005B@417825233, PriceUpdate posted=444338800\n\n\nsuccesses:\n    capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds\n    exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts\n    exact_live_mainnet_snapshot_registers_opens_and_captures\n    registration_generation_mutants_fail_closed_and_roll_back\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.51s\n\n",
-        "stderr": "    Finished `test` profile [unoptimized] target(s) in 1.30s\n     Running tests\\registration_open.rs (target\\debug\\deps\\registration_open-d3da5428b76c5880.exe)\n",
-        "stdoutSha256": "9808bbee42ca7d84b43131e4625a76312a5826716bb73a2dd7576e279bef1c20",
-        "stderrSha256": "e889cc0ba2f1c23bedefcf881c7747b09ea1cd375c1258fe5d78645da6b0129d",
-        "computeUnits": {
-          "status": "emitted-log-lines",
-          "measurements": [
-            {
-              "stream": "stdout",
-              "line": 11,
-              "text": "Timepin v2 large-account capture CU: 51447"
-            },
-            {
-              "stream": "stdout",
-              "line": 14,
-              "text": "Timepin v2 large-account CU: register=35535, open=22781; Receiver ProgramData=425984B, Wormhole ProgramData=671744B"
-            },
-            {
-              "stream": "stdout",
-              "line": 18,
-              "text": "live mainnet snapshot slot=444338968: register=42092 CU, open=22786 CU, capture=62567 CU; Receiver PD=416909B@417825260, configured Wormhole PD=656005B@417825233, PriceUpdate posted=444338800"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "name": "core SVM target inventory",
-      "command": "cargo",
-      "args": [
-        "metadata",
-        "--locked",
-        "--no-deps",
-        "--format-version",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests",
-      "exit": 0,
-      "signal": null
-    },
-    {
-      "name": "core exact-SBF core_g2_lifecycle",
-      "command": "cargo",
-      "args": [
-        "test",
-        "--locked",
-        "--test",
-        "core_g2_lifecycle",
-        "--",
-        "--format",
-        "pretty",
-        "--show-output",
-        "--test-threads",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests",
-      "exit": 0,
-      "signal": null,
-      "execution": {
-        "schema": 1,
-        "program": "core",
-        "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-        "target": "core_g2_lifecycle",
-        "requiredTargets": [
-          "core_g2_lifecycle"
-        ],
-        "discoveredTargets": [
-          "core_g2_lifecycle"
-        ],
-        "artifactBindings": {
-          "timepin": {
-            "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
-            "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
-            "size": 375944
-          },
-          "core": {
-            "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
-          }
-        },
-        "sourceHashes": {
-          "onchain/ratchet-core-g2/Anchor.toml": "1963557e61e803deac292c3713f72e6043c5603e32ad440621dbbccabec31af3",
-          "onchain/ratchet-core-g2/Cargo.lock": "232cc73abc7fee35db0f94903ff80fc4d1a6110df66ecc9974fe186de10f46fa",
-          "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
-          "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
-          "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
-          "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
-          "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append.rs": "1c1ef318e856406767f2b2d1bf4c13a208a7ba147fc25ade293ae5aff6708967",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append2.rs": "cdd38b3019e3e1eedcdf1b1a2902cafe437d0be9f1a3edc44120e5b500581dfc",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_new.rs": "e17182a5a8433b31470579dbb055a7bad38bbc12d36021418ffacef39a9a2b49",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.lock": "dfe8b065d6b77448eabccfd6f2d1bb3c37b042590eb849a2b4918d2c853606a1",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.toml": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
-          "onchain/rcx-timepin-v2/svm-tests/fixtures/mainnet-2026-09-04/provenance.json": "c1764e7fb2c0763e9c39c65c15eb250c520cef57410c9a6bac6ae17c903d987b",
-          "onchain/rcx-timepin-v2/svm-tests/tests/conflict_finalize_expire.rs": "c440960c022f8f59fba1bad55e729ab498940432d0ca61cd8e2b78831a280ae2",
-          "onchain/rcx-timepin-v2/svm-tests/tests/malformed_state.rs": "fec2e45023b978d63d01f4738931b43bcb56de691f4a1f0fe8b9a67d07f2ec1d",
-          "onchain/rcx-timepin-v2/svm-tests/tests/registration_open.rs": "c5e7b86caf642e8e50f88de5adf37f815438150291fc794c5a5c935a0b1d2ab0"
-        },
-        "accepted": true,
-        "problems": [],
-        "exit": 0,
-        "signal": null,
-        "processError": null,
-        "reportedTests": 17,
-        "counts": {
-          "passed": 17,
-          "failed": 0,
-          "ignored": 0,
-          "measured": 0,
-          "filteredOut": 0
-        },
-        "tests": [
-          {
-            "name": "delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless",
-            "result": "passed"
-          },
-          {
-            "name": "devnet_playground_credits_open_only_on_the_devnet_economy",
-            "result": "passed"
-          },
-          {
-            "name": "equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe",
-            "result": "passed"
-          },
-          {
-            "name": "full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page",
-            "result": "passed"
-          },
-          {
-            "name": "immutable_generation_registration_ledger_claim_and_history_are_permissionless",
-            "result": "passed"
-          },
-          {
-            "name": "observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless",
-            "result": "passed"
-          },
-          {
-            "name": "register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes",
-            "result": "passed"
-          },
-          {
-            "name": "reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay",
-            "result": "passed"
-          },
-          {
-            "name": "seal_forward_rejects_final_need",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_candidate_for_other_message_hash",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_candidate_need",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_lookalike_owned_need_and_candidate_bytes",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_other_final_need",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_shot_from_another_economy_and_ruleset",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_timepin_deadline_drift",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_replay_is_rejected",
-            "result": "passed"
-          },
-          {
-            "name": "void_active_shot_rejects_final_need",
-            "result": "passed"
-          }
-        ],
-        "stdout": "\nrunning 17 tests\ntest delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless ... ok\ntest devnet_playground_credits_open_only_on_the_devnet_economy ... ok\ntest equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe ... ok\ntest full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page ... ok\ntest immutable_generation_registration_ledger_claim_and_history_are_permissionless ... ok\ntest observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless ... ok\ntest register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes ... ok\ntest reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay ... ok\ntest seal_forward_rejects_final_need ... ok\ntest settle_final_rejects_candidate_for_other_message_hash ... ok\ntest settle_final_rejects_candidate_need ... ok\ntest settle_final_rejects_lookalike_owned_need_and_candidate_bytes ... ok\ntest settle_final_rejects_other_final_need ... ok\ntest settle_final_rejects_shot_from_another_economy_and_ruleset ... ok\ntest settle_final_rejects_timepin_deadline_drift ... ok\ntest settle_final_replay_is_rejected ... ok\ntest void_active_shot_rejects_final_need ... ok\n\nsuccesses:\n\nsuccesses:\n    delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless\n    devnet_playground_credits_open_only_on_the_devnet_economy\n    equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe\n    full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page\n    immutable_generation_registration_ledger_claim_and_history_are_permissionless\n    observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless\n    register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes\n    reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay\n    seal_forward_rejects_final_need\n    settle_final_rejects_candidate_for_other_message_hash\n    settle_final_rejects_candidate_need\n    settle_final_rejects_lookalike_owned_need_and_candidate_bytes\n    settle_final_rejects_other_final_need\n    settle_final_rejects_shot_from_another_economy_and_ruleset\n    settle_final_rejects_timepin_deadline_drift\n    settle_final_replay_is_rejected\n    void_active_shot_rejects_final_need\n\ntest result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 12.57s\n\n",
-        "stderr": "    Finished `test` profile [unoptimized] target(s) in 8.59s\n     Running tests\\core_g2_lifecycle.rs (target\\debug\\deps\\core_g2_lifecycle-5e6d2568520ee0d7.exe)\n",
-        "stdoutSha256": "22c1ae2504f8a182183fed696b47b52a7afb377b6ab9a8dd924256ce73457c78",
-        "stderrSha256": "a81fafae460e7ba8fd9d409517acaf70d4e611b0b682bce3950c3b196a2facd8",
-        "computeUnits": {
-          "status": "unavailable",
-          "measurements": []
-        }
-      }
-    },
-    {
-      "name": "JS release gate",
-      "command": "C:\\WINDOWS\\system32\\cmd.exe",
-      "args": [
-        "/d",
-        "/s",
-        "/c",
-        "npm test"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
-      "exit": 1,
-      "signal": null
-    },
-    {
-      "name": "timepin reused artifact readback",
-      "command": "C:\\Program Files\\nodejs\\node.exe",
-      "args": [
-        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
-        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
-        "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-        "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
-        "375944"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
-      "exit": 0,
-      "signal": null
-    },
-    {
-      "name": "core reused artifact readback",
-      "command": "C:\\Program Files\\nodejs\\node.exe",
-      "args": [
-        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
-        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-        "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-        "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-        "1027064"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
-      "exit": 0,
-      "signal": null
-    },
-    {
-      "name": "Timepin vector check",
-      "command": "C:\\Program Files\\nodejs\\node.exe",
-      "args": [
-        "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\repin-timepin-vectors.mjs",
-        "--check"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
-      "exit": 0,
-      "signal": null
-    },
-    {
-      "name": "timepin SVM target inventory",
-      "command": "cargo",
-      "args": [
-        "metadata",
-        "--locked",
-        "--no-deps",
-        "--format-version",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests",
-      "exit": 0,
-      "signal": null
-    },
-    {
-      "name": "timepin exact-SBF conflict_finalize_expire",
-      "command": "cargo",
-      "args": [
-        "test",
-        "--locked",
-        "--test",
-        "conflict_finalize_expire",
-        "--",
-        "--format",
-        "pretty",
-        "--show-output",
-        "--test-threads",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests",
-      "exit": 0,
-      "signal": null,
-      "execution": {
-        "schema": 1,
-        "program": "timepin",
-        "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-        "target": "conflict_finalize_expire",
-        "requiredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "discoveredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "artifactBindings": {
-          "timepin": {
-            "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
-            "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
-            "size": 375944
-          },
-          "core": {
-            "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
-          }
-        },
-        "sourceHashes": {
-          "onchain/ratchet-core-g2/Anchor.toml": "1963557e61e803deac292c3713f72e6043c5603e32ad440621dbbccabec31af3",
-          "onchain/ratchet-core-g2/Cargo.lock": "232cc73abc7fee35db0f94903ff80fc4d1a6110df66ecc9974fe186de10f46fa",
-          "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
-          "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
-          "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
-          "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
-          "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append.rs": "1c1ef318e856406767f2b2d1bf4c13a208a7ba147fc25ade293ae5aff6708967",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append2.rs": "cdd38b3019e3e1eedcdf1b1a2902cafe437d0be9f1a3edc44120e5b500581dfc",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_new.rs": "e17182a5a8433b31470579dbb055a7bad38bbc12d36021418ffacef39a9a2b49",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.lock": "dfe8b065d6b77448eabccfd6f2d1bb3c37b042590eb849a2b4918d2c853606a1",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.toml": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
-          "onchain/rcx-timepin-v2/svm-tests/fixtures/mainnet-2026-09-04/provenance.json": "c1764e7fb2c0763e9c39c65c15eb250c520cef57410c9a6bac6ae17c903d987b",
-          "onchain/rcx-timepin-v2/svm-tests/tests/conflict_finalize_expire.rs": "c440960c022f8f59fba1bad55e729ab498940432d0ca61cd8e2b78831a280ae2",
-          "onchain/rcx-timepin-v2/svm-tests/tests/malformed_state.rs": "fec2e45023b978d63d01f4738931b43bcb56de691f4a1f0fe8b9a67d07f2ec1d",
-          "onchain/rcx-timepin-v2/svm-tests/tests/registration_open.rs": "c5e7b86caf642e8e50f88de5adf37f815438150291fc794c5a5c935a0b1d2ab0"
-        },
-        "accepted": true,
-        "problems": [],
-        "exit": 0,
-        "signal": null,
-        "processError": null,
-        "reportedTests": 4,
-        "counts": {
-          "passed": 4,
-          "failed": 0,
-          "ignored": 0,
-          "measured": 0,
-          "filteredOut": 0
-        },
-        "tests": [
-          {
-            "name": "conflict_total_order_rejects_later_replaces_earlier_and_finalizes",
-            "result": "passed"
-          },
-          {
-            "name": "expire_only_takes_an_open_unanswered_need_after_its_window",
-            "result": "passed"
-          },
-          {
-            "name": "finalize_of_an_open_need_without_a_candidate_is_refused",
-            "result": "passed"
-          },
-          {
-            "name": "finalize_waits_for_the_capture_window_and_then_finalizes",
-            "result": "passed"
-          }
-        ],
-        "stdout": "\nrunning 4 tests\ntest conflict_total_order_rejects_later_replaces_earlier_and_finalizes ... ok\ntest expire_only_takes_an_open_unanswered_need_after_its_window ... ok\ntest finalize_of_an_open_need_without_a_candidate_is_refused ... ok\ntest finalize_waits_for_the_capture_window_and_then_finalizes ... ok\n\nsuccesses:\n\nsuccesses:\n    conflict_total_order_rejects_later_replaces_earlier_and_finalizes\n    expire_only_takes_an_open_unanswered_need_after_its_window\n    finalize_of_an_open_need_without_a_candidate_is_refused\n    finalize_waits_for_the_capture_window_and_then_finalizes\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.31s\n\n",
-        "stderr": "    Finished `test` profile [unoptimized] target(s) in 18.23s\n     Running tests\\conflict_finalize_expire.rs (target\\debug\\deps\\conflict_finalize_expire-a3e2d9cf9f7ae6b2.exe)\n",
-        "stdoutSha256": "e564e3fb2ee64f6d5133db66b84b74f55ac5ad1181f3ffd9108cc17ebb072e52",
-        "stderrSha256": "a0d99630c5916ae53d18b76268442d43132c84eb848a91f5948582e14454e61a",
-        "computeUnits": {
-          "status": "unavailable",
-          "measurements": []
-        }
-      }
-    },
-    {
-      "name": "timepin exact-SBF malformed_state",
-      "command": "cargo",
-      "args": [
-        "test",
-        "--locked",
-        "--test",
-        "malformed_state",
-        "--",
-        "--format",
-        "pretty",
-        "--show-output",
-        "--test-threads",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests",
-      "exit": 0,
-      "signal": null,
-      "execution": {
-        "schema": 1,
-        "program": "timepin",
-        "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-        "target": "malformed_state",
-        "requiredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "discoveredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "artifactBindings": {
-          "timepin": {
-            "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
-            "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
-            "size": 375944
-          },
-          "core": {
-            "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
-          }
-        },
-        "sourceHashes": {
-          "onchain/ratchet-core-g2/Anchor.toml": "1963557e61e803deac292c3713f72e6043c5603e32ad440621dbbccabec31af3",
-          "onchain/ratchet-core-g2/Cargo.lock": "232cc73abc7fee35db0f94903ff80fc4d1a6110df66ecc9974fe186de10f46fa",
-          "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
-          "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
-          "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
-          "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
-          "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append.rs": "1c1ef318e856406767f2b2d1bf4c13a208a7ba147fc25ade293ae5aff6708967",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append2.rs": "cdd38b3019e3e1eedcdf1b1a2902cafe437d0be9f1a3edc44120e5b500581dfc",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_new.rs": "e17182a5a8433b31470579dbb055a7bad38bbc12d36021418ffacef39a9a2b49",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.lock": "dfe8b065d6b77448eabccfd6f2d1bb3c37b042590eb849a2b4918d2c853606a1",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.toml": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
-          "onchain/rcx-timepin-v2/svm-tests/fixtures/mainnet-2026-09-04/provenance.json": "c1764e7fb2c0763e9c39c65c15eb250c520cef57410c9a6bac6ae17c903d987b",
-          "onchain/rcx-timepin-v2/svm-tests/tests/conflict_finalize_expire.rs": "c440960c022f8f59fba1bad55e729ab498940432d0ca61cd8e2b78831a280ae2",
-          "onchain/rcx-timepin-v2/svm-tests/tests/malformed_state.rs": "fec2e45023b978d63d01f4738931b43bcb56de691f4a1f0fe8b9a67d07f2ec1d",
-          "onchain/rcx-timepin-v2/svm-tests/tests/registration_open.rs": "c5e7b86caf642e8e50f88de5adf37f815438150291fc794c5a5c935a0b1d2ab0"
-        },
-        "accepted": true,
-        "problems": [],
-        "exit": 0,
-        "signal": null,
-        "processError": null,
-        "reportedTests": 6,
-        "counts": {
-          "passed": 6,
-          "failed": 0,
-          "ignored": 0,
-          "measured": 0,
-          "filteredOut": 0
-        },
-        "tests": [
-          {
-            "name": "capture_first_fails_with_truncated_data",
-            "result": "passed"
-          },
-          {
-            "name": "open_fails_with_invalid_discriminator",
-            "result": "passed"
-          },
-          {
-            "name": "open_fails_with_invalid_need_pda",
-            "result": "passed"
-          },
-          {
-            "name": "register_fails_with_invalid_pda",
-            "result": "passed"
-          },
-          {
-            "name": "register_ignores_trailing_bytes_without_changing_spec",
-            "result": "passed"
-          },
-          {
-            "name": "register_rejects_truncated_arguments_without_creating_spec",
-            "result": "passed"
-          }
-        ],
-        "stdout": "\nrunning 6 tests\ntest capture_first_fails_with_truncated_data ... ok\ntest open_fails_with_invalid_discriminator ... ok\ntest open_fails_with_invalid_need_pda ... ok\ntest register_fails_with_invalid_pda ... ok\ntest register_ignores_trailing_bytes_without_changing_spec ... ok\ntest register_rejects_truncated_arguments_without_creating_spec ... ok\n\nsuccesses:\n\nsuccesses:\n    capture_first_fails_with_truncated_data\n    open_fails_with_invalid_discriminator\n    open_fails_with_invalid_need_pda\n    register_fails_with_invalid_pda\n    register_ignores_trailing_bytes_without_changing_spec\n    register_rejects_truncated_arguments_without_creating_spec\n\ntest result: ok. 6 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.61s\n\n",
-        "stderr": "warning: constant `CAPTURE_SLOT` is never used\n  --> tests\\malformed_state.rs:26:7\n   |\n26 | const CAPTURE_SLOT: u64 = 1_100;\n   |       ^^^^^^^^^^^^\n   |\n   = note: `#[warn(dead_code)]` (part of `#[warn(unused)]`) on by default\n\nwarning: constant `LIVE_SNAPSHOT_SLOT` is never used\n  --> tests\\malformed_state.rs:32:7\n   |\n32 | const LIVE_SNAPSHOT_SLOT: u64 = 444_338_968;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_RECEIVER_SLOT` is never used\n  --> tests\\malformed_state.rs:33:7\n   |\n33 | const LIVE_RECEIVER_SLOT: u64 = 417_825_260;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_WORMHOLE_SLOT` is never used\n  --> tests\\malformed_state.rs:34:7\n   |\n34 | const LIVE_WORMHOLE_SLOT: u64 = 417_825_233;\n   |       ^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_PRICE_POSTED_SLOT` is never used\n  --> tests\\malformed_state.rs:35:7\n   |\n35 | const LIVE_PRICE_POSTED_SLOT: u64 = 444_338_800;\n   |       ^^^^^^^^^^^^^^^^^^^^^^\n\nwarning: constant `LIVE_PRICE_PUBLISH_TS` is never used\n  --> tests\\malformed_state.rs:36:7\n   |\n36 | const LIVE_PRICE_PUBLISH_TS: i64 = 1_788_554_471;\n   |       ^^^^^^^^^^^^^^^^^^^^^\n\nwarning: function `live_wormhole_id` is never used\n  --> tests\\malformed_state.rs:57:4\n   |\n57 | fn live_wormhole_id() -> Pubkey {\n   |    ^^^^^^^^^^^^^^^^\n\nwarning: function `live_fixture` is never used\n   --> tests\\malformed_state.rs:194:4\n    |\n194 | fn live_fixture(name: &str, expected_len: usize, expected_sha256: &str) -> Vec<u8> {\n    |    ^^^^^^^^^^^^\n\nwarning: method `policy_hash` is never used\n   --> tests\\malformed_state.rs:303:8\n    |\n257 | impl SpecArgs {\n    | ------------- method in this implementation\n...\n303 |     fn policy_hash(&self) -> [u8; 32] {\n    |        ^^^^^^^^^^^\n\nwarning: function `send_instruction` is never used\n   --> tests\\malformed_state.rs:321:4\n    |\n321 | fn send_instruction(\n    |    ^^^^^^^^^^^^^^^^\n\nwarning: methods `set_programdata_slot`, `clone_programdata`, `set_config`, `send`, `put_price`, and `register_and_open` are never used\n   --> tests\\malformed_state.rs:470:8\n    |\n351 | impl World {\n    | ---------- methods in this implementation\n...\n470 |     fn set_programdata_slot(&mut self, program: Pubkey, slot: u64) {\n    |        ^^^^^^^^^^^^^^^^^^^^\n...\n477 |     fn clone_programdata(&mut self, source_program: Pubkey) -> Pubkey {\n    |        ^^^^^^^^^^^^^^^^^\n...\n487 |     fn set_config(&mut self, data: Vec<u8>) {\n    |        ^^^^^^^^^^\n...\n521 |     fn send(&mut self, instruction: Instruction) -> Result<u64, String> {\n    |        ^^^^\n...\n565 |     fn put_price(&mut self, posted_slot: u64) -> [u8; 32] {\n    |        ^^^^^^^^^\n...\n638 |     fn register_and_open(&mut self) -> (SpecArgs, [u8; 32]) {\n    |        ^^^^^^^^^^^^^^^^^\n\nwarning: `rcx-timepin-v2-svm-tests` (test \"malformed_state\") generated 11 warnings\n    Finished `test` profile [unoptimized] target(s) in 3.97s\n     Running tests\\malformed_state.rs (target\\debug\\deps\\malformed_state-99794573f2ac68a6.exe)\n",
-        "stdoutSha256": "3a0bcb9b91e85cceb16c7a2071395f8194c1fbb7e7241e5d6137f7e512f49c05",
-        "stderrSha256": "ec225617745a669011f1a3a6cbd8eb4f096010b1969770895fc8abb3d5a23936",
-        "computeUnits": {
-          "status": "unavailable",
-          "measurements": []
-        }
-      }
-    },
-    {
-      "name": "timepin exact-SBF registration_open",
-      "command": "cargo",
-      "args": [
-        "test",
-        "--locked",
-        "--test",
-        "registration_open",
-        "--",
-        "--format",
-        "pretty",
-        "--show-output",
-        "--test-threads",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\rcx-timepin-v2\\svm-tests",
-      "exit": 0,
-      "signal": null,
-      "execution": {
-        "schema": 1,
-        "program": "timepin",
-        "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-        "target": "registration_open",
-        "requiredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "discoveredTargets": [
-          "conflict_finalize_expire",
-          "malformed_state",
-          "registration_open"
-        ],
-        "artifactBindings": {
-          "timepin": {
-            "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
-            "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
-            "size": 375944
-          },
-          "core": {
-            "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
-          }
-        },
-        "sourceHashes": {
-          "onchain/ratchet-core-g2/Anchor.toml": "1963557e61e803deac292c3713f72e6043c5603e32ad440621dbbccabec31af3",
-          "onchain/ratchet-core-g2/Cargo.lock": "232cc73abc7fee35db0f94903ff80fc4d1a6110df66ecc9974fe186de10f46fa",
-          "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
-          "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
-          "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
-          "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
-          "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append.rs": "1c1ef318e856406767f2b2d1bf4c13a208a7ba147fc25ade293ae5aff6708967",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append2.rs": "cdd38b3019e3e1eedcdf1b1a2902cafe437d0be9f1a3edc44120e5b500581dfc",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_new.rs": "e17182a5a8433b31470579dbb055a7bad38bbc12d36021418ffacef39a9a2b49",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.lock": "dfe8b065d6b77448eabccfd6f2d1bb3c37b042590eb849a2b4918d2c853606a1",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.toml": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
-          "onchain/rcx-timepin-v2/svm-tests/fixtures/mainnet-2026-09-04/provenance.json": "c1764e7fb2c0763e9c39c65c15eb250c520cef57410c9a6bac6ae17c903d987b",
-          "onchain/rcx-timepin-v2/svm-tests/tests/conflict_finalize_expire.rs": "c440960c022f8f59fba1bad55e729ab498940432d0ca61cd8e2b78831a280ae2",
-          "onchain/rcx-timepin-v2/svm-tests/tests/malformed_state.rs": "fec2e45023b978d63d01f4738931b43bcb56de691f4a1f0fe8b9a67d07f2ec1d",
-          "onchain/rcx-timepin-v2/svm-tests/tests/registration_open.rs": "c5e7b86caf642e8e50f88de5adf37f815438150291fc794c5a5c935a0b1d2ab0"
-        },
-        "accepted": true,
-        "problems": [],
-        "exit": 0,
-        "signal": null,
-        "processError": null,
-        "reportedTests": 4,
-        "counts": {
-          "passed": 4,
-          "failed": 0,
-          "ignored": 0,
-          "measured": 0,
-          "filteredOut": 0
-        },
-        "tests": [
-          {
-            "name": "capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds",
-            "result": "passed"
-          },
-          {
-            "name": "exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts",
-            "result": "passed"
-          },
-          {
-            "name": "exact_live_mainnet_snapshot_registers_opens_and_captures",
-            "result": "passed"
-          },
-          {
-            "name": "registration_generation_mutants_fail_closed_and_roll_back",
-            "result": "passed"
-          }
-        ],
-        "stdout": "\nrunning 4 tests\ntest capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds ... ok\ntest exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts ... ok\ntest exact_live_mainnet_snapshot_registers_opens_and_captures ... ok\ntest registration_generation_mutants_fail_closed_and_roll_back ... ok\n\nsuccesses:\n\n---- capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds stdout ----\nTimepin v2 large-account capture CU: 51447\n\n---- exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts stdout ----\nTimepin v2 large-account CU: register=35535, open=22781; Receiver ProgramData=425984B, Wormhole ProgramData=671744B\npolicy_hash=88a2ab0b22ef195fb88756843549ad0fe4a9ad2fe11a26a4f95b7a3777aa5a1f spec_hash=ad7ea1f3961dc404fbe52feef6ac1a47480f92618de20499862d1bbd8a4679e3 spec_pda=7MJsnwEMjKjrw9YJG1rDvetGM8wrhbcQxyrDvjArMEe1 need_pda=ETp1e3Ayw7bf6JHXzE5zSyN1JjSRfpMFzzJwemQgavHy\n\n---- exact_live_mainnet_snapshot_registers_opens_and_captures stdout ----\nlive mainnet snapshot slot=444338968: register=42092 CU, open=22786 CU, capture=62567 CU; Receiver PD=416909B@417825260, configured Wormhole PD=656005B@417825233, PriceUpdate posted=444338800\n\n\nsuccesses:\n    capture_reauthenticates_generation_and_enforces_post_registration_slot_bounds\n    exact_final_sbf_registers_and_opens_with_real_scale_loader_accounts\n    exact_live_mainnet_snapshot_registers_opens_and_captures\n    registration_generation_mutants_fail_closed_and_roll_back\n\ntest result: ok. 4 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.83s\n\n",
-        "stderr": "    Finished `test` profile [unoptimized] target(s) in 12.46s\n     Running tests\\registration_open.rs (target\\debug\\deps\\registration_open-d3da5428b76c5880.exe)\n",
-        "stdoutSha256": "d432289155ac6c96beb9cf44e6efd19695dde50aa9d0dc67f83dffd43e46bdb6",
-        "stderrSha256": "2c6681ad1b2316ad577c2cbb5ac157e4bf237c3a8179151ba29a60240c5b2721",
-        "computeUnits": {
-          "status": "emitted-log-lines",
-          "measurements": [
-            {
-              "stream": "stdout",
-              "line": 11,
-              "text": "Timepin v2 large-account capture CU: 51447"
-            },
-            {
-              "stream": "stdout",
-              "line": 14,
-              "text": "Timepin v2 large-account CU: register=35535, open=22781; Receiver ProgramData=425984B, Wormhole ProgramData=671744B"
-            },
-            {
-              "stream": "stdout",
-              "line": 18,
-              "text": "live mainnet snapshot slot=444338968: register=42092 CU, open=22786 CU, capture=62567 CU; Receiver PD=416909B@417825260, configured Wormhole PD=656005B@417825233, PriceUpdate posted=444338800"
-            }
-          ]
-        }
-      }
-    },
-    {
-      "name": "core SVM target inventory",
-      "command": "cargo",
-      "args": [
-        "metadata",
-        "--locked",
-        "--no-deps",
-        "--format-version",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests",
-      "exit": 0,
-      "signal": null
-    },
-    {
-      "name": "core exact-SBF core_g2_lifecycle",
-      "command": "cargo",
-      "args": [
-        "test",
-        "--locked",
-        "--test",
-        "core_g2_lifecycle",
-        "--",
-        "--format",
-        "pretty",
-        "--show-output",
-        "--test-threads",
-        "1"
-      ],
-      "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\onchain\\ratchet-core-g2\\svm-tests",
-      "exit": 0,
-      "signal": null,
-      "execution": {
-        "schema": 1,
-        "program": "core",
-        "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-        "target": "core_g2_lifecycle",
-        "requiredTargets": [
-          "core_g2_lifecycle"
-        ],
-        "discoveredTargets": [
-          "core_g2_lifecycle"
-        ],
-        "artifactBindings": {
-          "timepin": {
-            "programId": "C8wwxUGmoKAV22MaY3oW2Q6QeDbmB9dbNdbohsRjJkYp",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1\\rcx_timepin_v2.so",
-            "sha256": "534e3fd33c3350a2ce086f0f2d46dfb85db07813f76c6da569e750f624a1f3c1",
-            "size": 375944
-          },
-          "core": {
-            "programId": "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-            "path": "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
-            "sha256": "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-            "size": 1027064
-          }
-        },
-        "sourceHashes": {
-          "onchain/ratchet-core-g2/Anchor.toml": "1963557e61e803deac292c3713f72e6043c5603e32ad440621dbbccabec31af3",
-          "onchain/ratchet-core-g2/Cargo.lock": "232cc73abc7fee35db0f94903ff80fc4d1a6110df66ecc9974fe186de10f46fa",
-          "onchain/ratchet-core-g2/Cargo.toml": "437e0138487e7f84626982ea1d1132662fc33ea6c2b2576985d6f094fe7deddb",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/Cargo.toml": "52aa60c2418f7a5a473f2d0da60d0199e1cdeaea93c80ca43200caa78889e929",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/foreign_timepin.rs": "4b360f9452c256c6f7d026082f8e71cf645d74989b47e43fd986ff543e2c6607",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/lib.rs": "d91a893262efad0a338c21edff3cda12b1b6b6e2ae9205adacd9058641b274b3",
-          "onchain/ratchet-core-g2/programs/ratchet-core-g2/src/state.rs": "19a649afa9d471c5b5a0b4de733ba4fd4bcedd46591c5c7abdf432fa8f013563",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.lock": "3f62ed22160668e5b16e01270e53efb0c5b8b3b59ebc6d7c61b62ccfebe951f7",
-          "onchain/ratchet-core-g2/svm-tests/Cargo.toml": "e9c13437ad25f41dbb5269f2999f54427f5ba3bcdc706826762c580ac5cd617e",
-          "onchain/ratchet-core-g2/svm-tests/fixtures/rcx-mainnet-mint-2026-09-04.json": "351fcb70630fd30e884399617f9ad248ecb16d64c649ded6e68559b90847e843",
-          "onchain/ratchet-core-g2/svm-tests/tests/core_g2_lifecycle.rs": "596e71f51daec13fa97110f95c0df8deb93a8d647802a73acc5ccd6f7de9ffb2",
-          "onchain/rcx-timepin-v2/Anchor.toml": "6d2bf3ed299b2df82d0818caf525f12d09928347bc10cf2c828ff42b4071b067",
-          "onchain/rcx-timepin-v2/Cargo.lock": "725cd016189945952b1672ab64d5fb682fdbc6260cc0a70cdeab1fc3d1b87868",
-          "onchain/rcx-timepin-v2/Cargo.toml": "95272f70f19e0b2fa07576279fa817ff920c682f7902e7dad53f976cb9a67fd0",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/Cargo.toml": "c16fbe770d337ce5c33d0a38b1b14d39b192b32eb77e22067b716f05410a6daf",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lib.rs": "9a0196481070ab8866c76deb0c033d3738608587ff15303f033049e58e34ee39",
-          "onchain/rcx-timepin-v2/programs/rcx-timepin-v2/src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append.rs": "1c1ef318e856406767f2b2d1bf4c13a208a7ba147fc25ade293ae5aff6708967",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_append2.rs": "cdd38b3019e3e1eedcdf1b1a2902cafe437d0be9f1a3edc44120e5b500581dfc",
-          "onchain/rcx-timepin-v2/svm-tests/_drafts/malformed_state_new.rs": "e17182a5a8433b31470579dbb055a7bad38bbc12d36021418ffacef39a9a2b49",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.lock": "dfe8b065d6b77448eabccfd6f2d1bb3c37b042590eb849a2b4918d2c853606a1",
-          "onchain/rcx-timepin-v2/svm-tests/Cargo.toml": "b4aeb462c5522c5bb19e8fe5a2b277b0cb2b7a8e487271522c5d485822d009cf",
-          "onchain/rcx-timepin-v2/svm-tests/fixtures/mainnet-2026-09-04/provenance.json": "c1764e7fb2c0763e9c39c65c15eb250c520cef57410c9a6bac6ae17c903d987b",
-          "onchain/rcx-timepin-v2/svm-tests/tests/conflict_finalize_expire.rs": "c440960c022f8f59fba1bad55e729ab498940432d0ca61cd8e2b78831a280ae2",
-          "onchain/rcx-timepin-v2/svm-tests/tests/malformed_state.rs": "fec2e45023b978d63d01f4738931b43bcb56de691f4a1f0fe8b9a67d07f2ec1d",
-          "onchain/rcx-timepin-v2/svm-tests/tests/registration_open.rs": "c5e7b86caf642e8e50f88de5adf37f815438150291fc794c5a5c935a0b1d2ab0"
-        },
-        "accepted": true,
-        "problems": [],
-        "exit": 0,
-        "signal": null,
-        "processError": null,
-        "reportedTests": 17,
-        "counts": {
-          "passed": 17,
-          "failed": 0,
-          "ignored": 0,
-          "measured": 0,
-          "filteredOut": 0
-        },
-        "tests": [
-          {
-            "name": "delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless",
-            "result": "passed"
-          },
-          {
-            "name": "devnet_playground_credits_open_only_on_the_devnet_economy",
-            "result": "passed"
-          },
-          {
-            "name": "equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe",
-            "result": "passed"
-          },
-          {
-            "name": "full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page",
-            "result": "passed"
-          },
-          {
-            "name": "immutable_generation_registration_ledger_claim_and_history_are_permissionless",
-            "result": "passed"
-          },
-          {
-            "name": "observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless",
-            "result": "passed"
-          },
-          {
-            "name": "register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes",
-            "result": "passed"
-          },
-          {
-            "name": "reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay",
-            "result": "passed"
-          },
-          {
-            "name": "seal_forward_rejects_final_need",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_candidate_for_other_message_hash",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_candidate_need",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_lookalike_owned_need_and_candidate_bytes",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_other_final_need",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_shot_from_another_economy_and_ruleset",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_rejects_timepin_deadline_drift",
-            "result": "passed"
-          },
-          {
-            "name": "settle_final_replay_is_rejected",
-            "result": "passed"
-          },
-          {
-            "name": "void_active_shot_rejects_final_need",
-            "result": "passed"
-          }
-        ],
-        "stdout": "\nrunning 17 tests\ntest delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless ... ok\ntest devnet_playground_credits_open_only_on_the_devnet_economy ... ok\ntest equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe ... ok\ntest full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page ... ok\ntest immutable_generation_registration_ledger_claim_and_history_are_permissionless ... ok\ntest observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless ... ok\ntest register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes ... ok\ntest reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay ... ok\ntest seal_forward_rejects_final_need ... ok\ntest settle_final_rejects_candidate_for_other_message_hash ... ok\ntest settle_final_rejects_candidate_need ... ok\ntest settle_final_rejects_lookalike_owned_need_and_candidate_bytes ... ok\ntest settle_final_rejects_other_final_need ... ok\ntest settle_final_rejects_shot_from_another_economy_and_ruleset ... ok\ntest settle_final_rejects_timepin_deadline_drift ... ok\ntest settle_final_replay_is_rejected ... ok\ntest void_active_shot_rejects_final_need ... ok\n\nsuccesses:\n\nsuccesses:\n    delegated_forward_survives_revocation_and_pending_expiry_void_is_permissionless\n    devnet_playground_credits_open_only_on_the_devnet_economy\n    equality_waits_for_permissionless_void_and_canonical_absent_work_page_is_safe\n    full_forward_lifecycle_archives_and_closes_with_sponsor_reserved_work_page\n    immutable_generation_registration_ledger_claim_and_history_are_permissionless\n    observed_seal_replay_rolls_back_and_active_expiry_void_is_permissionless\n    register_economy_rejects_wrong_or_nonexecutable_timepin_and_changed_bytes\n    reload_rcx_uses_real_token_2022_memo_route_burn_packed_history_and_atomic_replay\n    seal_forward_rejects_final_need\n    settle_final_rejects_candidate_for_other_message_hash\n    settle_final_rejects_candidate_need\n    settle_final_rejects_lookalike_owned_need_and_candidate_bytes\n    settle_final_rejects_other_final_need\n    settle_final_rejects_shot_from_another_economy_and_ruleset\n    settle_final_rejects_timepin_deadline_drift\n    settle_final_replay_is_rejected\n    void_active_shot_rejects_final_need\n\ntest result: ok. 17 passed; 0 failed; 0 ignored; 0 measured; 0 filtered out; finished in 10.39s\n\n",
-        "stderr": "    Finished `test` profile [unoptimized] target(s) in 10.90s\n     Running tests\\core_g2_lifecycle.rs (target\\debug\\deps\\core_g2_lifecycle-5e6d2568520ee0d7.exe)\n",
-        "stdoutSha256": "6b2d1799ca86c8b595880d3565ba0c398c413baa3bd8417b4606d6e635ec986d",
-        "stderrSha256": "5f19142401082cdeb5c5471a935c12841e1f0e5cd867305b3978e326abe55993",
         "computeUnits": {
           "status": "unavailable",
           "measurements": []
@@ -2075,10 +843,10 @@
       "command": "C:\\Program Files\\nodejs\\node.exe",
       "args": [
         "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean\\tools\\verify-artifact.mjs",
-        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8\\ratchet_core_g2.so",
+        "C:\\Users\\treed\\AppData\\Local\\Temp\\ratchetx-onchain-sbf\\ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78\\ratchet_core_g2.so",
         "ANVGVtDrECeyQkS56UZ9ZiWCUxk2JWEVNJioFW8JEwbL",
-        "01c681bc53cec4cfbbdfb825897763b0abf1657f494b0f463fddbcba183949e8",
-        "1027064"
+        "ae6db7db6f12d09ac2973a6d08d6c8ce08a4329881d4874117dea71dd5116f78",
+        "1027952"
       ],
       "cwd": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean",
       "exit": 0,
@@ -2131,16 +899,5 @@
     }
   },
   "buildStatus": "BUILT",
-  "verificationStartedAt": "2026-09-08T20:16:07.359Z",
-  "verificationHost": {
-    "platform": "win32",
-    "architecture": "x64",
-    "osType": "Windows_NT",
-    "osRelease": "10.0.26200",
-    "osVersion": "Windows 11 Pro",
-    "nodeVersion": "v24.15.0",
-    "nodeExecutable": "C:\\Program Files\\nodejs\\node.exe",
-    "workspace": "D:\\Work\\Software_Projects\\pumpmind\\ratchetx\\ratchet_phase_a_clean"
-  },
-  "finishedAt": "2026-09-08T20:21:59.371Z"
+  "finishedAt": "2026-09-10T00:40:56.304Z"
 }

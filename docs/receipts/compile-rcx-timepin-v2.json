@@ -8,8 +8,8 @@
     "src/lifecycle.rs": "ab7be6a8e242ae340c311ce9595cc7f32b9fce3ebab2edd3f97fa29f626ee3f8"
   },
   "toolchain": "cargo 1.98.0 (797e8a9bc 2026-08-05)",
-  "compiledOn": "3esign laptop (Windows 11, cargo-build-sbf 4.3.0, Svemir hands)",
-  "generatedAt": "2026-09-09T23:38:41.883Z",
+  "compiledOn": "3esign laptop ",
+  "generatedAt": "2026-09-10T00:51:35.513Z",
   "check": {
     "exit": 0
   },

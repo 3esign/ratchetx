@@ -1053,7 +1053,12 @@ pub mod ratchet_core_g2 {
             &ctx.accounts.player,
             &ctx.accounts.shot,
             &ctx.accounts.system_program,
-            ctx.accounts.economy.args.cleanup_bond_lamports,
+            ctx.accounts
+                .economy
+                .args
+                .cleanup_bond_lamports
+                .checked_mul(WORKER_UNITS)
+                .ok_or(CoreG2Error::MathOverflow)?,
         )?;
         record_accepted(&mut ctx.accounts.player_day, &mut ctx.accounts.rank_shard)?;
         emit!(ShotSealed {
@@ -1222,7 +1227,12 @@ pub mod ratchet_core_g2 {
             &ctx.accounts.delegate,
             &ctx.accounts.shot,
             &ctx.accounts.system_program,
-            ctx.accounts.economy.args.cleanup_bond_lamports,
+            ctx.accounts
+                .economy
+                .args
+                .cleanup_bond_lamports
+                .checked_mul(WORKER_UNITS)
+                .ok_or(CoreG2Error::MathOverflow)?,
         )?;
         record_accepted(&mut ctx.accounts.player_day, &mut ctx.accounts.rank_shard)?;
         emit!(ShotSealed {
@@ -1379,7 +1389,12 @@ pub mod ratchet_core_g2 {
             &ctx.accounts.player,
             &ctx.accounts.shot,
             &ctx.accounts.system_program,
-            ctx.accounts.economy.args.cleanup_bond_lamports,
+            ctx.accounts
+                .economy
+                .args
+                .cleanup_bond_lamports
+                .checked_mul(WORKER_UNITS)
+                .ok_or(CoreG2Error::MathOverflow)?,
         )?;
         record_accepted(&mut ctx.accounts.player_day, &mut ctx.accounts.rank_shard)?;
         emit!(ShotSealed {
@@ -1564,7 +1579,12 @@ pub mod ratchet_core_g2 {
             &ctx.accounts.delegate,
             &ctx.accounts.shot,
             &ctx.accounts.system_program,
-            ctx.accounts.economy.args.cleanup_bond_lamports,
+            ctx.accounts
+                .economy
+                .args
+                .cleanup_bond_lamports
+                .checked_mul(WORKER_UNITS)
+                .ok_or(CoreG2Error::MathOverflow)?,
         )?;
         record_accepted(&mut ctx.accounts.player_day, &mut ctx.accounts.rank_shard)?;
         emit!(ShotSealed {
@@ -1640,6 +1660,7 @@ pub mod ratchet_core_g2 {
             ctx.accounts.shot.entry_timepin_result_hash,
             clock.slot,
         )?;
+        pay_worker_unit(&mut ctx.accounts.shot, &ctx.accounts.actor)?;
         emit!(EntryActivated {
             shot: ctx.accounts.shot.key(),
             actor: ctx.accounts.actor.key(),
@@ -1891,6 +1912,7 @@ pub mod ratchet_core_g2 {
             hash,
             clock.slot,
         )?;
+        pay_worker_unit(&mut ctx.accounts.shot, &ctx.accounts.actor)?;
         emit!(ShotResolved {
             shot: ctx.accounts.shot.key(),
             actor: ctx.accounts.actor.key(),
@@ -3824,6 +3846,35 @@ fn reserve_history_slot<'info>(
     // final size. payer and system_program stay in the signature so the call sites
     // are untouched by this change; they are simply no longer spent here.
     let _ = (payer, system_program);
+    Ok(())
+}
+
+/// One bond unit paid to whoever performs a permissionless step of a game.
+///
+/// The economy declares ONE unit (cleanup_bond_lamports). A seal deposits
+/// WORKER_UNITS of them into the Shot, above its rent exemption, and each of the
+/// three permissionless steps that carry a game forward - activate_entry,
+/// settle_final and the terminal archive - draws exactly one unit for whoever
+/// signed it. Units nobody earns stay in the account and return to the sealer
+/// when the Shot closes.
+///
+/// Why this shape (2026-09-10): before it, the ONLY paid step was the terminal
+/// archive, so a keeper earned one unit for letting a game die and nothing for
+/// keeping it alive - and void_pending_entry becomes callable precisely because
+/// the unpaid capture was not done in time. Not doing the unpaid work created the
+/// paid work. Now a keeper that carries a game through earns two units and one
+/// that lets it expire earns one, while the player who was voided gets two back.
+/// The declared unit is untouched, so every terminal-shape check still reads the
+/// economy's exact configured value.
+pub const WORKER_UNITS: u64 = 3;
+
+fn pay_worker_unit<'info>(
+    shot: &mut Account<'info, Shot>,
+    actor: &Signer<'info>,
+) -> Result<()> {
+    let unit = shot.cleanup_bond_lamports;
+    shot.sub_lamports(unit)?;
+    actor.add_lamports(unit)?;
     Ok(())
 }
 
