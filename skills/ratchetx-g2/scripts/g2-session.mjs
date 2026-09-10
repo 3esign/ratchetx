@@ -282,7 +282,29 @@ async function runSeeded(command, flags, seed) {
   const identity = { ...seedIdentity(web3, seed), economyHash: CONFIG.economyHash, rulesetHash: CONFIG.rulesetHash };
   if (command === 'init' || command === 'setup') { fail(flags['--player'] === undefined || flags['--player'] === 'self' || flags['--player'] === identity.player, 'STATE_PLAYER_CONFLICT');
     return publicJson({ ok: true, code: 'SELF_PLAY_READY', scope: 'DEVNET_TEST_CREDITS_ONLY', ...identity, noTransactionSent: true, reply: 'Your agent plays with its own seed-derived devnet wallet ' + identity.player + '. Nothing to sign anywhere else: the first play claims 10,000 devnet test credits and seals the prediction.' }); }
-  if (command === 'diagnose') return publicJson({ ok: true, code: 'DIAGNOSE', node: process.version, platform: process.platform, envNames: Object.keys(process.env).filter(k => !/SEED|SECRET|TOKEN|KEY|PASS/i.test(k)).sort(), cwd: process.cwd(), homeWritable: (() => { try { fs.accessSync(os.homedir(), fs.constants.W_OK); return true; } catch { return false; } })(), reply: 'Host diagnostics (names only, no values).' });
+  if (command === 'diagnose') {
+    // A NAME IS NOT A SECRET, AND HIDING IT MADE THIS USELESS. The filter below
+    // drops any variable whose NAME matches SEED|SECRET|TOKEN|KEY|PASS, so that
+    // a screenshot of this reply cannot even hint at what is configured. On
+    // 2026-09-10 an owner ran this to answer one question - is RATCHET_G2_SEED
+    // reaching my agent - and the filter hid exactly that, while reporting
+    // 'status: ok'. A diagnostic that is silent about the thing it was run for
+    // is worse than none, because it looks like an answer.
+    //
+    // So: names of matching variables stay hidden, and their PRESENCE is
+    // reported as a boolean. No value, no length, no prefix - only whether the
+    // agent can see it at all, which is the whole question.
+    const sensitive = k => /SEED|SECRET|TOKEN|KEY|PASS/i.test(k);
+    const names = Object.keys(process.env);
+    return publicJson({ ok: true, code: 'DIAGNOSE', node: process.version, platform: process.platform,
+      envNames: names.filter(k => !sensitive(k)).sort(),
+      seedProvided: Boolean(process.env.RATCHET_G2_SEED),
+      withheldEnvCount: names.filter(sensitive).length,
+      cwd: process.cwd(),
+      homeWritable: (() => { try { fs.accessSync(os.homedir(), fs.constants.W_OK); return true; } catch { return false; } })(),
+      reply: 'Host diagnostics (names only, no values). RATCHET_G2_SEED '
+        + (process.env.RATCHET_G2_SEED ? 'IS set' : 'is NOT set - on a host with no persistent disk every command would build a new wallet, and a sealed prediction could never be revealed') + '.' });
+  }
   if (command === 'recover-lock') return publicJson({ ok: true, code: 'NO_LOCK_IN_SEED_MODE', reply: 'Seed mode keeps no local lock or journal; nothing to recover.' });
   const funding = await ensureDevnetFeeBalance(identity, web3, connection);
   const agent = createSeedAgent({ web3, connection, config: CONFIG, seed, onStatus: s => { if (process.env.RATCHET_G2_DEBUG) console.error('..', s.phase); } });
@@ -337,7 +359,17 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
   catch (error) {
     const requested = error?.code || error?.message;
     const code = SAFE_ERRORS.has(requested) ? requested : 'AGENT_CHECK_FAILED';
-    process.stdout.write(JSON.stringify({ ok: false, code, reply: 'RatchetX could not finish this check. Keep your current agent state and the same source command ID; do not create a replacement shot. ' + code + '\nhttps://ratchetx.xyz/agent-setup' }) + '\n');
+    // A REFERENCE, NOT A MESSAGE. SAFE_ERRORS keeps anything unrecognised out of
+    // a public X thread, which is right - and until 2026-09-10 it also kept it
+    // out of the OWNER's reach, so a real failure arrived as four words and a
+    // dead end. This is eight hex characters of sha256 over the same text: it
+    // discloses nothing (you cannot read a message back out of it) and it names
+    // the failure exactly, so whoever has the source can find which throw it was.
+    // Only attached when the code was suppressed; a named error needs no ref.
+    const ref = code === 'AGENT_CHECK_FAILED'
+      ? createHash('sha256').update(String(requested ?? 'unknown')).digest('hex').slice(0, 8)
+      : null;
+    process.stdout.write(JSON.stringify({ ok: false, code, ...(ref ? { ref } : {}), reply: 'RatchetX could not finish this check. Keep your current agent state and the same source command ID; do not create a replacement shot. ' + code + (ref ? ' ref ' + ref : '') + '\nhttps://ratchetx.xyz/agent-setup' }) + '\n');
     process.exitCode = 1;
   }
 }
